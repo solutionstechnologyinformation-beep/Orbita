@@ -463,3 +463,34 @@ export async function getDashboardStats(userId: number) {
     pendingTasks,
   };
 }
+
+// ─── Due-Date Alerts ──────────────────────────────────────────────────────────
+/**
+ * Returns tasks that are due within the next `windowHours` hours and are not yet done.
+ * Used by the background job that sends 24h-before notifications.
+ */
+export async function getTasksDueSoon(windowHours = 24) {
+  const db = await getDb();
+  if (!db) return [];
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + windowHours * 60 * 60 * 1000);
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      dueDate: tasks.dueDate,
+      assigneeId: tasks.assigneeId,
+      projectId: tasks.projectId,
+      createdById: tasks.createdById,
+    })
+    .from(tasks)
+    .where(
+      and(
+        sql`${tasks.dueDate} IS NOT NULL`,
+        sql`${tasks.dueDate} > ${now}`,
+        sql`${tasks.dueDate} <= ${cutoff}`,
+        sql`${tasks.status} != 'done'`
+      )
+    );
+  return rows;
+}

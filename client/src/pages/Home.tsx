@@ -28,7 +28,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen animated-bg flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -44,19 +44,19 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen animated-bg text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-border shadow-sm">
         <div className="container flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary-foreground" />
+              <Zap className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg tracking-tight">Suple</span>
+            <span className="font-bold text-lg tracking-tight text-foreground">Orbita</span>
           </div>
           <Button
-onClick={() => window.location.href = getLoginUrl()}
-          className="gap-2 bg-primary hover:bg-primary/90"
+            onClick={() => window.location.href = getLoginUrl()}
+            className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm"
           >
             Entrar
             <ArrowRight className="w-4 h-4" />
@@ -65,13 +65,13 @@ onClick={() => window.location.href = getLoginUrl()}
       </header>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4">
+      <section className="hero-bg pt-36 pb-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass text-sm text-muted-foreground mb-8 border border-border/50">
-            <Zap className="w-3.5 h-3.5 text-primary" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/8 border border-primary/20 text-sm text-primary font-medium mb-8">
+            <Zap className="w-3.5 h-3.5" />
             Plataforma de Gerenciamento de Projetos
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-tight">
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1] text-foreground">
             Gerencie projetos com{" "}
             <span className="gradient-text">inteligência</span>
           </h1>
@@ -83,13 +83,13 @@ onClick={() => window.location.href = getLoginUrl()}
             <Button
               size="lg"
               onClick={() => window.location.href = getLoginUrl()}
-              className="gap-2 text-base px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
+              className="gap-2 text-base px-8 bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20"
             >
               Começar agora
               <ArrowRight className="w-5 h-5" />
             </Button>
           </div>
-          <div className="flex items-center justify-center gap-8 mt-12 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-12 text-sm text-muted-foreground">
             {[
               { icon: CheckCircle2, label: "Kanban visual" },
               { icon: CheckCircle2, label: "Chat com IA" },
@@ -105,10 +105,10 @@ onClick={() => window.location.href = getLoginUrl()}
       </section>
 
       {/* Features */}
-      <section className="py-20 px-4">
+      <section className="py-24 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground">
               Tudo que sua equipe precisa
             </h2>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
@@ -119,12 +119,12 @@ onClick={() => window.location.href = getLoginUrl()}
             {features.map(({ icon: Icon, title, desc }) => (
               <div
                 key={title}
-                className="glass rounded-2xl p-6 hover:border-primary/40 transition-all duration-300 group"
+                className="bg-white rounded-2xl p-6 border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center mb-4 group-hover:bg-primary/25 transition-colors">
-                  <Icon className="w-6 h-6 text-primary" />
+                <div className="w-11 h-11 rounded-xl bg-primary/8 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors">
+                  <Icon className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{title}</h3>
+                <h3 className="font-semibold text-base mb-2 text-foreground">{title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
@@ -133,17 +133,19 @@ onClick={() => window.location.href = getLoginUrl()}
       </section>
 
       {/* CTA */}
-      <section className="py-20 px-4">
-        <div className="max-w-2xl mx-auto text-center glass rounded-3xl p-12">
-          <Users className="w-12 h-12 text-primary mx-auto mb-6" />
-          <h2 className="text-3xl font-bold mb-4">Pronto para começar?</h2>
-          <p className="text-muted-foreground mb-8">
+      <section className="py-24 px-4 bg-background">
+        <div className="max-w-2xl mx-auto text-center bg-white rounded-3xl p-12 border border-border shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4 text-foreground">Pronto para começar?</h2>
+          <p className="text-muted-foreground mb-8 leading-relaxed">
             Acesse agora e transforme a forma como sua equipe trabalha.
           </p>
           <Button
             size="lg"
             onClick={() => window.location.href = getLoginUrl()}
-            className="gap-2 px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
+            className="gap-2 px-8 bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20"
           >
             Acessar a plataforma
             <ArrowRight className="w-5 h-5" />
@@ -152,13 +154,14 @@ onClick={() => window.location.href = getLoginUrl()}
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 py-8 px-4">
+      <footer className="border-t border-border py-8 px-4 bg-white">
         <div className="container flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-primary/20 flex items-center justify-center">
+            <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center">
               <Zap className="w-3 h-3 text-primary" />
             </div>
-            Suple — Gerenciamento de Projetos
+            <span className="font-medium text-foreground/70">Orbita</span>
+            <span>— Gerenciamento de Projetos</span>
           </div>
           <span>© {new Date().getFullYear()}</span>
         </div>

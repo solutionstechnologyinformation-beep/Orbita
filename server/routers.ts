@@ -34,6 +34,7 @@ import {
   getTaskComments,
   getTaskCountsByProject,
   getTasksByProject,
+  getTasksDueSoon,
   getUnreadNotificationCount,
   logActivity,
   markAllNotificationsRead,
@@ -377,6 +378,25 @@ export const appRouter = router({
         await deleteNotification(input.id);
         return { success: true };
       }),
+    // Called by a scheduled job or on-demand to send 24h-before due-date alerts
+    checkDueDates: protectedProcedure.mutation(async () => {
+      const dueSoon = await getTasksDueSoon(24);
+      let sent = 0;
+      for (const task of dueSoon) {
+        const recipientId = task.assigneeId ?? task.createdById;
+        if (!recipientId) continue;
+        await createNotification({
+          userId: recipientId,
+          title: "Tarefa vence em breve",
+          message: `A tarefa "${task.title}" vence em menos de 24 horas.`,
+          notificationType: "task_due",
+          relatedTaskId: task.id,
+          relatedProjectId: task.projectId,
+        });
+        sent++;
+      }
+      return { sent };
+    }),
   }),
 
   // ── AI Chat ───────────────────────────────────────────────────────────────
@@ -397,7 +417,7 @@ export const appRouter = router({
         await saveChatMessage({ userId: ctx.user.id, projectId: input.projectId ?? null, role: "user", content: input.message });
 
         // Build context from project data if projectId provided
-        let systemContext = `Você é um assistente de gerenciamento de projetos inteligente chamado Suple AI. 
+        let systemContext = `Você é um assistente de gerenciamento de projetos inteligente chamado Orbita AI. 
 Você ajuda equipes a organizar tarefas, priorizar trabalho e gerar relatórios de progresso.
 Responda sempre em português brasileiro de forma clara e profissional.`;
 

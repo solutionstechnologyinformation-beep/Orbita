@@ -64,7 +64,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
 
   if (loading || !isAuthenticated) {
     return (
-      <div className="min-h-screen animated-bg flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-muted-foreground text-sm">Carregando...</p>
@@ -84,7 +84,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
           <Zap className="w-4 h-4 text-primary-foreground" />
         </div>
-        <span className="font-bold text-lg tracking-tight text-sidebar-foreground">Suple</span>
+        <span className="font-bold text-lg tracking-tight text-sidebar-foreground">Orbita</span>
       </div>
 
       {/* Nav */}
@@ -178,7 +178,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
   );
 
   return (
-    <div className="min-h-screen animated-bg flex">
+    <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-60 fixed top-0 left-0 bottom-0 z-40 bg-sidebar border-r border-sidebar-border">
         <SidebarContent />
@@ -203,7 +203,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
       {/* Main Content */}
       <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
         {/* Top Header */}
-        <header className="sticky top-0 z-30 glass border-b border-border/50 px-4 lg:px-6 h-14 flex items-center gap-4">
+        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-muted-foreground hover:text-foreground"

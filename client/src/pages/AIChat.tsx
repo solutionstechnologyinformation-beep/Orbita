@@ -3,7 +3,10 @@ import { trpc } from "@/lib/trpc";
 import { useParams } from "wouter";
 import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Trash2, FileBarChart, Loader2, User, Sparkles } from "lucide-react";
+import {
+  Bot, Send, Trash2, FileBarChart, Loader2, User, Sparkles,
+  Download, Bell,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +15,80 @@ import { cn } from "@/lib/utils";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import jsPDF from "jspdf";
+
+function exportToPDF(history: any[], projectName?: string) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const maxW = pageW - margin * 2;
+  let y = 20;
+
+  // Header
+  doc.setFillColor(79, 70, 229); // indigo-600
+  doc.rect(0, 0, pageW, 14, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Orbita — Relatório de Projeto", margin, 9.5);
+  if (projectName) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(projectName, pageW - margin, 9.5, { align: "right" });
+  }
+
+  y = 24;
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, y);
+  y += 10;
+
+  // Messages
+  for (const msg of history) {
+    const role = (msg as any).role as string;
+    const content = (msg as any).content as string;
+    const time = new Date((msg as any).createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+    // Role label
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(role === "user" ? 79 : 109, role === "user" ? 70 : 40, role === "user" ? 229 : 217);
+    doc.text(role === "user" ? `Usuário  ${time}` : `Orbita IA  ${time}`, margin, y);
+    y += 5;
+
+    // Content
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(50, 50, 50);
+
+    // Strip markdown for PDF
+    const plain = content
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/#{1,6}\s/g, "")
+      .replace(/`{1,3}[^`]*`{1,3}/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+    const lines = doc.splitTextToSize(plain, maxW);
+    for (const line of lines) {
+      if (y > 275) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, margin, y);
+      y += 5;
+    }
+    y += 4;
+
+    // Separator
+    doc.setDrawColor(220, 220, 220);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+  }
+
+  doc.save(`orbita-relatorio-${Date.now()}.pdf`);
+}
 
 export default function AIChat() {
   const { projectId: projectIdParam } = useParams<{ projectId: string }>();
@@ -47,6 +124,17 @@ export default function AIChat() {
     onError: (e) => toast.error(e.message),
   });
 
+  const checkDueDatesMutation = trpc.notifications.checkDueDates.useMutation({
+    onSuccess: (data) => {
+      if (data.sent > 0) {
+        toast.success(`${data.sent} notificação(ões) de vencimento enviada(s).`);
+      } else {
+        toast.info("Nenhuma tarefa vence nas próximas 24 horas.");
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, sendMutation.isPending]);
@@ -69,6 +157,15 @@ export default function AIChat() {
     }
   };
 
+  const handleExportPDF = () => {
+    if (!history?.length) return toast.error("Nenhuma conversa para exportar.");
+    const project = projects?.find((p) => p.id === selectedProjectId);
+    exportToPDF(history, project?.name);
+    toast.success("PDF exportado com sucesso!");
+  };
+
+  const selectedProject = projects?.find((p) => p.id === selectedProjectId);
+
   const suggestedPrompts = [
     "Analise a carga de trabalho atual da equipe",
     "Quais tarefas têm maior risco de atraso?",
@@ -87,7 +184,7 @@ export default function AIChat() {
               value={selectedProjectId?.toString() ?? "general"}
               onValueChange={(v) => setSelectedProjectId(v === "general" ? undefined : parseInt(v))}
             >
-              <SelectTrigger className="bg-input border-border">
+              <SelectTrigger className="bg-white border-border">
                 <SelectValue placeholder="Contexto geral" />
               </SelectTrigger>
               <SelectContent>
@@ -100,12 +197,12 @@ export default function AIChat() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {selectedProjectId && (
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-border"
+                className="gap-2 border-border bg-white"
                 onClick={handleReport}
                 disabled={generatingReport || reportMutation.isPending}
               >
@@ -113,6 +210,31 @@ export default function AIChat() {
                 Gerar Relatório
               </Button>
             )}
+            {(history?.length ?? 0) > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-border bg-white text-primary hover:text-primary"
+                onClick={handleExportPDF}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Exportar PDF
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-border bg-white text-muted-foreground hover:text-foreground"
+              onClick={() => checkDueDatesMutation.mutate()}
+              disabled={checkDueDatesMutation.isPending}
+              title="Verificar tarefas que vencem em 24h e enviar notificações"
+            >
+              {checkDueDatesMutation.isPending
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Bell className="w-3.5 h-3.5" />
+              }
+              Alertas de Prazo
+            </Button>
             {(history?.length ?? 0) > 0 && (
               <Button
                 variant="ghost"
@@ -140,8 +262,8 @@ export default function AIChat() {
               <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
                 <Sparkles className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Assistente IA de Projetos</h3>
-              <p className="text-muted-foreground mb-8 max-w-md">
+              <h3 className="text-lg font-semibold mb-2 text-foreground">Assistente IA de Projetos</h3>
+              <p className="text-muted-foreground mb-8 max-w-md text-sm">
                 Analise carga de trabalho, obtenha sugestões inteligentes de priorização e gere relatórios automáticos.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
@@ -149,7 +271,7 @@ export default function AIChat() {
                   <button
                     key={prompt}
                     onClick={() => setMessage(prompt)}
-                    className="text-left px-4 py-3 rounded-xl glass border border-border/50 hover:border-primary/40 text-sm text-muted-foreground hover:text-foreground transition-all duration-150"
+                    className="text-left px-4 py-3 rounded-xl bg-white border border-border hover:border-primary/40 hover:shadow-sm text-sm text-muted-foreground hover:text-foreground transition-all duration-150"
                   >
                     {prompt}
                   </button>
@@ -168,24 +290,27 @@ export default function AIChat() {
                 >
                   <div className={cn(
                     "w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1",
-                    (msg as any).role === "user" ? "bg-primary/20" : "bg-violet-500/20"
+                    (msg as any).role === "user" ? "bg-primary/10" : "bg-violet-100"
                   )}>
                     {(msg as any).role === "user"
                       ? <User className="w-4 h-4 text-primary" />
-                      : <Bot className="w-4 h-4 text-violet-400" />
+                      : <Bot className="w-4 h-4 text-violet-600" />
                     }
                   </div>
                   <div className={cn(
                     "max-w-[80%] rounded-2xl px-4 py-3 text-sm",
                     (msg as any).role === "user"
-                      ? "bg-primary/20 text-foreground rounded-tr-sm"
-                      : "bg-card border border-border rounded-tl-sm"
+                      ? "bg-primary text-white rounded-tr-sm"
+                      : "bg-white border border-border rounded-tl-sm shadow-sm"
                   )}>
                     {(msg as any).role === "assistant"
-                      ? <Streamdown className="prose prose-invert prose-sm max-w-none">{(msg as any).content}</Streamdown>
+                      ? <Streamdown className="prose prose-sm max-w-none text-foreground">{(msg as any).content}</Streamdown>
                       : <p>{(msg as any).content}</p>
                     }
-                    <p className="text-xs text-muted-foreground/60 mt-2">
+                    <p className={cn(
+                      "text-xs mt-2",
+                      (msg as any).role === "user" ? "text-white/60" : "text-muted-foreground/60"
+                    )}>
                       {new Date((msg as any).createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
@@ -193,10 +318,10 @@ export default function AIChat() {
               ))}
               {sendMutation.isPending && (
                 <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-violet-400" />
+                  <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-4 h-4 text-violet-600" />
                   </div>
-                  <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3">
+                  <div className="bg-white border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                     <div className="flex gap-1.5 items-center h-5">
                       <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
                       <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -211,12 +336,12 @@ export default function AIChat() {
         </div>
 
         {/* Input */}
-        <div className="mt-4 glass rounded-2xl p-3 border border-border/50">
+        <div className="mt-4 bg-white rounded-2xl p-3 border border-border shadow-sm">
           <Textarea
             placeholder="Pergunte sobre seus projetos, tarefas ou peça sugestões..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="bg-transparent border-0 resize-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 p-1 min-h-[60px]"
+            className="bg-transparent border-0 resize-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 p-1 min-h-[60px] text-foreground placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -230,7 +355,7 @@ export default function AIChat() {
               size="sm"
               onClick={handleSend}
               disabled={!message.trim() || sendMutation.isPending}
-              className="gap-2 bg-primary hover:bg-primary/90"
+              className="gap-2 bg-primary hover:bg-primary/90 text-white"
             >
               {sendMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               Enviar

@@ -29,6 +29,13 @@
 - [x] LLM: análise de workload, priorização, relatórios
 - [x] Convite de membros para projetos
 
+## Melhorias v2
+- [x] Renomear plataforma: Suple → Orbita (título, sidebar, landing page)
+- [x] Tema claro: fundo branco, texto escuro, acentos índigo/azul-marinho, estilo minimalista
+- [x] Drag-and-drop real no Kanban com @dnd-kit
+- [x] Alertas visuais de tarefas vencidas + notificação automática 24h antes do prazo
+- [x] Exportação de relatório em PDF no Chat IA
+
 ## Testes
 - [x] Teste de logout (auth.logout.test.ts)
 - [x] Testes de features: auth, procedimentos protegidos, admin, validação de input (features.test.ts)
