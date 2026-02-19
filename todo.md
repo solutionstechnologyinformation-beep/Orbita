@@ -263,3 +263,12 @@
 - [x] TaskDetail: edição inline do título (click no título → input, Enter/blur salva, Esc cancela)
 - [x] TaskDetail: edição inline da descrição (click na descrição → textarea, botão Salvar/Cancelar)
 - [x] Feedback visual: indicador de "salvando..." e confirmação de sucesso
+
+## Quadro Branco v3.19
+- [x] Corrigir desalinhamento do ponteiro de desenho no canvas (usar getBoundingClientRect + escala real)
+- [x] Adicionar filtro por projeto no topo do Quadro Branco
+- [x] Adicionar filtro por atividade (tarefa) dentro do projeto selecionado
+- [x] Botão "Salvar e comentar na tarefa": salva o canvas e navega para o detalhe da tarefa selecionada
+- [x] Adicionar botão Desfazer (histórico de 20 ações)
+- [x] Tooltips em todos os botões da toolbar
+- [x] Barra de status com ferramenta ativa, atividade selecionada e contagem de elementos

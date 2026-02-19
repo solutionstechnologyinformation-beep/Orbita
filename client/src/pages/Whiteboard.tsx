@@ -1,13 +1,15 @@
 import AppLayout from "@/components/AppLayout";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Pencil, Square, Circle, Type, Eraser, Trash2, Save, Download,
-  Minus, MousePointer, StickyNote,
+  Minus, MousePointer, StickyNote, MessageSquare, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,12 +31,26 @@ type CanvasElement = {
 const COLORS = ["#1e2d5a", "#6366f1", "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#000000", "#ffffff"];
 const STROKE_WIDTHS = [1, 2, 4, 8];
 
+const TOOLS: { id: Tool; icon: React.ReactNode; label: string }[] = [
+  { id: "select", icon: <MousePointer className="h-4 w-4" />, label: "Selecionar" },
+  { id: "pen", icon: <Pencil className="h-4 w-4" />, label: "Caneta" },
+  { id: "eraser", icon: <Eraser className="h-4 w-4" />, label: "Borracha" },
+  { id: "line", icon: <Minus className="h-4 w-4" />, label: "Linha" },
+  { id: "rect", icon: <Square className="h-4 w-4" />, label: "Retângulo" },
+  { id: "circle", icon: <Circle className="h-4 w-4" />, label: "Círculo" },
+  { id: "text", icon: <Type className="h-4 w-4" />, label: "Texto" },
+  { id: "sticky", icon: <StickyNote className="h-4 w-4" />, label: "Post-it" },
+];
+
 export default function Whiteboard() {
+  const [, navigate] = useLocation();
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
+  const [taskId, setTaskId] = useState<number | undefined>(undefined);
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState("#1e2d5a");
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [elements, setElements] = useState<CanvasElement[]>([]);
+  const [history, setHistory] = useState<CanvasElement[][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentEl, setCurrentEl] = useState<CanvasElement | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -42,6 +58,10 @@ export default function Whiteboard() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const projectsQ = trpc.projects.list.useQuery();
+  const tasksQ = trpc.tasks.list.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
   const whiteboardQ = trpc.whiteboard.get.useQuery(
     { projectId: projectId! },
     { enabled: !!projectId }
@@ -59,17 +79,45 @@ export default function Whiteboard() {
     if (whiteboardQ.data?.content) {
       try {
         const parsed = JSON.parse(whiteboardQ.data.content);
-        if (Array.isArray(parsed)) setElements(parsed);
-      } catch {
-        setElements([]);
-      }
+        if (Array.isArray(parsed)) { setElements(parsed); setHistory([]); }
+      } catch { setElements([]); }
     } else if (whiteboardQ.isFetched) {
-      setElements([]);
+      setElements([]); setHistory([]);
     }
   }, [whiteboardQ.data, whiteboardQ.isFetched]);
 
-  // Redraw canvas
+  // Reset task selection when project changes
+  useEffect(() => { setTaskId(undefined); }, [projectId]);
+
+  // ── Canvas resize: match logical size to display size ──────────────────────
   useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      const { width, height } = container.getBoundingClientRect();
+      if (canvas.width !== Math.floor(width) || canvas.height !== Math.floor(height)) {
+        // Save current drawing as image before resize
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        tempCanvas.getContext("2d")?.drawImage(canvas, 0, 0);
+
+        canvas.width = Math.floor(width);
+        canvas.height = Math.floor(height);
+
+        // Restore drawing
+        canvas.getContext("2d")?.drawImage(tempCanvas, 0, 0);
+      }
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // ── Redraw canvas ──────────────────────────────────────────────────────────
+  const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -83,6 +131,8 @@ export default function Whiteboard() {
     allEls.forEach(el => drawElement(ctx, el));
   }, [elements, currentEl]);
 
+  useEffect(() => { redraw(); }, [redraw]);
+
   function drawElement(ctx: CanvasRenderingContext2D, el: CanvasElement) {
     ctx.strokeStyle = el.color;
     ctx.lineWidth = el.strokeWidth;
@@ -91,29 +141,16 @@ export default function Whiteboard() {
 
     switch (el.type) {
       case "pen":
-      case "eraser":
+      case "eraser": {
         if (!el.points || el.points.length < 2) return;
+        ctx.globalCompositeOperation = el.type === "eraser" ? "destination-out" : "source-over";
         ctx.beginPath();
-        ctx.strokeStyle = el.type === "eraser" ? "#ffffff" : el.color;
-        ctx.lineWidth = el.type === "eraser" ? el.strokeWidth * 4 : el.strokeWidth;
         ctx.moveTo(el.points[0].x, el.points[0].y);
         el.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
         ctx.stroke();
+        ctx.globalCompositeOperation = "source-over";
         break;
-      case "rect":
-        if (el.x2 === undefined || el.y2 === undefined) return;
-        ctx.beginPath();
-        if (el.fill) { ctx.fillStyle = el.fill; ctx.fillRect(el.x, el.y, el.x2 - el.x, el.y2 - el.y); }
-        ctx.strokeRect(el.x, el.y, el.x2 - el.x, el.y2 - el.y);
-        break;
-      case "circle":
-        if (el.x2 === undefined || el.y2 === undefined) return;
-        const rx = (el.x2 - el.x) / 2, ry = (el.y2 - el.y) / 2;
-        ctx.beginPath();
-        ctx.ellipse(el.x + rx, el.y + ry, Math.abs(rx), Math.abs(ry), 0, 0, Math.PI * 2);
-        if (el.fill) { ctx.fillStyle = el.fill; ctx.fill(); }
-        ctx.stroke();
-        break;
+      }
       case "line":
         if (el.x2 === undefined || el.y2 === undefined) return;
         ctx.beginPath();
@@ -121,39 +158,66 @@ export default function Whiteboard() {
         ctx.lineTo(el.x2, el.y2);
         ctx.stroke();
         break;
+      case "rect":
+        if (el.x2 === undefined || el.y2 === undefined) return;
+        ctx.strokeRect(el.x, el.y, el.x2 - el.x, el.y2 - el.y);
+        break;
+      case "circle": {
+        if (el.x2 === undefined || el.y2 === undefined) return;
+        const cx = (el.x + el.x2) / 2;
+        const cy = (el.y + el.y2) / 2;
+        const rx = Math.abs(el.x2 - el.x) / 2;
+        const ry = Math.abs(el.y2 - el.y) / 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
       case "text":
         ctx.fillStyle = el.color;
-        ctx.font = `${el.strokeWidth * 6 + 12}px Inter, sans-serif`;
+        ctx.font = `${Math.max(14, el.strokeWidth * 4)}px Inter, sans-serif`;
         ctx.fillText(el.text ?? "", el.x, el.y);
         break;
-      case "sticky":
+      case "sticky": {
         if (el.x2 === undefined || el.y2 === undefined) return;
+        const w = el.x2 - el.x;
+        const h = el.y2 - el.y;
         ctx.fillStyle = "#fef08a";
-        ctx.fillRect(el.x, el.y, el.x2 - el.x, el.y2 - el.y);
+        ctx.fillRect(el.x, el.y, w, h);
         ctx.strokeStyle = "#ca8a04";
-        ctx.strokeRect(el.x, el.y, el.x2 - el.x, el.y2 - el.y);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(el.x, el.y, w, h);
         if (el.text) {
           ctx.fillStyle = "#713f12";
           ctx.font = "13px Inter, sans-serif";
           const words = el.text.split(" ");
-          let line = "", y = el.y + 20;
+          let line = "", ly = el.y + 20;
           words.forEach(word => {
             const test = line + word + " ";
-            if (ctx.measureText(test).width > (el.x2! - el.x) - 10 && line) {
-              ctx.fillText(line, el.x + 5, y);
+            if (ctx.measureText(test).width > w - 10 && line) {
+              ctx.fillText(line, el.x + 5, ly);
               line = word + " ";
-              y += 18;
+              ly += 18;
             } else { line = test; }
           });
-          ctx.fillText(line, el.x + 5, y);
+          ctx.fillText(line, el.x + 5, ly);
         }
         break;
+      }
     }
   }
 
-  function getPos(e: React.MouseEvent<HTMLCanvasElement>) {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  // ── Pointer coordinate fix: account for canvas scale ──────────────────────
+  function getPos(e: React.MouseEvent<HTMLCanvasElement>): { x: number; y: number } {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    // Scale factor: logical canvas size vs displayed size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
@@ -161,6 +225,7 @@ export default function Whiteboard() {
     if (tool === "text") {
       const text = prompt("Digite o texto:");
       if (text) {
+        pushHistory();
         setElements(els => [...els, { id: Date.now().toString(), type: "text", x: pos.x, y: pos.y, text, color, strokeWidth }]);
         setIsDirty(true);
       }
@@ -168,11 +233,13 @@ export default function Whiteboard() {
     }
     if (tool === "sticky") {
       const text = prompt("Texto do post-it (opcional):");
+      pushHistory();
       const el: CanvasElement = { id: Date.now().toString(), type: "sticky", x: pos.x, y: pos.y, x2: pos.x + 150, y2: pos.y + 100, text: text ?? "", color, strokeWidth };
       setElements(els => [...els, el]);
       setIsDirty(true);
       return;
     }
+    if (tool === "select") return;
     setIsDrawing(true);
     const el: CanvasElement = {
       id: Date.now().toString(),
@@ -198,10 +265,25 @@ export default function Whiteboard() {
 
   function handleMouseUp() {
     if (!isDrawing || !currentEl) return;
+    pushHistory();
     setIsDrawing(false);
     setElements(els => [...els, currentEl]);
     setCurrentEl(null);
     setIsDirty(true);
+  }
+
+  function pushHistory() {
+    setHistory(h => [...h.slice(-19), elements]);
+  }
+
+  function handleUndo() {
+    setHistory(h => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      setElements(prev);
+      setIsDirty(true);
+      return h.slice(0, -1);
+    });
   }
 
   function handleSave() {
@@ -209,8 +291,18 @@ export default function Whiteboard() {
     saveMut.mutate({ projectId, content: JSON.stringify(elements) });
   }
 
+  function handleSaveAndComment() {
+    if (!projectId) { toast.error("Selecione um projeto."); return; }
+    if (!taskId) { toast.error("Selecione uma atividade para comentar."); return; }
+    saveMut.mutate(
+      { projectId, content: JSON.stringify(elements) },
+      { onSuccess: () => navigate(`/tasks/${taskId}`) }
+    );
+  }
+
   function handleClear() {
     if (confirm("Limpar o quadro? Esta ação não pode ser desfeita.")) {
+      pushHistory();
       setElements([]);
       setIsDirty(true);
     }
@@ -225,120 +317,180 @@ export default function Whiteboard() {
     link.click();
   }
 
-  const TOOLS: { id: Tool; icon: React.ReactNode; label: string }[] = [
-    { id: "select", icon: <MousePointer className="h-4 w-4" />, label: "Selecionar" },
-    { id: "pen", icon: <Pencil className="h-4 w-4" />, label: "Caneta" },
-    { id: "eraser", icon: <Eraser className="h-4 w-4" />, label: "Borracha" },
-    { id: "line", icon: <Minus className="h-4 w-4" />, label: "Linha" },
-    { id: "rect", icon: <Square className="h-4 w-4" />, label: "Retângulo" },
-    { id: "circle", icon: <Circle className="h-4 w-4" />, label: "Círculo" },
-    { id: "text", icon: <Type className="h-4 w-4" />, label: "Texto" },
-    { id: "sticky", icon: <StickyNote className="h-4 w-4" />, label: "Post-it" },
-  ];
+  const tasks = (tasksQ.data ?? []) as any[];
 
   return (
     <AppLayout title="Quadro Branco">
-    <div className="p-6 h-[calc(100vh-4rem)] flex flex-col gap-4">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quadro Branco</h1>
-          <p className="text-gray-500 text-sm mt-1">Espaço colaborativo para rascunhos e diagramas</p>
+      <div className="h-[calc(100vh-4rem)] flex flex-col gap-3">
+        {/* ── Top bar ── */}
+        <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Project filter */}
+            <Select value={projectId?.toString() ?? ""} onValueChange={v => setProjectId(Number(v))}>
+              <SelectTrigger className="w-48 h-9 text-sm">
+                <SelectValue placeholder="Selecionar projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                {(projectsQ.data ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Task filter */}
+            <Select
+              value={taskId?.toString() ?? ""}
+              onValueChange={v => setTaskId(v ? Number(v) : undefined)}
+              disabled={!projectId}
+            >
+              <SelectTrigger className="w-56 h-9 text-sm">
+                <SelectValue placeholder={projectId ? "Filtrar por atividade" : "Selecione um projeto"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Nenhuma atividade</SelectItem>
+                {tasks.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id.toString()}>
+                    <span className="truncate max-w-[180px]">{t.title}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {isDirty && <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs">Não salvo</Badge>}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9" onClick={handleUndo} disabled={history.length === 0}>
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Desfazer</TooltipContent>
+            </Tooltip>
+            <Button variant="outline" size="sm" className="h-9" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-1" /> Exportar
+            </Button>
+            <Button variant="outline" size="sm" className="h-9 text-red-500 hover:text-red-700" onClick={handleClear}>
+              <Trash2 className="h-4 w-4 mr-1" /> Limpar
+            </Button>
+            <Button variant="outline" size="sm" className="h-9" onClick={handleSave} disabled={saveMut.isPending || !projectId}>
+              <Save className="h-4 w-4 mr-1" /> {saveMut.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={handleSaveAndComment}
+                  disabled={saveMut.isPending || !projectId || !taskId}
+                >
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  Salvar e comentar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {!taskId ? "Selecione uma atividade para comentar" : "Salva o quadro e abre o detalhe da tarefa"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {isDirty && <Badge variant="outline" className="text-orange-600 border-orange-300">Não salvo</Badge>}
-          <Select
-            value={projectId?.toString() ?? ""}
-            onValueChange={v => setProjectId(Number(v))}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Selecione um projeto" />
-            </SelectTrigger>
-            <SelectContent>
-              {(projectsQ.data ?? []).map(p => (
-                <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+
+        {/* ── Main area ── */}
+        <div className="flex gap-3 flex-1 min-h-0">
+          {/* Toolbar */}
+          <Card className="w-14 flex-shrink-0 shadow-sm">
+            <CardContent className="p-2 flex flex-col gap-1 items-center">
+              {TOOLS.map(t => (
+                <Tooltip key={t.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setTool(t.id)}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                        tool === t.id ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {t.icon}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{t.label}</TooltipContent>
+                </Tooltip>
               ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-1" /> Exportar
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleClear} className="text-red-500 hover:text-red-700">
-            <Trash2 className="h-4 w-4 mr-1" /> Limpar
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={saveMut.isPending || !projectId}>
-            <Save className="h-4 w-4 mr-1" /> {saveMut.isPending ? "Salvando..." : "Salvar"}
-          </Button>
+
+              <div className="border-t w-full my-1" />
+
+              {/* Colors */}
+              {COLORS.map(c => (
+                <Tooltip key={c}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setColor(c)}
+                      className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                        color === c ? "scale-125 border-indigo-500" : "border-gray-200 hover:scale-110"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{c}</TooltipContent>
+                </Tooltip>
+              ))}
+
+              <div className="border-t w-full my-1" />
+
+              {/* Stroke widths */}
+              {STROKE_WIDTHS.map(w => (
+                <Tooltip key={w}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setStrokeWidth(w)}
+                      className={`w-10 h-7 rounded flex items-center justify-center ${
+                        strokeWidth === w ? "bg-indigo-100" : "hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="rounded-full bg-gray-700" style={{ width: w * 3, height: w * 3 }} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Espessura {w}px</TooltipContent>
+                </Tooltip>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Canvas container — fills remaining space */}
+          <div
+            ref={containerRef}
+            className="flex-1 bg-white rounded-xl border shadow-inner overflow-hidden relative"
+          >
+            {!projectId && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center bg-gray-50/80 z-10 pointer-events-none">
+                <StickyNote className="w-12 h-12 text-gray-300 mb-3" />
+                <p className="font-medium text-gray-400">Selecione um projeto para começar</p>
+              </div>
+            )}
+            <canvas
+              ref={canvasRef}
+              className="block w-full h-full"
+              style={{
+                cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : tool === "select" ? "default" : "crosshair",
+                touchAction: "none",
+              }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            />
+          </div>
+        </div>
+
+        {/* Status bar */}
+        <div className="flex items-center gap-4 text-xs text-gray-400 flex-shrink-0">
+          <span>Ferramenta: <strong className="text-gray-600">{TOOLS.find(t => t.id === tool)?.label}</strong></span>
+          {taskId && (
+            <span>Atividade: <strong className="text-indigo-600">{tasks.find((t: any) => t.id === taskId)?.title ?? `#${taskId}`}</strong></span>
+          )}
+          <span className="ml-auto">{elements.length} elemento(s) no quadro</span>
         </div>
       </div>
-
-      <div className="flex gap-3 flex-1 min-h-0">
-        {/* Toolbar */}
-        <Card className="w-14 flex-shrink-0">
-          <CardContent className="p-2 flex flex-col gap-1">
-            {TOOLS.map(t => (
-              <button
-                key={t.id}
-                title={t.label}
-                onClick={() => setTool(t.id)}
-                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-                  tool === t.id
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "text-gray-500 hover:bg-gray-100"
-                }`}
-              >
-                {t.icon}
-              </button>
-            ))}
-
-            <div className="border-t my-1" />
-
-            {/* Colors */}
-            {COLORS.map(c => (
-              <button
-                key={c}
-                title={c}
-                onClick={() => setColor(c)}
-                className={`w-7 h-7 rounded-full mx-auto border-2 transition-transform ${
-                  color === c ? "scale-125 border-indigo-500" : "border-gray-200"
-                }`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-
-            <div className="border-t my-1" />
-
-            {/* Stroke widths */}
-            {STROKE_WIDTHS.map(w => (
-              <button
-                key={w}
-                title={`Espessura ${w}`}
-                onClick={() => setStrokeWidth(w)}
-                className={`w-10 h-6 rounded flex items-center justify-center ${
-                  strokeWidth === w ? "bg-indigo-100" : "hover:bg-gray-100"
-                }`}
-              >
-                <div className="rounded-full bg-gray-700" style={{ width: w * 3, height: w * 3 }} />
-              </button>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Canvas */}
-        <div ref={containerRef} className="flex-1 bg-white rounded-xl border overflow-hidden shadow-inner">
-          <canvas
-            ref={canvasRef}
-            width={1200}
-            height={800}
-            className="w-full h-full"
-            style={{ cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair" }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-          />
-        </div>
-      </div>
-    </div>
     </AppLayout>
   );
 }
