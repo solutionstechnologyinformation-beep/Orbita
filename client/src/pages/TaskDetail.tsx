@@ -34,6 +34,84 @@ function FileIcon({ mimeType }: { mimeType?: string | null }) {
   return <FileText className="w-4 h-4 text-muted-foreground" />;
 }
 
+function AssigneeSelect({
+  projectId,
+  taskId,
+  currentAssigneeId,
+  currentAssigneeName,
+}: {
+  projectId: number;
+  taskId: number;
+  currentAssigneeId?: number | null;
+  currentAssigneeName?: string | null;
+}) {
+  const utils = trpc.useUtils();
+  const { data: members, isLoading } = trpc.projects.members.useQuery(
+    { projectId },
+    { enabled: !!projectId }
+  );
+
+  const updateMutation = trpc.tasks.update.useMutation({
+    onSuccess: () => {
+      utils.tasks.get.invalidate({ id: taskId });
+      toast.success("Responsável atualizado!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (isLoading) return <span className="text-xs text-muted-foreground">Carregando...</span>;
+
+  const currentValue = currentAssigneeId ? String(currentAssigneeId) : "none";
+
+  return (
+    <div className="flex items-center gap-2">
+      {currentAssigneeName && (
+        <Avatar className="w-6 h-6 flex-shrink-0">
+          <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+            {currentAssigneeName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      )}
+      <Select
+        value={currentValue}
+        onValueChange={(v) =>
+          updateMutation.mutate({
+            id: taskId,
+            assigneeId: v === "none" ? null : parseInt(v),
+          })
+        }
+      >
+        <SelectTrigger className="h-8 bg-input border-border text-xs flex-1">
+          <SelectValue placeholder="Atribuir responsável">
+            {currentAssigneeName ?? (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <User2 className="w-3 h-3" /> Não atribuído
+              </span>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <User2 className="w-3 h-3" /> Sem responsável
+            </span>
+          </SelectItem>
+          {(members ?? []).map((m: any) => (
+            <SelectItem key={m.userId} value={String(m.userId)}>
+              <span className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-medium">
+                  {(m.userName ?? "?").slice(0, 2).toUpperCase()}
+                </span>
+                {m.userName ?? `Usuário ${m.userId}`}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
   const taskId = parseInt(id ?? "0");
@@ -228,21 +306,15 @@ export default function TaskDetail() {
                 )}
               </div>
 
-              {/* Assignee */}
+              {/* Assignee — editable */}
               <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Responsável</p>
-                {task.assigneeName ? (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-6 h-6">
-                      <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
-                        {task.assigneeName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs font-medium truncate">{task.assigneeName}</span>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Não atribuído</span>
-                )}
+                <AssigneeSelect
+                  projectId={(task as any).projectId}
+                  taskId={taskId}
+                  currentAssigneeId={(task as any).assigneeId}
+                  currentAssigneeName={(task as any).assigneeName}
+                />
               </div>
             </div>
             {/* Setor row */}

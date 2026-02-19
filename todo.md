@@ -106,3 +106,11 @@
 - [x] Feature 4: Dashboard - métrica de revisões adicionada
 - [x] Feature 4b: Dashboard - filtros por Projeto e Disciplina/Setor adicionados
 - [x] Feature 5: Dashboard - seção de tarefas em atraso com banner de alerta
+
+## Melhoria v3.5
+- [x] TaskDetail: seletor de responsável editável (query de membros do projeto + Select + mutation tasks.update)
+- [x] TaskDetail: exibir avatar/iniciais do responsável atual ao lado do seletor
+
+## Melhorias v3.6
+- [ ] Sidebar (AppLayout): fundo azul-marinho, texto/ícones brancos, item ativo com destaque claro
+- [ ] PDFs (AIChat): incluir logo Orbita (ícone SVG/canvas) e nome da ferramenta no cabeçalho
