@@ -38,7 +38,10 @@
 
 ## Correções v2.1
 - [x] Remover todas as referências a "Suple Clone" da aplicação
-- [x] Corrigir bug: criar tarefa dentro das colunas do Kanban não funciona (causa: âncoras aninhadas `<Link><a>` em AppLayout, Dashboard, Projects e Notifications)
+- [x] Corrigir bug: criar tarefa dentro das colunas do Kanban não funciona (causa: âncoras aninhadas)
+- [x] Corrigir erro SQL INSERT tasks: overflow INT - Date.now() excede limite do MySQL INT (causa raiz)
+- [x] Garantir criação de tarefa em cada coluna do Kanban (A Fazer, Em Progresso, Concluído)
+- [x] Permitir mudança de status das tarefas criadas (via dropdown no card + drag-and-drop) (causa: âncoras aninhadas `<Link><a>` em AppLayout, Dashboard, Projects e Notifications)
 
 ## Testes
 - [x] Teste de logout (auth.logout.test.ts)

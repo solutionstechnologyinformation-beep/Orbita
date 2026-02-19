@@ -227,7 +227,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         await assertProjectAccess(input.projectId, ctx.user.id);
-        const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() });
+        const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 });
         await logActivity({ userId: ctx.user.id, action: "created_task", entityType: "task", entityId: id, metadata: JSON.stringify({ title: input.title }) });
         if (input.assigneeId && input.assigneeId !== ctx.user.id) {
           await createNotification({

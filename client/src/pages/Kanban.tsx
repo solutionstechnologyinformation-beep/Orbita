@@ -70,7 +70,7 @@ function isDueSoon(task: any) {
 }
 
 // ── Sortable Task Card ────────────────────────────────────────────────────
-function SortableTaskCard({ task, onEdit, onDelete, onView }: any) {
+function SortableTaskCard({ task, onEdit, onDelete, onView, onStatusChange }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -79,12 +79,12 @@ function SortableTaskCard({ task, onEdit, onDelete, onView }: any) {
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <TaskCard task={task} onEdit={onEdit} onDelete={onDelete} onView={onView} />
+      <TaskCard task={task} onEdit={onEdit} onDelete={onDelete} onView={onView} onStatusChange={onStatusChange} />
     </div>
   );
 }
 
-function TaskCard({ task, onEdit, onDelete, onView }: any) {
+function TaskCard({ task, onEdit, onDelete, onView, onStatusChange }: any) {
   const overdue = isOverdue(task);
   const dueSoon = isDueSoon(task);
   return (
@@ -111,6 +111,21 @@ function TaskCard({ task, onEdit, onDelete, onView }: any) {
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
               <Edit2 className="w-4 h-4 mr-2" />Editar
             </DropdownMenuItem>
+            {task.status !== "todo" && (
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "todo"); }}>
+                <span className="w-2 h-2 rounded-full bg-slate-400 mr-2 inline-block" />Mover para A Fazer
+              </DropdownMenuItem>
+            )}
+            {task.status !== "in_progress" && (
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "in_progress"); }}>
+                <span className="w-2 h-2 rounded-full bg-blue-500 mr-2 inline-block" />Mover para Em Progresso
+              </DropdownMenuItem>
+            )}
+            {task.status !== "done" && (
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "done"); }}>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 inline-block" />Mover para Concluído
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -385,6 +400,9 @@ export default function Kanban() {
                           onView={() => window.location.href = `/tasks/${task.id}`}
                           onEdit={() => openEdit(task)}
                           onDelete={() => setDeleteId(task.id)}
+                          onStatusChange={(taskId: number, status: string) =>
+                            updateMutation.mutate({ id: taskId, status: status as any })
+                          }
                         />
                       ))
                     )}

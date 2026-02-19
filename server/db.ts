@@ -175,8 +175,14 @@ export async function isProjectMember(projectId: number, userId: number) {
 export async function createTask(data: InsertTask) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(tasks).values(data);
-  return result.insertId as number;
+  // Use raw SQL to avoid Drizzle mysql2 enum serialization issues.
+  // position uses modulo to stay within INT range (max 2,147,483,647).
+  const safePosition = data.position ? data.position % 2000000000 : Date.now() % 2000000000;
+  const [result] = await db.execute(
+    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, createdById, dueDate, position)
+        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'todo'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition})`
+  );
+  return (result as any).insertId as number;
 }
 
 export async function getTasksByProject(

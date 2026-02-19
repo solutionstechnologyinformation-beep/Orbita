@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, createdById, dueDate, position) VALUES (1, 'Teste', 'desc', 'todo', 'medium', NULL, 1, NULL, 1000);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, createdById, dueDate, position) VALUES (1, 'Teste', 'desc', 'todo', 'medium', NULL, 1, NULL, 1000);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 74
+}
