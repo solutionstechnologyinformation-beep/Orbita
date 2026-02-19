@@ -17,6 +17,21 @@ import {
 } from "@/components/ui/select";
 import jsPDF from "jspdf";
 
+// ── Draw Orbita logo icon on jsPDF canvas ────────────────────────────────────
+function drawOrbitaLogo(doc: any, x: number, y: number, size = 8) {
+  // Navy circle background
+  doc.setFillColor(30, 45, 90);
+  doc.circle(x + size / 2, y + size / 2, size / 2, "F");
+  // White "O" ring
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.8);
+  doc.circle(x + size / 2, y + size / 2, size / 2 - 1.5, "S");
+  // White dot in center
+  doc.setFillColor(255, 255, 255);
+  doc.circle(x + size / 2, y + size / 2, 1, "F");
+  doc.setLineWidth(0.2);
+}
+
 // ── Export only the last AI response as a clean PDF ──────────────────────────
 function exportLastResponseToPDF(history: any[], projectName?: string) {
   const lastAI = [...history].reverse().find((m: any) => m.role === "assistant");
@@ -28,19 +43,26 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const maxW = pageW - margin * 2;
 
   // Header bar
-  doc.setFillColor(79, 70, 229);
-  doc.rect(0, 0, pageW, 16, "F");
+  doc.setFillColor(30, 45, 90);
+  doc.rect(0, 0, pageW, 18, "F");
+  // Logo icon
+  drawOrbitaLogo(doc, margin, 5, 8);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita — Resultado da Pesquisa", margin, 10.5);
+  doc.text("Orbita", margin + 10, 10.5);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(180, 200, 255);
+  doc.text("— Resultado da Pesquisa", margin + 28, 10.5);
   if (projectName) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(200, 220, 255);
     doc.text(projectName, pageW - margin, 10.5, { align: "right" });
   }
 
-  let y = 24;
+  let y = 26;
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(8);
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, y);
@@ -74,19 +96,33 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
   const margin = 16;
   const maxW = pageW - margin * 2;
 
-  // ── Cover ──
-  doc.setFillColor(79, 70, 229);
-  doc.rect(0, 0, pageW, 60, "F");
+  // ── Cover ——
+  doc.setFillColor(30, 45, 90);
+  doc.rect(0, 0, pageW, 62, "F");
+  // Logo in cover
+  drawOrbitaLogo(doc, margin, 10, 14);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("ORBITA", margin + 17, 16);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(160, 190, 255);
+  doc.text("Plataforma de Gestão de Projetos", margin + 17, 21);
+  // Divider line
+  doc.setDrawColor(255, 255, 255, 0.2);
+  doc.setLineWidth(0.3);
+  doc.line(margin, 26, pageW - margin, 26);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text("Relatório Executivo", margin, 28);
+  doc.text("Relatório Executivo", margin, 40);
   doc.setFontSize(13);
   doc.setFont("helvetica", "normal");
-  doc.text(chartData.projectName, margin, 40);
+  doc.text(chartData.projectName, margin, 52);
   doc.setFontSize(9);
-  doc.setTextColor(200, 200, 255);
-  doc.text(`Gerado em: ${new Date(chartData.generatedAt).toLocaleString("pt-BR")}`, margin, 52);
+  doc.setTextColor(200, 220, 255);
+  doc.text(`Gerado em: ${new Date(chartData.generatedAt).toLocaleString("pt-BR")}`, margin, 60);
 
   // ── KPI cards ──
   let y = 72;

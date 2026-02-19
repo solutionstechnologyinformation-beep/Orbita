@@ -114,3 +114,8 @@
 ## Melhorias v3.6
 - [ ] Sidebar (AppLayout): fundo azul-marinho, texto/ícones brancos, item ativo com destaque claro
 - [ ] PDFs (AIChat): incluir logo Orbita (ícone SVG/canvas) e nome da ferramenta no cabeçalho
+
+## Melhorias v3.6
+- [x] Sidebar (AppLayout): fundo azul-marinho, texto/ícones brancos, item ativo com destaque claro
+- [x] PDFs (AIChat): logo Orbita (círculo azul-marinho + anel + ponto branco) e nome no cabeçalho
+- [x] Dashboard: botão "Exportar PDF" com KPIs, gráfico de status, barras por projeto, barras por setor e tabela de atraso

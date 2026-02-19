@@ -3,9 +3,11 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Link } from "wouter";
 import { useState, useMemo } from "react";
+import jsPDF from "jspdf";
+import { toast } from "sonner";
 import {
   FolderKanban, CheckCircle2, Clock, ListTodo,
-  ArrowRight, TrendingUp, AlertCircle, BarChart2, RefreshCw, Filter,
+  ArrowRight, TrendingUp, AlertCircle, BarChart2, RefreshCw, Filter, Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +94,252 @@ export default function Dashboard() {
 
   const overdueTasks = (recentTasks as any[]).filter(isOverdue);
 
+  // ── Export Dashboard as PDF ──────────────────────────────────────────────
+  function exportDashboardToPDF() {
+    if (!stats) { toast.error("Aguarde os dados carregarem."); return; }
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 16;
+    const maxW = pageW - margin * 2;
+
+    // Header
+    doc.setFillColor(30, 45, 90);
+    doc.rect(0, 0, pageW, 44, "F");
+    doc.setFillColor(100, 160, 255);
+    doc.circle(margin + 5, 14, 5, "F");
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.7);
+    doc.circle(margin + 5, 14, 3.2, "S");
+    doc.setFillColor(255, 255, 255);
+    doc.circle(margin + 5, 14, 0.9, "F");
+    doc.setLineWidth(0.2);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("ORBITA", margin + 13, 12);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(160, 190, 255);
+    doc.text("Plataforma de Gestão de Projetos", margin + 13, 17);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Relatório do Dashboard", margin, 32);
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(200, 220, 255);
+    const filterLabel = [
+      filterProjectId ? (projects as any[]).find((p: any) => p.id === filterProjectId)?.name : null,
+      filterSetor ?? null,
+    ].filter(Boolean).join(" · ") || "Todos os projetos";
+    doc.text(`Filtro: ${filterLabel}  |  Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, 40);
+
+    let y = 54;
+
+    // KPIs
+    const kpis = [
+      { label: "Projetos",      value: stats.totalProjects ?? 0 },
+      { label: "Total Tarefas", value: stats.totalTasks ?? 0 },
+      { label: "Concluídas",    value: stats.completedTasks ?? 0 },
+      { label: "Para Iniciar",  value: stats.pendingTasks ?? 0 },
+      { label: "Revisões",      value: stats.totalRevisions ?? 0 },
+      { label: "Em Atraso",     value: stats.overdueTasks ?? 0 },
+    ];
+    const kpiW = maxW / kpis.length;
+    kpis.forEach((k, i) => {
+      const kx = margin + i * kpiW;
+      doc.setFillColor(245, 247, 255);
+      doc.roundedRect(kx, y, kpiW - 2, 20, 2, 2, "F");
+      doc.setTextColor(30, 45, 90);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(k.value), kx + kpiW / 2 - 1, y + 10, { align: "center" });
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 110, 140);
+      doc.text(k.label, kx + kpiW / 2 - 1, y + 16, { align: "center" });
+    });
+    y += 26;
+
+    // Completion rate bar
+    if (stats.totalTasks > 0) {
+      const rate = Math.round((stats.completedTasks / stats.totalTasks) * 100);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 45, 90);
+      doc.text(`Taxa de Conclusão: ${rate}%`, margin, y + 5);
+      doc.setFillColor(230, 235, 255);
+      doc.roundedRect(margin, y + 7, maxW, 5, 2, 2, "F");
+      doc.setFillColor(16, 185, 129);
+      doc.roundedRect(margin, y + 7, maxW * (rate / 100), 5, 2, 2, "F");
+      y += 18;
+    }
+
+    // Status distribution
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 45, 90);
+    doc.text("Distribuição por Status", margin, y + 5);
+    y += 8;
+    const statusItems: { label: string; value: number; color: [number,number,number] }[] = ([
+      { label: "Para Iniciar",  value: stats.pendingTasks ?? 0,    color: [99, 102, 241] as [number,number,number] },
+      { label: "Em Andamento",  value: stats.inProgressTasks ?? 0, color: [59, 130, 246] as [number,number,number] },
+      { label: "Compartilhado", value: stats.sharedTasks ?? 0,     color: [245, 158, 11] as [number,number,number] },
+      { label: "Publicado",     value: stats.publishedTasks ?? 0,  color: [16, 185, 129] as [number,number,number] },
+      { label: "Arquivado",     value: stats.archivedTasks ?? 0,   color: [107, 114, 128] as [number,number,number] },
+    ] as { label: string; value: number; color: [number,number,number] }[]).filter(s => s.value > 0);
+    const totalStatus = statusItems.reduce((a, s) => a + s.value, 0) || 1;
+    let bx = margin;
+    statusItems.forEach(s => {
+      const bw = (s.value / totalStatus) * maxW;
+      doc.setFillColor(...s.color);
+      doc.rect(bx, y, bw, 8, "F");
+      bx += bw;
+    });
+    y += 11;
+    let lx = margin;
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "normal");
+    statusItems.forEach(s => {
+      doc.setFillColor(...s.color);
+      doc.rect(lx, y, 3, 3, "F");
+      doc.setTextColor(60, 70, 90);
+      doc.text(`${s.label} (${s.value})`, lx + 4, y + 2.5);
+      lx += 38;
+      if (lx > pageW - margin - 38) { lx = margin; y += 6; }
+    });
+    y += 10;
+
+    // Projects bar chart
+    if ((projects as any[]).length > 0) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 45, 90);
+      doc.text("Tarefas por Projeto", margin, y + 5);
+      y += 10;
+      const chartH = 40;
+      const projItems = (projects as any[]).slice(0, 8);
+      const colW = maxW / projItems.length;
+      const maxVal = Math.max(...projItems.map((p: any) => {
+        const c = p.taskCounts ?? {};
+        return (c.pending ?? 0) + (c.in_progress ?? 0) + (c.shared ?? 0) + (c.published ?? 0) + (c.archived ?? 0);
+      }), 1);
+      projItems.forEach((p: any, i: number) => {
+        const c = p.taskCounts ?? {};
+        const segs: { v: number; color: [number,number,number] }[] = [
+          { v: c.pending ?? 0,     color: [99, 102, 241] },
+          { v: c.in_progress ?? 0, color: [59, 130, 246] },
+          { v: c.shared ?? 0,      color: [245, 158, 11] },
+          { v: c.published ?? 0,   color: [16, 185, 129] },
+          { v: c.archived ?? 0,    color: [107, 114, 128] },
+        ];
+        const totalSeg = segs.reduce((a, s) => a + s.v, 0);
+        const barMaxH = chartH - 8;
+        const bw2 = colW - 4;
+        const bx2 = margin + i * colW + 2;
+        let by = y + chartH - 8;
+        segs.forEach(s => {
+          if (s.v === 0) return;
+          const sh = (s.v / maxVal) * barMaxH;
+          by -= sh;
+          doc.setFillColor(...s.color);
+          doc.rect(bx2, by, bw2, sh, "F");
+        });
+        doc.setFontSize(5.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 70, 90);
+        const shortName = p.name.length > 8 ? p.name.slice(0, 8) + "…" : p.name;
+        doc.text(shortName, bx2 + bw2 / 2, y + chartH - 2, { align: "center" });
+        if (totalSeg > 0) {
+          doc.setFontSize(6);
+          doc.setTextColor(30, 45, 90);
+          doc.text(String(totalSeg), bx2 + bw2 / 2, y + chartH - 8 - (totalSeg / maxVal) * barMaxH - 1, { align: "center" });
+        }
+      });
+      y += chartH + 6;
+    }
+
+    // Setor chart
+    if ((setorStats as any[]).length > 0) {
+      if (y > pageH - 60) { doc.addPage(); y = 20; }
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 45, 90);
+      doc.text("Tarefas por Disciplina/Setor", margin, y + 5);
+      y += 10;
+      const setorH = 35;
+      const sItems = (setorStats as any[]).slice(0, 8);
+      const sColW = maxW / sItems.length;
+      const sMaxVal = Math.max(...sItems.map((s: any) => s.total ?? 0), 1);
+      sItems.forEach((s: any, i: number) => {
+        const bw2 = sColW - 4;
+        const bx2 = margin + i * sColW + 2;
+        const bh = ((s.total ?? 0) / sMaxVal) * (setorH - 8);
+        doc.setFillColor(79, 70, 229);
+        doc.rect(bx2, y + setorH - 8 - bh, bw2, bh, "F");
+        doc.setFontSize(5.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 70, 90);
+        const shortS = s.setor.length > 8 ? s.setor.slice(0, 8) + "…" : s.setor;
+        doc.text(shortS, bx2 + bw2 / 2, y + setorH - 2, { align: "center" });
+        if (s.total > 0) {
+          doc.setFontSize(6);
+          doc.setTextColor(30, 45, 90);
+          doc.text(String(s.total), bx2 + bw2 / 2, y + setorH - 8 - bh - 1, { align: "center" });
+        }
+      });
+      y += setorH + 6;
+    }
+
+    // Overdue table
+    if (overdueTasks.length > 0) {
+      if (y > pageH - 50) { doc.addPage(); y = 20; }
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(185, 28, 28);
+      doc.text(`Tarefas em Atraso (${overdueTasks.length})`, margin, y + 5);
+      y += 10;
+      doc.setFillColor(254, 242, 242);
+      doc.rect(margin, y, maxW, 7, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(120, 30, 30);
+      doc.text("Tarefa", margin + 2, y + 4.5);
+      doc.text("Projeto", margin + 80, y + 4.5);
+      doc.text("Vencimento", margin + 130, y + 4.5);
+      y += 8;
+      overdueTasks.slice(0, 10).forEach((t: any, i: number) => {
+        if (y > pageH - 15) { doc.addPage(); y = 20; }
+        if (i % 2 === 0) { doc.setFillColor(255, 250, 250); doc.rect(margin, y - 1, maxW, 7, "F"); }
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 70, 90);
+        const title = t.title.length > 40 ? t.title.slice(0, 40) + "…" : t.title;
+        doc.text(title, margin + 2, y + 4);
+        doc.text(t.projectName ?? "-", margin + 80, y + 4);
+        doc.text(t.dueDate ? new Date(t.dueDate).toLocaleDateString("pt-BR") : "-", margin + 130, y + 4);
+        y += 7;
+      });
+    }
+
+    // Footer on all pages
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let pg = 1; pg <= totalPages; pg++) {
+      doc.setPage(pg);
+      doc.setFillColor(245, 247, 255);
+      doc.rect(0, pageH - 10, pageW, 10, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120, 130, 160);
+      doc.text("Orbita — Plataforma de Gestão de Projetos", margin, pageH - 4);
+      doc.text(`Página ${pg} de ${totalPages}`, pageW - margin, pageH - 4, { align: "right" });
+    }
+
+    doc.save(`orbita-dashboard-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("Dashboard exportado com sucesso!");
+  }
+
   const statCards = [
     { icon: FolderKanban, label: "Projetos", value: stats?.totalProjects ?? 0, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
     { icon: ListTodo, label: "Total de Tarefas", value: stats?.totalTasks ?? 0, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
@@ -154,6 +402,16 @@ export default function Dashboard() {
                 Limpar filtros
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2 text-sm border-border"
+              onClick={exportDashboardToPDF}
+              disabled={statsLoading}
+            >
+              <Download className="w-4 h-4" />
+              Exportar PDF
+            </Button>
             <Link href="/projects">
               <Button className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-sm h-9">
                 Novo Projeto <ArrowRight className="w-4 h-4" />
