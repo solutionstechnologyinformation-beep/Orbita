@@ -312,10 +312,13 @@ export async function deleteTask(id: number) {
   await db.delete(tasks).where(eq(tasks.id, id));
 }
 
-export async function getTasksAssignedToUser(userId: number) {
+export async function getTasksAssignedToUser(userId: number, filters?: { projectId?: number; setor?: string }) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(tasks).where(eq(tasks.assigneeId, userId)).orderBy(desc(tasks.createdAt)).limit(20);
+  const conditions: any[] = [eq(tasks.assigneeId, userId)];
+  if (filters?.projectId) conditions.push(eq(tasks.projectId, filters.projectId));
+  if (filters?.setor) conditions.push(eq(tasks.setor, filters.setor));
+  return db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.createdAt)).limit(20);
 }
 
 export async function getTaskCountsByProject(projectId: number) {
@@ -502,19 +505,21 @@ export async function clearChatHistory(userId: number, projectId?: number) {
 }
 
 // ─── Setor Stats ─────────────────────────────────────────────────────────────
-export async function getSetorStats(userId: number) {
+export async function getSetorStats(userId: number, filterProjectId?: number) {
   const db = await getDb();
   if (!db) return [];
   const userProjects = await getProjectsByUser(userId);
   const projectIds = userProjects.map(p => p.id);
   if (projectIds.length === 0) return [];
+  const filteredIds = filterProjectId ? projectIds.filter(id => id === filterProjectId) : projectIds;
+  if (filteredIds.length === 0) return [];
   const rows = await db.select({
     setor: tasks.setor,
     status: tasks.status,
     count: sql<number>`count(*)`,
   })
     .from(tasks)
-    .where(inArray(tasks.projectId, projectIds))
+    .where(inArray(tasks.projectId, filteredIds))
     .groupBy(tasks.setor, tasks.status);
   // Aggregate by setor
   const map = new Map<string, { setor: string; total: number; completed: number; in_progress: number; pending: number; shared: number }>();
@@ -533,32 +538,64 @@ export async function getSetorStats(userId: number) {
 }
 
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────
-export async function getDashboardStats(userId: number) {
+export async function getDashboardStats(userId: number, filters?: { projectId?: number; setor?: string }) {
   const db = await getDb();
-  if (!db) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0 };
-
+  if (!db) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0, inProgressTasks: 0, sharedTasks: 0, publishedTasks: 0, archivedTasks: 0, overdueTasks: 0, totalRevisions: 0 };
   const userProjects = await getProjectsByUser(userId);
   const projectIds = userProjects.map(p => p.id);
+  if (projectIds.length === 0) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0, inProgressTasks: 0, sharedTasks: 0, publishedTasks: 0, archivedTasks: 0, overdueTasks: 0, totalRevisions: 0 };
 
-  if (projectIds.length === 0) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0 };
+  // Apply project filter
+  const filteredProjectIds = filters?.projectId
+    ? projectIds.filter(id => id === filters.projectId)
+    : projectIds;
+  if (filteredProjectIds.length === 0) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0, inProgressTasks: 0, sharedTasks: 0, publishedTasks: 0, archivedTasks: 0, overdueTasks: 0, totalRevisions: 0 };
+
+  // Build where conditions
+  const conditions = [inArray(tasks.projectId, filteredProjectIds)];
+  if (filters?.setor) conditions.push(eq(tasks.setor, filters.setor));
 
   const taskCounts = await db.select({ status: tasks.status, count: sql<number>`count(*)` })
-    .from(tasks).where(inArray(tasks.projectId, projectIds)).groupBy(tasks.status);
+    .from(tasks).where(and(...conditions)).groupBy(tasks.status);
 
-  let completedTasks = 0, pendingTasks = 0;
+  const revisionsRow = await db.select({ total: sql<number>`COALESCE(SUM(revisionsCount), 0)` })
+    .from(tasks).where(and(...conditions));
+  const totalRevisions = Number(revisionsRow[0]?.total ?? 0);
+
+  const now = new Date();
+  const overdueRows = await db.select({ count: sql<number>`count(*)` })
+    .from(tasks)
+    .where(and(
+      ...conditions,
+      sql`${tasks.dueDate} IS NOT NULL`,
+      sql`${tasks.dueDate} < ${now}`,
+      sql`${tasks.status} NOT IN ('published', 'archived')`
+    ));
+  const overdueTasks = Number(overdueRows[0]?.count ?? 0);
+
+  let pendingTasks = 0, inProgressTasks = 0, sharedTasks = 0, publishedTasks = 0, archivedTasks = 0;
   for (const r of taskCounts) {
-    if (r.status === "published" || r.status === "archived") completedTasks += Number(r.count);
-    else pendingTasks += Number(r.count);
+    const cnt = Number(r.count);
+    if (r.status === "pending") pendingTasks += cnt;
+    else if (r.status === "in_progress") inProgressTasks += cnt;
+    else if (r.status === "shared") sharedTasks += cnt;
+    else if (r.status === "published") publishedTasks += cnt;
+    else if (r.status === "archived") archivedTasks += cnt;
   }
-
+  const completedTasks = publishedTasks + archivedTasks;
   return {
-    totalProjects: userProjects.length,
-    totalTasks: completedTasks + pendingTasks,
+    totalProjects: filters?.projectId ? 1 : userProjects.length,
+    totalTasks: pendingTasks + inProgressTasks + sharedTasks + publishedTasks + archivedTasks,
     completedTasks,
     pendingTasks,
+    inProgressTasks,
+    sharedTasks,
+    publishedTasks,
+    archivedTasks,
+    overdueTasks,
+     totalRevisions,
   };
 }
-
 // ─── Due-Date Alerts ──────────────────────────────────────────────────────────
 /**
  * Returns tasks that are due within the next `windowHours` hours and are not yet done.

@@ -2,15 +2,17 @@ import AppLayout from "@/components/AppLayout";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Link } from "wouter";
+import { useState, useMemo } from "react";
 import {
   FolderKanban, CheckCircle2, Clock, ListTodo,
-  ArrowRight, TrendingUp, AlertCircle, BarChart2,
+  ArrowRight, TrendingUp, AlertCircle, BarChart2, RefreshCw, Filter,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -26,55 +28,84 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-red-50 text-red-700 border-red-200",
 };
 const STATUS_LABELS: Record<string, string> = {
-  todo: "A Fazer", in_progress: "Em Progresso", done: "Concluído",
+  pending: "Para Iniciar",
+  in_progress: "Em Andamento",
+  shared: "Compartilhado",
+  published: "Publicado",
+  archived: "Arquivado",
 };
+const STATUS_COLORS: Record<string, string> = {
+  pending: "#6366f1",
+  in_progress: "#3b82f6",
+  shared: "#f59e0b",
+  published: "#10b981",
+  archived: "#6b7280",
+};
+const SETORES = ["Geometria","Geoprocessamento","Drenagem","Sinalização","Geotecnia","Hidrologia","Geologia","Orçamento"];
 
 function isOverdue(task: any) {
-  return task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "done";
+  return task.dueDate && new Date(task.dueDate) < new Date()
+    && task.status !== "published" && task.status !== "archived";
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data: stats, isLoading: statsLoading } = trpc.dashboard.stats.useQuery();
-  const { data: recentTasks = [], isLoading: tasksLoading } = trpc.dashboard.recentTasks.useQuery();
   const { data: projects = [], isLoading: projectsLoading } = trpc.projects.list.useQuery();
-  const { data: setorStats = [], isLoading: setorLoading } = trpc.dashboard.setorStats.useQuery();
+
+  const [filterProjectId, setFilterProjectId] = useState<number | undefined>(undefined);
+  const [filterSetor, setFilterSetor] = useState<string | undefined>(undefined);
+
+  const filterInput = useMemo(() => ({
+    projectId: filterProjectId,
+    setor: filterSetor,
+  }), [filterProjectId, filterSetor]);
+
+  const { data: stats, isLoading: statsLoading } = trpc.dashboard.stats.useQuery(filterInput);
+  const { data: recentTasks = [], isLoading: tasksLoading } = trpc.dashboard.recentTasks.useQuery(filterInput);
+  const { data: setorStats = [], isLoading: setorLoading } = trpc.dashboard.setorStats.useQuery(
+    { projectId: filterProjectId }
+  );
 
   const completionRate = stats && stats.totalTasks > 0
     ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
     : 0;
 
-  const inProgressCount = stats
-    ? stats.totalTasks - stats.completedTasks - (stats.pendingTasks ?? 0)
-    : 0;
-
   const pieData = stats ? [
-    { name: "A Fazer", value: Math.max(0, stats.pendingTasks ?? 0), fill: "#6366f1" },
-    { name: "Em Progresso", value: Math.max(0, inProgressCount), fill: "#3b82f6" },
-    { name: "Concluído", value: stats.completedTasks, fill: "#10b981" },
+    { name: "Para Iniciar", value: stats.pendingTasks ?? 0, fill: STATUS_COLORS.pending },
+    { name: "Em Andamento", value: stats.inProgressTasks ?? 0, fill: STATUS_COLORS.in_progress },
+    { name: "Compartilhado", value: stats.sharedTasks ?? 0, fill: STATUS_COLORS.shared },
+    { name: "Publicado", value: stats.publishedTasks ?? 0, fill: STATUS_COLORS.published },
+    { name: "Arquivado", value: stats.archivedTasks ?? 0, fill: STATUS_COLORS.archived },
   ].filter(d => d.value > 0) : [];
 
-  const barData = (projects as any[]).slice(0, 6).map((p: any) => ({
-    name: p.name.length > 12 ? p.name.slice(0, 12) + "…" : p.name,
-    "A Fazer": p.taskCounts?.todo ?? 0,
-    "Em Progresso": p.taskCounts?.in_progress ?? 0,
-    "Concluído": p.taskCounts?.done ?? 0,
-  }));
+  const barData = (projects as any[]).slice(0, 6).map((p: any) => {
+    const counts = p.taskCounts ?? {};
+    return {
+      name: p.name.length > 12 ? p.name.slice(0, 12) + "…" : p.name,
+      "Para Iniciar": counts.pending ?? 0,
+      "Em Andamento": counts.in_progress ?? 0,
+      "Compartilhado": counts.shared ?? 0,
+      "Publicado": counts.published ?? 0,
+      "Arquivado": counts.archived ?? 0,
+    };
+  });
 
-  const overdueCount = (recentTasks as any[]).filter(isOverdue).length;
+  const overdueTasks = (recentTasks as any[]).filter(isOverdue);
 
   const statCards = [
     { icon: FolderKanban, label: "Projetos", value: stats?.totalProjects ?? 0, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
     { icon: ListTodo, label: "Total de Tarefas", value: stats?.totalTasks ?? 0, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
     { icon: CheckCircle2, label: "Concluídas", value: stats?.completedTasks ?? 0, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-    { icon: Clock, label: "Pendentes", value: stats?.pendingTasks ?? 0, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+    { icon: Clock, label: "Para Iniciar", value: stats?.pendingTasks ?? 0, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+    { icon: RefreshCw, label: "Revisões", value: stats?.totalRevisions ?? 0, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+    { icon: AlertCircle, label: "Em Atraso", value: stats?.overdueTasks ?? 0, color: "text-red-600", bg: "bg-red-50", border: "border-red-100" },
   ];
 
   return (
     <AppLayout title="Dashboard">
       <div className="space-y-6">
-        {/* Greeting */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        {/* Greeting + Filters */}
+        <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-2xl font-bold text-foreground">
               Olá, {user?.name?.split(" ")[0] ?? "usuário"} 👋
@@ -83,50 +114,105 @@ export default function Dashboard() {
               Aqui está o resumo dos seus projetos e tarefas.
             </p>
           </div>
-          <Link href="/projects">
-            <Button className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-sm">
-              Novo Projeto <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select
+              value={filterProjectId ? String(filterProjectId) : "all"}
+              onValueChange={(v) => setFilterProjectId(v === "all" ? undefined : parseInt(v))}
+            >
+              <SelectTrigger className="w-44 h-9 text-sm">
+                <SelectValue placeholder="Todos os projetos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {(projects as any[]).map((p: any) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterSetor ?? "all"}
+              onValueChange={(v) => setFilterSetor(v === "all" ? undefined : v)}
+            >
+              <SelectTrigger className="w-44 h-9 text-sm">
+                <SelectValue placeholder="Todas as disciplinas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as disciplinas</SelectItem>
+                {SETORES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(filterProjectId || filterSetor) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-xs text-muted-foreground"
+                onClick={() => { setFilterProjectId(undefined); setFilterSetor(undefined); }}
+              >
+                Limpar filtros
+              </Button>
+            )}
+            <Link href="/projects">
+              <Button className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-sm h-9">
+                Novo Projeto <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Overdue alert */}
-        {overdueCount > 0 && (
+        {/* Overdue alert banner */}
+        {(stats?.overdueTasks ?? 0) > 0 && (
           <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>
-              <strong>{overdueCount}</strong> {overdueCount === 1 ? "tarefa está vencida" : "tarefas estão vencidas"}.{" "}
+              <strong>{stats!.overdueTasks}</strong>{" "}
+              {stats!.overdueTasks === 1 ? "tarefa está vencida" : "tarefas estão vencidas"}.{" "}
               Acesse o Kanban para atualizar os prazos.
             </span>
           </div>
         )}
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((card) => (
-            <Card key={card.label} className={`border ${card.border} shadow-sm hover:shadow-md transition-shadow`}>
-              <CardContent className="p-4">
-                {statsLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${card.bg}`}>
-                      <card.icon className={`w-5 h-5 ${card.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-foreground">{card.value}</p>
-                      <p className="text-xs text-muted-foreground">{card.label}</p>
-                    </div>
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {statsLoading
+            ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+            : statCards.map(({ icon: Icon, label, value, color, bg, border }) => (
+              <Card key={label} className={`border ${border} shadow-sm`}>
+                <CardContent className="p-4">
+                  <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>
+                    <Icon className={`w-4 h-4 ${color}`} />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  <p className="text-2xl font-bold text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                </CardContent>
+              </Card>
+            ))}
         </div>
 
-        {/* Charts row */}
+        {/* Completion Rate */}
+        {!statsLoading && (stats?.totalTasks ?? 0) > 0 && (
+          <Card className="border border-border shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  Taxa de conclusão geral
+                </span>
+                <span className="text-sm font-bold text-emerald-600">{completionRate}%</span>
+              </div>
+              <Progress value={completionRate} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {stats?.completedTasks} de {stats?.totalTasks} tarefas concluídas
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Pie chart */}
+          {/* Pie */}
           <Card className="border border-border shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -138,48 +224,33 @@ export default function Dashboard() {
               {statsLoading ? (
                 <Skeleton className="h-48 w-full" />
               ) : pieData.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-                  Nenhuma tarefa ainda
+                <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                  Nenhuma tarefa encontrada
                 </div>
               ) : (
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
+                <>
+                  <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, i) => (
-                          <Cell key={i} fill={entry.fill} />
-                        ))}
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
+                        {pieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
-                      <Tooltip
-                        contentStyle={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "12px" }}
-                      />
-                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
+                      <Tooltip formatter={(v: any, name: any) => [`${v} tarefa${v !== 1 ? "s" : ""}`, name]} />
                     </PieChart>
                   </ResponsiveContainer>
-                </div>
-              )}
-              {!statsLoading && stats && stats.totalTasks > 0 && (
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Taxa de conclusão</span>
-                    <span className="font-semibold text-emerald-600">{completionRate}%</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 justify-center mt-2">
+                    {pieData.map((d) => (
+                      <div key={d.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.fill }} />
+                        {d.name} ({d.value})
+                      </div>
+                    ))}
                   </div>
-                  <Progress value={completionRate} className="h-1.5" />
-                  <p className="text-xs text-muted-foreground">{stats.completedTasks} de {stats.totalTasks} tarefas concluídas</p>
-                </div>
+                </>
               )}
             </CardContent>
           </Card>
 
-          {/* Bar chart by project */}
+          {/* Bar by Project */}
           <Card className="border border-border shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -191,109 +262,126 @@ export default function Dashboard() {
               {projectsLoading ? (
                 <Skeleton className="h-48 w-full" />
               ) : barData.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-                  Nenhum projeto ainda
+                <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                  Nenhum projeto encontrado
                 </div>
               ) : (
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip
-                        contentStyle={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "12px" }}
-                      />
-                      <Bar dataKey="A Fazer" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={24} />
-                      <Bar dataKey="Em Progresso" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={24} />
-                      <Bar dataKey="Concluído" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={24} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Setor Metrics */}
-        {((setorStats as any[]).length > 0 || setorLoading) && (
-          <Card className="border border-border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-primary" />
-                Métricas por Setor / Disciplina
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {setorLoading ? (
-                <Skeleton className="h-52 w-full" />
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={setorStats as any[]} margin={{ top: 4, right: 4, left: -20, bottom: 44 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="setor"
-                      tick={{ fontSize: 10 }}
-                      angle={-35}
-                      textAnchor="end"
-                      interval={0}
-                    />
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={barData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "12px" }}
-                    />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                    <Bar dataKey="pending" name="Para Iniciar" stackId="a" fill="#94a3b8" />
-                    <Bar dataKey="in_progress" name="Em Andamento" stackId="a" fill="#3b82f6" />
-                    <Bar dataKey="shared" name="Compartilhado" stackId="a" fill="#f59e0b" />
-                    <Bar dataKey="completed" name="Concluído" stackId="a" fill="#10b981" radius={[4,4,0,0]} />
+                    <Tooltip />
+                    <Bar dataKey="Para Iniciar" stackId="a" fill={STATUS_COLORS.pending} />
+                    <Bar dataKey="Em Andamento" stackId="a" fill={STATUS_COLORS.in_progress} />
+                    <Bar dataKey="Compartilhado" stackId="a" fill={STATUS_COLORS.shared} />
+                    <Bar dataKey="Publicado" stackId="a" fill={STATUS_COLORS.published} />
+                    <Bar dataKey="Arquivado" stackId="a" fill={STATUS_COLORS.archived} radius={[3,3,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Setor Stats */}
+        {!setorLoading && (setorStats as any[]).length > 0 && (
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-primary" />
+                Desempenho por Disciplina / Setor
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={setorStats as any[]} margin={{ top: 4, right: 4, left: -20, bottom: 44 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="setor" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="pending" name="Para Iniciar" stackId="a" fill={STATUS_COLORS.pending} />
+                  <Bar dataKey="in_progress" name="Em Andamento" stackId="a" fill={STATUS_COLORS.in_progress} />
+                  <Bar dataKey="shared" name="Compartilhado" stackId="a" fill={STATUS_COLORS.shared} />
+                  <Bar dataKey="completed" name="Concluído" stackId="a" fill={STATUS_COLORS.published} radius={[3,3,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Bottom row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Recent tasks */}
-          <Card className="border border-border shadow-sm">
+        {/* Bottom Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Overdue Tasks */}
+          <Card className="border border-red-100 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Minhas Tarefas Recentes</CardTitle>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-red-700">
+                <AlertCircle className="w-4 h-4" />
+                Tarefas em Atraso
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {tasksLoading ? (
-                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
-              ) : (recentTasks as any[]).length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma tarefa atribuída a você.</p>
+                Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
+              ) : overdueTasks.length === 0 ? (
+                <div className="py-6 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Nenhuma tarefa em atraso!</p>
+                </div>
               ) : (
-                (recentTasks as any[]).slice(0, 6).map((task: any) => {
-                  const overdue = isOverdue(task);
-                  return (
-                    <Link key={task.id} href={`/tasks/${task.id}`}>
-                      <div className={`flex items-center gap-3 p-3 rounded-lg border hover:bg-slate-50 transition-colors cursor-pointer ${overdue ? "border-red-200 bg-red-50/30" : "border-border"}`}>
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.status === "done" ? "bg-emerald-500" : task.status === "in_progress" ? "bg-blue-500" : "bg-slate-400"}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${task.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{STATUS_LABELS[task.status]}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {overdue && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
-                          <Badge className={`text-[10px] px-1.5 py-0 h-4.5 border ${PRIORITY_COLORS[task.priority]}`}>
-                            {PRIORITY_LABELS[task.priority]}
-                          </Badge>
-                        </div>
+                overdueTasks.slice(0, 5).map((task: any) => (
+                  <Link key={task.id} href={`/tasks/${task.id}`}>
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-red-200 bg-red-50/40 hover:bg-red-50 transition-colors cursor-pointer">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-foreground">{task.title}</p>
+                        <p className="text-xs text-red-600 mt-0.5">
+                          Venceu em {new Date(task.dueDate).toLocaleDateString("pt-BR")}
+                        </p>
                       </div>
-                    </Link>
-                  );
-                })
+                      <Badge className={`text-[10px] px-1.5 py-0 h-4 border flex-shrink-0 ${PRIORITY_COLORS[task.priority]}`}>
+                        {PRIORITY_LABELS[task.priority]}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))
               )}
             </CardContent>
           </Card>
 
-          {/* Active projects */}
+          {/* Recent Tasks */}
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Tarefas Recentes</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {tasksLoading ? (
+                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
+              ) : (recentTasks as any[]).filter(t => !isOverdue(t)).length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma tarefa atribuída a você.</p>
+              ) : (
+                (recentTasks as any[]).filter(t => !isOverdue(t)).slice(0, 5).map((task: any) => (
+                  <Link key={task.id} href={`/tasks/${task.id}`}>
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-slate-50 transition-colors cursor-pointer">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[task.status] ?? "#6b7280" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${task.status === "published" || task.status === "archived" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                          {task.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{STATUS_LABELS[task.status]}</p>
+                      </div>
+                      <Badge className={`text-[10px] px-1.5 py-0 h-4 border flex-shrink-0 ${PRIORITY_COLORS[task.priority]}`}>
+                        {PRIORITY_LABELS[task.priority]}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Active Projects */}
           <Card className="border border-border shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -317,8 +405,10 @@ export default function Dashboard() {
                 </div>
               ) : (
                 (projects as any[]).filter((p: any) => p.status === "active").slice(0, 5).map((project: any) => {
-                  const counts = project.taskCounts ?? { todo: 0, in_progress: 0, done: 0, total: 0 };
-                  const rate = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
+                  const counts = project.taskCounts ?? {};
+                  const total = (counts.pending ?? 0) + (counts.in_progress ?? 0) + (counts.shared ?? 0) + (counts.published ?? 0) + (counts.archived ?? 0);
+                  const done = (counts.published ?? 0) + (counts.archived ?? 0);
+                  const rate = total > 0 ? Math.round((done / total) * 100) : 0;
                   return (
                     <Link key={project.id} href={`/projects/${project.id}`}>
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-slate-50 transition-colors cursor-pointer">
@@ -331,7 +421,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-xs font-semibold text-foreground">{counts.total}</p>
+                          <p className="text-xs font-semibold text-foreground">{total}</p>
                           <p className="text-[10px] text-muted-foreground">tarefas</p>
                         </div>
                       </div>

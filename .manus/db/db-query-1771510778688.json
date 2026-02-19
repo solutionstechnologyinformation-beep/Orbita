@@ -1,0 +1,22 @@
+{
+  "query": "SELECT pm.projectId, pm.userId, pm.role, u.name FROM project_members pm LEFT JOIN users u ON pm.userId = u.id LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute SELECT pm.projectId, pm.userId, pm.role, u.name FROM project_members pm LEFT JOIN users u ON pm.userId = u.id LIMIT 20;",
+  "rows": [
+    {
+      "projectId": "2",
+      "userId": "1",
+      "role": "owner",
+      "name": "Luiz Otávio"
+    },
+    {
+      "projectId": "1",
+      "userId": "1",
+      "role": "admin",
+      "name": "Luiz Otávio"
+    }
+  ],
+  "messages": [],
+  "stdout": "projectId\tuserId\trole\tname\n2\t1\towner\tLuiz Otávio\n1\t1\tadmin\tLuiz Otávio\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

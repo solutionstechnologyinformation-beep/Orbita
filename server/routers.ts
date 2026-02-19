@@ -95,15 +95,27 @@ export const appRouter = router({
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   dashboard: router({
-    stats: protectedProcedure.query(async ({ ctx }) => {
-      return getDashboardStats(ctx.user.id);
-    }),
-    recentTasks: protectedProcedure.query(async ({ ctx }) => {
-      return getTasksAssignedToUser(ctx.user.id);
-    }),
-    setorStats: protectedProcedure.query(async ({ ctx }) => {
-      return getSetorStats(ctx.user.id);
-    }),
+    stats: protectedProcedure
+      .input(z.object({
+        projectId: z.number().optional(),
+        setor: z.string().optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        return getDashboardStats(ctx.user.id, input ?? {});
+      }),
+    recentTasks: protectedProcedure
+      .input(z.object({
+        projectId: z.number().optional(),
+        setor: z.string().optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        return getTasksAssignedToUser(ctx.user.id, input ?? {});
+      }),
+    setorStats: protectedProcedure
+      .input(z.object({ projectId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        return getSetorStats(ctx.user.id, input?.projectId);
+      }),
   }),
 
   // ── Projects ──────────────────────────────────────────────────────────────
@@ -134,6 +146,8 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const id = await createProject({ ...input, ownerId: ctx.user.id, status: "active" });
+        // Auto-add owner as member with 'owner' role so they appear in member lists
+        await addProjectMember({ projectId: id, userId: ctx.user.id, role: "owner" });
         await logActivity({ userId: ctx.user.id, action: "created_project", entityType: "project", entityId: id, metadata: JSON.stringify({ name: input.name }) });
         return { id };
       }),
@@ -530,25 +544,38 @@ Tarefas recentes: ${taskList.slice(0, 10).map(t => `"${t.title}" (${t.status}, p
         const tasks = await getTasksByProject(input.projectId);
         const counts = await getTaskCountsByProject(input.projectId);
         const members = await getProjectMembers(input.projectId);
-
+        const completionRate = counts.total > 0 ? Math.round(((counts.published + counts.archived) / counts.total) * 100) : 0;
+        // Priority breakdown
+        const byPriority = { urgent: 0, high: 0, medium: 0, low: 0 };
+        for (const t of tasks) { if (t.priority in byPriority) (byPriority as any)[t.priority]++; }
+        // Overdue
+        const now = new Date();
+        const overdue = tasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "published" && t.status !== "archived").length;
         const prompt = `Gere um relatório executivo detalhado do projeto "${project.name}":
 - Total de tarefas: ${counts.total} (${counts.published + counts.archived} concluídas, ${counts.in_progress} em andamento, ${counts.shared} aguardando aprovação, ${counts.pending} para iniciar)
 - Membros da equipe: ${members.length}
-- Taxa de conclusão: ${counts.total > 0 ? Math.round(((counts.published + counts.archived) / counts.total) * 100) : 0}%
-- Tarefas urgentes: ${tasks.filter(t => t.priority === "urgent" && t.status !== "published" && t.status !== "archived").length}
-- Tarefas com alta prioridade: ${tasks.filter(t => t.priority === "high" && t.status !== "published" && t.status !== "archived").length}
-
+- Taxa de conclusão: ${completionRate}%
+- Tarefas urgentes: ${byPriority.urgent} | Alta prioridade: ${byPriority.high} | Média: ${byPriority.medium} | Baixa: ${byPriority.low}
+- Tarefas em atraso: ${overdue}
 Inclua: resumo executivo, análise de progresso, riscos identificados, recomendações e próximos passos.`;
-
         const response = await invokeLLM({ messages: [
           { role: "system", content: "Você é um especialista em gestão de projetos. Gere relatórios executivos profissionais em português brasileiro." },
           { role: "user", content: prompt },
         ]});
-
         const reportContent = response.choices[0]?.message?.content;
-        return { report: typeof reportContent === "string" ? reportContent : "Não foi possível gerar o relatório." };
+        return {
+          report: typeof reportContent === "string" ? reportContent : "Não foi possível gerar o relatório.",
+          chartData: {
+            projectName: project.name,
+            completionRate,
+            counts: { pending: counts.pending, in_progress: counts.in_progress, shared: counts.shared, published: counts.published, archived: counts.archived, total: counts.total },
+            byPriority,
+            overdue,
+            members: members.length,
+            generatedAt: new Date().toISOString(),
+          },
+        };
       }),
-
     clearHistory: protectedProcedure
       .input(z.object({ projectId: z.number().optional() }))
       .mutation(async ({ ctx, input }) => {

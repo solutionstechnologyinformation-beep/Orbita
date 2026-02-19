@@ -17,74 +17,203 @@ import {
 } from "@/components/ui/select";
 import jsPDF from "jspdf";
 
-function exportToPDF(history: any[], projectName?: string) {
+// ── Export only the last AI response as a clean PDF ──────────────────────────
+function exportLastResponseToPDF(history: any[], projectName?: string) {
+  const lastAI = [...history].reverse().find((m: any) => m.role === "assistant");
+  if (!lastAI) { toast.error("Nenhuma resposta da IA para exportar."); return; }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
   const maxW = pageW - margin * 2;
-  let y = 20;
 
-  // Header
-  doc.setFillColor(79, 70, 229); // indigo-600
-  doc.rect(0, 0, pageW, 14, "F");
+  // Header bar
+  doc.setFillColor(79, 70, 229);
+  doc.rect(0, 0, pageW, 16, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita — Relatório de Projeto", margin, 9.5);
+  doc.text("Orbita — Resultado da Pesquisa", margin, 10.5);
   if (projectName) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(projectName, pageW - margin, 9.5, { align: "right" });
+    doc.text(projectName, pageW - margin, 10.5, { align: "right" });
   }
 
-  y = 24;
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
+  let y = 24;
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(8);
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, y);
-  y += 10;
+  y += 8;
 
-  // Messages
-  for (const msg of history) {
-    const role = (msg as any).role as string;
-    const content = (msg as any).content as string;
-    const time = new Date((msg as any).createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  // Content — strip markdown
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  const plain = (lastAI.content as string)
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/#{1,6}\s/g, "")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 
-    // Role label
-    doc.setFontSize(8);
+  const lines = doc.splitTextToSize(plain, maxW);
+  for (const line of lines) {
+    if (y > 278) { doc.addPage(); y = 20; }
+    doc.text(line, margin, y);
+    y += 5.5;
+  }
+
+  doc.save(`orbita-pesquisa-${Date.now()}.pdf`);
+}
+
+// ── Generate visual report PDF with charts drawn on Canvas ───────────────────
+async function generateVisualReportPDF(chartData: any, reportText: string) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 16;
+  const maxW = pageW - margin * 2;
+
+  // ── Cover ──
+  doc.setFillColor(79, 70, 229);
+  doc.rect(0, 0, pageW, 60, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("Relatório Executivo", margin, 28);
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "normal");
+  doc.text(chartData.projectName, margin, 40);
+  doc.setFontSize(9);
+  doc.setTextColor(200, 200, 255);
+  doc.text(`Gerado em: ${new Date(chartData.generatedAt).toLocaleString("pt-BR")}`, margin, 52);
+
+  // ── KPI cards ──
+  let y = 72;
+  doc.setTextColor(30, 30, 30);
+  const kpis = [
+    { label: "Total de Tarefas", value: String(chartData.counts.total) },
+    { label: "Concluídas", value: String(chartData.counts.published + chartData.counts.archived) },
+    { label: "Taxa de Conclusão", value: `${chartData.completionRate}%` },
+    { label: "Em Atraso", value: String(chartData.overdue) },
+    { label: "Membros", value: String(chartData.members) },
+  ];
+  const cardW = (maxW - 4 * 4) / 5;
+  kpis.forEach((kpi, i) => {
+    const x = margin + i * (cardW + 4);
+    doc.setFillColor(245, 247, 255);
+    doc.roundedRect(x, y, cardW, 22, 2, 2, "F");
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(role === "user" ? 79 : 109, role === "user" ? 70 : 40, role === "user" ? 229 : 217);
-    doc.text(role === "user" ? `Usuário  ${time}` : `Orbita IA  ${time}`, margin, y);
-    y += 5;
-
-    // Content
+    doc.setTextColor(79, 70, 229);
+    doc.text(kpi.value, x + cardW / 2, y + 11, { align: "center" });
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(50, 50, 50);
+    doc.setTextColor(100, 100, 100);
+    doc.text(kpi.label, x + cardW / 2, y + 17, { align: "center" });
+  });
+  y += 30;
 
-    // Strip markdown for PDF
-    const plain = content
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/\*(.*?)\*/g, "$1")
-      .replace(/#{1,6}\s/g, "")
-      .replace(/`{1,3}[^`]*`{1,3}/g, "")
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  // ── Bar chart: status distribution ──
+  const barCanvas = document.createElement("canvas");
+  barCanvas.width = 420; barCanvas.height = 170;
+  const bCtx = barCanvas.getContext("2d")!;
+  bCtx.fillStyle = "#f8f9ff"; bCtx.fillRect(0, 0, 420, 170);
+  const statusData = [
+    { label: "Para Iniciar", value: chartData.counts.pending, color: "#6366f1" },
+    { label: "Em Andamento", value: chartData.counts.in_progress, color: "#3b82f6" },
+    { label: "Compartilhado", value: chartData.counts.shared, color: "#f59e0b" },
+    { label: "Publicado", value: chartData.counts.published, color: "#10b981" },
+    { label: "Arquivado", value: chartData.counts.archived, color: "#6b7280" },
+  ];
+  const maxVal = Math.max(...statusData.map(d => d.value), 1);
+  const barW = 52; const gap = 14; const startX = 28; const chartH = 100; const baseY = 130;
+  bCtx.font = "bold 11px Arial"; bCtx.textAlign = "center";
+  statusData.forEach((d, i) => {
+    const x = startX + i * (barW + gap);
+    const h = (d.value / maxVal) * chartH;
+    bCtx.fillStyle = d.color;
+    bCtx.fillRect(x, baseY - h, barW, h);
+    bCtx.fillStyle = "#333";
+    bCtx.fillText(String(d.value), x + barW / 2, baseY - h - 5);
+    bCtx.fillStyle = "#555"; bCtx.font = "9px Arial";
+    const words = d.label.split(" ");
+    words.forEach((w, wi) => bCtx.fillText(w, x + barW / 2, baseY + 13 + wi * 11));
+    bCtx.font = "bold 11px Arial";
+  });
+  bCtx.strokeStyle = "#ccc"; bCtx.lineWidth = 1;
+  bCtx.beginPath(); bCtx.moveTo(18, baseY); bCtx.lineTo(400, baseY); bCtx.stroke();
 
-    const lines = doc.splitTextToSize(plain, maxW);
-    for (const line of lines) {
-      if (y > 275) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.text(line, margin, y);
-      y += 5;
-    }
-    y += 4;
+  doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 30, 30);
+  doc.text("Distribuição por Status", margin, y); y += 4;
+  const barImgData = barCanvas.toDataURL("image/png");
+  const barRenderW = maxW * 0.62;
+  const barRenderH = barRenderW * (170 / 420);
+  doc.addImage(barImgData, "PNG", margin, y, barRenderW, barRenderH);
 
-    // Separator
-    doc.setDrawColor(220, 220, 220);
-    doc.line(margin, y, pageW - margin, y);
-    y += 6;
+  // ── Pie chart: priority ──
+  const pieCanvas = document.createElement("canvas");
+  pieCanvas.width = 180; pieCanvas.height = 180;
+  const pCtx = pieCanvas.getContext("2d")!;
+  pCtx.fillStyle = "#f8f9ff"; pCtx.fillRect(0, 0, 180, 180);
+  const priorityData = [
+    { label: "Urgente", value: chartData.byPriority.urgent, color: "#ef4444" },
+    { label: "Alta", value: chartData.byPriority.high, color: "#f97316" },
+    { label: "Média", value: chartData.byPriority.medium, color: "#f59e0b" },
+    { label: "Baixa", value: chartData.byPriority.low, color: "#6366f1" },
+  ];
+  const total = priorityData.reduce((s, d) => s + d.value, 0) || 1;
+  let angle = -Math.PI / 2;
+  priorityData.forEach(d => {
+    const slice = (d.value / total) * 2 * Math.PI;
+    pCtx.beginPath(); pCtx.moveTo(90, 90);
+    pCtx.arc(90, 90, 70, angle, angle + slice);
+    pCtx.closePath(); pCtx.fillStyle = d.color; pCtx.fill();
+    angle += slice;
+  });
+  // white center
+  pCtx.beginPath(); pCtx.arc(90, 90, 35, 0, 2 * Math.PI); pCtx.fillStyle = "#f8f9ff"; pCtx.fill();
+
+  const pieX = margin + barRenderW + 6;
+  const pieRenderW = maxW - barRenderW - 6;
+  doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(30, 30, 30);
+  doc.text("Por Prioridade", pieX, y);
+  const pieImgData = pieCanvas.toDataURL("image/png");
+  doc.addImage(pieImgData, "PNG", pieX, y + 4, pieRenderW, pieRenderW);
+  // legend
+  let legY = y + 4 + pieRenderW + 4;
+  priorityData.forEach(d => {
+    doc.setFillColor(parseInt(d.color.slice(1, 3), 16), parseInt(d.color.slice(3, 5), 16), parseInt(d.color.slice(5, 7), 16));
+    doc.rect(pieX, legY - 2.5, 4, 4, "F");
+    doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(80, 80, 80);
+    doc.text(`${d.label}: ${d.value}`, pieX + 6, legY + 0.5);
+    legY += 6;
+  });
+
+  y += barRenderH + 10;
+
+  // ── Analysis text ──
+  doc.addPage();
+  y = 20;
+  doc.setFillColor(79, 70, 229);
+  doc.rect(0, 0, pageW, 14, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10); doc.setFont("helvetica", "bold");
+  doc.text("Análise Detalhada — " + chartData.projectName, margin, 9.5);
+  y = 22;
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(9.5); doc.setFont("helvetica", "normal");
+  const plain = reportText
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/#{1,6}\s/g, "")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  const lines = doc.splitTextToSize(plain, maxW);
+  for (const line of lines) {
+    if (y > 278) { doc.addPage(); y = 20; }
+    doc.text(line, margin, y);
+    y += 5.5;
   }
 
   doc.save(`orbita-relatorio-${Date.now()}.pdf`);
@@ -150,8 +279,13 @@ export default function AIChat() {
     if (!selectedProjectId) return toast.error("Selecione um projeto para gerar o relatório.");
     setGeneratingReport(true);
     try {
-      await reportMutation.mutateAsync({ projectId: selectedProjectId });
+      const result = await reportMutation.mutateAsync({ projectId: selectedProjectId });
       utils.chat.history.invalidate({ projectId: selectedProjectId });
+      // Generate visual PDF immediately
+      if (result.chartData) {
+        await generateVisualReportPDF(result.chartData, result.report);
+        toast.success("Relatório visual gerado e baixado!");
+      }
     } finally {
       setGeneratingReport(false);
     }
@@ -160,11 +294,12 @@ export default function AIChat() {
   const handleExportPDF = () => {
     if (!history?.length) return toast.error("Nenhuma conversa para exportar.");
     const project = projects?.find((p) => p.id === selectedProjectId);
-    exportToPDF(history, project?.name);
+    exportLastResponseToPDF(history, project?.name);
     toast.success("PDF exportado com sucesso!");
   };
 
   const selectedProject = projects?.find((p) => p.id === selectedProjectId);
+  void selectedProject;
 
   const suggestedPrompts = [
     "Analise a carga de trabalho atual da equipe",
@@ -216,6 +351,7 @@ export default function AIChat() {
                 size="sm"
                 className="gap-2 border-border bg-white text-primary hover:text-primary"
                 onClick={handleExportPDF}
+                title="Exporta somente a última resposta da IA como PDF"
               >
                 <Download className="w-3.5 h-3.5" />
                 Exportar PDF

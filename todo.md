@@ -96,3 +96,13 @@
 - [x] Frontend: link para preferências na página de Notificações
 - [x] Frontend: ícones por tipo de notificação (UserPlus, ArrowRightLeft, AlertCircle, Clock, etc.)
 - [x] Testes: 14/14 passando após alterações
+
+## Correções e Melhorias v3.4
+- [x] Bug 1: corrigido - donos de projetos adicionados como membros em project_members; projects.create auto-adiciona dono
+- [x] Bug 2: Dashboard "Distribuição de Tarefas" mostra todos os 5 status com gráfico de pizza
+- [x] Bug 2b: Dashboard "Tarefas por Projeto" mostra todos os 5 status com barras empilhadas
+- [x] Feature 3: Chat IA - "Exportar PDF" exporta somente a última resposta da IA (limpo)
+- [x] Feature 3b: Chat IA - "Gerar Relatório" gera PDF visual com KPIs, gráfico de barras (status) + pizza (prioridade)
+- [x] Feature 4: Dashboard - métrica de revisões adicionada
+- [x] Feature 4b: Dashboard - filtros por Projeto e Disciplina/Setor adicionados
+- [x] Feature 5: Dashboard - seção de tarefas em atraso com banner de alerta
