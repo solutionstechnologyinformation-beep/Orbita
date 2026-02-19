@@ -9,7 +9,9 @@ import { storagePut } from "./storage";
 import {
   addProjectMember,
   clearChatHistory,
-  createNotification,
+  notifyUser,
+  getNotificationPreferences,
+  upsertNotificationPreference,
   createProject,
   createTask,
   createTaskAttachment,
@@ -172,7 +174,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await assertProjectAccess(input.projectId, ctx.user.id);
         await addProjectMember({ projectId: input.projectId, userId: input.userId, role: input.role });
-        await createNotification({
+        await notifyUser({
           userId: input.userId,
           title: "Você foi adicionado a um projeto",
           message: `Você foi convidado para colaborar em um projeto.`,
@@ -242,8 +244,9 @@ export const appRouter = router({
         await assertProjectAccess(input.projectId, ctx.user.id);
         const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 } as any);
         await logActivity({ userId: ctx.user.id, action: "created_task", entityType: "task", entityId: id, metadata: JSON.stringify({ title: input.title }) });
+        // Notify assignee
         if (input.assigneeId && input.assigneeId !== ctx.user.id) {
-          await createNotification({
+          await notifyUser({
             userId: input.assigneeId,
             title: "Nova tarefa atribuída a você",
             message: `A tarefa "${input.title}" foi atribuída a você.`,
@@ -251,6 +254,20 @@ export const appRouter = router({
             relatedTaskId: id,
             relatedProjectId: input.projectId,
           });
+        }
+        // Notify all project members about new task (except creator)
+        const members = await getProjectMembers(input.projectId);
+        for (const member of members) {
+          if (member.userId !== ctx.user.id && member.userId !== (input.assigneeId ?? null)) {
+            await notifyUser({
+              userId: member.userId,
+              title: "Nova tarefa criada",
+              message: `Nova tarefa "${input.title}" foi criada no projeto.`,
+              notificationType: "task_created",
+              relatedTaskId: id,
+              relatedProjectId: input.projectId,
+            });
+          }
         }
         return { id };
       }),
@@ -289,25 +306,34 @@ export const appRouter = router({
         });
         // Notify assignee if re-assigned
         if (data.assigneeId && data.assigneeId !== task.assigneeId && data.assigneeId !== ctx.user.id) {
-          await createNotification({
+          await notifyUser({
             userId: data.assigneeId,
-            title: "Tarefa reatribuída a você",
+            title: "Tarefa atribuída a você",
             message: `A tarefa "${task.title}" foi atribuída a você.`,
             notificationType: "task_assigned",
             relatedTaskId: id,
             relatedProjectId: task.projectId,
           });
         }
-        // Notify creator when task is published/archived by someone else
-        if ((data.status === "published" || data.status === "archived") && task.status !== data.status && task.createdById !== ctx.user.id) {
-          await createNotification({
-            userId: task.createdById,
-            title: data.status === "published" ? "Tarefa publicada!" : "Tarefa arquivada!",
-            message: `A tarefa "${task.title}" foi ${data.status === "published" ? "publicada" : "arquivada"}.`,
-            notificationType: "task_assigned",
-            relatedTaskId: id,
-            relatedProjectId: task.projectId,
-          });
+        // Notify about status change: notify assignee and creator
+        if (statusChanged && data.status) {
+          const STATUS_LABELS: Record<string, string> = {
+            pending: "Para Iniciar", in_progress: "Em Andamento",
+            shared: "Compartilhado", published: "Publicado", archived: "Arquivado",
+          };
+          const notifyIdsSet = new Set<number>();
+          if (task.assigneeId && task.assigneeId !== ctx.user.id) notifyIdsSet.add(task.assigneeId);
+          if (task.createdById !== ctx.user.id) notifyIdsSet.add(task.createdById);
+          for (const uid of Array.from(notifyIdsSet)) {
+            await notifyUser({
+              userId: uid,
+              title: `Status alterado: ${STATUS_LABELS[data.status] ?? data.status}`,
+              message: `A tarefa "${task.title}" mudou de "${STATUS_LABELS[task.status] ?? task.status}" para "${STATUS_LABELS[data.status] ?? data.status}".`,
+              notificationType: "task_status_changed",
+              relatedTaskId: id,
+              relatedProjectId: task.projectId,
+            });
+          }
         }
         return { success: true };
       }),
@@ -318,6 +344,16 @@ export const appRouter = router({
         const task = await getTaskById(input.id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         await assertProjectAccess(task.projectId, ctx.user.id);
+        // Notify assignee about deletion
+        if (task.assigneeId && task.assigneeId !== ctx.user.id) {
+          await notifyUser({
+            userId: task.assigneeId,
+            title: "Tarefa excluída",
+            message: `A tarefa "${task.title}" foi excluída.`,
+            notificationType: "task_deleted",
+            relatedProjectId: task.projectId,
+          });
+        }
         await deleteTask(input.id);
         await logActivity({ userId: ctx.user.id, action: "deleted_task", entityType: "task", entityId: input.id });
         return { success: true };
@@ -332,7 +368,7 @@ export const appRouter = router({
         await assertProjectAccess(task.projectId, ctx.user.id);
         const id = await createTaskComment({ taskId: input.taskId, userId: ctx.user.id, content: input.content });
         if (task.assigneeId && task.assigneeId !== ctx.user.id) {
-          await createNotification({
+          await notifyUser({
             userId: task.assigneeId,
             title: "Novo comentário na sua tarefa",
             message: `Um comentário foi adicionado na tarefa "${task.title}".`,
@@ -424,7 +460,7 @@ export const appRouter = router({
       for (const task of dueSoon) {
         const recipientId = task.assigneeId ?? task.createdById;
         if (!recipientId) continue;
-        await createNotification({
+        await notifyUser({
           userId: recipientId,
           title: "Tarefa vence em breve",
           message: `A tarefa "${task.title}" vence em menos de 24 horas.`,
@@ -615,6 +651,30 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
       .mutation(async ({ ctx, input }) => {
         await assertProjectAccess(input.projectId, ctx.user.id);
         await removeMemberRole(input.projectId, input.userId);
+        return { success: true };
+      }),
+  }),
+  // ── Notification Preferences ──────────────────────────────────────────────
+  notificationPreferences: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return getNotificationPreferences(ctx.user.id);
+    }),
+    update: protectedProcedure
+      .input(z.object({
+        notificationType: z.string(),
+        inApp: z.boolean(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await upsertNotificationPreference(ctx.user.id, input.notificationType, input.inApp);
+        return { success: true };
+      }),
+    updateAll: protectedProcedure
+      .input(z.object({ inApp: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const { NOTIFICATION_TYPES: types } = await import("../drizzle/schema");
+        for (const t of types) {
+          await upsertNotificationPreference(ctx.user.id, t, input.inApp);
+        }
         return { success: true };
       }),
   }),

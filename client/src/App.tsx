@@ -15,6 +15,7 @@ import AIChat from "./pages/AIChat";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import Roles from "./pages/Roles";
+import NotificationPreferences from "./pages/NotificationPreferences";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/projects/:id/kanban" component={Kanban} />
       <Route path="/tasks/:id" component={TaskDetail} />
       <Route path="/notifications" component={Notifications} />
+      <Route path="/notification-preferences" component={NotificationPreferences} />
       <Route path="/chat" component={AIChat} />
       <Route path="/chat/:projectId" component={AIChat} />
       <Route path="/projects/:projectId/roles" component={Roles} />

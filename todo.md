@@ -84,3 +84,15 @@
 - [x] Testes de features: auth, procedimentos protegidos, admin, validação de input (features.test.ts)
 - [x] 14/14 testes passando
 - [x] Migração do banco aplicada com sucesso (9 tabelas)
+
+## Notificações Personalizadas v3.3
+- [x] Schema: expandir notificationType (task_status_changed, task_created, task_deleted, task_due, task_comment, task_assigned, project_invite, system)
+- [x] Schema: nova tabela notification_preferences (userId, tipo, inApp)
+- [x] Backend: migrar banco (SQL direto via webdev_execute_sql)
+- [x] Backend: helper notifyUser() que verifica preferências antes de criar notif in-app
+- [x] Backend: triggers para todas as movimentações (task_status_changed, task_created, task_deleted, task_comment, task_assigned, project_invite, task_due)
+- [x] Backend: procedures tRPC para preferências (list, update, updateAll)
+- [x] Frontend: página /notification-preferences com toggles por tipo
+- [x] Frontend: link para preferências na página de Notificações
+- [x] Frontend: ícones por tipo de notificação (UserPlus, ArrowRightLeft, AlertCircle, Clock, etc.)
+- [x] Testes: 14/14 passando após alterações

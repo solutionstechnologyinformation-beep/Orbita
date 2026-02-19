@@ -153,7 +153,20 @@ export const taskAttachments = mysqlTable("task_attachments", {
 export type TaskAttachment = typeof taskAttachments.$inferSelect;
 export type InsertTaskAttachment = typeof taskAttachments.$inferInsert;
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+// --- Notifications ---
+export const NOTIFICATION_TYPES = [
+  "task_assigned",     // tarefa atribuída ao usuário
+  "task_status_changed", // status da tarefa mudou
+  "task_created",      // nova tarefa criada no projeto
+  "task_deleted",      // tarefa excluída
+  "task_comment",      // comentário adicionado
+  "task_due",          // prazo próximo (24h)
+  "project_invite",    // convidado para projeto
+  "project_update",    // projeto atualizado
+  "system",            // mensagem do sistema
+] as const;
+export type NotificationType = typeof NOTIFICATION_TYPES[number];
+
 export const notifications = mysqlTable("notifications", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -161,9 +174,12 @@ export const notifications = mysqlTable("notifications", {
   message: text("message").notNull(),
   notificationType: mysqlEnum("notificationType", [
     "task_assigned",
+    "task_status_changed",
+    "task_created",
+    "task_deleted",
     "task_comment",
-    "project_invite",
     "task_due",
+    "project_invite",
     "project_update",
     "system",
   ]).default("system").notNull(),
@@ -172,9 +188,20 @@ export const notifications = mysqlTable("notifications", {
   relatedTaskId: int("relatedTaskId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
+
+// ─── Notification Preferences ─────────────────────────────────────────────────
+export const notificationPreferences = mysqlTable("notification_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  notificationType: varchar("notificationType", { length: 64 }).notNull(),
+  inApp: boolean("inApp").default(true).notNull(),
+  email: boolean("email").default(true).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
 
 // ─── Activity Logs ────────────────────────────────────────────────────────────
 export const activityLogs = mysqlTable("activity_logs", {

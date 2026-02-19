@@ -13,6 +13,9 @@ import {
   InsertTaskComment,
   InsertUser,
   notifications,
+  notificationPreferences,
+  NOTIFICATION_TYPES,
+  NotificationType,
   projectMembers,
   projects,
   taskAttachments,
@@ -643,5 +646,70 @@ export async function removeMemberRole(projectId: number, userId: number) {
   if (!db) return;
   await db.delete(projectMemberRoles)
     .where(and(eq(projectMemberRoles.projectId, projectId), eq(projectMemberRoles.userId, userId)));
+}
+
+// --- Notification Preferences ---
+
+/** Returns all preferences for a user, filling defaults for missing types */
+export async function getNotificationPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) return NOTIFICATION_TYPES.map((t) => ({ notificationType: t, inApp: true, email: false }));
+  const rows = await db.select().from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, userId));
+  // Merge with defaults: any type not yet in DB defaults to inApp=true
+  return NOTIFICATION_TYPES.map((t) => {
+    const existing = rows.find((r) => r.notificationType === t);
+    return existing
+      ? { notificationType: t, inApp: existing.inApp, email: false }
+      : { notificationType: t, inApp: true, email: false };
+  });
+}
+
+/** Upsert a single preference for a user */
+export async function upsertNotificationPreference(
+  userId: number,
+  notificationType: string,
+  inApp: boolean,
+) {
+  const db = await getDb();
+  if (!db) return;
+  // Try update first, then insert
+  const existing = await db.select({ id: notificationPreferences.id })
+    .from(notificationPreferences)
+    .where(and(
+      eq(notificationPreferences.userId, userId),
+      eq(notificationPreferences.notificationType, notificationType),
+    ));
+  if (existing.length > 0) {
+    await db.update(notificationPreferences)
+      .set({ inApp })
+      .where(and(
+        eq(notificationPreferences.userId, userId),
+        eq(notificationPreferences.notificationType, notificationType),
+      ));
+  } else {
+    await db.insert(notificationPreferences).values({ userId, notificationType, inApp, email: false });
+  }
+}
+
+/**
+ * Smart notification creator: checks user preferences before inserting.
+ * If inApp preference is false for this type, skip creation.
+ */
+export async function notifyUser(data: InsertNotification) {
+  const db = await getDb();
+  if (!db) return;
+  // Check preference
+  const notifType = data.notificationType as string;
+  const prefs = await db.select({ inApp: notificationPreferences.inApp })
+    .from(notificationPreferences)
+    .where(and(
+      eq(notificationPreferences.userId, data.userId),
+      eq(notificationPreferences.notificationType, notifType),
+    ));
+  // If preference row exists and inApp is false, skip
+  if (prefs.length > 0 && !prefs[0].inApp) return;
+  // Otherwise create (default = enabled)
+  await db.insert(notifications).values(data);
 }
 

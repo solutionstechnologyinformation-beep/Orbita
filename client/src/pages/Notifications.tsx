@@ -1,24 +1,37 @@
 import AppLayout from "@/components/AppLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Bell, CheckCheck, Trash2, FolderKanban, ListTodo, MessageSquare, Info } from "lucide-react";
+import {
+  Bell, CheckCheck, Trash2, FolderKanban, ListTodo, MessageSquare,
+  Info, Settings2, ArrowRightLeft, AlertCircle, Clock, UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
 const TYPE_ICONS: Record<string, any> = {
-  task_assigned: ListTodo,
+  task_assigned: UserPlus,
+  task_status_changed: ArrowRightLeft,
+  task_created: ListTodo,
+  task_deleted: AlertCircle,
   task_comment: MessageSquare,
+  task_due: Clock,
+  project_invite: FolderKanban,
   project_update: FolderKanban,
   system: Info,
 };
+
 const TYPE_COLORS: Record<string, string> = {
-  task_assigned: "text-blue-400 bg-blue-500/10",
-  task_comment: "text-violet-400 bg-violet-500/10",
-  project_update: "text-emerald-400 bg-emerald-500/10",
-  system: "text-amber-400 bg-amber-500/10",
+  task_assigned: "text-blue-500 bg-blue-500/10",
+  task_status_changed: "text-indigo-500 bg-indigo-500/10",
+  task_created: "text-violet-500 bg-violet-500/10",
+  task_deleted: "text-red-500 bg-red-500/10",
+  task_comment: "text-amber-500 bg-amber-500/10",
+  task_due: "text-orange-500 bg-orange-500/10",
+  project_invite: "text-emerald-500 bg-emerald-500/10",
+  project_update: "text-teal-500 bg-teal-500/10",
+  system: "text-gray-500 bg-gray-500/10",
 };
 
 export default function Notifications() {
@@ -48,7 +61,7 @@ export default function Notifications() {
     <AppLayout title="Notificações">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2 className="text-2xl font-bold">Notificações</h2>
             {unread.length > 0 && (
@@ -57,18 +70,26 @@ export default function Notifications() {
               </p>
             )}
           </div>
-          {unread.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-border"
-              onClick={() => markAllReadMutation.mutate()}
-              disabled={markAllReadMutation.isPending}
-            >
-              <CheckCheck className="w-4 h-4" />
-              Marcar todas como lidas
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {unread.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-border"
+                onClick={() => markAllReadMutation.mutate()}
+                disabled={markAllReadMutation.isPending}
+              >
+                <CheckCheck className="w-4 h-4" />
+                Marcar todas como lidas
+              </Button>
+            )}
+            <Link href="/notification-preferences">
+              <Button variant="outline" size="sm" className="gap-2 border-border">
+                <Settings2 className="w-4 h-4" />
+                Preferências
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* List */}
@@ -83,6 +104,12 @@ export default function Notifications() {
             <Bell className="w-16 h-16 text-muted-foreground/20 mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhuma notificação</h3>
             <p className="text-muted-foreground">Você está em dia com tudo!</p>
+            <Link href="/notification-preferences" className="mt-4">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings2 className="w-4 h-4" />
+                Configurar preferências
+              </Button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-2">
@@ -93,7 +120,7 @@ export default function Notifications() {
                 <div
                   key={n.id}
                   className={cn(
-                    "flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 group",
+                    "flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 group cursor-pointer",
                     n.isRead
                       ? "bg-card border-border"
                       : "bg-card border-primary/30 shadow-sm shadow-primary/5"
