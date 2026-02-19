@@ -44,6 +44,14 @@ import {
   updateProject,
   updateTask,
   updateUserRole,
+  getProjectRoles,
+  createProjectRole,
+  updateProjectRole,
+  deleteProjectRole,
+  getMemberRoles,
+  assignMemberRole,
+  removeMemberRole,
+  getTasksAssignedToUser,
 } from "./db";
 
 // ─── Admin Guard ──────────────────────────────────────────────────────────────
@@ -220,7 +228,7 @@ export const appRouter = router({
         projectId: z.number(),
         title: z.string().min(1).max(512),
         description: z.string().optional(),
-        status: z.enum(["todo", "in_progress", "done"]).default("todo"),
+        status: z.enum(["pending", "in_progress", "shared", "published", "archived"]).default("pending"),
         priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
         assigneeId: z.number().optional(),
         dueDate: z.date().optional(),
@@ -247,7 +255,7 @@ export const appRouter = router({
         id: z.number(),
         title: z.string().min(1).max(512).optional(),
         description: z.string().optional(),
-        status: z.enum(["todo", "in_progress", "done"]).optional(),
+        status: z.enum(["pending", "in_progress", "shared", "published", "archived"]).optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
         assigneeId: z.number().nullable().optional(),
         dueDate: z.date().nullable().optional(),
@@ -282,12 +290,12 @@ export const appRouter = router({
             relatedProjectId: task.projectId,
           });
         }
-        // Notify creator when task is completed by someone else
-        if (data.status === "done" && task.status !== "done" && task.createdById !== ctx.user.id) {
+        // Notify creator when task is published/archived by someone else
+        if ((data.status === "published" || data.status === "archived") && task.status !== data.status && task.createdById !== ctx.user.id) {
           await createNotification({
             userId: task.createdById,
-            title: "Tarefa concluída!",
-            message: `A tarefa "${task.title}" foi marcada como concluída.`,
+            title: data.status === "published" ? "Tarefa publicada!" : "Tarefa arquivada!",
+            message: `A tarefa "${task.title}" foi ${data.status === "published" ? "publicada" : "arquivada"}.`,
             notificationType: "task_assigned",
             relatedTaskId: id,
             relatedProjectId: task.projectId,
@@ -451,7 +459,7 @@ Responda sempre em português brasileiro de forma clara e profissional.`;
           if (project) {
             systemContext += `\n\nContexto do Projeto: "${project.name}"
 Total de tarefas: ${counts.total}
-A fazer: ${counts.todo} | Em progresso: ${counts.in_progress} | Concluídas: ${counts.done}
+Para Iniciar: ${counts.pending} | Em Andamento: ${counts.in_progress} | Compartilhado: ${counts.shared} | Publicado: ${counts.published} | Arquivado: ${counts.archived}
 Tarefas recentes: ${taskList.slice(0, 10).map(t => `"${t.title}" (${t.status}, prioridade: ${t.priority})`).join(", ")}`;
           }
         }
@@ -480,11 +488,11 @@ Tarefas recentes: ${taskList.slice(0, 10).map(t => `"${t.title}" (${t.status}, p
         const members = await getProjectMembers(input.projectId);
 
         const prompt = `Gere um relatório executivo detalhado do projeto "${project.name}":
-- Total de tarefas: ${counts.total} (${counts.done} concluídas, ${counts.in_progress} em progresso, ${counts.todo} a fazer)
+- Total de tarefas: ${counts.total} (${counts.published + counts.archived} concluídas, ${counts.in_progress} em andamento, ${counts.shared} aguardando aprovação, ${counts.pending} para iniciar)
 - Membros da equipe: ${members.length}
-- Taxa de conclusão: ${counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0}%
-- Tarefas urgentes: ${tasks.filter(t => t.priority === "urgent" && t.status !== "done").length}
-- Tarefas com alta prioridade: ${tasks.filter(t => t.priority === "high" && t.status !== "done").length}
+- Taxa de conclusão: ${counts.total > 0 ? Math.round(((counts.published + counts.archived) / counts.total) * 100) : 0}%
+- Tarefas urgentes: ${tasks.filter(t => t.priority === "urgent" && t.status !== "published" && t.status !== "archived").length}
+- Tarefas com alta prioridade: ${tasks.filter(t => t.priority === "high" && t.status !== "published" && t.status !== "archived").length}
 
 Inclua: resumo executivo, análise de progresso, riscos identificados, recomendações e próximos passos.`;
 
@@ -532,12 +540,75 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
         ).slice(0, 10);
       }),
   }),
+
+  roles: router({
+    list: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        return getProjectRoles(input.projectId);
+      }),
+    memberRoles: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        return getMemberRoles(input.projectId);
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        name: z.string().min(1).max(128),
+        isLeader: z.boolean().default(false),
+        canApprove: z.boolean().default(false),
+        color: z.string().default("#6366f1"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        await createProjectRole({
+          projectId: input.projectId,
+          name: input.name,
+          isLeader: input.isLeader,
+          canApprove: input.canApprove,
+          color: input.color,
+        });
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        projectId: z.number(),
+        name: z.string().min(1).max(128).optional(),
+        isLeader: z.boolean().optional(),
+        canApprove: z.boolean().optional(),
+        color: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        const { id, projectId: _pid, ...data } = input;
+        await updateProjectRole(id, data);
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number(), projectId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        await deleteProjectRole(input.id);
+        return { success: true };
+      }),
+    assign: protectedProcedure
+      .input(z.object({ projectId: z.number(), userId: z.number(), roleId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        await assignMemberRole(input.projectId, input.userId, input.roleId);
+        return { success: true };
+      }),
+    unassign: protectedProcedure
+      .input(z.object({ projectId: z.number(), userId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        await removeMemberRole(input.projectId, input.userId);
+        return { success: true };
+      }),
+  }),
 });
-
-// Helper imported from db
-async function getTasksAssignedToUser(userId: number) {
-  const { getTasksAssignedToUser: fn } = await import("./db");
-  return fn(userId);
-}
-
 export type AppRouter = typeof appRouter;

@@ -1,0 +1,8 @@
+{
+  "query": "\n-- Step 1: Change status column to TEXT to allow any value temporarily\nALTER TABLE `tasks` MODIFY COLUMN `status` TEXT NOT NULL DEFAULT 'pending';\n\n-- Step 2: Update old status values to new ones\nUPDATE tasks SET status = 'pending' WHERE status = 'todo';\nUPDATE tasks SET status = 'published' WHERE status = 'done';\n\n-- Step 3: Verify no old values remain\nSELECT DISTINCT status FROM tasks;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute \n-- Step 1: Change status column to TEXT to allow any value temporarily\nALTER TABLE `tasks` MODIFY COLUMN `status` TEXT NOT NULL DEFAULT 'pending';\n\n-- Step 2: Update old status values to new ones\nUPDATE tasks SET status = 'pending' WHERE status = 'todo';\nUPDATE tasks SET status = 'published' WHERE status = 'done';\n\n-- Step 3: Verify no old values remain\nSELECT DISTINCT status FROM tasks;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1101 (42000) at line 3: BLOB/TEXT/JSON column 'status' can't have a default value"
+  ]
+}

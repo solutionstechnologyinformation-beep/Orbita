@@ -54,6 +54,21 @@
 - [x] Dashboard: gráfico de distribuição de tarefas por status (Recharts)
 - [x] Detalhe da tarefa: painel de métricas (abertura, conclusão, última alteração, nº revisões)
 
+## Funcionalidades v3.0 — Fluxo de Trabalho Avançado
+- [x] Schema: novos status (pending, in_progress, shared, published, archived), tabela project_roles, campo teamId na tarefa
+- [x] Backend: regras de transição de status com validação de papel (Líder aprova shared→published/archived)
+- [x] Backend: lógica de revisão (shared→in_progress = +1 revisão)
+- [x] Kanban: 5 colunas com legendas descritivas e regras de movimentação
+- [x] Kanban: restrição de aprovação: somente Líder pode mover de Compartilhado para Publicado/Arquivado
+- [x] Página de Funções: gerenciamento de papéis personalizáveis por projeto
+- [x] Tarefa: seletor de equipe e pessoa responsável
+
+## Limpeza v3.1
+- [x] Remover função wrapper duplicada getTasksAssignedToUser em routers.ts
+- [x] Remover query allUsers não utilizada em ProjectDetail.tsx
+- [x] Zero erros TypeScript após limpeza
+- [x] 14/14 testes passando após todas as alterações
+
 ## Testes
 - [x] Teste de logout (auth.logout.test.ts)
 - [x] Testes de features: auth, procedimentos protegidos, admin, validação de input (features.test.ts)

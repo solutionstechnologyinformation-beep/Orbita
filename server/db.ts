@@ -19,6 +19,9 @@ import {
   taskComments,
   tasks,
   users,
+  projectRoles,
+  projectMemberRoles,
+  InsertProjectRole,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -180,8 +183,8 @@ export async function createTask(data: InsertTask) {
   const safePosition = data.position ? data.position % 2000000000 : Date.now() % 2000000000;
   const now = new Date();
   const [result] = await db.execute(
-    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, createdById, dueDate, position, revisionsCount, openedAt, statusChangedAt)
-        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'todo'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${now}, ${now})`
+    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, teamId, createdById, dueDate, position, revisionsCount, openedAt, statusChangedAt)
+        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'pending'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.teamId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${now}, ${now})`
   );
   return (result as any).insertId as number;
 }
@@ -206,6 +209,9 @@ export async function getTasksByProject(
     status: tasks.status,
     priority: tasks.priority,
     assigneeId: tasks.assigneeId,
+    teamId: tasks.teamId,
+    approvedById: tasks.approvedById,
+    approvedAt: tasks.approvedAt,
     createdById: tasks.createdById,
     dueDate: tasks.dueDate,
     position: tasks.position,
@@ -235,17 +241,19 @@ export async function getTaskById(id: number) {
     status: tasks.status,
     priority: tasks.priority,
     assigneeId: tasks.assigneeId,
-    assigneeName: users.name,
-    assigneeAvatarUrl: users.avatarUrl,
+    teamId: tasks.teamId,
+    approvedById: tasks.approvedById,
+    approvedAt: tasks.approvedAt,
+    createdById: tasks.createdById,
     dueDate: tasks.dueDate,
     position: tasks.position,
     revisionsCount: tasks.revisionsCount,
     openedAt: tasks.openedAt,
     completedAt: tasks.completedAt,
     statusChangedAt: tasks.statusChangedAt,
-    createdById: tasks.createdById,
     createdAt: tasks.createdAt,
     updatedAt: tasks.updatedAt,
+    assigneeName: users.name,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(eq(tasks.id, id)).limit(1);
@@ -264,10 +272,10 @@ export async function updateTask(
   // Track status change timestamps
   if (options?.newStatus && options.newStatus !== options.previousStatus) {
     updateData.statusChangedAt = now;
-    if (options.newStatus === 'done') {
+    if (options?.newStatus === 'published' || options?.newStatus === 'archived') {
       updateData.completedAt = now;
-    } else if (options.previousStatus === 'done') {
-      // Re-opened: clear completedAt
+    } else if ((options?.previousStatus === 'published' || options?.previousStatus === 'archived') && options?.newStatus === 'in_progress') {
+      // Returned from published/archived to in_progress: clear completedAt
       updateData.completedAt = null;
     }
   }
@@ -276,8 +284,8 @@ export async function updateTask(
     await db.execute(
       sql`UPDATE tasks SET revisionsCount = revisionsCount + 1, updatedAt = ${now}
           ${options?.newStatus && options.newStatus !== options.previousStatus ? sql`, statusChangedAt = ${now}` : sql``}
-          ${options?.newStatus === 'done' ? sql`, completedAt = ${now}` : sql``}
-          ${options?.previousStatus === 'done' && options?.newStatus !== 'done' ? sql`, completedAt = NULL` : sql``}
+          ${(options?.newStatus === 'published' || options?.newStatus === 'archived') ? sql`, completedAt = ${now}` : sql``}
+          ${((options?.previousStatus === 'published' || options?.previousStatus === 'archived') && options?.newStatus === 'in_progress') ? sql`, completedAt = NULL` : sql``}
           WHERE id = ${id}`
     );
     // Then apply the rest of the data fields (excluding status-related already handled)
@@ -307,12 +315,13 @@ export async function getTasksAssignedToUser(userId: number) {
 
 export async function getTaskCountsByProject(projectId: number) {
   const db = await getDb();
-  if (!db) return { todo: 0, in_progress: 0, done: 0, total: 0 };
+  if (!db) return { pending: 0, in_progress: 0, shared: 0, published: 0, archived: 0, total: 0 };
   const rows = await db.select({ status: tasks.status, count: sql<number>`count(*)` })
     .from(tasks).where(eq(tasks.projectId, projectId)).groupBy(tasks.status);
-  const counts = { todo: 0, in_progress: 0, done: 0, total: 0 };
+  const counts = { pending: 0, in_progress: 0, shared: 0, published: 0, archived: 0, total: 0 };
   for (const r of rows) {
-    counts[r.status as keyof typeof counts] = Number(r.count);
+    const key = r.status as keyof typeof counts;
+    if (key in counts) counts[key] = Number(r.count);
     counts.total += Number(r.count);
   }
   return counts;
@@ -502,7 +511,7 @@ export async function getDashboardStats(userId: number) {
 
   let completedTasks = 0, pendingTasks = 0;
   for (const r of taskCounts) {
-    if (r.status === "done") completedTasks = Number(r.count);
+    if (r.status === "published" || r.status === "archived") completedTasks += Number(r.count);
     else pendingTasks += Number(r.count);
   }
 
@@ -539,8 +548,67 @@ export async function getTasksDueSoon(windowHours = 24) {
         sql`${tasks.dueDate} IS NOT NULL`,
         sql`${tasks.dueDate} > ${now}`,
         sql`${tasks.dueDate} <= ${cutoff}`,
-        sql`${tasks.status} != 'done'`
+        sql`${tasks.status} NOT IN ('published', 'archived')`
       )
     );
   return rows;
 }
+
+// ── Project Roles ─────────────────────────────────────────────────────────────
+export async function getProjectRoles(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(projectRoles).where(eq(projectRoles.projectId, projectId)).orderBy(projectRoles.name);
+}
+
+export async function createProjectRole(data: InsertProjectRole) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(projectRoles).values(data);
+}
+
+export async function updateProjectRole(id: number, data: Partial<InsertProjectRole>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(projectRoles).set(data).where(eq(projectRoles.id, id));
+}
+
+export async function deleteProjectRole(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(projectRoles).where(eq(projectRoles.id, id));
+}
+
+export async function getMemberRoles(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select({
+    userId: projectMemberRoles.userId,
+    roleId: projectMemberRoles.roleId,
+    roleName: projectRoles.name,
+    isLeader: projectRoles.isLeader,
+    canApprove: projectRoles.canApprove,
+    color: projectRoles.color,
+  })
+    .from(projectMemberRoles)
+    .leftJoin(projectRoles, eq(projectMemberRoles.roleId, projectRoles.id))
+    .where(eq(projectMemberRoles.projectId, projectId));
+  return rows;
+}
+
+export async function assignMemberRole(projectId: number, userId: number, roleId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Upsert: delete existing then insert
+  await db.delete(projectMemberRoles)
+    .where(and(eq(projectMemberRoles.projectId, projectId), eq(projectMemberRoles.userId, userId)));
+  await db.insert(projectMemberRoles).values({ projectId, userId, roleId });
+}
+
+export async function removeMemberRole(projectId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(projectMemberRoles)
+    .where(and(eq(projectMemberRoles.projectId, projectId), eq(projectMemberRoles.userId, userId)));
+}
+

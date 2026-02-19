@@ -52,15 +52,62 @@ export const projectMembers = mysqlTable("project_members", {
 export type ProjectMember = typeof projectMembers.$inferSelect;
 export type InsertProjectMember = typeof projectMembers.$inferInsert;
 
+// ─── Project Roles (custom roles per project) ────────────────────────────────
+export const projectRoles = mysqlTable("project_roles", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),       // e.g. "Líder", "Designer", "Dev"
+  isLeader: boolean("isLeader").default(false).notNull(), // can approve shared→published
+  canApprove: boolean("canApprove").default(false).notNull(),
+  color: varchar("color", { length: 32 }).default("#6366f1"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProjectRole = typeof projectRoles.$inferSelect;
+export type InsertProjectRole = typeof projectRoles.$inferInsert;
+
+// ─── Project Member Roles (assigns a custom role to a member) ─────────────────
+export const projectMemberRoles = mysqlTable("project_member_roles", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  userId: int("userId").notNull(),
+  roleId: int("roleId").notNull(),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+});
+
+export type ProjectMemberRole = typeof projectMemberRoles.$inferSelect;
+export type InsertProjectMemberRole = typeof projectMemberRoles.$inferInsert;
+
+// ─── Teams ────────────────────────────────────────────────────────────────────
+export const teams = mysqlTable("teams", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  color: varchar("color", { length: 32 }).default("#6366f1"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = typeof teams.$inferInsert;
+
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("projectId").notNull(),
   title: varchar("title", { length: 512 }).notNull(),
   description: text("description"),
-  status: mysqlEnum("status", ["todo", "in_progress", "done"]).default("todo").notNull(),
+  // 5-phase workflow:
+  // pending     = Para Iniciar (sem responsável, sem iniciar)
+  // in_progress = Em Andamento (com responsável, iniciada)
+  // shared      = Compartilhado (finalizada, aguardando aprovação do Líder)
+  // published   = Publicado (aprovada pelo Líder)
+  // archived    = Arquivado (aprovada e finalizada)
+  status: mysqlEnum("status", ["pending", "in_progress", "shared", "published", "archived"]).default("pending").notNull(),
   priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium").notNull(),
   assigneeId: int("assigneeId"),
+  teamId: int("teamId"),                                  // equipe responsável
+  approvedById: int("approvedById"),                      // Líder que aprovou
+  approvedAt: timestamp("approvedAt"),                    // quando foi aprovada
   createdById: int("createdById").notNull(),
   dueDate: timestamp("dueDate"),
   position: int("position").default(0).notNull(),

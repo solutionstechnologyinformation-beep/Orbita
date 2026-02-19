@@ -118,7 +118,7 @@ export default function Projects() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {projects.map((project) => {
               const rate = project.taskCounts.total > 0
-                ? Math.round((project.taskCounts.done / project.taskCounts.total) * 100)
+                ? Math.round(((project.taskCounts.published + project.taskCounts.archived) / project.taskCounts.total) * 100)
                 : 0;
               const statusInfo = STATUS_MAP[project.status];
               return (
@@ -189,7 +189,7 @@ export default function Projects() {
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
                       <div className="flex items-center gap-1">
                         <ListTodo className="w-3.5 h-3.5" />
-                        {project.taskCounts.todo}
+                        {project.taskCounts.pending}
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-blue-400" />
@@ -197,7 +197,7 @@ export default function Projects() {
                       </div>
                       <div className="flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        {project.taskCounts.done}
+                        {(project.taskCounts.published ?? 0) + (project.taskCounts.archived ?? 0)}
                       </div>
                     </div>
 

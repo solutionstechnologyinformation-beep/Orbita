@@ -88,7 +88,7 @@ export default function Profile() {
             <CardContent className="space-y-2">
               {projects.slice(0, 5).map((p) => {
                 const rate = p.taskCounts.total > 0
-                  ? Math.round((p.taskCounts.done / p.taskCounts.total) * 100)
+                  ? Math.round(((p.taskCounts.published + p.taskCounts.archived) / p.taskCounts.total) * 100)
                   : 0;
                 return (
                   <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">

@@ -6,7 +6,7 @@ import { useState, useRef } from "react";
 import {
   MessageSquare, Paperclip, Flag, Calendar, User2,
   Send, Upload, Trash2, Download, FileText, Image,
-  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp,
+  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,11 @@ const PRIORITY_LABELS: Record<string, string> = {
   low: "Baixa", medium: "Média", high: "Alta", urgent: "Urgente",
 };
 const STATUS_LABELS: Record<string, string> = {
-  todo: "A Fazer", in_progress: "Em Progresso", done: "Concluído",
+  pending: "Para Iniciar",
+  in_progress: "Em Andamento",
+  shared: "Compartilhado",
+  published: "Publicado",
+  archived: "Arquivado",
 };
 
 function FileIcon({ mimeType }: { mimeType?: string | null }) {
@@ -139,7 +143,7 @@ export default function TaskDetail() {
         {/* Task Header */}
         <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <h2 className={`text-xl font-bold mb-4 ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+            <h2 className={`text-xl font-bold mb-4 ${task.status === "archived" ? "line-through text-muted-foreground" : ""}`}>
               {task.title}
             </h2>
 
@@ -161,9 +165,11 @@ export default function TaskDetail() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="todo">A Fazer</SelectItem>
-                      <SelectItem value="in_progress">Em Progresso</SelectItem>
-                      <SelectItem value="done">Concluído</SelectItem>
+                      <SelectItem value="pending">Para Iniciar</SelectItem>
+                      <SelectItem value="in_progress">Em Andamento</SelectItem>
+                      <SelectItem value="shared">Compartilhado</SelectItem>
+                      <SelectItem value="published">Publicado</SelectItem>
+                      <SelectItem value="archived">Arquivado</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
@@ -171,9 +177,10 @@ export default function TaskDetail() {
                     onClick={() => setEditingStatus(true)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border status-${task.status} hover:opacity-80 transition-opacity`}
                   >
-                    {task.status === "done" && <CheckCircle2 className="w-3 h-3" />}
+                    {(task.status === "published" || task.status === "archived") && <CheckCircle2 className="w-3 h-3" />}
                     {task.status === "in_progress" && <Clock className="w-3 h-3" />}
-                    {task.status === "todo" && <ListTodo className="w-3 h-3" />}
+                    {task.status === "shared" && <Share2 className="w-3 h-3" />}
+                    {task.status === "pending" && <ListTodo className="w-3 h-3" />}
                     {STATUS_LABELS[task.status]}
                   </button>
                 )}
@@ -212,7 +219,7 @@ export default function TaskDetail() {
               <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Vencimento</p>
                 {task.dueDate ? (
-                  <Badge className={`text-xs px-2.5 py-1 border ${new Date(task.dueDate) < new Date() && task.status !== "done" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-secondary text-foreground border-border"}`}>
+                  <Badge className={`text-xs px-2.5 py-1 border ${new Date(task.dueDate) < new Date() && task.status !== "published" && task.status !== "archived" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-secondary text-foreground border-border"}`}>
                     <Calendar className="w-3 h-3 mr-1" />
                     {new Date(task.dueDate).toLocaleDateString("pt-BR")}
                   </Badge>

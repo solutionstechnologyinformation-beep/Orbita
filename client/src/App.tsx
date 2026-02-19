@@ -14,6 +14,7 @@ import Notifications from "./pages/Notifications";
 import AIChat from "./pages/AIChat";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
+import Roles from "./pages/Roles";
 
 function Router() {
   return (
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/notifications" component={Notifications} />
       <Route path="/chat" component={AIChat} />
       <Route path="/chat/:projectId" component={AIChat} />
+      <Route path="/projects/:projectId/roles" component={Roles} />
       <Route path="/admin" component={Admin} />
       <Route path="/profile" component={Profile} />
       <Route path="/404" component={NotFound} />
@@ -38,7 +40,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster richColors position="top-right" />
           <Router />

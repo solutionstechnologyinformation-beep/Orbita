@@ -36,8 +36,6 @@ export default function ProjectDetail() {
   const utils = trpc.useUtils();
 
   const { data: project, isLoading } = trpc.projects.get.useQuery({ id: projectId });
-  const { data: allUsers } = trpc.users.search.useQuery({ query: "" }, { enabled: false });
-
   const [showInvite, setShowInvite] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -92,7 +90,7 @@ export default function ProjectDetail() {
     <AppLayout title={project.name} backHref="/projects">
       <div className="space-y-6">
         {/* Project Header */}
-        <div className="glass rounded-2xl p-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-start gap-4">
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -111,9 +109,9 @@ export default function ProjectDetail() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mt-6">
             {[
-              { label: "A Fazer", value: project.taskCounts.todo, color: "text-slate-400" },
-              { label: "Em Progresso", value: project.taskCounts.in_progress, color: "text-blue-400" },
-              { label: "Concluídas", value: project.taskCounts.done, color: "text-emerald-400" },
+              { label: "Para Iniciar", value: project.taskCounts.pending, color: "text-slate-400" },
+              { label: "Em Andamento", value: project.taskCounts.in_progress, color: "text-blue-400" },
+              { label: "Publicadas", value: (project.taskCounts.published ?? 0) + (project.taskCounts.archived ?? 0), color: "text-emerald-400" },
             ].map(({ label, value, color }) => (
               <div key={label} className="text-center p-3 rounded-xl bg-secondary/50">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -134,6 +132,12 @@ export default function ProjectDetail() {
               <Button variant="outline" className="gap-2 border-border">
                 <Bot className="w-4 h-4" />
                 Chat IA
+              </Button>
+            </Link>
+            <Link href={`/projects/${projectId}/roles`}>
+              <Button variant="outline" className="gap-2 border-border">
+                <Shield className="w-4 h-4" />
+                Funções
               </Button>
             </Link>
           </div>
