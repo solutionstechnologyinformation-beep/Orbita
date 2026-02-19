@@ -1,10 +1,11 @@
+import AppLayout from "@/components/AppLayout";
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar, User, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, User, AlertTriangle, LayoutGrid, Rows } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#94a3b8",
@@ -22,305 +23,441 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Arquivado",
   blocked: "Bloqueado",
 };
-const PRIORITY_COLORS: Record<string, string> = {
-  low: "#10b981",
-  medium: "#f59e0b",
-  high: "#ef4444",
-  critical: "#7c3aed",
-};
+
+const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+type ViewMode = "calendar" | "swimlane";
 
 export default function Scheduling() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayRef = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [viewDate, setViewDate] = useState(() => new Date());
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const projectsQ = trpc.projects.list.useQuery();
   const schedulingQ = trpc.scheduling.tasks.useQuery({ projectId });
 
   const tasks = schedulingQ.data ?? [];
 
-  // Compute week start (Monday)
+  // ── Calendar mode helpers ──────────────────────────────────────────────────
+  const { calendarDays, year, month } = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const days: { date: Date; isCurrentMonth: boolean }[] = [];
+    for (let i = firstDay - 1; i >= 0; i--) {
+      days.push({ date: new Date(year, month - 1, daysInPrevMonth - i), isCurrentMonth: false });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push({ date: new Date(year, month, d), isCurrentMonth: true });
+    }
+    const remaining = 42 - days.length;
+    for (let d = 1; d <= remaining; d++) {
+      days.push({ date: new Date(year, month + 1, d), isCurrentMonth: false });
+    }
+    return { calendarDays: days, year, month };
+  }, [viewDate]);
+
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, typeof tasks>();
+    tasks.forEach((t: any) => {
+      const addToDate = (d: Date) => {
+        const key = d.toDateString();
+        if (!map.has(key)) map.set(key, []);
+        if (!map.get(key)!.find((x: any) => x.id === t.id)) map.get(key)!.push(t);
+      };
+      if (t.startDate && t.endDate) {
+        const start = new Date(t.startDate);
+        const end = new Date(t.endDate);
+        const cur = new Date(start);
+        while (cur <= end) { addToDate(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+      } else if (t.dueDate) {
+        addToDate(new Date(t.dueDate));
+      } else if (t.startDate) {
+        addToDate(new Date(t.startDate));
+      }
+    });
+    return map;
+  }, [tasks]);
+
+  // ── Swimlane mode helpers ──────────────────────────────────────────────────
   const weekStart = useMemo(() => {
-    const d = new Date(today);
+    const d = new Date(todayRef);
     const day = d.getDay();
     const diff = day === 0 ? -6 : 1 - day;
     d.setDate(d.getDate() + diff + weekOffset * 7);
     return d;
-  }, [weekOffset]);
+  }, [weekOffset, todayRef]);
 
   const weekDays = useMemo(() => {
-    return Array.from({ length: viewMode === "week" ? 7 : 30 }, (_, i) => {
+    return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       return d;
     });
-  }, [weekStart, viewMode]);
+  }, [weekStart]);
 
-  function getTasksForDay(date: Date) {
-    return tasks.filter(t => {
-      const start = t.startDate ? new Date(t.startDate) : null;
-      const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
-      if (!start && !end) return false;
-      const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
-      if (start && end) {
-        return start <= dayEnd && end >= dayStart;
-      }
-      if (end) {
-        return end >= dayStart && end <= dayEnd;
-      }
-      return false;
-    });
-  }
-
-  // Group tasks by assignee for weekly view
   const assignees = useMemo(() => {
     const map = new Map<number | null, { name: string | null; tasks: typeof tasks }>();
-    tasks.forEach(t => {
+    tasks.forEach((t: any) => {
       const key = t.assigneeId ?? null;
-      if (!map.has(key)) {
-        map.set(key, { name: t.assigneeName ?? "Sem responsável", tasks: [] });
-      }
+      if (!map.has(key)) map.set(key, { name: t.assigneeName ?? "Sem responsável", tasks: [] });
       map.get(key)!.tasks.push(t);
     });
     return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
   }, [tasks]);
 
-  // Stats
-  const overdueTasks = tasks.filter(t => {
+  function getTasksForDayAndAssignee(date: Date, assigneeId: number | null) {
+    return tasks.filter((t: any) => {
+      if ((t.assigneeId ?? null) !== assigneeId) return false;
+      const start = t.startDate ? new Date(t.startDate) : null;
+      const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+      if (!start && !end) return false;
+      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+      if (start && end) return start <= dayEnd && end >= dayStart;
+      if (end) return end >= dayStart && end <= dayEnd;
+      return false;
+    });
+  }
+
+  const overdueTasks = tasks.filter((t: any) => {
     const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
-    return end && end < today && t.status !== "published" && t.status !== "archived";
+    return end && end < todayRef && t.status !== "published" && t.status !== "archived";
   });
 
-  const thisWeekTasks = tasks.filter(t => {
-    const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
-    if (!end) return false;
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    return end >= weekStart && end <= weekEnd;
-  });
+  const selectedDayTasks = selectedDay ? (tasksByDate.get(selectedDay.toDateString()) ?? []) : [];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Programação</h1>
-          <p className="text-gray-500 text-sm mt-1">Visualize a carga de trabalho da equipe por período</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select
-            value={projectId?.toString() ?? "all"}
-            onValueChange={v => setProjectId(v === "all" ? undefined : Number(v))}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Todos os projetos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os projetos</SelectItem>
-              {(projectsQ.data ?? []).map(p => (
-                <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex rounded-lg border overflow-hidden">
-            <button
-              className={`px-3 py-1.5 text-sm ${viewMode === "week" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-              onClick={() => setViewMode("week")}
-            >
-              Semana
-            </button>
-            <button
-              className={`px-3 py-1.5 text-sm ${viewMode === "month" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-              onClick={() => setViewMode("month")}
-            >
-              Mês
-            </button>
+    <AppLayout title="Programação">
+      <div className="p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Programação</h1>
+            <p className="text-gray-500 text-sm mt-1">Visualize tarefas por data e responsável</p>
           </div>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-            <p className="text-xs text-gray-500">Total de Tarefas</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-blue-600">{thisWeekTasks.length}</p>
-            <p className="text-xs text-gray-500">Entregas esta semana</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-red-600">{overdueTasks.length}</p>
-            <p className="text-xs text-gray-500">Em atraso</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-green-600">
-              {tasks.filter(t => t.status === "published").length}
-            </p>
-            <p className="text-xs text-gray-500">Publicadas</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Overdue alert */}
-      {overdueTasks.length > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <h3 className="text-sm font-semibold text-red-700">{overdueTasks.length} tarefa(s) em atraso</h3>
-            </div>
-            <div className="space-y-1">
-              {overdueTasks.slice(0, 5).map(t => (
-                <div key={t.id} className="flex items-center gap-2 text-sm text-red-600">
-                  <span className="truncate">{t.title}</span>
-                  <span className="text-xs text-red-400 flex-shrink-0">
-                    — {t.assigneeName ?? "Sem responsável"}
-                  </span>
-                </div>
-              ))}
-              {overdueTasks.length > 5 && (
-                <p className="text-xs text-red-400">+{overdueTasks.length - 5} mais...</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Timeline navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setWeekOffset(w => w - 1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>
-            Hoje
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekOffset(w => w + 1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <p className="text-sm font-medium text-gray-700">
-          {weekDays[0].toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} –{" "}
-          {weekDays[weekDays.length - 1].toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
-        </p>
-      </div>
-
-      {/* Schedule grid */}
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          {schedulingQ.isLoading ? (
-            <div className="text-center py-12 text-gray-400">Carregando...</div>
-          ) : tasks.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>Nenhuma tarefa com datas definidas.</p>
-            </div>
-          ) : (
-            <table className="w-full text-sm" style={{ minWidth: viewMode === "week" ? 700 : 1200 }}>
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3 w-40 font-medium text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" /> Responsável
-                    </div>
-                  </th>
-                  {weekDays.map(d => {
-                    const isToday = d.toDateString() === today.toDateString();
-                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                    return (
-                      <th
-                        key={d.toISOString()}
-                        className={`text-center p-2 font-medium text-xs ${
-                          isToday ? "bg-indigo-50 text-indigo-700" :
-                          isWeekend ? "text-gray-400 bg-gray-50" : "text-gray-600"
-                        }`}
-                      >
-                        <div>{["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][d.getDay()]}</div>
-                        <div className={`text-base font-bold ${isToday ? "text-indigo-700" : ""}`}>
-                          {d.getDate()}
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {assignees.map(assignee => (
-                  <tr key={assignee.id ?? "none"} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium text-gray-700 align-top">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                          {(assignee.name ?? "?").charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-sm truncate max-w-24">{assignee.name ?? "Sem responsável"}</span>
-                      </div>
-                    </td>
-                    {weekDays.map(d => {
-                      const dayTasks = getTasksForDay(d).filter(t => t.assigneeId === assignee.id);
-                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                      return (
-                        <td
-                          key={d.toISOString()}
-                          className={`p-1 align-top ${isWeekend ? "bg-gray-50" : ""}`}
-                          style={{ minWidth: viewMode === "week" ? 80 : 40 }}
-                        >
-                          <div className="space-y-0.5">
-                            {dayTasks.map(t => {
-                              const isOverdue = (() => {
-                                const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
-                                return end && end < today && t.status !== "published" && t.status !== "archived";
-                              })();
-                              return (
-                                <div
-                                  key={t.id}
-                                  className="text-xs px-1.5 py-0.5 rounded text-white truncate"
-                                  style={{
-                                    backgroundColor: isOverdue ? "#ef4444" : STATUS_COLORS[t.status] ?? "#6366f1",
-                                  }}
-                                  title={`${t.title} — ${STATUS_LABELS[t.status] ?? t.status}${isOverdue ? " (ATRASADO)" : ""}`}
-                                >
-                                  {viewMode === "week" ? t.title : "●"}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              value={projectId?.toString() ?? "all"}
+              onValueChange={v => setProjectId(v === "all" ? undefined : Number(v))}
+            >
+              <SelectTrigger className="w-48 h-9 text-sm">
+                <SelectValue placeholder="Todos os projetos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {(projectsQ.data ?? []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                 ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3">
-        {Object.entries(STATUS_LABELS).map(([key, label]) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STATUS_COLORS[key] }} />
-            <span className="text-xs text-gray-600">{label}</span>
+              </SelectContent>
+            </Select>
+            {/* View toggle */}
+            <div className="flex items-center border rounded-md overflow-hidden">
+              <Button
+                variant={viewMode === "calendar" ? "default" : "ghost"}
+                size="sm"
+                className="h-9 rounded-none gap-1.5"
+                onClick={() => setViewMode("calendar")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> Calendário
+              </Button>
+              <Button
+                variant={viewMode === "swimlane" ? "default" : "ghost"}
+                size="sm"
+                className="h-9 rounded-none gap-1.5"
+                onClick={() => setViewMode("swimlane")}
+              >
+                <Rows className="h-3.5 w-3.5" /> Swimlane
+              </Button>
+            </div>
           </div>
-        ))}
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-red-500" />
-          <span className="text-xs text-gray-600">Atrasado</span>
         </div>
+
+        {/* Overdue alert */}
+        {overdueTasks.length > 0 && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-red-500" />
+            <div>
+              <strong>{overdueTasks.length} tarefa(s) em atraso:</strong>{" "}
+              {overdueTasks.slice(0, 3).map((t: any) => t.title).join(", ")}
+              {overdueTasks.length > 3 && ` e mais ${overdueTasks.length - 3}...`}
+            </div>
+          </div>
+        )}
+
+        {/* ── CALENDAR VIEW ─────────────────────────────────────────────────── */}
+        {viewMode === "calendar" && (
+          <>
+            {/* Month navigation */}
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1)); setSelectedDay(null); }}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-lg font-semibold text-gray-800 min-w-[180px] text-center">
+                {MONTHS[month]} {year}
+              </h2>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1)); setSelectedDay(null); }}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 ml-1" onClick={() => { setViewDate(new Date()); setSelectedDay(null); }}>
+                Hoje
+              </Button>
+            </div>
+
+            <div className="flex gap-5 items-start">
+              {/* Calendar grid */}
+              <div className="flex-1 min-w-0">
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    {/* Weekday headers */}
+                    <div className="grid grid-cols-7 bg-gray-50 border-b">
+                      {WEEKDAYS_SHORT.map(d => (
+                        <div key={d} className="py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Days */}
+                    <div className="grid grid-cols-7">
+                      {calendarDays.map(({ date, isCurrentMonth }, idx) => {
+                        const key = date.toDateString();
+                        const dayTasks = tasksByDate.get(key) ?? [];
+                        const isToday = date.toDateString() === todayRef.toDateString();
+                        const isSelected = selectedDay?.toDateString() === key;
+                        const hasOverdue = dayTasks.some((t: any) => {
+                          const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+                          return end && end < todayRef && t.status !== "published" && t.status !== "archived";
+                        });
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`
+                              border-b border-r cursor-pointer transition-colors
+                              ${!isCurrentMonth ? "bg-gray-50/70" : "bg-white hover:bg-indigo-50/20"}
+                              ${isSelected ? "ring-2 ring-inset ring-indigo-500 bg-indigo-50/40" : ""}
+                              ${idx % 7 === 6 ? "border-r-0" : ""}
+                            `}
+                            style={{ minHeight: 130 }}
+                            onClick={() => setSelectedDay(isSelected ? null : date)}
+                          >
+                            <div className="p-2">
+                              {/* Day number */}
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className={`
+                                  text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
+                                  ${isToday ? "bg-indigo-600 text-white" : isCurrentMonth ? "text-gray-800" : "text-gray-300"}
+                                `}>
+                                  {date.getDate()}
+                                </span>
+                                {hasOverdue && <AlertTriangle className="h-3 w-3 text-red-400" />}
+                              </div>
+
+                              {/* Task pills */}
+                              <div className="space-y-0.5">
+                                {dayTasks.slice(0, 4).map((t: any, i: number) => {
+                                  const isOverdue = (() => {
+                                    const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+                                    return end && end < todayRef && t.status !== "published" && t.status !== "archived";
+                                  })();
+                                  return (
+                                    <div
+                                      key={i}
+                                      className="text-xs rounded px-1.5 py-0.5 truncate text-white font-medium leading-4"
+                                      style={{ backgroundColor: isOverdue ? "#ef4444" : (STATUS_COLORS[t.status] ?? "#6366f1") }}
+                                      title={`${t.title} — ${t.assigneeName ?? "Sem responsável"} (${STATUS_LABELS[t.status] ?? t.status})`}
+                                    >
+                                      {t.title}
+                                    </div>
+                                  );
+                                })}
+                                {dayTasks.length > 4 && (
+                                  <div className="text-xs text-gray-400 pl-1">+{dayTasks.length - 4} mais</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Side panel */}
+              <div className="w-64 flex-shrink-0 space-y-3">
+                {selectedDay ? (
+                  <Card>
+                    <CardHeader className="pb-2 pt-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-indigo-500" />
+                        {selectedDay.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pb-3">
+                      {selectedDayTasks.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-3">Nenhuma tarefa neste dia.</p>
+                      ) : (
+                        selectedDayTasks.map((t: any, i: number) => (
+                          <div key={i} className="p-2.5 rounded-lg border text-sm">
+                            <div className="font-medium text-gray-800 flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[t.status] ?? "#6366f1" }} />
+                              <span className="truncate">{t.title}</span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <User className="h-3 w-3 text-gray-400" />
+                              <span className="text-xs text-gray-500 truncate">{t.assigneeName ?? "Sem responsável"}</span>
+                            </div>
+                            <Badge variant="outline" className="text-xs mt-1" style={{ borderColor: STATUS_COLORS[t.status], color: STATUS_COLORS[t.status] }}>
+                              {STATUS_LABELS[t.status] ?? t.status}
+                            </Badge>
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="py-6 text-center text-gray-400">
+                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Clique em um dia para ver detalhes</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Legend */}
+                <Card>
+                  <CardHeader className="pb-1 pt-3">
+                    <CardTitle className="text-xs text-gray-500 uppercase tracking-wide">Legenda</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1.5 pb-3">
+                    {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[key] }} />
+                        <span className="text-xs text-gray-600">{label}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2 pt-1 border-t mt-1">
+                      <div className="w-3 h-3 rounded-sm bg-red-500 flex-shrink-0" />
+                      <span className="text-xs text-gray-600">Atrasado</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── SWIMLANE VIEW ─────────────────────────────────────────────────── */}
+        {viewMode === "swimlane" && (
+          <>
+            {/* Week navigation */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setWeekOffset(w => w - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>Hoje</Button>
+                <Button variant="outline" size="sm" onClick={() => setWeekOffset(w => w + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm font-medium text-gray-700">
+                {weekDays[0].toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} –{" "}
+                {weekDays[6].toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+              </p>
+            </div>
+
+            <Card>
+              <CardContent className="p-0 overflow-x-auto">
+                {schedulingQ.isLoading ? (
+                  <div className="text-center py-12 text-gray-400">Carregando...</div>
+                ) : tasks.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>Nenhuma tarefa com datas definidas.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm" style={{ minWidth: 700 }}>
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 w-44 font-medium text-gray-600">
+                          <div className="flex items-center gap-1"><User className="h-3 w-3" /> Responsável</div>
+                        </th>
+                        {weekDays.map(d => {
+                          const isToday = d.toDateString() === todayRef.toDateString();
+                          const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                          return (
+                            <th key={d.toISOString()} className={`text-center p-2 font-medium text-xs ${isToday ? "bg-indigo-50 text-indigo-700" : isWeekend ? "text-gray-400 bg-gray-50/80" : "text-gray-600"}`}>
+                              <div>{WEEKDAYS_SHORT[d.getDay()]}</div>
+                              <div className={`text-base font-bold ${isToday ? "text-indigo-700" : ""}`}>{d.getDate()}</div>
+                              <div className="text-xs font-normal text-gray-400">{d.toLocaleDateString("pt-BR", { month: "short" })}</div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignees.map(assignee => (
+                        <tr key={assignee.id ?? "none"} className="border-b hover:bg-gray-50/50">
+                          <td className="p-3 font-medium text-gray-700 align-top">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {(assignee.name ?? "?").charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-sm truncate max-w-[100px]">{assignee.name ?? "Sem responsável"}</span>
+                            </div>
+                          </td>
+                          {weekDays.map(d => {
+                            const dayTasks = getTasksForDayAndAssignee(d, assignee.id);
+                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                            return (
+                              <td key={d.toISOString()} className={`p-1 align-top ${isWeekend ? "bg-gray-50/60" : ""}`} style={{ minWidth: 90, minHeight: 60 }}>
+                                <div className="space-y-0.5">
+                                  {dayTasks.map((t: any) => {
+                                    const isOverdue = (() => {
+                                      const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+                                      return end && end < todayRef && t.status !== "published" && t.status !== "archived";
+                                    })();
+                                    return (
+                                      <div
+                                        key={t.id}
+                                        className="text-xs px-1.5 py-0.5 rounded text-white truncate"
+                                        style={{ backgroundColor: isOverdue ? "#ef4444" : STATUS_COLORS[t.status] ?? "#6366f1" }}
+                                        title={`${t.title} (${STATUS_LABELS[t.status] ?? t.status})${isOverdue ? " — ATRASADO" : ""}`}
+                                      >
+                                        {t.title}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
-    </div>
+    </AppLayout>
   );
 }

@@ -785,8 +785,8 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
   gantt: router({
     tasks: protectedProcedure
       .input(z.object({ projectId: z.number().optional() }))
-      .query(async ({ ctx, input }) => {
-        return getGanttTasks({ projectId: input.projectId, assigneeId: ctx.user.id });
+      .query(async ({ input }) => {
+        return getGanttTasks({ projectId: input.projectId });
       }),
     conflicts: protectedProcedure
       .input(z.object({ projectId: z.number().optional() }))
@@ -962,8 +962,8 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
       .input(z.object({
         projectId: z.number().optional(),
       }).optional())
-      .query(async ({ ctx, input }) => {
-        return getGanttTasks({ projectId: input?.projectId, assigneeId: ctx.user.id });
+      .query(async ({ input }) => {
+        return getGanttTasks({ projectId: input?.projectId });
       }),
   }),
 

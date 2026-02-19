@@ -1,3 +1,4 @@
+import AppLayout from "@/components/AppLayout";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
@@ -236,6 +237,7 @@ export default function Whiteboard() {
   ];
 
   return (
+    <AppLayout title="Quadro Branco">
     <div className="p-6 h-[calc(100vh-4rem)] flex flex-col gap-4">
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
@@ -337,5 +339,6 @@ export default function Whiteboard() {
         </div>
       </div>
     </div>
+    </AppLayout>
   );
 }

@@ -1,3 +1,4 @@
+import AppLayout from "@/components/AppLayout";
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,6 +124,7 @@ export default function CalendarPage() {
   const selectedDayEvents = selectedDate ? getEventsForDay(selectedDate) : [];
 
   return (
+    <AppLayout title="Calendário">
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -335,5 +337,6 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AppLayout>
   );
 }

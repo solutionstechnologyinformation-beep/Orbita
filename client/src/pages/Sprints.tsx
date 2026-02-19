@@ -1,3 +1,4 @@
+import AppLayout from "@/components/AppLayout";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +101,7 @@ export default function Sprints() {
   }
 
   return (
+    <AppLayout title="Sprints">
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -359,5 +361,6 @@ export default function Sprints() {
         </DialogContent>
       </Dialog>
     </div>
+    </AppLayout>
   );
 }

@@ -221,3 +221,14 @@
 - [x] Programação: filtros por projeto, setor e período
 - [x] Programação: indicador visual de conflito de agenda (férias/reunião vs. tarefa)
 - [x] Navegação: links "Quadro Branco" e "Programação" na barra lateral
+
+## Correções v3.13
+- [x] Gantt: envolver com AppLayout (sidebar visível)
+- [x] Gantt: mostrar tarefas reais do banco (startDate/endDate), seletor de período completo ou intervalo customizado
+- [x] Sprints: envolver com AppLayout (sidebar visível)
+- [x] Programação: envolver com AppLayout (sidebar visível)
+- [x] Programação: calendário expandido com células maiores para ler o conteúdo das datas
+- [x] Calendário: envolver com AppLayout (sidebar visível)
+- [x] Chat de Tarefas: envolver com AppLayout (sidebar visível)
+- [x] Chat de Tarefas: adicionar @menção de membros (autocomplete ao digitar @)
+- [x] Quadro Branco: envolver com AppLayout (sidebar visível)
