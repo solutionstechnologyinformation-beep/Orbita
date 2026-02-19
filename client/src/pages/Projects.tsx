@@ -151,13 +151,9 @@ export default function Projects() {
                             <Edit2 className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/projects/${project.id}`}>
-                              <a className="flex items-center">
-                                <Users className="w-4 h-4 mr-2" />
-                                Membros
-                              </a>
-                            </Link>
+                          <DropdownMenuItem onClick={() => (window.location.href = `/projects/${project.id}`)}>
+                            <Users className="w-4 h-4 mr-2" />
+                            Membros
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -206,15 +202,12 @@ export default function Projects() {
                     </div>
 
                     {/* Actions */}
-                    <Link href={`/projects/${project.id}/kanban`}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-2 border-border hover:bg-secondary"
-                      >
-                        <Kanban className="w-4 h-4" />
-                        Abrir Kanban
-                      </Button>
+                    <Link
+                      href={`/projects/${project.id}/kanban`}
+                      className="flex w-full items-center justify-center gap-2 border border-border rounded-md px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors"
+                    >
+                      <Kanban className="w-4 h-4" />
+                      Abrir Kanban
                     </Link>
                   </CardContent>
                 </Card>

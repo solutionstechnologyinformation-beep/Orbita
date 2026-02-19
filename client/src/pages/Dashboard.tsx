@@ -152,22 +152,20 @@ export default function Dashboard() {
                 </div>
               ) : (
                 recentTasks.slice(0, 6).map((task) => (
-                  <Link key={task.id} href={`/tasks/${task.id}`}>
-                    <a className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors group">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        task.status === "done" ? "bg-emerald-400" :
-                        task.status === "in_progress" ? "bg-blue-400" : "bg-slate-400"
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
-                          {task.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{STATUS_LABELS[task.status]}</p>
-                      </div>
-                      <Badge className={`text-xs px-2 py-0 h-5 priority-${task.priority}`}>
-                        {PRIORITY_LABELS[task.priority]}
-                      </Badge>
-                    </a>
+                  <Link key={task.id} href={`/tasks/${task.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors group">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      task.status === "done" ? "bg-emerald-400" :
+                      task.status === "in_progress" ? "bg-blue-400" : "bg-slate-400"
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                        {task.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{STATUS_LABELS[task.status]}</p>
+                    </div>
+                    <Badge className={`text-xs px-2 py-0 h-5 priority-${task.priority}`}>
+                      {PRIORITY_LABELS[task.priority]}
+                    </Badge>
                   </Link>
                 ))
               )}
@@ -179,10 +177,8 @@ export default function Dashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Projetos Ativos</CardTitle>
-                <Link href="/projects">
-                  <a className="text-xs text-primary hover:underline flex items-center gap-1">
-                    Ver todos <ArrowRight className="w-3 h-3" />
-                  </a>
+                <Link href="/projects" className="text-xs text-primary hover:underline flex items-center gap-1">
+                  Ver todos <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
             </CardHeader>
@@ -207,30 +203,28 @@ export default function Dashboard() {
                     ? Math.round((project.taskCounts.done / project.taskCounts.total) * 100)
                     : 0;
                   return (
-                    <Link key={project.id} href={`/projects/${project.id}/kanban`}>
-                      <a className="block p-3 rounded-lg hover:bg-secondary/50 transition-colors group">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: project.color }}
-                          />
-                          <span className="text-sm font-medium flex-1 truncate">{project.name}</span>
-                          <span className="text-xs text-muted-foreground">{rate}%</span>
-                        </div>
-                        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${rate}%`, backgroundColor: project.color }}
-                          />
-                        </div>
-                        <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground">
-                          <span>{project.taskCounts.done} concluídas</span>
-                          <span>·</span>
-                          <span>{project.taskCounts.in_progress} em progresso</span>
-                          <span>·</span>
-                          <span>{project.taskCounts.todo} a fazer</span>
-                        </div>
-                      </a>
+                    <Link key={project.id} href={`/projects/${project.id}/kanban`} className="block p-3 rounded-lg hover:bg-secondary/50 transition-colors group">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <span className="text-sm font-medium flex-1 truncate">{project.name}</span>
+                        <span className="text-xs text-muted-foreground">{rate}%</span>
+                      </div>
+                      <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${rate}%`, backgroundColor: project.color }}
+                        />
+                      </div>
+                      <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground">
+                        <span>{project.taskCounts.done} concluídas</span>
+                        <span>·</span>
+                        <span>{project.taskCounts.in_progress} em progresso</span>
+                        <span>·</span>
+                        <span>{project.taskCounts.todo} a fazer</span>
+                      </div>
                     </Link>
                   );
                 })

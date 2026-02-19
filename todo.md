@@ -1,4 +1,4 @@
-# Suple Clone — TODO
+# Orbita — TODO
 
 ## Backend / Schema
 - [x] Schema completo: projects, tasks, task_comments, task_attachments, project_members, notifications, activity_logs, chat_messages
@@ -35,6 +35,10 @@
 - [x] Drag-and-drop real no Kanban com @dnd-kit
 - [x] Alertas visuais de tarefas vencidas + notificação automática 24h antes do prazo
 - [x] Exportação de relatório em PDF no Chat IA
+
+## Correções v2.1
+- [x] Remover todas as referências a "Suple Clone" da aplicação
+- [x] Corrigir bug: criar tarefa dentro das colunas do Kanban não funciona (causa: âncoras aninhadas `<Link><a>` em AppLayout, Dashboard, Projects e Notifications)
 
 ## Testes
 - [x] Teste de logout (auth.logout.test.ts)

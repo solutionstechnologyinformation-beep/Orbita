@@ -129,17 +129,21 @@ export default function Notifications() {
                       </Button>
                     </div>
                     {n.relatedTaskId && (
-                      <Link href={`/tasks/${n.relatedTaskId}`}>
-                        <a className="text-xs text-primary hover:underline mt-1 inline-block" onClick={(e) => e.stopPropagation()}>
-                          Ver tarefa →
-                        </a>
+                      <Link
+                        href={`/tasks/${n.relatedTaskId}`}
+                        className="text-xs text-primary hover:underline mt-1 inline-block"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                      >
+                        Ver tarefa →
                       </Link>
                     )}
                     {n.relatedProjectId && !n.relatedTaskId && (
-                      <Link href={`/projects/${n.relatedProjectId}/kanban`}>
-                        <a className="text-xs text-primary hover:underline mt-1 inline-block" onClick={(e) => e.stopPropagation()}>
-                          Ver projeto →
-                        </a>
+                      <Link
+                        href={`/projects/${n.relatedProjectId}/kanban`}
+                        className="text-xs text-primary hover:underline mt-1 inline-block"
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                      >
+                        Ver projeto →
                       </Link>
                     )}
                   </div>

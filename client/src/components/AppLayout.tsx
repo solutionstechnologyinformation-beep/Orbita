@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Settings,
   Shield,
   User,
   X,
@@ -20,7 +19,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,27 +90,27 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = location === href || (href !== "/dashboard" && location.startsWith(href));
           return (
-            <Link key={href} href={href}>
-              <a
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative",
-                  active
-                    ? "bg-sidebar-primary/20 text-sidebar-primary"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                )}
-              >
-                <Icon className={cn("w-4 h-4 flex-shrink-0", active && "text-sidebar-primary")} />
-                <span className="flex-1">{label}</span>
-                {label === "Notificações" && unreadCount > 0 && (
-                  <Badge className="bg-primary text-primary-foreground text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </Badge>
-                )}
-                {active && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-sidebar-primary rounded-r-full" />
-                )}
-              </a>
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative",
+                active
+                  ? "bg-sidebar-primary/20 text-sidebar-primary"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              )}
+            >
+              <Icon className={cn("w-4 h-4 flex-shrink-0", active && "text-sidebar-primary")} />
+              <span className="flex-1">{label}</span>
+              {label === "Notificações" && unreadCount > 0 && (
+                <Badge className="bg-primary text-primary-foreground text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
+              {active && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-sidebar-primary rounded-r-full" />
+              )}
             </Link>
           );
         })}
@@ -125,19 +123,19 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
             {adminItems.map(({ href, icon: Icon, label }) => {
               const active = location.startsWith(href);
               return (
-                <Link key={href} href={href}>
-                  <a
-                    onClick={() => setSidebarOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                      active
-                        ? "bg-sidebar-primary/20 text-sidebar-primary"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                    )}
-                  >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    {label}
-                  </a>
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                    active
+                      ? "bg-sidebar-primary/20 text-sidebar-primary"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {label}
                 </Link>
               );
             })}
@@ -212,11 +210,12 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
           </button>
 
           {backHref && (
-            <Link href={backHref}>
-              <a className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm transition-colors">
-                <ChevronLeft className="w-4 h-4" />
-                Voltar
-              </a>
+            <Link
+              href={backHref}
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Voltar
             </Link>
           )}
 
@@ -225,13 +224,14 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
           )}
 
           <div className="flex items-center gap-2 ml-auto">
-            <Link href="/notifications">
-              <a className="relative p-2 rounded-lg hover:bg-secondary transition-colors">
-                <Bell className="w-4 h-4 text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-                )}
-              </a>
+            <Link
+              href="/notifications"
+              className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
+            >
+              <Bell className="w-4 h-4 text-muted-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+              )}
             </Link>
           </div>
         </header>
