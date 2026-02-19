@@ -232,3 +232,29 @@
 - [x] Chat de Tarefas: envolver com AppLayout (sidebar visível)
 - [x] Chat de Tarefas: adicionar @menção de membros (autocomplete ao digitar @)
 - [x] Quadro Branco: envolver com AppLayout (sidebar visível)
+
+## Edição de Datas v3.14
+- [x] Backend: confirmar que tasks.update aceita startDate, endDate e dueDate
+- [x] TaskDetail: campos de data editáveis (Data de Início, Data de Vencimento) com date picker nativo
+- [x] Kanban: botão de edição rápida de data no card (popover com date picker)
+- [x] Kanban: exibir data de vencimento no card quando definida
+
+## Kanban → Sprint e Edição de Datas v3.15
+- [x] Kanban: popover inline de edição de datas no card (Início, Término, Vencimento)
+- [x] Kanban: exibir datas de início/término no card quando definidas
+- [x] Kanban: opção "Adicionar à Sprint" no menu de contexto do card
+- [x] Kanban: modal de seleção de sprint ativa para vincular a tarefa
+- [x] Backend: procedure sprints.addTask aceita taskId + sprintId (verificar/garantir)
+
+## Gantt Profissional v3.16
+- [x] Gantt: layout com painel esquerdo (nome da tarefa) e grade de dias à direita
+- [x] Gantt: linha vertical "Hoje" em vermelho com label
+- [x] Gantt: barras coloridas por status (teal, azul, verde, vermelho, cinza)
+- [x] Gantt: avatar do responsável ao lado direito da barra
+- [x] Gantt: numeração hierárquica de tarefas (1, 1.1, 1.2, 2, 2.1...)
+- [x] Gantt: scroll horizontal sincronizado entre header e grid
+- [x] Gantt: seletor de período (semana, mês, projeto completo)
+
+## Sidebar Fixa v3.17
+- [x] AppLayout: barra lateral fixed/sticky em todas as navegações (sempre visível ao rolar)
+- [x] AppLayout: área de conteúdo com overflow-y próprio para rolar sem mover o sidebar

@@ -1,414 +1,445 @@
 import AppLayout from "@/components/AppLayout";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Calendar, User, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertTriangle, Calendar, ZoomIn, ZoomOut, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
 
+// ── Constants ──────────────────────────────────────────────────────────────────
+const LEFT_WIDTH = 260; // px — fixed left panel
+const ROW_H = 44;       // px per row
+const HEADER_H = 56;    // px — date header height (month + day rows)
+
+// ── Status config ──────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
-  pending: "#94a3b8",
-  in_progress: "#3b82f6",
-  shared: "#f59e0b",
-  published: "#10b981",
-  archived: "#6b7280",
-  blocked: "#ef4444",
+  pending:     "#94a3b8",
+  in_progress: "#14b8a6",
+  shared:      "#f59e0b",
+  published:   "#22c55e",
+  archived:    "#9ca3af",
+  blocked:     "#ef4444",
+};
+const STATUS_LABELS: Record<string, string> = {
+  pending:     "Para Iniciar",
+  in_progress: "Em Andamento",
+  shared:      "Compartilhado",
+  published:   "Aprovado",
+  archived:    "Arquivado",
+  blocked:     "Bloqueado",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Para Iniciar",
-  in_progress: "Em Andamento",
-  shared: "Compartilhado",
-  published: "Publicado",
-  archived: "Arquivado",
-  blocked: "Bloqueado",
-};
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function dayStart(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function diffDays(a: Date, b: Date) { return Math.round((dayStart(a).getTime() - dayStart(b).getTime()) / 86400000); }
+function initials(name: string | null) { return name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "?"; }
 
 type ViewMode = "project" | "custom";
+type ZoomLevel = "day" | "week" | "month";
 
+// ── Component ──────────────────────────────────────────────────────────────────
 export default function Gantt() {
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<ViewMode>("project");
-  const [customStart, setCustomStart] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [customEnd, setCustomEnd] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 2);
-    d.setDate(0);
-    return d.toISOString().slice(0, 10);
-  });
-  const [zoom, setZoom] = useState<"week" | "month" | "quarter">("month");
+  const [zoom, setZoom] = useState<ZoomLevel>("week");
+  const [colPx, setColPx] = useState(38); // px per day
+  const [customStart, setCustomStart] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
+  const [customEnd, setCustomEnd] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 2); d.setDate(0); return d.toISOString().slice(0, 10); });
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const projectsQ = trpc.projects.list.useQuery();
   const ganttQ = trpc.gantt.tasks.useQuery({ projectId });
   const conflictsQ = trpc.gantt.conflicts.useQuery({ projectId });
 
-  const tasks = ganttQ.data ?? [];
-  const conflicts = conflictsQ.data ?? [];
+  const tasks = (ganttQ.data ?? []) as any[];
+  const conflicts = (conflictsQ.data ?? []) as any[];
+  const conflictIds = useMemo(() => new Set(conflicts.flatMap((c: any) => [c.task1.id, c.task2.id])), [conflicts]);
 
-  // Compute timeline range based on view mode
-  const { minDate, maxDate } = useMemo(() => {
+  // ── Date range ────────────────────────────────────────────────────────────
+  const today = useMemo(() => dayStart(new Date()), []);
+
+  const { rangeStart, totalDays } = useMemo(() => {
     if (viewMode === "custom") {
-      return {
-        minDate: new Date(customStart).getTime(),
-        maxDate: new Date(customEnd).getTime() + 86400000,
-      };
+      const s = dayStart(new Date(customStart));
+      const e = dayStart(new Date(customEnd));
+      return { rangeStart: s, totalDays: Math.max(1, diffDays(e, s) + 1) };
     }
-    // Project mode: fit all tasks
-    const dates = tasks.flatMap(t => [
-      t.startDate ? new Date(t.startDate).getTime() : null,
-      t.endDate ? new Date(t.endDate).getTime() : null,
-      t.dueDate ? new Date(t.dueDate).getTime() : null,
-    ]).filter(Boolean) as number[];
+    // project: fit all task dates
+    const dates = tasks.flatMap((t: any) => [
+      t.startDate ? new Date(t.startDate) : null,
+      t.endDate ? new Date(t.endDate) : null,
+      t.dueDate ? new Date(t.dueDate) : null,
+    ]).filter(Boolean) as Date[];
     if (dates.length === 0) {
-      const now = new Date();
-      now.setDate(1);
-      const end = new Date(now);
-      end.setMonth(end.getMonth() + 2);
-      return { minDate: now.getTime(), maxDate: end.getTime() };
+      return { rangeStart: addDays(today, -7), totalDays: 45 };
     }
-    const min = Math.min(...dates);
-    const max = Math.max(...dates);
-    // Add padding
-    return { minDate: min - 2 * 86400000, maxDate: max + 5 * 86400000 };
-  }, [viewMode, customStart, customEnd, tasks]);
+    const min = new Date(Math.min(...dates.map(d => d.getTime())));
+    const max = new Date(Math.max(...dates.map(d => d.getTime())));
+    const s = addDays(dayStart(min), -3);
+    const e = addDays(dayStart(max), 5);
+    return { rangeStart: s, totalDays: Math.max(1, diffDays(e, s) + 1) };
+  }, [viewMode, customStart, customEnd, tasks, today]);
 
-  const totalMs = maxDate - minDate;
+  const todayCol = diffDays(today, rangeStart); // column index of today
 
-  const conflictTaskIds = new Set(
-    conflicts.flatMap((c: any) => [c.task1.id, c.task2.id])
-  );
+  // ── Scroll to today on mount ───────────────────────────────────────────────
+  useEffect(() => {
+    if (scrollRef.current && todayCol > 0) {
+      scrollRef.current.scrollLeft = Math.max(0, todayCol * colPx - 200);
+    }
+  }, [todayCol, colPx, rangeStart]);
 
-  function getBarStyle(task: any) {
-    const start = task.startDate ? new Date(task.startDate).getTime() : null;
-    const end = task.endDate
-      ? new Date(task.endDate).getTime()
-      : task.dueDate
-      ? new Date(task.dueDate).getTime()
-      : null;
-    if (!start || !end) return null;
-    const clampedStart = Math.max(start, minDate);
-    const clampedEnd = Math.min(end, maxDate);
-    if (clampedStart >= clampedEnd) return null;
-    const left = ((clampedStart - minDate) / totalMs) * 100;
-    const width = Math.max(0.3, ((clampedEnd - clampedStart) / totalMs) * 100);
-    return { left: `${left}%`, width: `${width}%` };
+  // ── Date header data ───────────────────────────────────────────────────────
+  const days = useMemo(() => Array.from({ length: totalDays }, (_, i) => addDays(rangeStart, i)), [rangeStart, totalDays]);
+
+  const months = useMemo(() => {
+    const groups: { label: string; colStart: number; count: number }[] = [];
+    let cur = "";
+    days.forEach((d, i) => {
+      const m = d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+      if (m !== cur) { groups.push({ label: m, colStart: i, count: 1 }); cur = m; }
+      else groups[groups.length - 1].count++;
+    });
+    return groups;
+  }, [days]);
+
+  // ── Group tasks by project ─────────────────────────────────────────────────
+  const grouped = useMemo(() => {
+    const map = new Map<string, { projectName: string; tasks: any[] }>();
+    tasks.forEach((t: any) => {
+      const key = t.projectName ?? "Sem projeto";
+      if (!map.has(key)) map.set(key, { projectName: key, tasks: [] });
+      map.get(key)!.tasks.push(t);
+    });
+    return Array.from(map.values());
+  }, [tasks]);
+
+  // ── Bar calculation ────────────────────────────────────────────────────────
+  function barProps(task: any): { left: number; width: number; valid: boolean } {
+    const s = task.startDate ? dayStart(new Date(task.startDate)) : null;
+    const e = task.endDate ? dayStart(new Date(task.endDate)) : task.dueDate ? dayStart(new Date(task.dueDate)) : null;
+    if (!s || !e) return { left: 0, width: 0, valid: false };
+    const left = diffDays(s, rangeStart) * colPx;
+    const width = Math.max(colPx * 0.8, (diffDays(e, s) + 1) * colPx - 4);
+    return { left, width, valid: true };
   }
 
-  // Generate date labels based on zoom
-  const dateLabels = useMemo(() => {
-    const labels: { label: string; left: number; isMonth?: boolean }[] = [];
-    const cur = new Date(minDate);
-    cur.setHours(0, 0, 0, 0);
-    const end = new Date(maxDate);
-
-    if (zoom === "week") {
-      // Daily labels
-      while (cur <= end) {
-        const pct = ((cur.getTime() - minDate) / totalMs) * 100;
-        const isMonday = cur.getDay() === 1;
-        labels.push({
-          label: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-          left: pct,
-          isMonth: isMonday,
-        });
-        cur.setDate(cur.getDate() + 1);
-      }
-    } else if (zoom === "month") {
-      // Weekly labels
-      // Align to Monday
-      const dayOfWeek = cur.getDay();
-      const daysToMonday = dayOfWeek === 0 ? 1 : dayOfWeek === 1 ? 0 : 8 - dayOfWeek;
-      cur.setDate(cur.getDate() + daysToMonday);
-      while (cur <= end) {
-        const pct = ((cur.getTime() - minDate) / totalMs) * 100;
-        const isFirst = cur.getDate() <= 7;
-        labels.push({
-          label: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-          left: pct,
-          isMonth: isFirst,
-        });
-        cur.setDate(cur.getDate() + 7);
-      }
-    } else {
-      // Monthly labels
-      cur.setDate(1);
-      while (cur <= end) {
-        const pct = ((cur.getTime() - minDate) / totalMs) * 100;
-        labels.push({
-          label: cur.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
-          left: pct,
-          isMonth: true,
-        });
-        cur.setMonth(cur.getMonth() + 1);
-      }
+  // ── Render rows ────────────────────────────────────────────────────────────
+  const rows: { type: "group"; name: string; key: string } | { type: "task"; task: any; index: number } extends infer R ? R[] : never = [];
+  let taskIdx = 0;
+  grouped.forEach((g) => {
+    (rows as any[]).push({ type: "group", name: g.projectName, key: g.projectName });
+    if (!collapsed.has(g.projectName)) {
+      g.tasks.forEach((t) => {
+        (rows as any[]).push({ type: "task", task: t, index: ++taskIdx });
+      });
     }
-    return labels;
-  }, [minDate, maxDate, totalMs, zoom]);
+  });
 
-  // Today marker
-  const todayPct = ((Date.now() - minDate) / totalMs) * 100;
-  const showToday = todayPct >= 0 && todayPct <= 100;
-
-  // Min width based on zoom
-  const minWidth = zoom === "week" ? 1400 : zoom === "month" ? 900 : 700;
+  const totalGridWidth = totalDays * colPx;
 
   return (
     <AppLayout title="Gráfico de Gantt">
-      <div className="p-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gráfico de Gantt</h1>
-            <p className="text-gray-500 text-sm mt-1">Cronograma de tarefas com detecção de conflitos</p>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Select value={projectId?.toString() ?? "all"} onValueChange={v => setProjectId(v === "all" ? undefined : Number(v))}>
+          <SelectTrigger className="w-52 h-9 bg-white border-gray-200 text-sm">
+            <SelectValue placeholder="Todos os projetos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os projetos</SelectItem>
+            {(projectsQ.data ?? []).map((p: any) => (
+              <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={viewMode} onValueChange={v => setViewMode(v as ViewMode)}>
+          <SelectTrigger className="w-48 h-9 bg-white border-gray-200 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="project">Período do projeto</SelectItem>
+            <SelectItem value="custom">Intervalo personalizado</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {viewMode === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="h-9 w-36 text-sm" />
+            <span className="text-sm text-gray-400">até</span>
+            <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="h-9 w-36 text-sm" />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Project filter */}
-            <Select
-              value={projectId?.toString() ?? "all"}
-              onValueChange={v => setProjectId(v === "all" ? undefined : Number(v))}
-            >
-              <SelectTrigger className="w-48 h-9 text-sm">
-                <SelectValue placeholder="Todos os projetos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os projetos</SelectItem>
-                {(projectsQ.data ?? []).map((p: any) => (
-                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* View mode */}
-            <Select value={viewMode} onValueChange={v => setViewMode(v as ViewMode)}>
-              <SelectTrigger className="w-44 h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="project">Período do projeto</SelectItem>
-                <SelectItem value="custom">Intervalo personalizado</SelectItem>
-              </SelectContent>
-            </Select>
-            {/* Zoom */}
-            <div className="flex items-center gap-1 border rounded-md p-0.5">
-              <Button
-                variant={zoom === "week" ? "default" : "ghost"}
-                size="sm"
-                className="h-7 text-xs px-2"
-                onClick={() => setZoom("week")}
-              >Semana</Button>
-              <Button
-                variant={zoom === "month" ? "default" : "ghost"}
-                size="sm"
-                className="h-7 text-xs px-2"
-                onClick={() => setZoom("month")}
-              >Mês</Button>
-              <Button
-                variant={zoom === "quarter" ? "default" : "ghost"}
-                size="sm"
-                className="h-7 text-xs px-2"
-                onClick={() => setZoom("quarter")}
-              >Trimestre</Button>
+        )}
+
+        <div className="flex items-center gap-1 ml-auto">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setColPx(p => Math.max(18, p - 6))} title="Reduzir zoom">
+            <ZoomOut className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setColPx(p => Math.min(80, p + 6))} title="Aumentar zoom">
+            <ZoomIn className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Conflicts */}
+      {conflicts.length > 0 && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>{conflicts.length} conflito(s) de agenda detectado(s):</strong>
+            {conflicts.map((c: any, i: number) => (
+              <span key={i} className="block text-sm mt-1">
+                • <strong>{c.task1.assigneeName ?? "Usuário"}</strong>: "{c.task1.title}" e "{c.task2.title}" se sobrepõem
+              </span>
+            ))}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Chart */}
+      {ganttQ.isLoading ? (
+        <div className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}</div>
+      ) : tasks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center border border-gray-200 rounded-xl bg-white">
+          <Calendar className="w-12 h-12 text-muted-foreground/30 mb-3" />
+          <p className="font-medium text-muted-foreground">Nenhuma tarefa encontrada</p>
+          <p className="text-sm text-muted-foreground/70 mt-1">Selecione um projeto ou defina datas nas tarefas via Kanban → Editar datas.</p>
+        </div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm select-none">
+          {/* ── Layout: fixed left panel + scrollable right grid ── */}
+          <div className="flex" style={{ height: HEADER_H + rows.length * ROW_H }}>
+
+            {/* ── Left panel (fixed width) ── */}
+            <div className="flex-shrink-0 border-r border-gray-200 bg-white z-20" style={{ width: LEFT_WIDTH }}>
+              {/* Header */}
+              <div className="flex flex-col justify-end bg-gray-50 border-b border-gray-200" style={{ height: HEADER_H }}>
+                <div className="px-4 py-2">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome da tarefa</span>
+                </div>
+              </div>
+              {/* Rows */}
+              {(rows as any[]).map((row: any, i: number) => {
+                if (row.type === "group") {
+                  return (
+                    <div
+                      key={row.key}
+                      className="flex items-center gap-2 px-3 border-b border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                      style={{ height: ROW_H }}
+                      onClick={() => setCollapsed(prev => {
+                        const next = new Set(prev);
+                        next.has(row.key) ? next.delete(row.key) : next.add(row.key);
+                        return next;
+                      })}
+                    >
+                      {collapsed.has(row.key)
+                        ? <ChevronRightIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        : <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                      }
+                      <span className="text-xs font-semibold text-gray-700 truncate">{row.name}</span>
+                    </div>
+                  );
+                }
+                const { task, index } = row;
+                const isConflict = conflictIds.has(task.id);
+                return (
+                  <div
+                    key={task.id}
+                    className={`flex items-center gap-2 px-3 border-b border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
+                    style={{ height: ROW_H }}
+                  >
+                    <span className="text-[10px] text-gray-400 w-5 flex-shrink-0 text-right">{index}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{task.title}</p>
+                      {task.assigneeName && (
+                        <p className="text-[10px] text-gray-400 truncate">{task.assigneeName}</p>
+                      )}
+                    </div>
+                    {isConflict && <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Right scrollable grid ── */}
+            <div className="flex-1 overflow-x-auto overflow-y-hidden" ref={scrollRef}>
+              <div style={{ width: totalGridWidth, minWidth: totalGridWidth }}>
+
+                {/* Month header row */}
+                <div className="flex border-b border-gray-200 bg-gray-50" style={{ height: 28 }}>
+                  {months.map((m, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-center border-r border-gray-200 text-xs font-semibold text-gray-600 overflow-hidden"
+                      style={{ width: m.count * colPx, minWidth: m.count * colPx }}
+                    >
+                      {m.label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Day numbers row */}
+                <div className="flex border-b border-gray-200" style={{ height: 28 }}>
+                  {days.map((d, i) => {
+                    const isToday = i === todayCol;
+                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-center text-[11px] font-medium border-r border-gray-100 flex-shrink-0 ${
+                          isToday ? "bg-red-50 text-red-600 font-bold" :
+                          isWeekend ? "bg-gray-50 text-gray-400" : "text-gray-500"
+                        }`}
+                        style={{ width: colPx, minWidth: colPx }}
+                      >
+                        {d.getDate()}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Task grid rows */}
+                {(rows as any[]).map((row: any, rowIdx: number) => {
+                  if (row.type === "group") {
+                    return (
+                      <div
+                        key={row.key}
+                        className="border-b border-gray-200 bg-gray-50/60 relative"
+                        style={{ height: ROW_H, width: totalGridWidth }}
+                      >
+                        {/* Weekend shading */}
+                        {days.map((d, i) => d.getDay() === 0 || d.getDay() === 6 ? (
+                          <div key={i} className="absolute top-0 bottom-0 bg-gray-100/50" style={{ left: i * colPx, width: colPx }} />
+                        ) : null)}
+                        {/* Today line */}
+                        {todayCol >= 0 && todayCol < totalDays && (
+                          <div className="absolute top-0 bottom-0 w-px bg-red-400 z-10" style={{ left: todayCol * colPx + colPx / 2 }} />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const { task } = row;
+                  const { left, width, valid } = barProps(task);
+                  const isConflict = conflictIds.has(task.id);
+                  const isOverdue = task.dueDate && new Date(task.dueDate) < today && task.status !== "published" && task.status !== "archived";
+                  const color = isConflict ? "#ef4444" : (STATUS_COLORS[task.status] ?? "#6366f1");
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`relative border-b border-gray-100 ${rowIdx % 2 === 0 ? "bg-white" : "bg-gray-50/30"}`}
+                      style={{ height: ROW_H, width: totalGridWidth }}
+                    >
+                      {/* Weekend shading */}
+                      {days.map((d, i) => d.getDay() === 0 || d.getDay() === 6 ? (
+                        <div key={i} className="absolute top-0 bottom-0 bg-gray-100/40" style={{ left: i * colPx, width: colPx }} />
+                      ) : null)}
+
+                      {/* Today line */}
+                      {todayCol >= 0 && todayCol < totalDays && (
+                        <div className="absolute top-0 bottom-0 w-px bg-red-400 z-10 pointer-events-none" style={{ left: todayCol * colPx + colPx / 2 }} />
+                      )}
+
+                      {/* Today label (only on first row) */}
+                      {rowIdx === 0 && todayCol >= 0 && todayCol < totalDays && (
+                        <div
+                          className="absolute -top-0 z-20 pointer-events-none"
+                          style={{ left: todayCol * colPx + colPx / 2 - 16 }}
+                        >
+                          <span className="text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-sm">Hoje</span>
+                        </div>
+                      )}
+
+                      {/* Task bar */}
+                      {valid && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className="absolute rounded-md flex items-center overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                              style={{
+                                left: left + 2,
+                                width: Math.max(8, width - 4),
+                                height: 26,
+                                top: (ROW_H - 26) / 2,
+                                backgroundColor: color,
+                                zIndex: 5,
+                              }}
+                            >
+                              {colPx >= 24 && (
+                                <span className="text-white text-[11px] font-medium px-2 truncate">
+                                  {task.title}
+                                </span>
+                              )}
+                              {isOverdue && <AlertTriangle className="w-3 h-3 text-white mr-1 flex-shrink-0 ml-auto" />}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs space-y-1">
+                            <p className="font-semibold">{task.title}</p>
+                            {task.projectName && <p className="text-xs text-muted-foreground">{task.projectName}</p>}
+                            {task.assigneeName && <p className="text-xs">Responsável: {task.assigneeName}</p>}
+                            {task.startDate && <p className="text-xs">Início: {new Date(task.startDate).toLocaleDateString("pt-BR")}</p>}
+                            {task.endDate && <p className="text-xs">Término: {new Date(task.endDate).toLocaleDateString("pt-BR")}</p>}
+                            {task.dueDate && <p className={`text-xs ${isOverdue ? "text-red-500 font-semibold" : ""}`}>Vencimento: {new Date(task.dueDate).toLocaleDateString("pt-BR")}</p>}
+                            {isConflict && <p className="text-xs text-red-500 font-semibold">⚠️ Conflito de agenda detectado</p>}
+                            <Badge className="text-[10px] text-white border-0" style={{ backgroundColor: color }}>
+                              {STATUS_LABELS[task.status] ?? task.status}
+                            </Badge>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      {/* Avatar after bar */}
+                      {valid && task.assigneeName && (
+                        <div
+                          className="absolute z-10"
+                          style={{ left: left + width + 6, top: (ROW_H - 22) / 2 }}
+                        >
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Avatar className="w-5 h-5 ring-1 ring-white shadow-sm cursor-default">
+                                <AvatarFallback className="text-[8px] font-bold" style={{ backgroundColor: color + "33", color }}>
+                                  {initials(task.assigneeName)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">{task.assigneeName}</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Custom date range */}
-        {viewMode === "custom" && (
-          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-            <Calendar className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <span className="text-sm text-blue-700 font-medium">Intervalo:</span>
-            <Input
-              type="date"
-              value={customStart}
-              onChange={e => setCustomStart(e.target.value)}
-              className="h-8 w-40 text-sm"
-            />
-            <span className="text-sm text-gray-500">até</span>
-            <Input
-              type="date"
-              value={customEnd}
-              onChange={e => setCustomEnd(e.target.value)}
-              className="h-8 w-40 text-sm"
-            />
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mt-4 text-xs text-gray-500">
+        {Object.entries(STATUS_LABELS).map(([key, label]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STATUS_COLORS[key] }} />
+            <span>{label}</span>
           </div>
-        )}
-
-        {/* Conflicts alert */}
-        {conflicts.length > 0 && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>{conflicts.length} conflito(s) detectado(s):</strong>
-              {(conflicts as any[]).map((c: any, i: number) => (
-                <span key={i} className="block text-sm mt-1">
-                  • <strong>{c.task1.assigneeName ?? "Usuário"}</strong>: "{c.task1.title}" e "{c.task2.title}" se sobrepõem
-                </span>
-              ))}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Gantt Chart */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-primary" />
-              Cronograma
-              {tasks.length > 0 && (
-                <span className="text-muted-foreground font-normal ml-1">
-                  — {tasks.length} tarefa{tasks.length !== 1 ? "s" : ""}
-                  {" "}({new Date(minDate).toLocaleDateString("pt-BR")} – {new Date(maxDate).toLocaleDateString("pt-BR")})
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {ganttQ.isLoading ? (
-              <div className="p-6 space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
-              </div>
-            ) : tasks.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <Calendar className="h-14 w-14 mx-auto mb-3 opacity-20" />
-                <p className="font-medium">Nenhuma tarefa com datas definidas</p>
-                <p className="text-sm mt-1">Defina datas de início e/ou fim nas tarefas para visualizar o Gantt.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <div style={{ minWidth: minWidth }}>
-                  {/* Date header */}
-                  <div className="relative h-10 border-b bg-gray-50 flex-shrink-0">
-                    <div className="absolute inset-y-0 left-0 w-52 border-r bg-gray-50 flex items-center px-3">
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarefa</span>
-                    </div>
-                    <div className="absolute inset-y-0" style={{ left: 208, right: 0 }}>
-                      <div className="relative h-full">
-                        {dateLabels.map((w, i) => (
-                          <div
-                            key={i}
-                            className="absolute top-0 h-full flex flex-col justify-center"
-                            style={{ left: `${w.left}%` }}
-                          >
-                            <div className={`h-full border-l ${w.isMonth ? "border-gray-300" : "border-gray-100"}`} />
-                            <span className={`absolute top-1 text-xs -translate-x-1/2 whitespace-nowrap ${w.isMonth ? "text-gray-600 font-medium" : "text-gray-400"}`}>
-                              {w.label}
-                            </span>
-                          </div>
-                        ))}
-                        {/* Today */}
-                        {showToday && (
-                          <div
-                            className="absolute top-0 h-full border-l-2 border-red-400 z-10"
-                            style={{ left: `${todayPct}%` }}
-                          >
-                            <span className="absolute top-1 text-xs text-red-500 font-bold -translate-x-1/2 bg-white px-0.5">Hoje</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Task rows */}
-                  <div>
-                    {tasks.map((task: any, idx: number) => {
-                      const barStyle = getBarStyle(task);
-                      const isConflict = conflictTaskIds.has(task.id);
-                      return (
-                        <div
-                          key={task.id}
-                          className={`flex border-b hover:bg-gray-50 transition-colors ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}
-                          style={{ height: 44 }}
-                        >
-                          {/* Task info */}
-                          <div className="w-52 flex-shrink-0 flex items-center gap-2 px-3 border-r">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium truncate text-gray-800">{task.title}</p>
-                              <p className="text-xs text-gray-400 truncate flex items-center gap-1">
-                                <User className="h-2.5 w-2.5" />
-                                {task.assigneeName ?? "Sem responsável"}
-                              </p>
-                            </div>
-                            {isConflict && <AlertTriangle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />}
-                          </div>
-                          {/* Bar area */}
-                          <div className="relative flex-1">
-                            {/* Grid lines */}
-                            {dateLabels.map((w, i) => (
-                              <div
-                                key={i}
-                                className={`absolute top-0 h-full border-l ${w.isMonth ? "border-gray-200" : "border-gray-100"}`}
-                                style={{ left: `${w.left}%` }}
-                              />
-                            ))}
-                            {/* Today line */}
-                            {showToday && (
-                              <div
-                                className="absolute top-0 h-full border-l-2 border-red-300 z-10 opacity-60"
-                                style={{ left: `${todayPct}%` }}
-                              />
-                            )}
-                            {/* Task bar */}
-                            {barStyle ? (
-                              <div
-                                className="absolute top-1/2 -translate-y-1/2 h-6 rounded flex items-center px-2 text-xs text-white font-medium overflow-hidden shadow-sm cursor-default"
-                                style={{
-                                  ...barStyle,
-                                  backgroundColor: isConflict ? "#ef4444" : (STATUS_COLORS[task.status] ?? "#6366f1"),
-                                  minWidth: 4,
-                                }}
-                                title={`${task.title}\nStatus: ${STATUS_LABELS[task.status] ?? task.status}\nResponsável: ${task.assigneeName ?? "—"}${isConflict ? "\n⚠️ CONFLITO DE AGENDA" : ""}`}
-                              >
-                                <span className="truncate">{task.title}</span>
-                              </div>
-                            ) : (
-                              <div className="absolute inset-0 flex items-center px-3">
-                                <span className="text-xs text-gray-300 italic">Sem datas</span>
-                              </div>
-                            )}
-                          </div>
-                          {/* Status badge */}
-                          <div className="w-28 flex-shrink-0 flex items-center justify-center border-l px-2">
-                            <Badge
-                              variant="outline"
-                              className="text-xs"
-                              style={{ borderColor: STATUS_COLORS[task.status], color: STATUS_COLORS[task.status] }}
-                            >
-                              {STATUS_LABELS[task.status] ?? task.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-          {Object.entries(STATUS_LABELS).map(([key, label]) => (
-            <div key={key} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STATUS_COLORS[key] }} />
-              <span>{label}</span>
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5">
-            <div className="w-0.5 h-4 bg-red-400" />
-            <span>Hoje</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <AlertTriangle className="h-3 w-3 text-red-500" />
-            <span>Conflito de agenda</span>
-          </div>
+        ))}
+        <div className="flex items-center gap-1.5">
+          <div className="w-0.5 h-4 bg-red-400" />
+          <span>Hoje</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <AlertTriangle className="h-3 w-3 text-red-500" />
+          <span>Conflito de agenda</span>
         </div>
       </div>
     </AppLayout>

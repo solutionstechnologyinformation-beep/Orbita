@@ -188,7 +188,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen overflow-hidden bg-background flex">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-60 fixed top-0 left-0 bottom-0 z-40 bg-sidebar border-r border-sidebar-border">
         <SidebarContent />
@@ -211,9 +211,9 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
       )}
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-60 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm">
+        <header className="flex-shrink-0 z-30 bg-white/90 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-muted-foreground hover:text-foreground"
@@ -249,7 +249,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
       </div>

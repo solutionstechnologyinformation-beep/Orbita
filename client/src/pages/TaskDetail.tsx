@@ -120,6 +120,10 @@ export default function TaskDetail() {
   const [comment, setComment] = useState("");
   const [editingStatus, setEditingStatus] = useState(false);
   const [editingPriority, setEditingPriority] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
+  const [startDateInput, setStartDateInput] = useState("");
+  const [endDateInput, setEndDateInput] = useState("");
+  const [dueDateInput, setDueDateInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -293,16 +297,112 @@ export default function TaskDetail() {
                 )}
               </div>
 
-              {/* Due Date */}
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Vencimento</p>
-                {task.dueDate ? (
-                  <Badge className={`text-xs px-2.5 py-1 border ${new Date(task.dueDate) < new Date() && task.status !== "published" && task.status !== "archived" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-secondary text-foreground border-border"}`}>
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {new Date(task.dueDate).toLocaleDateString("pt-BR")}
-                  </Badge>
+              {/* Dates — editable */}
+              <div className="space-y-1.5 col-span-full">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Datas</p>
+                  {!editingDates ? (
+                    <button
+                      onClick={() => {
+                        setStartDateInput((task as any).startDate ? new Date((task as any).startDate).toISOString().slice(0, 10) : "");
+                        setEndDateInput((task as any).endDate ? new Date((task as any).endDate).toISOString().slice(0, 10) : "");
+                        setDueDateInput(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
+                        setEditingDates(true);
+                      }}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" /> Editar
+                    </button>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          updateMutation.mutate({
+                            id: taskId,
+                            startDate: startDateInput ? new Date(startDateInput + "T12:00:00") : null,
+                            endDate: endDateInput ? new Date(endDateInput + "T12:00:00") : null,
+                            dueDate: dueDateInput ? new Date(dueDateInput + "T12:00:00") : null,
+                          });
+                          setEditingDates(false);
+                        }}
+                        className="text-xs text-green-600 hover:underline flex items-center gap-1"
+                      >
+                        <Save className="w-3 h-3" /> Salvar
+                      </button>
+                      <button onClick={() => setEditingDates(false)} className="text-xs text-muted-foreground hover:underline flex items-center gap-1">
+                        <X className="w-3 h-3" /> Cancelar
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {editingDates ? (
+                  <div className="grid grid-cols-1 gap-2 mt-1">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-0.5">Início</label>
+                      <input
+                        type="date"
+                        value={startDateInput}
+                        onChange={e => setStartDateInput(e.target.value)}
+                        className="w-full h-8 px-2 text-xs border rounded-md bg-input border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-0.5">Término</label>
+                      <input
+                        type="date"
+                        value={endDateInput}
+                        onChange={e => setEndDateInput(e.target.value)}
+                        className="w-full h-8 px-2 text-xs border rounded-md bg-input border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-0.5">Vencimento</label>
+                      <input
+                        type="date"
+                        value={dueDateInput}
+                        onChange={e => setDueDateInput(e.target.value)}
+                        className="w-full h-8 px-2 text-xs border rounded-md bg-input border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
                 ) : (
-                  <span className="text-xs text-muted-foreground">Sem data</span>
+                  <div className="space-y-1">
+                    {(task as any).startDate && (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted-foreground w-16">Início:</span>
+                        <Badge variant="outline" className="text-xs px-2 py-0.5">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date((task as any).startDate).toLocaleDateString("pt-BR")}
+                        </Badge>
+                      </div>
+                    )}
+                    {(task as any).endDate && (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted-foreground w-16">Término:</span>
+                        <Badge variant="outline" className="text-xs px-2 py-0.5">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date((task as any).endDate).toLocaleDateString("pt-BR")}
+                        </Badge>
+                      </div>
+                    )}
+                    {task.dueDate ? (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted-foreground w-16">Vencimento:</span>
+                        <Badge className={`text-xs px-2 py-0.5 border ${
+                          new Date(task.dueDate) < new Date() && task.status !== "published" && task.status !== "archived"
+                            ? "bg-red-500/15 text-red-400 border-red-500/30"
+                            : "bg-secondary text-foreground border-border"
+                        }`}>
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date(task.dueDate).toLocaleDateString("pt-BR")}
+                        </Badge>
+                      </div>
+                    ) : (
+                      !((task as any).startDate) && !((task as any).endDate) && (
+                        <span className="text-xs text-muted-foreground">Sem datas definidas</span>
+                      )
+                    )}
+                  </div>
                 )}
               </div>
 
