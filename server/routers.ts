@@ -55,12 +55,40 @@ import {
   removeMemberRole,
   getTasksAssignedToUser,
   getSetorStats,
-  getUserById,
+   getUserById,
+  upsertUser,
+  deleteUser,
+  getAllCompanies,
+  getCompanyById,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  getUsersByCompany,
+  getProjectsByCompany,
+  updateUserCompany,
+  getGanttTasks,
+  getBurndownData,
+  detectGanttConflicts,
+  createSprint,
+  listSprints,
+  getAllSprints,
+  updateSprint,
+  deleteSprint,
+  addTaskToSprint,
+  removeTaskFromSprint,
+  getSprintWithTasks,
+  createAgendaEvent,
+  listAgendaEvents,
+  updateAgendaEvent,
+  deleteAgendaEvent,
+  sendTaskMessage,
+  getTaskMessages,
+  getWhiteboard,
+  saveWhiteboard,
 } from "./db";
-
 // ─── Admin Guard ──────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+  if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
   return next({ ctx });
 });
 
@@ -251,7 +279,7 @@ export const appRouter = router({
         projectId: z.number(),
         title: z.string().min(1).max(512),
         description: z.string().optional(),
-        status: z.enum(["pending", "in_progress", "shared", "published", "archived"]).default("pending"),
+        status: z.enum(["pending", "in_progress", "shared", "published", "archived", "blocked"]).default("pending"),
         priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
         assigneeId: z.number().optional(),
         dueDate: z.date().optional(),
@@ -294,10 +322,12 @@ export const appRouter = router({
         id: z.number(),
         title: z.string().min(1).max(512).optional(),
         description: z.string().optional(),
-        status: z.enum(["pending", "in_progress", "shared", "published", "archived"]).optional(),
+        status: z.enum(["pending", "in_progress", "shared", "published", "archived", "blocked"]).optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
         assigneeId: z.number().nullable().optional(),
         dueDate: z.date().nullable().optional(),
+        startDate: z.date().nullable().optional(),
+        endDate: z.date().nullable().optional(),
         position: z.number().optional(),
         setor: z.string().nullable().optional(),
       }))
@@ -600,6 +630,30 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
         await updateUserRole(input.userId, input.role);
         return { success: true };
       }),
+    createUser: adminProcedure
+      .input(z.object({
+        name: z.string().min(1).max(128),
+        email: z.string().email().optional(),
+        role: z.enum(["user", "admin"]).default("user"),
+      }))
+      .mutation(async ({ input }) => {
+        const openId = `manual_${crypto.randomUUID()}`;
+        await upsertUser({
+          openId,
+          name: input.name,
+          email: input.email ?? null,
+          role: input.role,
+          loginMethod: "manual",
+          lastSignedIn: new Date(),
+        });
+        return { success: true, openId };
+      }),
+    deleteUser: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteUser(input.userId);
+        return { success: true };
+      }),
   }),
 
   // ── Users (for member search) ─────────────────────────────────────────────
@@ -684,6 +738,235 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
         return { success: true };
       }),
   }),
+  // ── Companies (Master Admin) ───────────────────────────────────────────────
+  companies: router({
+    list: adminProcedure.query(async () => {
+      return getAllCompanies();
+    }),
+    get: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return getCompanyById(input.id);
+      }),
+    create: adminProcedure
+      .input(z.object({ name: z.string().min(1), slug: z.string().min(1), color: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        return createCompany({ name: input.name, slug: input.slug, color: input.color });
+      }),
+    update: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), color: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        return updateCompany(id, data);
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        return deleteCompany(input.id);
+      }),
+    users: adminProcedure
+      .input(z.object({ companyId: z.number() }))
+      .query(async ({ input }) => {
+        return getUsersByCompany(input.companyId);
+      }),
+    projects: adminProcedure
+      .input(z.object({ companyId: z.number() }))
+      .query(async ({ input }) => {
+        return getProjectsByCompany(input.companyId);
+      }),
+    assignUser: adminProcedure
+      .input(z.object({ userId: z.number(), companyId: z.number() }))
+      .mutation(async ({ input }) => {
+        return updateUserCompany(input.userId, input.companyId);
+      }),
+  }),
+
+  // ── Gantt ─────────────────────────────────────────────────────────────────
+  gantt: router({
+    tasks: protectedProcedure
+      .input(z.object({ projectId: z.number().optional() }))
+      .query(async ({ ctx, input }) => {
+        return getGanttTasks({ projectId: input.projectId, assigneeId: ctx.user.id });
+      }),
+    conflicts: protectedProcedure
+      .input(z.object({ projectId: z.number().optional() }))
+      .query(async ({ input }) => {
+        return detectGanttConflicts(input.projectId);
+      }),
+  }),
+
+  // ── Burndown ──────────────────────────────────────────────────────────────
+  burndown: router({
+    data: protectedProcedure
+      .input(z.object({ sprintId: z.number() }))
+      .query(async ({ input }) => {
+        return getBurndownData(input.sprintId);
+      }),
+  }),
+
+  // ── Sprints ───────────────────────────────────────────────────────────────
+  sprints: router({
+    list: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ input }) => {
+        return listSprints(input.projectId);
+      }),
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return getSprintWithTasks(input.id);
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        name: z.string().min(1),
+        goal: z.string().optional(),
+        startDate: z.number(),
+        endDate: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return createSprint({
+          projectId: input.projectId,
+          name: input.name,
+          goal: input.goal,
+          startDate: new Date(input.startDate),
+          endDate: new Date(input.endDate),
+          createdById: ctx.user.id,
+        });
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        goal: z.string().optional(),
+        startDate: z.number().optional(),
+        endDate: z.number().optional(),
+        status: z.enum(["active", "completed", "planned"]).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, startDate, endDate, ...rest } = input;
+        return updateSprint(id, {
+          ...rest,
+          ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
+          ...(endDate !== undefined ? { endDate: new Date(endDate) } : {}),
+        });
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        return deleteSprint(input.id);
+      }),
+    addTask: protectedProcedure
+      .input(z.object({ sprintId: z.number(), taskId: z.number() }))
+      .mutation(async ({ input }) => {
+        return addTaskToSprint(input.sprintId, input.taskId);
+      }),
+    removeTask: protectedProcedure
+      .input(z.object({ sprintId: z.number(), taskId: z.number() }))
+      .mutation(async ({ input }) => {
+        return removeTaskFromSprint(input.sprintId, input.taskId);
+      }),
+    listAll: protectedProcedure
+      .query(async () => {
+        return getAllSprints();
+      }),
+  }),
+
+  // ── Agenda (Calendar) ─────────────────────────────────────────────────────
+  agenda: router({
+    list: protectedProcedure
+      .input(z.object({
+        projectId: z.number().optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        return listAgendaEvents(ctx.user.id, input?.projectId);
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        startDate: z.number(),
+        endDate: z.number(),
+        type: z.enum(["meeting", "vacation", "other"]).default("other"),
+        projectId: z.number().optional(),
+        isPublic: z.boolean().default(true),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return createAgendaEvent({
+          title: input.title,
+          description: input.description,
+          startDate: new Date(input.startDate),
+          endDate: new Date(input.endDate),
+          type: input.type,
+          projectId: input.projectId,
+          isPublic: input.isPublic,
+          createdById: ctx.user.id,
+        });
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        startDate: z.number().optional(),
+        endDate: z.number().optional(),
+        type: z.enum(["meeting", "vacation", "other"]).optional(),
+        isPublic: z.boolean().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, startDate, endDate, ...rest } = input;
+        return updateAgendaEvent(id, {
+          ...rest,
+          ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
+          ...(endDate !== undefined ? { endDate: new Date(endDate) } : {}),
+        });
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        return deleteAgendaEvent(input.id);
+      }),
+  }),
+
+  // ── Task Chat ─────────────────────────────────────────────────────────────
+  taskChat: router({
+    messages: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .query(async ({ input }) => {
+        return getTaskMessages(input.taskId);
+      }),
+    send: protectedProcedure
+      .input(z.object({ taskId: z.number(), message: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        return sendTaskMessage({ taskId: input.taskId, userId: ctx.user.id, message: input.message });
+      }),
+  }),
+
+  // ── Whiteboard ────────────────────────────────────────────────────────────
+  whiteboard: router({
+    get: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ input }) => {
+        return getWhiteboard(input.projectId);
+      }),
+    save: protectedProcedure
+      .input(z.object({ projectId: z.number(), content: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        return saveWhiteboard(input.projectId, input.content, ctx.user.id);
+      }),
+  }),
+
+  // ── Scheduling (Timeline) ─────────────────────────────────────────────────
+  scheduling: router({
+    tasks: protectedProcedure
+      .input(z.object({
+        projectId: z.number().optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        return getGanttTasks({ projectId: input?.projectId, assigneeId: ctx.user.id });
+      }),
+  }),
+
   // ── Notification Preferences ──────────────────────────────────────────────
   notificationPreferences: router({
     list: protectedProcedure.query(async ({ ctx }) => {

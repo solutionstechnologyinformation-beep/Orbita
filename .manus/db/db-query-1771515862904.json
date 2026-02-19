@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE IF NOT EXISTS companies (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  name VARCHAR(256) NOT NULL,\n  slug VARCHAR(128) NOT NULL UNIQUE,\n  color VARCHAR(32) DEFAULT '#1e2d5a',\n  logoUrl TEXT,\n  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL\n);\n\nALTER TABLE users \n  MODIFY COLUMN role ENUM('user','admin','master_admin','company_admin') DEFAULT 'user' NOT NULL,\n  ADD COLUMN IF NOT EXISTS companyId INT NULL;\n\nALTER TABLE projects \n  ADD COLUMN IF NOT EXISTS companyId INT NULL;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute \nCREATE TABLE IF NOT EXISTS companies (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  name VARCHAR(256) NOT NULL,\n  slug VARCHAR(128) NOT NULL UNIQUE,\n  color VARCHAR(32) DEFAULT '#1e2d5a',\n  logoUrl TEXT,\n  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL\n);\n\nALTER TABLE users \n  MODIFY COLUMN role ENUM('user','admin','master_admin','company_admin') DEFAULT 'user' NOT NULL,\n  ADD COLUMN IF NOT EXISTS companyId INT NULL;\n\nALTER TABLE projects \n  ADD COLUMN IF NOT EXISTS companyId INT NULL;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1032
+}

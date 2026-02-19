@@ -14,7 +14,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
   Plus, GripVertical, MoreHorizontal, Trash2, Eye, AlertCircle,
-  CheckCircle2, Clock, Share2, BookOpen, Archive, Info, Shield,
+  Ban, CheckCircle2, Clock, Share2, BookOpen, Archive, Info, Shield,
   User2, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/tooltip";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type TaskStatus = "pending" | "in_progress" | "shared" | "published" | "archived";
+type TaskStatus = "pending" | "in_progress" | "shared" | "published" | "archived" | "blocked";
 type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 interface Task {
@@ -131,9 +131,21 @@ const COLUMNS: {
     barColor: "bg-purple-500",
     leaderOnly: true,
   },
+  {
+    id: "blocked",
+    label: "Bloqueado",
+    description: "Atividades pausadas ou impedidas por dependências externas.",
+    icon: Ban,
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    badgeClass: "bg-red-100 text-red-700 border-red-200",
+    barColor: "bg-red-500",
+    leaderOnly: false,
+  },
 ];
 
-const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "shared", "published", "archived"];
+const STATUS_ORDER: TaskStatus[] = ["pending", "in_progress", "shared", "published", "archived", "blocked"];
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; dot: string }> = {
   low:    { label: "Baixa",   dot: "bg-slate-400" },
@@ -157,13 +169,14 @@ function isDueSoon(task: Task) {
 
 // Allowed transitions based on role
 function getAllowedTransitions(from: TaskStatus, isLeader: boolean): TaskStatus[] {
-  if (from === "pending") return ["in_progress"];
-  if (from === "in_progress") return ["shared"];
+  if (from === "pending") return ["in_progress", "blocked"];
+  if (from === "in_progress") return ["shared", "blocked"];
   if (from === "shared") {
-    return isLeader ? ["published", "archived", "in_progress"] : [];
+    return isLeader ? ["published", "archived", "in_progress", "blocked"] : ["blocked"];
   }
   if (from === "published") return isLeader ? ["archived", "in_progress"] : [];
   if (from === "archived") return isLeader ? ["in_progress"] : [];
+  if (from === "blocked") return ["in_progress", "pending"];
   return [];
 }
 

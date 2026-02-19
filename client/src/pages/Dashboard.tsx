@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   FolderKanban, CheckCircle2, Clock, ListTodo,
   ArrowRight, TrendingUp, AlertCircle, BarChart2, RefreshCw, Filter, Download,
+  Target,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,7 @@ export default function Dashboard() {
   }), [filterProjectId, filterSetor]);
 
   const { data: stats, isLoading: statsLoading } = trpc.dashboard.stats.useQuery(filterInput);
+  const { data: activeSprints = [] } = trpc.sprints.listAll.useQuery();
   const { data: recentTasks = [], isLoading: tasksLoading } = trpc.dashboard.recentTasks.useQuery(filterInput);
   const { data: setorStats = [], isLoading: setorLoading } = trpc.dashboard.setorStats.useQuery(
     { projectId: filterProjectId }
@@ -690,6 +692,56 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Active Sprints Widget */}
+        {activeSprints.filter((s: any) => s.status === "active").length > 0 && (
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Target className="w-4 h-4 text-indigo-500" />
+                  Sprints Ativas
+                </CardTitle>
+                <Link href="/sprints">
+                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground gap-1">
+                    Ver todas <ArrowRight className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeSprints.filter((s: any) => s.status === "active").slice(0, 3).map((sprint: any) => {
+                  const total = sprint.taskCount ?? 0;
+                  const done = sprint.completedCount ?? 0;
+                  const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+                  const end = new Date(sprint.endDate);
+                  const daysLeft = Math.ceil((end.getTime() - Date.now()) / 86400000);
+                  return (
+                    <Link key={sprint.id} href="/sprints">
+                      <div className="p-3 rounded-lg border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 transition-colors cursor-pointer">
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="text-sm font-medium text-gray-900 truncate">{sprint.name}</p>
+                          <Badge className="text-xs bg-blue-100 text-blue-700 ml-2 flex-shrink-0">Ativa</Badge>
+                        </div>
+                        {sprint.goal && (
+                          <p className="text-xs text-gray-500 mb-2 line-clamp-1">{sprint.goal}</p>
+                        )}
+                        <Progress value={rate} className="h-1.5 mb-1" />
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>{done}/{total} tarefas</span>
+                          <span className={daysLeft < 0 ? "text-red-500 font-medium" : daysLeft <= 2 ? "text-amber-600" : ""}>
+                            {daysLeft < 0 ? `${Math.abs(daysLeft)}d atrasado` : `${daysLeft}d restantes`}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );

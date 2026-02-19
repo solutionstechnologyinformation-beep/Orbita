@@ -16,6 +16,12 @@ import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import Roles from "./pages/Roles";
 import NotificationPreferences from "./pages/NotificationPreferences";
+import Gantt from "./pages/Gantt";
+import Sprints from "./pages/Sprints";
+import CalendarPage from "./pages/CalendarPage";
+import TeamChat from "./pages/TeamChat";
+import Whiteboard from "./pages/Whiteboard";
+import Scheduling from "./pages/Scheduling";
 
 function Router() {
   return (
@@ -31,6 +37,12 @@ function Router() {
       <Route path="/chat" component={AIChat} />
       <Route path="/chat/:projectId" component={AIChat} />
       <Route path="/projects/:projectId/roles" component={Roles} />
+      <Route path="/gantt" component={Gantt} />
+      <Route path="/sprints" component={Sprints} />
+      <Route path="/calendar" component={CalendarPage} />
+      <Route path="/team-chat" component={TeamChat} />
+      <Route path="/whiteboard" component={Whiteboard} />
+      <Route path="/scheduling" component={Scheduling} />
       <Route path="/admin" component={Admin} />
       <Route path="/profile" component={Profile} />
       <Route path="/404" component={NotFound} />

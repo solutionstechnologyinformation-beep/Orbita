@@ -5,15 +5,21 @@ import { cn } from "@/lib/utils";
 import {
   Bell,
   Bot,
+  CalendarDays,
   ChevronLeft,
   FolderKanban,
+  GanttChartSquare,
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
+  PenSquare,
   Shield,
+  Target,
   User,
   X,
   Zap,
+  CalendarRange,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -30,6 +36,12 @@ import {
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/projects", icon: FolderKanban, label: "Projetos" },
+  { href: "/gantt", icon: GanttChartSquare, label: "Gantt" },
+  { href: "/sprints", icon: Target, label: "Sprints" },
+  { href: "/scheduling", icon: CalendarRange, label: "Programação" },
+  { href: "/calendar", icon: CalendarDays, label: "Calendário" },
+  { href: "/team-chat", icon: MessageSquare, label: "Chat de Tarefas" },
+  { href: "/whiteboard", icon: PenSquare, label: "Quadro Branco" },
   { href: "/notifications", icon: Bell, label: "Notificações" },
   { href: "/chat", icon: Bot, label: "Chat IA" },
 ];

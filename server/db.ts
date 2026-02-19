@@ -3,6 +3,9 @@ import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityLogs,
   chatMessages,
+  companies,
+  Company,
+  InsertCompany,
   InsertActivityLog,
   InsertChatMessage,
   InsertNotification,
@@ -25,6 +28,18 @@ import {
   projectRoles,
   projectMemberRoles,
   InsertProjectRole,
+  sprints,
+  sprintTasks,
+  Sprint,
+  InsertSprint,
+  agendaEvents,
+  AgendaEvent,
+  InsertAgendaEvent,
+  taskMessages,
+  TaskMessage,
+  InsertTaskMessage,
+  whiteboardData,
+  InsertWhiteboardData,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -43,28 +58,6 @@ export async function getDb() {
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) return;
-
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-
-  const fields = ["name", "email", "loginMethod", "avatarUrl"] as const;
-  for (const f of fields) {
-    const v = user[f];
-    if (v !== undefined) { values[f] = v ?? null; updateSet[f] = v ?? null; }
-  }
-  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
-  if (!values.lastSignedIn) values.lastSignedIn = new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
-}
-
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
@@ -78,7 +71,6 @@ export async function getUserById(id: number) {
   const r = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return r[0];
 }
-
 export async function getAllUsers(limit = 100, offset = 0) {
   const db = await getDb();
   if (!db) return [];
@@ -748,5 +740,364 @@ export async function notifyUser(data: InsertNotification) {
   if (prefs.length > 0 && !prefs[0].inApp) return;
   // Otherwise create (default = enabled)
   await db.insert(notifications).values(data);
+}
+
+
+// ─── Companies ────────────────────────────────────────────────────────────────
+export async function getAllCompanies(): Promise<Company[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(companies).orderBy(companies.name);
+}
+export async function getCompanyById(id: number): Promise<Company | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const r = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+  return r[0];
+}
+export async function createCompany(data: { name: string; slug: string; color?: string; logoUrl?: string }): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("No DB");
+  const r = await db.insert(companies).values(data);
+  return Number((r as any)[0]?.insertId ?? 0);
+}
+export async function updateCompany(id: number, data: Partial<{ name: string; color: string; logoUrl: string }>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(companies).set(data).where(eq(companies.id, id));
+}
+export async function deleteCompany(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(companies).where(eq(companies.id, id));
+}
+export async function getUsersByCompany(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(users).where(eq(users.companyId, companyId)).orderBy(users.name);
+}
+export async function getProjectsByCompany(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(projects).where(eq(projects.companyId, companyId)).orderBy(projects.name);
+}
+export async function updateUserCompany(userId: number, companyId: number | null, role?: "user" | "admin" | "master_admin" | "company_admin"): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const update: Record<string, unknown> = { companyId };
+  if (role) update.role = role;
+  await db.update(users).set(update).where(eq(users.id, userId));
+}
+export async function upsertUser(user: InsertUser): Promise<void> {
+  if (!user.openId) throw new Error("User openId is required for upsert");
+  const db = await getDb();
+  if (!db) return;
+  const values: InsertUser = { openId: user.openId };
+  const updateSet: Record<string, unknown> = {};
+  const fields = ["name", "email", "loginMethod", "avatarUrl", "company", "companyId"] as const;
+  for (const f of fields) {
+    const v = (user as any)[f];
+    if (v !== undefined) { (values as any)[f] = v ?? null; updateSet[f] = v ?? null; }
+  }
+  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
+  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
+  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
+  if (!values.lastSignedIn) values.lastSignedIn = new Date();
+  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+}
+export async function deleteUser(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(users).where(eq(users.id, id));
+}
+
+// ─── Gantt & Burndown ─────────────────────────────────────────────────────────
+export async function getGanttTasks(filters: { projectId?: number; assigneeId?: number; companyId?: number } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      status: tasks.status,
+      priority: tasks.priority,
+      startDate: tasks.startDate,
+      endDate: tasks.endDate,
+      dueDate: tasks.dueDate,
+      assigneeId: tasks.assigneeId,
+      projectId: tasks.projectId,
+      setor: tasks.setor,
+      assigneeName: users.name,
+      projectName: projects.name,
+    })
+    .from(tasks)
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .leftJoin(projects, eq(tasks.projectId, projects.id))
+    .where(
+      and(
+        filters.projectId ? eq(tasks.projectId, filters.projectId) : undefined,
+        filters.assigneeId ? eq(tasks.assigneeId, filters.assigneeId) : undefined,
+        filters.companyId ? eq(projects.companyId, filters.companyId) : undefined,
+      )
+    )
+    .orderBy(tasks.startDate);
+  return rows;
+}
+
+export async function getBurndownData(projectId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, dataPoints: [] as { date: string; remaining: number; ideal: number }[] };
+  // Get all tasks for the project
+  const allTasks = await db.select({
+    id: tasks.id,
+    status: tasks.status,
+    completedAt: tasks.completedAt,
+    openedAt: tasks.openedAt,
+    dueDate: tasks.dueDate,
+  }).from(tasks).where(eq(tasks.projectId, projectId));
+  if (allTasks.length === 0) return { total: 0, dataPoints: [] };
+  const total = allTasks.length;
+  // Find project start and end dates
+  const projectStart = allTasks.reduce((min, t) => {
+    const d = t.openedAt ? new Date(t.openedAt).getTime() : Infinity;
+    return d < min ? d : min;
+  }, Infinity);
+  const projectEnd = allTasks.reduce((max, t) => {
+    const d = t.dueDate ? new Date(t.dueDate).getTime() : 0;
+    return d > max ? d : max;
+  }, 0);
+  if (!isFinite(projectStart) || projectEnd === 0) return { total, dataPoints: [] };
+  const startDate = new Date(projectStart);
+  const endDate = new Date(projectEnd);
+  const days = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const dataPoints: { date: string; remaining: number; ideal: number }[] = [];
+  for (let i = 0; i <= days; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const completed = allTasks.filter(t =>
+      t.status === 'published' && t.completedAt && new Date(t.completedAt) <= d
+    ).length;
+    const remaining = total - completed;
+    const ideal = Math.round(total - (total * i / days));
+    dataPoints.push({ date: dateStr, remaining, ideal });
+  }
+  return { total, dataPoints };
+}
+
+export async function detectGanttConflicts(projectId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      startDate: tasks.startDate,
+      endDate: tasks.endDate,
+      assigneeId: tasks.assigneeId,
+      assigneeName: users.name,
+      projectId: tasks.projectId,
+    })
+    .from(tasks)
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .where(
+      and(
+        projectId ? eq(tasks.projectId, projectId) : undefined,
+        sql`${tasks.startDate} IS NOT NULL`,
+        sql`${tasks.endDate} IS NOT NULL`,
+      )
+    );
+  // Find overlapping tasks for same assignee
+  const conflicts: { task1: typeof rows[0]; task2: typeof rows[0] }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    for (let j = i + 1; j < rows.length; j++) {
+      const a = rows[i], b = rows[j];
+      if (!a.assigneeId || a.assigneeId !== b.assigneeId) continue;
+      if (!a.startDate || !a.endDate || !b.startDate || !b.endDate) continue;
+      const aStart = new Date(a.startDate).getTime();
+      const aEnd = new Date(a.endDate).getTime();
+      const bStart = new Date(b.startDate).getTime();
+      const bEnd = new Date(b.endDate).getTime();
+      if (aStart < bEnd && aEnd > bStart) {
+        conflicts.push({ task1: a, task2: b });
+      }
+    }
+  }
+  return conflicts;
+}
+
+// ─── Sprints ──────────────────────────────────────────────────────────────────
+export async function createSprint(data: InsertSprint) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(sprints).values(data);
+  return { id: (result as any).insertId as number };
+}
+
+export async function listSprints(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(sprints).where(eq(sprints.projectId, projectId)).orderBy(desc(sprints.startDate));
+}
+
+export async function getAllSprints() {
+  const db = await getDb();
+  if (!db) return [];
+  const allSprints = await db.select().from(sprints).orderBy(desc(sprints.startDate));
+  // Add task counts
+  const result = await Promise.all(allSprints.map(async sprint => {
+    const stRows = await db!.select({ taskId: sprintTasks.taskId }).from(sprintTasks).where(eq(sprintTasks.sprintId, sprint.id));
+    const taskIds = stRows.map(r => r.taskId);
+    const taskCount = taskIds.length;
+    const completedCount = taskIds.length > 0
+      ? (await db!.select({ id: tasks.id }).from(tasks).where(and(inArray(tasks.id, taskIds), eq(tasks.status, 'published')))).length
+      : 0;
+    return { ...sprint, taskCount, completedCount };
+  }));
+  return result;
+}
+
+export async function getSprintWithTasks(sprintId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [sprint] = await db.select().from(sprints).where(eq(sprints.id, sprintId));
+  if (!sprint) return null;
+  const stRows = await db.select({ taskId: sprintTasks.taskId }).from(sprintTasks).where(eq(sprintTasks.sprintId, sprintId));
+  const taskIds = stRows.map(r => r.taskId);
+  const sprintTaskList = taskIds.length > 0
+    ? await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, priority: tasks.priority, assigneeId: tasks.assigneeId, setor: tasks.setor }).from(tasks).where(inArray(tasks.id, taskIds))
+    : [];
+  return { ...sprint, tasks: sprintTaskList };
+}
+
+export async function updateSprint(id: number, data: Partial<InsertSprint>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(sprints).set(data).where(eq(sprints.id, id));
+  return { success: true };
+}
+
+export async function deleteSprint(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(sprintTasks).where(eq(sprintTasks.sprintId, id));
+  await db.delete(sprints).where(eq(sprints.id, id));
+  return { success: true };
+}
+
+export async function addTaskToSprint(sprintId: number, taskId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const existing = await db.select().from(sprintTasks).where(and(eq(sprintTasks.sprintId, sprintId), eq(sprintTasks.taskId, taskId)));
+  if (existing.length > 0) return { success: true };
+  await db.insert(sprintTasks).values({ sprintId, taskId });
+  return { success: true };
+}
+
+export async function removeTaskFromSprint(sprintId: number, taskId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(sprintTasks).where(and(eq(sprintTasks.sprintId, sprintId), eq(sprintTasks.taskId, taskId)));
+  return { success: true };
+}
+
+// ─── Agenda Events ────────────────────────────────────────────────────────────
+export async function createAgendaEvent(data: InsertAgendaEvent) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(agendaEvents).values(data);
+  return { id: (result as any).insertId as number };
+}
+
+export async function listAgendaEvents(userId: number, projectId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Return events created by user OR public events OR events where user is attendee
+  const rows = await db
+    .select({
+      id: agendaEvents.id,
+      createdById: agendaEvents.createdById,
+      title: agendaEvents.title,
+      type: agendaEvents.type,
+      startDate: agendaEvents.startDate,
+      endDate: agendaEvents.endDate,
+      description: agendaEvents.description,
+      meetingUrl: agendaEvents.meetingUrl,
+      attendeeIds: agendaEvents.attendeeIds,
+      projectId: agendaEvents.projectId,
+      isPublic: agendaEvents.isPublic,
+      createdAt: agendaEvents.createdAt,
+      creatorName: users.name,
+    })
+    .from(agendaEvents)
+    .leftJoin(users, eq(agendaEvents.createdById, users.id))
+    .where(
+      projectId
+        ? or(eq(agendaEvents.createdById, userId), and(eq(agendaEvents.isPublic, true), eq(agendaEvents.projectId, projectId)))
+        : or(eq(agendaEvents.createdById, userId), eq(agendaEvents.isPublic, true))
+    )
+    .orderBy(agendaEvents.startDate);
+  return rows;
+}
+
+export async function updateAgendaEvent(id: number, data: Partial<InsertAgendaEvent>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(agendaEvents).set(data).where(eq(agendaEvents.id, id));
+  return { success: true };
+}
+
+export async function deleteAgendaEvent(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(agendaEvents).where(eq(agendaEvents.id, id));
+  return { success: true };
+}
+
+// ─── Task Messages (Chat entre membros) ──────────────────────────────────────
+export async function sendTaskMessage(data: InsertTaskMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(taskMessages).values(data);
+  return { id: (result as any).insertId as number };
+}
+
+export async function getTaskMessages(taskId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: taskMessages.id,
+      taskId: taskMessages.taskId,
+      userId: taskMessages.userId,
+      message: taskMessages.message,
+      createdAt: taskMessages.createdAt,
+      userName: users.name,
+    })
+    .from(taskMessages)
+    .leftJoin(users, eq(taskMessages.userId, users.id))
+    .where(eq(taskMessages.taskId, taskId))
+    .orderBy(taskMessages.createdAt);
+}
+
+// ─── Whiteboard ───────────────────────────────────────────────────────────────
+export async function getWhiteboard(projectId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(whiteboardData).where(eq(whiteboardData.projectId, projectId));
+  return row ?? null;
+}
+
+export async function saveWhiteboard(projectId: number, content: string, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const existing = await db.select({ id: whiteboardData.id }).from(whiteboardData).where(eq(whiteboardData.projectId, projectId));
+  if (existing.length > 0) {
+    await db.update(whiteboardData).set({ content, updatedById: userId }).where(eq(whiteboardData.projectId, projectId));
+  } else {
+    await db.insert(whiteboardData).values({ projectId, content, updatedById: userId });
+  }
+  return { success: true };
 }
 

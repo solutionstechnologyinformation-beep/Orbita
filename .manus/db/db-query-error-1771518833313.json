@@ -1,0 +1,8 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS whiteboard_data (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  projectId INT NOT NULL,\n  content TEXT NOT NULL DEFAULT '[]',\n  updatedById INT,\n  updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute CREATE TABLE IF NOT EXISTS whiteboard_data (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  projectId INT NOT NULL,\n  content TEXT NOT NULL DEFAULT '[]',\n  updatedById INT,\n  updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1101 (42000) at line 1: BLOB/TEXT/JSON column 'content' can't have a default value"
+  ]
+}

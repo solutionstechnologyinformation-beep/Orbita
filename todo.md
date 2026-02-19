@@ -131,3 +131,93 @@
 - [x] Frontend: botões "Arquivar" (com confirmação) e "Reativar" para o dono
 - [x] Frontend: botão "Excluir Permanentemente" com confirmação para o dono
 - [x] Frontend: badge "Arquivado" no cabeçalho do projeto quando arquivado
+
+## Melhoria v3.8 — Visualizador de Arquivos
+- [ ] Componente FilePreviewModal: PDF via iframe, imagens via img, outros via link de download
+- [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
+- [ ] Suporte a PDF, imagens (jpg/png/gif/webp), e fallback para outros tipos
+
+## Melhorias v3.8
+- [ ] Admin: botão e formulário para criar novo usuário (nome, e-mail, senha, papel)
+- [ ] Backend: procedure admin.createUser com hash de senha
+- [ ] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
+- [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
+
+## Melhorias v3.8 — Empresa, Admin e Visualizador
+- [ ] Schema: campo company (texto) na tabela users
+- [ ] Backend: migrar banco (ALTER TABLE users ADD COLUMN company)
+- [ ] Backend: importar upsertUser e deleteUser no routers.ts
+- [ ] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
+- [ ] Backend: procedure admin.deleteUser
+- [ ] Backend: procedure profile.update aceitar campo company
+- [ ] Backend: listTasks e getProjectMembers retornar company do responsável
+- [ ] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
+- [ ] Frontend: TaskDetail exibir empresa do responsável
+- [ ] Frontend: filtro por empresa no Kanban (chips na barra superior)
+- [ ] Frontend: filtro por empresa no Dashboard
+- [ ] Frontend: campo empresa no perfil do usuário (página Profile)
+- [ ] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
+- [ ] Frontend Admin: botão excluir usuário com confirmação
+- [ ] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
+- [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
+
+## Arquitetura Multi-Tenant v3.9
+- [ ] Schema: tabela companies (id, name, slug, color, createdAt)
+- [ ] Schema: campo companyId em users (FK → companies)
+- [ ] Schema: campo companyId em projects (FK → companies)
+- [ ] Schema: enum role expandido: "master_admin" | "company_admin" | "user"
+- [ ] Backend: migrar banco (novas tabelas e colunas)
+- [ ] Backend: procedures companies.list, create, update, delete (master_admin)
+- [ ] Backend: isolamento de queries por companyId (users, projects, tasks)
+- [ ] Backend: companyAdminProcedure — guard que verifica role company_admin
+- [ ] Backend: procedures para Company Admin gerenciar usuários da sua empresa
+- [ ] Frontend: painel /company-admin com abas Usuários e Projetos da empresa
+- [ ] Frontend Admin Master: aba "Empresas" para criar/editar/excluir empresas
+- [ ] Frontend Admin Master: exibir empresa junto ao responsável nas tarefas
+- [ ] Frontend: filtro por empresa no Kanban e Dashboard
+- [ ] Frontend: campo empresa visível no perfil do usuário
+
+## Gráfico de Gantt v3.10
+- [x] Schema: campos startDate e endDate na tabela tasks
+- [x] Backend: migrar banco (ALTER TABLE tasks ADD COLUMN startDate/endDate)
+- [x] Backend: procedure tasks.gantt (retorna tarefas com datas, responsável, empresa)
+- [x] Backend: procedure tasks.updateDates (atualiza startDate/endDate via drag no Gantt)
+- [x] Backend: detecção de conflitos (mesmo responsável, datas sobrepostas) com notificação
+- [x] Frontend: página /gantt com entrada na barra lateral de navegação
+- [x] Frontend: gráfico Gantt interativo (barras arrastáveis por data, cores por status)
+- [x] Frontend: filtros no Gantt (por projeto, responsável, empresa, setor, status)
+- [x] Frontend: indicador visual de conflito de tarefas (barra vermelha/ícone de alerta)
+- [x] Frontend: notificação in-app ao detectar conflito de datas do mesmo responsável
+
+## Gantt + Burndown v3.10 (atualizado)
+- [x] Backend: procedure tasks.gantt (tarefas com startDate/endDate, conflitos por assignee)
+- [x] Backend: procedure tasks.burndown (tarefas concluídas por dia vs. ideal)
+- [x] Frontend: página /gantt com abas "Gantt" e "Burndown"
+- [x] Frontend Gantt: barras horizontais por tarefa, filtro por projeto, edição de datas inline
+- [x] Frontend Gantt: notificação de conflito (mesmo responsável, datas sobrepostas)
+- [x] Frontend Burndown: gráfico de linha (real vs. ideal) por projeto selecionado
+- [x] Navegação: link "Gantt" na barra lateral
+
+## Funcionalidades v3.11 — Pacote Completo
+- [x] Chat de membros: schema task_messages (taskId, userId, message, createdAt)
+- [x] Chat de membros: procedure tasks.chat (send, list por tarefa)
+- [x] Chat de membros: painel de chat inline no TaskDetail
+- [x] Calendário de entregas: aba /agenda com visualização de calendário mensal (tarefas com dueDate)
+- [x] Sprints: schema sprints (projectId, name, startDate, endDate, goal) e sprint_tasks (sprintId, taskId)
+- [x] Sprints: procedures sprints.create, list, addTask, removeTask, complete, listAll
+- [x] Sprints: página /sprints com criação de sprint semanal, metas e lista de tarefas
+- [x] Dashboard: widget "Sprints Ativas" com % de conclusão e dias restantes
+- [x] Kanban: coluna "Bloqueado" (status blocked) com ícone Ban e transições permitidas
+- [x] Agenda: schema agenda_events (userId, title, type, startDate, endDate, description, meetingUrl, attendees)
+- [x] Agenda: procedures agenda.create, list, update, delete
+- [x] Agenda: página /agenda com calendário mensal, criação de férias/reunião/outros
+- [x] Navegação: links Gantt, Sprints, Agenda na barra lateral
+
+## Quadro Branco + Programação v3.12
+- [x] Quadro Branco (/quadro-branco): canvas interativo com sticky notes, formas, texto e setas
+- [x] Quadro Branco: salvar estado do canvas por projeto no banco de dados
+- [x] Quadro Branco: schema whiteboard_data (projectId, content JSON, updatedAt)
+- [x] Programação (/programacao): linha do tempo de tarefas agrupadas por responsável (swimlane)
+- [x] Programação: filtros por projeto, setor e período
+- [x] Programação: indicador visual de conflito de agenda (férias/reunião vs. tarefa)
+- [x] Navegação: links "Quadro Branco" e "Programação" na barra lateral

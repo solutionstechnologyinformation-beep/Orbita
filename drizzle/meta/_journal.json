@@ -43,6 +43,13 @@
       "when": 1771507715434,
       "tag": "0005_dazzling_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771523577139,
+      "tag": "0006_absent_master_chief",
+      "breakpoints": true
     }
   ]
 }

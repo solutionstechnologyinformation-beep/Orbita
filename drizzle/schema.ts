@@ -7,6 +7,18 @@ import {
   varchar,
   boolean,
 } from "drizzle-orm/mysql-core";
+// ─── Companies ────────────────────────────────────────────────────────────────
+export const companies = mysqlTable("companies", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  color: varchar("color", { length: 32 }).default("#1e2d5a"),
+  logoUrl: text("logoUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = typeof companies.$inferInsert;
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
@@ -15,8 +27,10 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "master_admin", "company_admin"]).default("user").notNull(),
   avatarUrl: text("avatarUrl"),
+  company: varchar("company", { length: 256 }),
+  companyId: int("companyId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -32,11 +46,11 @@ export const projects = mysqlTable("projects", {
   description: text("description"),
   color: varchar("color", { length: 32 }).default("#6366f1").notNull(),
   status: mysqlEnum("status", ["active", "archived", "completed"]).default("active").notNull(),
-  ownerId: int("ownerId").notNull(),
+   ownerId: int("ownerId").notNull(),
+  companyId: int("companyId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = typeof projects.$inferInsert;
 
@@ -102,13 +116,15 @@ export const tasks = mysqlTable("tasks", {
   // shared      = Compartilhado (finalizada, aguardando aprovação do Líder)
   // published   = Publicado (aprovada pelo Líder)
   // archived    = Arquivado (aprovada e finalizada)
-  status: mysqlEnum("status", ["pending", "in_progress", "shared", "published", "archived"]).default("pending").notNull(),
+  status: mysqlEnum("status", ["pending", "in_progress", "shared", "published", "archived", "blocked"]).default("pending").notNull(),
   priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium").notNull(),
   assigneeId: int("assigneeId"),
   teamId: int("teamId"),                                  // equipe responsável
   approvedById: int("approvedById"),                      // Líder que aprovou
   approvedAt: timestamp("approvedAt"),                    // quando foi aprovada
   createdById: int("createdById").notNull(),
+  startDate: timestamp("startDate"),
+  endDate: timestamp("endDate"),
   dueDate: timestamp("dueDate"),
   position: int("position").default(0).notNull(),
   revisionsCount: int("revisionsCount").default(0).notNull(),
@@ -229,3 +245,66 @@ export const chatMessages = mysqlTable("chat_messages", {
 
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = typeof chatMessages.$inferInsert;
+
+// ─── Sprints ──────────────────────────────────────────────────────────────────
+export const sprints = mysqlTable("sprints", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  goal: text("goal"),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  status: mysqlEnum("status", ["active", "completed", "planned"]).default("planned").notNull(),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Sprint = typeof sprints.$inferSelect;
+export type InsertSprint = typeof sprints.$inferInsert;
+
+export const sprintTasks = mysqlTable("sprint_tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  sprintId: int("sprintId").notNull(),
+  taskId: int("taskId").notNull(),
+  addedAt: timestamp("addedAt").defaultNow().notNull(),
+});
+export type SprintTask = typeof sprintTasks.$inferSelect;
+
+// ─── Agenda Events ────────────────────────────────────────────────────────────
+export const agendaEvents = mysqlTable("agenda_events", {
+  id: int("id").autoincrement().primaryKey(),
+  createdById: int("createdById").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  type: mysqlEnum("type", ["vacation", "meeting", "other"]).default("other").notNull(),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  description: text("description"),
+  meetingUrl: varchar("meetingUrl", { length: 1024 }),
+  attendeeIds: text("attendeeIds"), // JSON array of user IDs
+  projectId: int("projectId"),
+  isPublic: boolean("isPublic").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AgendaEvent = typeof agendaEvents.$inferSelect;
+export type InsertAgendaEvent = typeof agendaEvents.$inferInsert;
+
+// ─── Task Messages (Chat entre membros) ──────────────────────────────────────
+export const taskMessages = mysqlTable("task_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId").notNull(),
+  userId: int("userId").notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TaskMessage = typeof taskMessages.$inferSelect;
+export type InsertTaskMessage = typeof taskMessages.$inferInsert;
+
+// ─── Whiteboard ───────────────────────────────────────────────────────────────
+export const whiteboardData = mysqlTable("whiteboard_data", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  content: text("content").notNull().default("[]"), // JSON array of canvas elements
+  updatedById: int("updatedById"),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+export type WhiteboardData = typeof whiteboardData.$inferSelect;
+export type InsertWhiteboardData = typeof whiteboardData.$inferInsert;
