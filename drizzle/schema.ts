@@ -64,6 +64,10 @@ export const tasks = mysqlTable("tasks", {
   createdById: int("createdById").notNull(),
   dueDate: timestamp("dueDate"),
   position: int("position").default(0).notNull(),
+  revisionsCount: int("revisionsCount").default(0).notNull(),
+  openedAt: timestamp("openedAt"),
+  completedAt: timestamp("completedAt"),
+  statusChangedAt: timestamp("statusChangedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

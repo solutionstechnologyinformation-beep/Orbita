@@ -15,6 +15,13 @@
       "when": 1771457180685,
       "tag": "0001_daffy_lifeguard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771497810928,
+      "tag": "0002_small_dragon_man",
+      "breakpoints": true
     }
   ]
 }

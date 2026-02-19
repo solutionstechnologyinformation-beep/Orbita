@@ -6,7 +6,7 @@ import { useState, useRef } from "react";
 import {
   MessageSquare, Paperclip, Flag, Calendar, User2,
   Send, Upload, Trash2, Download, FileText, Image,
-  CheckCircle2, Clock, ListTodo, Edit2, Save, X,
+  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -238,6 +238,84 @@ export default function TaskDetail() {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Metrics Panel */}
+        <Card className="border border-border shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              Métricas de Desempenho
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Aberta em</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {(task as any).openedAt
+                    ? new Date((task as any).openedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+                    : <span className="text-muted-foreground font-normal">—</span>}
+                </p>
+                {(task as any).openedAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date((task as any).openedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Última alteração de status</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {(task as any).statusChangedAt
+                    ? new Date((task as any).statusChangedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+                    : <span className="text-muted-foreground font-normal">—</span>}
+                </p>
+                {(task as any).statusChangedAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date((task as any).statusChangedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Concluída em</p>
+                {(task as any).completedAt ? (
+                  <>
+                    <p className="text-sm font-semibold text-emerald-600">
+                      {new Date((task as any).completedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date((task as any).completedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Revisões</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-2xl font-bold text-foreground">{(task as any).revisionsCount ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">alterações</p>
+                </div>
+                {((task as any).revisionsCount ?? 0) > 5 && (
+                  <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-50 text-amber-700 border border-amber-200">Alta revisão</Badge>
+                )}
+              </div>
+            </div>
+            {(task as any).openedAt && (task as any).completedAt && (
+              <div className="mt-4 pt-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Lead time: </span>
+                  {(() => {
+                    const ms = new Date((task as any).completedAt).getTime() - new Date((task as any).openedAt).getTime();
+                    const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+                  })()} — do início à conclusão
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

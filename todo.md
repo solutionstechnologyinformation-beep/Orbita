@@ -43,6 +43,17 @@
 - [x] Garantir criação de tarefa em cada coluna do Kanban (A Fazer, Em Progresso, Concluído)
 - [x] Permitir mudança de status das tarefas criadas (via dropdown no card + drag-and-drop) (causa: âncoras aninhadas `<Link><a>` em AppLayout, Dashboard, Projects e Notifications)
 
+## Funcionalidades v2.3
+- [x] Schema: adicionar openedAt, completedAt, statusChangedAt, revisionsCount à tabela tasks
+- [x] Backend: registrar timestamps e incrementar revisões ao atualizar status
+- [x] Backend: notificação automática ao criador quando tarefa é concluída
+- [x] Backend: seletor de membros do projeto na atribuição de tarefa
+- [x] Kanban: barra de status inline em cada card (A Fazer / Em Progresso / Concluído)
+- [x] Kanban: botão de excluir tarefa diretamente no card
+- [x] Kanban: formulário com seletor de membros para atribuir tarefa
+- [x] Dashboard: gráfico de distribuição de tarefas por status (Recharts)
+- [x] Detalhe da tarefa: painel de métricas (abertura, conclusão, última alteração, nº revisões)
+
 ## Testes
 - [x] Teste de logout (auth.logout.test.ts)
 - [x] Testes de features: auth, procedimentos protegidos, admin, validação de input (features.test.ts)

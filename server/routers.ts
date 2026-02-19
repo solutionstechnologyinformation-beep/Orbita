@@ -258,13 +258,36 @@ export const appRouter = router({
         const task = await getTaskById(id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         await assertProjectAccess(task.projectId, ctx.user.id);
-        await updateTask(id, data as any);
-        await logActivity({ userId: ctx.user.id, action: "updated_task", entityType: "task", entityId: id });
+        const statusChanged = data.status !== undefined && data.status !== task.status;
+        await updateTask(id, data as any, {
+          incrementRevisions: true,
+          newStatus: data.status,
+          previousStatus: task.status,
+        });
+        await logActivity({
+          userId: ctx.user.id,
+          action: statusChanged ? `status_changed_to_${data.status}` : "updated_task",
+          entityType: "task",
+          entityId: id,
+          metadata: statusChanged ? JSON.stringify({ from: task.status, to: data.status }) : undefined,
+        });
+        // Notify assignee if re-assigned
         if (data.assigneeId && data.assigneeId !== task.assigneeId && data.assigneeId !== ctx.user.id) {
           await createNotification({
             userId: data.assigneeId,
             title: "Tarefa reatribuída a você",
             message: `A tarefa "${task.title}" foi atribuída a você.`,
+            notificationType: "task_assigned",
+            relatedTaskId: id,
+            relatedProjectId: task.projectId,
+          });
+        }
+        // Notify creator when task is completed by someone else
+        if (data.status === "done" && task.status !== "done" && task.createdById !== ctx.user.id) {
+          await createNotification({
+            userId: task.createdById,
+            title: "Tarefa concluída!",
+            message: `A tarefa "${task.title}" foi marcada como concluída.`,
             notificationType: "task_assigned",
             relatedTaskId: id,
             relatedProjectId: task.projectId,

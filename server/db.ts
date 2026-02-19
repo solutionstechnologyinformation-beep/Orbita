@@ -178,9 +178,10 @@ export async function createTask(data: InsertTask) {
   // Use raw SQL to avoid Drizzle mysql2 enum serialization issues.
   // position uses modulo to stay within INT range (max 2,147,483,647).
   const safePosition = data.position ? data.position % 2000000000 : Date.now() % 2000000000;
+  const now = new Date();
   const [result] = await db.execute(
-    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, createdById, dueDate, position)
-        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'todo'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition})`
+    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, createdById, dueDate, position, revisionsCount, openedAt, statusChangedAt)
+        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'todo'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${now}, ${now})`
   );
   return (result as any).insertId as number;
 }
@@ -208,6 +209,10 @@ export async function getTasksByProject(
     createdById: tasks.createdById,
     dueDate: tasks.dueDate,
     position: tasks.position,
+    revisionsCount: tasks.revisionsCount,
+    openedAt: tasks.openedAt,
+    completedAt: tasks.completedAt,
+    statusChangedAt: tasks.statusChangedAt,
     createdAt: tasks.createdAt,
     updatedAt: tasks.updatedAt,
     assigneeName: users.name,
@@ -234,6 +239,10 @@ export async function getTaskById(id: number) {
     assigneeAvatarUrl: users.avatarUrl,
     dueDate: tasks.dueDate,
     position: tasks.position,
+    revisionsCount: tasks.revisionsCount,
+    openedAt: tasks.openedAt,
+    completedAt: tasks.completedAt,
+    statusChangedAt: tasks.statusChangedAt,
     createdById: tasks.createdById,
     createdAt: tasks.createdAt,
     updatedAt: tasks.updatedAt,
@@ -243,10 +252,45 @@ export async function getTaskById(id: number) {
   return r[0];
 }
 
-export async function updateTask(id: number, data: Partial<InsertTask>) {
+export async function updateTask(
+  id: number,
+  data: Partial<InsertTask>,
+  options?: { incrementRevisions?: boolean; newStatus?: string; previousStatus?: string }
+) {
   const db = await getDb();
   if (!db) return;
-  await db.update(tasks).set({ ...data, updatedAt: new Date() }).where(eq(tasks.id, id));
+  const now = new Date();
+  const updateData: Record<string, any> = { ...data, updatedAt: now };
+  // Track status change timestamps
+  if (options?.newStatus && options.newStatus !== options.previousStatus) {
+    updateData.statusChangedAt = now;
+    if (options.newStatus === 'done') {
+      updateData.completedAt = now;
+    } else if (options.previousStatus === 'done') {
+      // Re-opened: clear completedAt
+      updateData.completedAt = null;
+    }
+  }
+  if (options?.incrementRevisions) {
+    // Use SQL expression to atomically increment
+    await db.execute(
+      sql`UPDATE tasks SET revisionsCount = revisionsCount + 1, updatedAt = ${now}
+          ${options?.newStatus && options.newStatus !== options.previousStatus ? sql`, statusChangedAt = ${now}` : sql``}
+          ${options?.newStatus === 'done' ? sql`, completedAt = ${now}` : sql``}
+          ${options?.previousStatus === 'done' && options?.newStatus !== 'done' ? sql`, completedAt = NULL` : sql``}
+          WHERE id = ${id}`
+    );
+    // Then apply the rest of the data fields (excluding status-related already handled)
+    const { status, ...restData } = data as any;
+    const cleanData: Record<string, any> = { updatedAt: now };
+    if (status) cleanData.status = status;
+    Object.entries(restData).forEach(([k, v]) => { if (v !== undefined) cleanData[k] = v; });
+    if (Object.keys(cleanData).length > 1) {
+      await db.update(tasks).set(cleanData).where(eq(tasks.id, id));
+    }
+    return;
+  }
+  await db.update(tasks).set(updateData).where(eq(tasks.id, id));
 }
 
 export async function deleteTask(id: number) {
