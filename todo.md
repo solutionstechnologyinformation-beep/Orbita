@@ -258,3 +258,8 @@
 ## Sidebar Fixa v3.17
 - [x] AppLayout: barra lateral fixed/sticky em todas as navegações (sempre visível ao rolar)
 - [x] AppLayout: área de conteúdo com overflow-y próprio para rolar sem mover o sidebar
+
+## Edição Inline de Tarefa v3.18
+- [x] TaskDetail: edição inline do título (click no título → input, Enter/blur salva, Esc cancela)
+- [x] TaskDetail: edição inline da descrição (click na descrição → textarea, botão Salvar/Cancelar)
+- [x] Feedback visual: indicador de "salvando..." e confirmação de sucesso

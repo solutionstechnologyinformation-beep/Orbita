@@ -2,12 +2,13 @@ import AppLayout from "@/components/AppLayout";
 import { trpc } from "@/lib/trpc";
 import { useParams } from "wouter";
 import { toast } from "sonner";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   MessageSquare, Paperclip, Flag, Calendar, User2,
   Send, Upload, Trash2, Download, FileText, Image,
-  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2,
+  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2, Pencil,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,6 +121,17 @@ export default function TaskDetail() {
   const [comment, setComment] = useState("");
   const [editingStatus, setEditingStatus] = useState(false);
   const [editingPriority, setEditingPriority] = useState(false);
+
+  // Inline title/description editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTitle && titleInputRef.current) titleInputRef.current.focus();
+  }, [editingTitle]);
   const [editingDates, setEditingDates] = useState(false);
   const [startDateInput, setStartDateInput] = useState("");
   const [endDateInput, setEndDateInput] = useState("");
@@ -150,10 +162,24 @@ export default function TaskDetail() {
       utils.tasks.get.invalidate({ id: taskId });
       setEditingStatus(false);
       setEditingPriority(false);
+      setEditingTitle(false);
+      setEditingDescription(false);
       toast.success("Tarefa atualizada!");
     },
     onError: (e) => toast.error(e.message),
   });
+
+  function saveTitle() {
+    const trimmed = titleInput.trim();
+    if (!trimmed || trimmed === task?.title) { setEditingTitle(false); return; }
+    updateMutation.mutate({ id: taskId, title: trimmed });
+  }
+
+  function saveDescription() {
+    const trimmed = descriptionInput.trim();
+    if (trimmed === (task?.description ?? "")) { setEditingDescription(false); return; }
+    updateMutation.mutate({ id: taskId, description: trimmed });
+  }
 
   const deleteAttachmentMutation = trpc.tasks.deleteAttachment.useMutation({
     onSuccess: () => {
@@ -225,12 +251,76 @@ export default function TaskDetail() {
         {/* Task Header */}
         <Card className="bg-card border-border">
           <CardContent className="p-6">
-            <h2 className={`text-xl font-bold mb-4 ${task.status === "archived" ? "line-through text-muted-foreground" : ""}`}>
-              {task.title}
-            </h2>
+            {/* Editable Title */}
+            {editingTitle ? (
+              <div className="flex items-center gap-2 mb-4">
+                <Input
+                  ref={titleInputRef}
+                  value={titleInput}
+                  onChange={e => setTitleInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
+                  className="text-xl font-bold h-10 border-primary/50 focus-visible:ring-primary/30"
+                  disabled={updateMutation.isPending}
+                />
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={saveTitle} disabled={updateMutation.isPending}>
+                  <Save className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTitle(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="group flex items-start gap-2 mb-4">
+                <h2 className={`text-xl font-bold flex-1 ${task.status === "archived" ? "line-through text-muted-foreground" : ""}`}>
+                  {task.title}
+                </h2>
+                <button
+                  onClick={() => { setTitleInput(task.title); setEditingTitle(true); }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground mt-0.5"
+                  title="Editar nome"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
-            {task.description && (
-              <p className="text-muted-foreground mb-6 leading-relaxed">{task.description}</p>
+            {/* Editable Description */}
+            {editingDescription ? (
+              <div className="mb-6 space-y-2">
+                <Textarea
+                  value={descriptionInput}
+                  onChange={e => setDescriptionInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Escape") setEditingDescription(false); }}
+                  placeholder="Adicione uma descrição..."
+                  className="min-h-[100px] resize-y text-sm"
+                  disabled={updateMutation.isPending}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveDescription} disabled={updateMutation.isPending} className="h-7 text-xs">
+                    <Save className="w-3 h-3 mr-1" />
+                    {updateMutation.isPending ? "Salvando..." : "Salvar"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingDescription(false)} className="h-7 text-xs">
+                    <X className="w-3 h-3 mr-1" /> Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="group relative mb-6 cursor-pointer rounded-md p-2 -mx-2 hover:bg-muted/50 transition-colors"
+                onClick={() => { setDescriptionInput(task.description ?? ""); setEditingDescription(true); }}
+                title="Clique para editar a descrição"
+              >
+                {task.description ? (
+                  <p className="text-muted-foreground leading-relaxed text-sm">{task.description}</p>
+                ) : (
+                  <p className="text-muted-foreground/50 italic text-sm">Clique para adicionar uma descrição...</p>
+                )}
+                <span className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Pencil className="w-3 h-3 text-muted-foreground" />
+                </span>
+              </div>
             )}
 
             {/* Meta */}
