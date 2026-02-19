@@ -119,3 +119,15 @@
 - [x] Sidebar (AppLayout): fundo azul-marinho, texto/ícones brancos, item ativo com destaque claro
 - [x] PDFs (AIChat): logo Orbita (círculo azul-marinho + anel + ponto branco) e nome no cabeçalho
 - [x] Dashboard: botão "Exportar PDF" com KPIs, gráfico de status, barras por projeto, barras por setor e tabela de atraso
+
+## Melhorias v3.7
+- [x] ProjectDetail: aba "Visão Geral" com tarefas recentes e barras de progresso por status
+- [x] ProjectDetail: aba "Membros" com busca de usuário, seletor de função e botão remover
+- [x] ProjectDetail: aba "Revisões" com tabela de tarefas revisadas e contador total
+- [x] Corrigido: busca de usuário por nome/email ao adicionar membro (users.search)
+- [x] Notificação in-app com nome do projeto e função ao adicionar membro
+- [x] Schema: campo status já existia (active/archived/completed) - sem migração necessária
+- [x] Backend: projects.update aceita status para arquivar/reativar
+- [x] Frontend: botões "Arquivar" (com confirmação) e "Reativar" para o dono
+- [x] Frontend: botão "Excluir Permanentemente" com confirmação para o dono
+- [x] Frontend: badge "Arquivado" no cabeçalho do projeto quando arquivado

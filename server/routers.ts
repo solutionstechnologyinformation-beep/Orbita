@@ -55,6 +55,7 @@ import {
   removeMemberRole,
   getTasksAssignedToUser,
   getSetorStats,
+  getUserById,
 } from "./db";
 
 // ─── Admin Guard ──────────────────────────────────────────────────────────────
@@ -135,7 +136,8 @@ export const appRouter = router({
         const project = await assertProjectAccess(input.id, ctx.user.id);
         const members = await getProjectMembers(input.id);
         const taskCounts = await getTaskCountsByProject(input.id);
-        return { ...project, members, taskCounts };
+        const owner = await getUserById(project.ownerId);
+        return { ...project, ownerName: owner?.name ?? null, ownerEmail: owner?.email ?? null, members, taskCounts };
       }),
 
     create: protectedProcedure
@@ -188,10 +190,11 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await assertProjectAccess(input.projectId, ctx.user.id);
         await addProjectMember({ projectId: input.projectId, userId: input.userId, role: input.role });
+        const proj = await getProjectById(input.projectId);
         await notifyUser({
           userId: input.userId,
           title: "Você foi adicionado a um projeto",
-          message: `Você foi convidado para colaborar em um projeto.`,
+          message: `Você foi adicionado ao projeto "${proj?.name ?? "Projeto"}" como ${input.role === "admin" ? "Administrador" : input.role === "viewer" ? "Visualizador" : "Membro"}.`,
           notificationType: "project_invite",
           relatedProjectId: input.projectId,
         });
