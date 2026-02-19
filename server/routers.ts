@@ -52,6 +52,7 @@ import {
   assignMemberRole,
   removeMemberRole,
   getTasksAssignedToUser,
+  getSetorStats,
 } from "./db";
 
 // ─── Admin Guard ──────────────────────────────────────────────────────────────
@@ -97,6 +98,9 @@ export const appRouter = router({
     }),
     recentTasks: protectedProcedure.query(async ({ ctx }) => {
       return getTasksAssignedToUser(ctx.user.id);
+    }),
+    setorStats: protectedProcedure.query(async ({ ctx }) => {
+      return getSetorStats(ctx.user.id);
     }),
   }),
 
@@ -232,10 +236,11 @@ export const appRouter = router({
         priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
         assigneeId: z.number().optional(),
         dueDate: z.date().optional(),
+        setor: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         await assertProjectAccess(input.projectId, ctx.user.id);
-        const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 });
+        const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 } as any);
         await logActivity({ userId: ctx.user.id, action: "created_task", entityType: "task", entityId: id, metadata: JSON.stringify({ title: input.title }) });
         if (input.assigneeId && input.assigneeId !== ctx.user.id) {
           await createNotification({
@@ -260,6 +265,7 @@ export const appRouter = router({
         assigneeId: z.number().nullable().optional(),
         dueDate: z.date().nullable().optional(),
         position: z.number().optional(),
+        setor: z.string().nullable().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
@@ -267,8 +273,10 @@ export const appRouter = router({
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         await assertProjectAccess(task.projectId, ctx.user.id);
         const statusChanged = data.status !== undefined && data.status !== task.status;
+        // Revision count: ONLY increments when moving from 'shared' back to 'in_progress'
+        const shouldIncrementRevision = data.status === 'in_progress' && task.status === 'shared';
         await updateTask(id, data as any, {
-          incrementRevisions: true,
+          incrementRevisions: shouldIncrementRevision,
           newStatus: data.status,
           previousStatus: task.status,
         });

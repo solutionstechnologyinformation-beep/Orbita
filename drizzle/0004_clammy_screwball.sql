@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `setor` varchar(128);

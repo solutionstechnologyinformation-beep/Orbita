@@ -69,6 +69,16 @@
 - [x] Zero erros TypeScript após limpeza
 - [x] 14/14 testes passando após todas as alterações
 
+## Correções e Funcionalidades v3.2
+- [x] Bug 1: seletor de responsável corrigido (Select com value/onValueChange correto)
+- [x] Bug 2: drag-and-drop corrigido (MouseSensor + distance:10 + TouchSensor)
+- [x] Bug 3: botão ChevronRight para abrir detalhes da tarefa adicionado ao card
+- [x] Bug 4: openedAt exibido no card do Kanban com tooltip
+- [x] Bug 5: revisões só incrementam em Compartilhado→Em Andamento (já estava correto no backend)
+- [x] Feature 6: métricas por disciplina/setor no Dashboard (gráfico de barras empilhadas)
+- [x] Feature 7: campo Setor adicionado ao schema, banco, Kanban (criação) e TaskDetail (edição)
+- [x] Feature 8: gráfico de desempenho por setor no Dashboard com endpoint setorStats
+
 ## Testes
 - [x] Teste de logout (auth.logout.test.ts)
 - [x] Testes de features: auth, procedimentos protegidos, admin, validação de input (features.test.ts)

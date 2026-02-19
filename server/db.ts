@@ -183,8 +183,8 @@ export async function createTask(data: InsertTask) {
   const safePosition = data.position ? data.position % 2000000000 : Date.now() % 2000000000;
   const now = new Date();
   const [result] = await db.execute(
-    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, teamId, createdById, dueDate, position, revisionsCount, openedAt, statusChangedAt)
-        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'pending'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.teamId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${now}, ${now})`
+    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, teamId, createdById, dueDate, position, revisionsCount, setor, openedAt, statusChangedAt)
+        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'pending'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.teamId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${(data as any).setor ?? null}, ${now}, ${now})`
   );
   return (result as any).insertId as number;
 }
@@ -216,6 +216,7 @@ export async function getTasksByProject(
     dueDate: tasks.dueDate,
     position: tasks.position,
     revisionsCount: tasks.revisionsCount,
+    setor: tasks.setor,
     openedAt: tasks.openedAt,
     completedAt: tasks.completedAt,
     statusChangedAt: tasks.statusChangedAt,
@@ -248,6 +249,7 @@ export async function getTaskById(id: number) {
     dueDate: tasks.dueDate,
     position: tasks.position,
     revisionsCount: tasks.revisionsCount,
+    setor: tasks.setor,
     openedAt: tasks.openedAt,
     completedAt: tasks.completedAt,
     statusChangedAt: tasks.statusChangedAt,
@@ -494,6 +496,37 @@ export async function clearChatHistory(userId: number, projectId?: number) {
   const conditions = [eq(chatMessages.userId, userId)];
   if (projectId) conditions.push(eq(chatMessages.projectId, projectId));
   await db.delete(chatMessages).where(and(...conditions));
+}
+
+// ─── Setor Stats ─────────────────────────────────────────────────────────────
+export async function getSetorStats(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const userProjects = await getProjectsByUser(userId);
+  const projectIds = userProjects.map(p => p.id);
+  if (projectIds.length === 0) return [];
+  const rows = await db.select({
+    setor: tasks.setor,
+    status: tasks.status,
+    count: sql<number>`count(*)`,
+  })
+    .from(tasks)
+    .where(inArray(tasks.projectId, projectIds))
+    .groupBy(tasks.setor, tasks.status);
+  // Aggregate by setor
+  const map = new Map<string, { setor: string; total: number; completed: number; in_progress: number; pending: number; shared: number }>();
+  for (const r of rows) {
+    const key = r.setor ?? "Sem Setor";
+    if (!map.has(key)) map.set(key, { setor: key, total: 0, completed: 0, in_progress: 0, pending: 0, shared: 0 });
+    const entry = map.get(key)!;
+    const cnt = Number(r.count);
+    entry.total += cnt;
+    if (r.status === "published" || r.status === "archived") entry.completed += cnt;
+    else if (r.status === "in_progress") entry.in_progress += cnt;
+    else if (r.status === "shared") entry.shared += cnt;
+    else entry.pending += cnt;
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
 }
 
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────

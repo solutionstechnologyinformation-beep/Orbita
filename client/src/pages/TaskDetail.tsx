@@ -245,6 +245,26 @@ export default function TaskDetail() {
                 )}
               </div>
             </div>
+            {/* Setor row */}
+            <div className="mt-4 pt-4 border-t border-border grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Setor / Disciplina</p>
+                <Select
+                  value={(task as any).setor ?? "none"}
+                  onValueChange={(v) => updateMutation.mutate({ id: taskId, setor: v === "none" ? null : v })}
+                >
+                  <SelectTrigger className="h-8 bg-input border-border text-xs">
+                    <SelectValue placeholder="Sem setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem setor</SelectItem>
+                    {["Geometria","Geoprocessamento","Drenagem","Sinalização","Geotecnia","Hidrologia","Geologia","Orçamento"].map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

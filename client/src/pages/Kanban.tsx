@@ -6,7 +6,7 @@ import { Link } from "wouter";
 import { toast } from "sonner";
 import { useState, useCallback } from "react";
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   type DragStartEvent, type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -15,7 +15,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   Plus, GripVertical, MoreHorizontal, Trash2, Eye, AlertCircle,
   CheckCircle2, Clock, Share2, BookOpen, Archive, Info, Shield,
-  User2,
+  User2, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,7 @@ interface Task {
   dueDate?: Date | null;
   position: number;
   revisionsCount?: number | null;
+  setor?: string | null;
   openedAt?: Date | null;
   completedAt?: Date | null;
 }
@@ -234,6 +235,12 @@ function TaskCard({
             {task.title}
           </p>
         </Link>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Link href={`/tasks/${task.id}`}>
+            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" title="Ver detalhes">
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+          </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
@@ -267,6 +274,7 @@ function TaskCard({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Footer row */}
@@ -284,6 +292,25 @@ function TaskCard({
               {overdue && <AlertCircle className="w-2.5 h-2.5" />}
               {new Date(task.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
             </span>
+          )}
+
+          {task.setor && (
+            <Badge className="text-[9px] h-4 px-1.5 bg-indigo-100 text-indigo-700 border border-indigo-200 font-medium">
+              {task.setor}
+            </Badge>
+          )}
+
+          {task.openedAt && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-[10px] text-muted-foreground/60">
+                  {new Date(task.openedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Criada em {new Date(task.openedAt).toLocaleString("pt-BR")}
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {(task.revisionsCount ?? 0) > 0 && (
@@ -458,13 +485,16 @@ export default function Kanban() {
   const [createStatus, setCreateStatus] = useState<TaskStatus>("pending");
   const [form, setForm] = useState({
     title: "", description: "", priority: "medium" as TaskPriority,
-    assigneeId: "", dueDate: "",
+    assigneeId: "", dueDate: "", setor: "",
   });
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   const { data: project } = trpc.projects.get.useQuery({ id: projectId });
   const { data: rawTasks = [], isLoading } = trpc.tasks.list.useQuery({ projectId });
@@ -475,7 +505,7 @@ export default function Kanban() {
     if (!user) return false;
     if ((project as any)?.ownerId === user.id) return true;
     const me = (members as any[]).find((m) => m.userId === user.id);
-    return me?.role === "admin" || me?.projectRole === "leader";
+    return me?.role === "admin" || me?.role === "owner";
   })();
 
   const tasks = (rawTasks as Task[]).filter((t) => {
@@ -488,7 +518,7 @@ export default function Kanban() {
     onSuccess: () => {
       utils.tasks.list.invalidate({ projectId });
       setShowCreate(false);
-      setForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "" });
+      setForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "" });
       toast.success("Tarefa criada com sucesso!");
     },
     onError: (e) => toast.error(e.message),
@@ -560,6 +590,7 @@ export default function Kanban() {
       priority: form.priority,
       assigneeId: form.assigneeId ? parseInt(form.assigneeId) : undefined,
       dueDate: form.dueDate ? new Date(form.dueDate) : undefined,
+      setor: form.setor || undefined,
     });
   };
 
@@ -736,6 +767,23 @@ export default function Kanban() {
                   className="bg-gray-50 border-gray-200"
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Setor</Label>
+              <Select
+                value={form.setor || "none"}
+                onValueChange={(v) => setForm((f) => ({ ...f, setor: v === "none" ? "" : v }))}
+              >
+                <SelectTrigger className="bg-gray-50 border-gray-200">
+                  <SelectValue placeholder="Selecionar setor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem setor</SelectItem>
+                  {["Geometria","Geoprocessamento","Drenagem","Sinalização","Geotecnia","Hidrologia","Geologia","Orçamento"].map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Responsável</Label>

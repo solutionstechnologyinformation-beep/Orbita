@@ -38,6 +38,7 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = trpc.dashboard.stats.useQuery();
   const { data: recentTasks = [], isLoading: tasksLoading } = trpc.dashboard.recentTasks.useQuery();
   const { data: projects = [], isLoading: projectsLoading } = trpc.projects.list.useQuery();
+  const { data: setorStats = [], isLoading: setorLoading } = trpc.dashboard.setorStats.useQuery();
 
   const completionRate = stats && stats.totalTasks > 0
     ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
@@ -213,6 +214,45 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Setor Metrics */}
+        {((setorStats as any[]).length > 0 || setorLoading) && (
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-primary" />
+                Métricas por Setor / Disciplina
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {setorLoading ? (
+                <Skeleton className="h-52 w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={setorStats as any[]} margin={{ top: 4, right: 4, left: -20, bottom: 44 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="setor"
+                      tick={{ fontSize: 10 }}
+                      angle={-35}
+                      textAnchor="end"
+                      interval={0}
+                    />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "12px" }}
+                    />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                    <Bar dataKey="pending" name="Para Iniciar" stackId="a" fill="#94a3b8" />
+                    <Bar dataKey="in_progress" name="Em Andamento" stackId="a" fill="#3b82f6" />
+                    <Bar dataKey="shared" name="Compartilhado" stackId="a" fill="#f59e0b" />
+                    <Bar dataKey="completed" name="Concluído" stackId="a" fill="#10b981" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Bottom row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
