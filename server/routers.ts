@@ -85,6 +85,12 @@ import {
   getTaskMessages,
   getWhiteboard,
   saveWhiteboard,
+  createClient,
+  listClients,
+  updateClient,
+  deleteClient,
+  getClientById,
+  countClients,
 } from "./db";
 // ─── Admin Guard ──────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -145,6 +151,19 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         return getSetorStats(ctx.user.id, input?.projectId);
       }),
+    conflicts: protectedProcedure.query(async ({ ctx }) => {
+      // Get all projects for user and detect conflicts across all
+      const projs = await getProjectsByUser(ctx.user.id);
+      const allConflicts: any[] = [];
+      for (const p of projs) {
+        const c = await detectGanttConflicts(p.id);
+        allConflicts.push(...c.map((cf: any) => ({ ...cf, projectName: p.name })));
+      }
+      return allConflicts.slice(0, 10);
+    }),
+    clientCount: protectedProcedure.query(async ({ ctx }) => {
+      return countClients(ctx.user.companyId ?? undefined);
+    }),
   }),
 
   // ── Projects ──────────────────────────────────────────────────────────────
@@ -964,6 +983,52 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
       }).optional())
       .query(async ({ input }) => {
         return getGanttTasks({ projectId: input?.projectId });
+      }),
+  }),
+
+  // ── Clients ───────────────────────────────────────────────────────────────
+  clients: router({
+    list: protectedProcedure
+      .input(z.object({ companyId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        return listClients({ companyId: input?.companyId ?? ctx.user.companyId ?? undefined });
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        company: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createClient({ ...input, companyId: ctx.user.companyId ?? undefined, createdById: ctx.user.id });
+        return { id };
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        company: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateClient(id, data);
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteClient(input.id);
+        return { success: true };
+      }),
+    count: protectedProcedure
+      .input(z.object({ companyId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        return countClients(input?.companyId ?? ctx.user.companyId ?? undefined);
       }),
   }),
 

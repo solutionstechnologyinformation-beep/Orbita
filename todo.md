@@ -272,3 +272,19 @@
 - [x] Adicionar botão Desfazer (histórico de 20 ações)
 - [x] Tooltips em todos os botões da toolbar
 - [x] Barra de status com ferramenta ativa, atividade selecionada e contagem de elementos
+
+## Dashboard Moderno + Clientes v3.20
+- [x] Schema: tabela clients (id, name, email, phone, company, createdAt)
+- [x] Schema: campo clientId em projects (FK para clients)
+- [x] Backend: procedures clients.create, list, update, delete
+- [x] Backend: procedure dashboard.conflicts e dashboard.clientCount
+- [x] Admin: aba de cadastro e gestão de clientes no painel Admin
+- [x] Dashboard: KPIs percentuais (atraso, concluídas, revisões, dentro do prazo) com gauges circulares
+- [x] Dashboard: gráfico de rosca (donut) com status das tarefas e porcentagens
+- [x] Dashboard: alertas de conflito de atividade com nome do membro
+- [x] Dashboard: lista de atividades da Sprint da Semana
+- [x] Dashboard: totais de Projetos, Tarefas e Clientes
+
+## Gantt Filtro por Membro v3.21
+- [x] Gantt: adicionar filtro por membro (dropdown com membros do projeto selecionado)
+- [x] Gantt: filtrar barras por assigneeId quando membro selecionado

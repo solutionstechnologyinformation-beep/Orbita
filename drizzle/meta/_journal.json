@@ -50,6 +50,13 @@
       "when": 1771523577139,
       "tag": "0006_absent_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1771547478248,
+      "tag": "0007_sloppy_sauron",
+      "breakpoints": true
     }
   ]
 }

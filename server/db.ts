@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityLogs,
@@ -40,6 +40,9 @@ import {
   InsertTaskMessage,
   whiteboardData,
   InsertWhiteboardData,
+  clients,
+  Client,
+  InsertClient,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -1101,3 +1104,48 @@ export async function saveWhiteboard(projectId: number, content: string, userId:
   return { success: true };
 }
 
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+export async function createClient(data: { name: string; email?: string; phone?: string; company?: string; notes?: string; companyId?: number; createdById: number }) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db.insert(clients).values(data as any);
+  return (result as any).insertId as number;
+}
+
+export async function listClients(filters: { companyId?: number } = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  let query = db.select().from(clients) as any;
+  const conditions: any[] = [];
+  if (filters.companyId) conditions.push(eq(clients.companyId, filters.companyId));
+  if (conditions.length > 0) query = query.where(and(...conditions));
+  return query.orderBy(desc(clients.createdAt));
+}
+
+export async function updateClient(id: number, data: Partial<{ name: string; email: string; phone: string; company: string; notes: string }>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clients).set(data as any).where(eq(clients.id, id));
+}
+
+export async function deleteClient(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(clients).where(eq(clients.id, id));
+}
+
+export async function getClientById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(clients).where(eq(clients.id, id));
+  return row ?? null;
+}
+
+export async function countClients(companyId?: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const conditions: any[] = companyId ? [eq(clients.companyId, companyId)] : [];
+  const [row] = await db.select({ count: count() }).from(clients).where(conditions.length > 0 ? and(...conditions) : undefined);
+  return row?.count ?? 0;
+}

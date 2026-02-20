@@ -5,13 +5,20 @@ import { useLocation } from "wouter";
 import { useEffect } from "react";
 import {
   Shield, Users, FolderKanban, Activity, Crown, User,
-  CheckCircle2, Clock, ListTodo,
+  CheckCircle2, Clock, ListTodo, Briefcase, Plus, Pencil, Trash2, X, Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const ACTION_LABELS: Record<string, string> = {
   created_project: "Criou projeto",
@@ -37,6 +44,44 @@ export default function Admin() {
   const { data: allUsers, isLoading: usersLoading } = trpc.admin.users.useQuery();
   const { data: allProjects, isLoading: projectsLoading } = trpc.admin.allProjects.useQuery();
   const { data: logs, isLoading: logsLoading } = trpc.admin.activityLogs.useQuery({ limit: 50, offset: 0 });
+  const utils = trpc.useUtils();
+
+  // Clients state
+  const { data: clientsList, isLoading: clientsLoading } = trpc.clients.list.useQuery();
+  const [clientDialog, setClientDialog] = useState<{ open: boolean; editing?: any }>({
+    open: false,
+  });
+  const [clientForm, setClientForm] = useState({ name: "", email: "", phone: "", company: "", notes: "" });
+
+  const createClientMut = trpc.clients.create.useMutation({
+    onSuccess: () => { utils.clients.list.invalidate(); setClientDialog({ open: false }); toast.success("Cliente criado!"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateClientMut = trpc.clients.update.useMutation({
+    onSuccess: () => { utils.clients.list.invalidate(); setClientDialog({ open: false }); toast.success("Cliente atualizado!"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteClientMut = trpc.clients.delete.useMutation({
+    onSuccess: () => { utils.clients.list.invalidate(); toast.success("Cliente removido!"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function openCreate() {
+    setClientForm({ name: "", email: "", phone: "", company: "", notes: "" });
+    setClientDialog({ open: true });
+  }
+  function openEdit(c: any) {
+    setClientForm({ name: c.name ?? "", email: c.email ?? "", phone: c.phone ?? "", company: c.company ?? "", notes: c.notes ?? "" });
+    setClientDialog({ open: true, editing: c });
+  }
+  function saveClient() {
+    if (!clientForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
+    if (clientDialog.editing) {
+      updateClientMut.mutate({ id: clientDialog.editing.id, ...clientForm });
+    } else {
+      createClientMut.mutate(clientForm);
+    }
+  }
 
   if (loading || !isAuthenticated) return null;
   if (user?.role !== "admin") return null;
@@ -92,6 +137,10 @@ export default function Admin() {
             <TabsTrigger value="logs" className="gap-2">
               <Activity className="w-4 h-4" />
               Logs
+            </TabsTrigger>
+            <TabsTrigger value="clients" className="gap-2">
+              <Briefcase className="w-4 h-4" />
+              Clientes
             </TabsTrigger>
           </TabsList>
 
@@ -223,8 +272,96 @@ export default function Admin() {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* Clients Tab */}
+          <TabsContent value="clients" className="mt-4">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-sm text-muted-foreground">{clientsList?.length ?? 0} cliente(s) cadastrado(s)</p>
+              <Button size="sm" onClick={openCreate} className="gap-2">
+                <Plus className="w-4 h-4" /> Novo Cliente
+              </Button>
+            </div>
+            <Card className="bg-card border-border">
+              <CardContent className="p-0">
+                {clientsLoading ? (
+                  <div className="p-4 space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                  </div>
+                ) : !clientsList?.length ? (
+                  <div className="flex flex-col items-center py-12 text-center">
+                    <Briefcase className="w-10 h-10 text-muted-foreground/20 mb-3" />
+                    <p className="text-muted-foreground">Nenhum cliente cadastrado.</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={openCreate}>Adicionar primeiro cliente</Button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {clientsList.map((c: any) => (
+                      <div key={c.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                          <Briefcase className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{c.name}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {[c.email, c.phone, c.company].filter(Boolean).join(" · ") || "Sem detalhes"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => { if (confirm(`Remover cliente "${c.name}"?`)) deleteClientMut.mutate({ id: c.id }); }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Client Dialog */}
+      <Dialog open={clientDialog.open} onOpenChange={open => setClientDialog(s => ({ ...s, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{clientDialog.editing ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nome <span className="text-destructive">*</span></Label>
+              <Input placeholder="Nome do cliente" value={clientForm.name} onChange={e => setClientForm(s => ({ ...s, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>E-mail</Label>
+                <Input type="email" placeholder="email@exemplo.com" value={clientForm.email} onChange={e => setClientForm(s => ({ ...s, email: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <Input placeholder="(11) 99999-9999" value={clientForm.phone} onChange={e => setClientForm(s => ({ ...s, phone: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <Input placeholder="Nome da empresa" value={clientForm.company} onChange={e => setClientForm(s => ({ ...s, company: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Observações</Label>
+              <Textarea placeholder="Notas sobre o cliente..." rows={3} value={clientForm.notes} onChange={e => setClientForm(s => ({ ...s, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClientDialog({ open: false })}>Cancelar</Button>
+            <Button onClick={saveClient} disabled={createClientMut.isPending || updateClientMut.isPending}>
+              {createClientMut.isPending || updateClientMut.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

@@ -46,6 +46,7 @@ type ZoomLevel = "day" | "week" | "month";
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function Gantt() {
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
+  const [memberId, setMemberId] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<ViewMode>("project");
   const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [colPx, setColPx] = useState(38); // px per day
@@ -58,8 +59,16 @@ export default function Gantt() {
   const projectsQ = trpc.projects.list.useQuery();
   const ganttQ = trpc.gantt.tasks.useQuery({ projectId });
   const conflictsQ = trpc.gantt.conflicts.useQuery({ projectId });
+  const membersQ = trpc.projects.members.useQuery(
+    { projectId: projectId! },
+    { enabled: !!projectId }
+  );
 
-  const tasks = (ganttQ.data ?? []) as any[];
+  const allTasks = (ganttQ.data ?? []) as any[];
+  const tasks = useMemo(() =>
+    memberId ? allTasks.filter((t: any) => t.assigneeId === memberId) : allTasks,
+    [allTasks, memberId]
+  );
   const conflicts = (conflictsQ.data ?? []) as any[];
   const conflictIds = useMemo(() => new Set(conflicts.flatMap((c: any) => [c.task1.id, c.task2.id])), [conflicts]);
 
@@ -150,7 +159,7 @@ export default function Gantt() {
     <AppLayout title="Gráfico de Gantt">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <Select value={projectId?.toString() ?? "all"} onValueChange={v => setProjectId(v === "all" ? undefined : Number(v))}>
+        <Select value={projectId?.toString() ?? "all"} onValueChange={v => { setProjectId(v === "all" ? undefined : Number(v)); setMemberId(undefined); }}>
           <SelectTrigger className="w-52 h-9 bg-white border-gray-200 text-sm">
             <SelectValue placeholder="Todos os projetos" />
           </SelectTrigger>
@@ -161,6 +170,23 @@ export default function Gantt() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Member filter — only shown when a project is selected */}
+        {projectId && (
+          <Select value={memberId?.toString() ?? "all"} onValueChange={v => setMemberId(v === "all" ? undefined : Number(v))}>
+            <SelectTrigger className="w-48 h-9 bg-white border-gray-200 text-sm">
+              <SelectValue placeholder="Todos os membros" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os membros</SelectItem>
+              {(membersQ.data ?? []).map((m: any) => (
+                <SelectItem key={m.userId} value={m.userId.toString()}>
+                  {m.userName ?? m.userEmail ?? `Membro ${m.userId}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={viewMode} onValueChange={v => setViewMode(v as ViewMode)}>
           <SelectTrigger className="w-48 h-9 bg-white border-gray-200 text-sm">

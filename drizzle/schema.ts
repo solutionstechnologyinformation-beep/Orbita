@@ -48,6 +48,7 @@ export const projects = mysqlTable("projects", {
   status: mysqlEnum("status", ["active", "archived", "completed"]).default("active").notNull(),
    ownerId: int("ownerId").notNull(),
   companyId: int("companyId"),
+  clientId: int("clientId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -308,3 +309,19 @@ export const whiteboardData = mysqlTable("whiteboard_data", {
 });
 export type WhiteboardData = typeof whiteboardData.$inferSelect;
 export type InsertWhiteboardData = typeof whiteboardData.$inferInsert;
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+export const clients = mysqlTable("clients", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 64 }),
+  company: varchar("company", { length: 256 }),
+  notes: text("notes"),
+  companyId: int("companyId"),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = typeof clients.$inferInsert;
