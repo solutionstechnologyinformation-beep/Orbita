@@ -46,6 +46,32 @@ export default function Admin() {
   const { data: logs, isLoading: logsLoading } = trpc.admin.activityLogs.useQuery({ limit: 50, offset: 0 });
   const utils = trpc.useUtils();
 
+  // Users state
+  const [userDialog, setUserDialog] = useState<{ open: boolean; editing?: any }>({ open: false });
+  const [userForm, setUserForm] = useState({ name: "", email: "", role: "user" as "user" | "admin" });
+
+  const createUserMut = trpc.admin.createUser.useMutation({
+    onSuccess: () => { utils.admin.users.invalidate(); setUserDialog({ open: false }); toast.success("Usuário criado!"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateUserRoleMut = trpc.admin.updateUserRole.useMutation({
+    onSuccess: () => { utils.admin.users.invalidate(); toast.success("Papel atualizado!"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteUserMut = trpc.admin.deleteUser.useMutation({
+    onSuccess: () => { utils.admin.users.invalidate(); toast.success("Usuário removido!"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function openCreateUser() {
+    setUserForm({ name: "", email: "", role: "user" });
+    setUserDialog({ open: true });
+  }
+  function saveUser() {
+    if (!userForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
+    createUserMut.mutate({ name: userForm.name, email: userForm.email || undefined, role: userForm.role });
+  }
+
   // Clients state
   const { data: clientsList, isLoading: clientsLoading } = trpc.clients.list.useQuery();
   const [clientDialog, setClientDialog] = useState<{ open: boolean; editing?: any }>({
@@ -146,6 +172,12 @@ export default function Admin() {
 
           {/* Users Tab */}
           <TabsContent value="users" className="mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-muted-foreground">{allUsers?.length ?? 0} usuário(s) cadastrado(s)</p>
+              <Button size="sm" className="gap-2" onClick={openCreateUser}>
+                <Plus className="w-4 h-4" /> Novo Usuário
+              </Button>
+            </div>
             <Card className="bg-card border-border">
               <CardContent className="p-0">
                 {usersLoading ? (
@@ -182,6 +214,22 @@ export default function Admin() {
                             <span className="text-xs text-muted-foreground hidden md:block">
                               {new Date(u.createdAt).toLocaleDateString("pt-BR")}
                             </span>
+                            {/* Toggle role */}
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8"
+                              title={u.role === "admin" ? "Rebaixar para Usuário" : "Promover para Admin"}
+                              onClick={() => updateUserRoleMut.mutate({ userId: u.id, role: u.role === "admin" ? "user" : "admin" })}
+                            >
+                              {u.role === "admin" ? <User className="w-4 h-4" /> : <Crown className="w-4 h-4" />}
+                            </Button>
+                            {/* Delete */}
+                            <Button
+                              variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700"
+                              title="Remover usuário"
+                              onClick={() => { if (confirm(`Remover ${u.name ?? "usuário"}?`)) deleteUserMut.mutate({ userId: u.id }); }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                       );
@@ -323,6 +371,45 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* User Dialog */}
+      <Dialog open={userDialog.open} onOpenChange={open => setUserDialog(s => ({ ...s, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nome <span className="text-destructive">*</span></Label>
+              <Input placeholder="Nome completo" value={userForm.name} onChange={e => setUserForm(s => ({ ...s, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>E-mail</Label>
+              <Input type="email" placeholder="email@exemplo.com" value={userForm.email} onChange={e => setUserForm(s => ({ ...s, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Papel</Label>
+              <select
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={userForm.role}
+                onChange={e => setUserForm(s => ({ ...s, role: e.target.value as "user" | "admin" }))}
+              >
+                <option value="user">Usuário</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O usuário será criado com acesso manual. Para acesso via login OAuth, o usuário deve fazer login pela primeira vez.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUserDialog({ open: false })}>Cancelar</Button>
+            <Button onClick={saveUser} disabled={createUserMut.isPending}>
+              {createUserMut.isPending ? "Criando..." : "Criar Usuário"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Client Dialog */}
       <Dialog open={clientDialog.open} onOpenChange={open => setClientDialog(s => ({ ...s, open }))}>

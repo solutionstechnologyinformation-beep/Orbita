@@ -6,6 +6,7 @@ import {
   Bell,
   Bot,
   CalendarDays,
+  CalendarRange,
   ChevronLeft,
   FolderKanban,
   GanttChartSquare,
@@ -19,7 +20,6 @@ import {
   User,
   X,
   Zap,
-  CalendarRange,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -32,6 +32,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+
+const SIDEBAR_BG = "#FFBE00";
+const SIDEBAR_TEXT = "#1a1a1a";
+const SIDEBAR_ACTIVE_BG = "rgba(0,0,0,0.12)";
+const SIDEBAR_HOVER_BG = "rgba(0,0,0,0.07)";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -88,17 +93,25 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
     : "U";
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
-        <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-          <Zap className="w-4 h-4 text-sidebar-primary-foreground" />
+    <div className="flex flex-col h-full" style={{ backgroundColor: SIDEBAR_BG }}>
+      {/* Logo / Brand */}
+      <div
+        className="flex items-center gap-3 px-4 py-5 border-b"
+        style={{ backgroundColor: SIDEBAR_BG, borderColor: "rgba(0,0,0,0.15)" }}
+      >
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "#1a1a1a" }}
+        >
+          <Zap className="w-4 h-4" style={{ color: SIDEBAR_BG }} />
         </div>
-        <span className="font-bold text-lg tracking-tight text-white">Orbita</span>
+        <span className="font-bold text-xl tracking-tight" style={{ color: SIDEBAR_TEXT }}>
+          Orbita
+        </span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" style={{ backgroundColor: SIDEBAR_BG }}>
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = location === href || (href !== "/dashboard" && location.startsWith(href));
           return (
@@ -106,22 +119,34 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
               key={href}
               href={href}
               onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative",
-                active
-                  ? "bg-sidebar-primary/20 text-sidebar-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              )}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative w-full"
+              style={{
+                color: SIDEBAR_TEXT,
+                backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
+                fontWeight: active ? 700 : 500,
+              }}
+              onMouseEnter={(e) => {
+                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
+              }}
+              onMouseLeave={(e) => {
+                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+              }}
             >
-              <Icon className={cn("w-4 h-4 flex-shrink-0", active && "text-sidebar-primary")} />
+              {active && (
+                <div
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"
+                  style={{ backgroundColor: "#1a1a1a" }}
+                />
+              )}
+              <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
               <span className="flex-1">{label}</span>
               {label === "Notificações" && unreadCount > 0 && (
-                <Badge className="bg-sidebar-primary text-sidebar-primary-foreground text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center">
+                <Badge
+                  className="text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center"
+                  style={{ backgroundColor: "#1a1a1a", color: SIDEBAR_BG }}
+                >
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </Badge>
-              )}
-              {active && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-sidebar-primary rounded-r-full" />
               )}
             </Link>
           );
@@ -130,7 +155,12 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         {user?.role === "admin" && (
           <>
             <div className="pt-4 pb-1 px-3">
-              <p className="text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider">Admin</p>
+              <p
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "rgba(0,0,0,0.45)" }}
+              >
+                Admin
+              </p>
             </div>
             {adminItems.map(({ href, icon: Icon, label }) => {
               const active = location.startsWith(href);
@@ -139,14 +169,20 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
                   key={href}
                   href={href}
                   onClick={() => setSidebarOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                    active
-                      ? "bg-sidebar-primary/20 text-sidebar-primary"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                  )}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
+                  style={{
+                    color: SIDEBAR_TEXT,
+                    backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
+                    fontWeight: active ? 700 : 500,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                  }}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
                   {label}
                 </Link>
               );
@@ -155,19 +191,34 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         )}
       </nav>
 
-      {/* User */}
-      <div className="border-t border-sidebar-border p-3">
+      {/* User Profile */}
+      <div
+        className="border-t p-3"
+        style={{ backgroundColor: SIDEBAR_BG, borderColor: "rgba(0,0,0,0.15)" }}
+      >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-sidebar-accent transition-colors text-left">
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left"
+              style={{ color: SIDEBAR_TEXT }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
+            >
               <Avatar className="w-8 h-8 flex-shrink-0">
-                <AvatarFallback className="bg-white/20 text-white text-xs font-semibold">
+                <AvatarFallback
+                  className="text-xs font-semibold"
+                  style={{ backgroundColor: "#1a1a1a", color: SIDEBAR_BG }}
+                >
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name ?? "Usuário"}</p>
-                <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email ?? ""}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: SIDEBAR_TEXT }}>
+                  {user?.name ?? "Usuário"}
+                </p>
+                <p className="text-xs truncate" style={{ color: "rgba(0,0,0,0.55)" }}>
+                  {user?.email ?? ""}
+                </p>
               </div>
             </button>
           </DropdownMenuTrigger>
@@ -177,12 +228,30 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
               Perfil
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              onClick={() => logout()}
+              className="text-destructive focus:text-destructive"
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      {/* LS Logo Footer */}
+      <div
+        className="flex items-center justify-center gap-2 px-4 py-3 border-t"
+        style={{ backgroundColor: SIDEBAR_BG, borderColor: "rgba(0,0,0,0.15)" }}
+      >
+        <img
+          src="/ls-logo.png"
+          alt="LS Solutions"
+          className="w-6 h-6 rounded-full object-cover"
+        />
+        <span className="text-xs font-medium" style={{ color: "rgba(0,0,0,0.5)" }}>
+          by LS Solutions
+        </span>
       </div>
     </div>
   );
@@ -190,18 +259,28 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
   return (
     <div className="h-screen overflow-hidden bg-background flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-60 fixed top-0 left-0 bottom-0 z-40 bg-sidebar border-r border-sidebar-border">
+      <aside
+        className="hidden lg:flex flex-col w-60 fixed top-0 left-0 bottom-0 z-40"
+        style={{ backgroundColor: SIDEBAR_BG }}
+      >
         <SidebarContent />
       </aside>
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <aside
+            className="relative w-64 flex flex-col"
+            style={{ backgroundColor: SIDEBAR_BG }}
+          >
             <button
               onClick={() => setSidebarOpen(false)}
-              className="absolute top-4 right-4 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              className="absolute top-4 right-4"
+              style={{ color: SIDEBAR_TEXT }}
             >
               <X className="w-5 h-5" />
             </button>

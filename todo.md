@@ -288,3 +288,10 @@
 ## Gantt Filtro por Membro v3.21
 - [x] Gantt: adicionar filtro por membro (dropdown com membros do projeto selecionado)
 - [x] Gantt: filtrar barras por assigneeId quando membro selecionado
+
+## Sidebar Amarela + Logo LS + Correções v3.22
+- [x] Sidebar: mudar cor de fundo para amarelo #FFBE00 com texto e ícones pretos
+- [x] Sidebar: adicionar logo LS no rodapé (pequena, discreta)
+- [x] Quadro Branco: corrigir inicialização do canvas (syncSize no mount + ResizeObserver)
+- [x] Usuários: botão "Novo Usuário" no Admin com dialog de cadastro (nome, e-mail, papel)
+- [x] Usuários: botões de promover/rebaixar papel e excluir usuário em cada linha

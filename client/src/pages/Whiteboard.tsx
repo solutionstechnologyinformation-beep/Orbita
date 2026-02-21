@@ -95,25 +95,29 @@ export default function Whiteboard() {
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const resizeObserver = new ResizeObserver(() => {
+    const syncSize = () => {
       const { width, height } = container.getBoundingClientRect();
-      if (canvas.width !== Math.floor(width) || canvas.height !== Math.floor(height)) {
-        // Save current drawing as image before resize
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-        tempCanvas.getContext("2d")?.drawImage(canvas, 0, 0);
-
-        canvas.width = Math.floor(width);
-        canvas.height = Math.floor(height);
-
-        // Restore drawing
-        canvas.getContext("2d")?.drawImage(tempCanvas, 0, 0);
+      const w = Math.floor(width);
+      const h = Math.floor(height);
+      if (w === 0 || h === 0) return;
+      if (canvas.width !== w || canvas.height !== h) {
+        // Snapshot current pixels
+        const snap = document.createElement("canvas");
+        snap.width = canvas.width || w;
+        snap.height = canvas.height || h;
+        snap.getContext("2d")?.drawImage(canvas, 0, 0);
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")?.drawImage(snap, 0, 0);
       }
-    });
+    };
 
-    resizeObserver.observe(container);
-    return () => resizeObserver.disconnect();
+    // Run immediately on mount
+    syncSize();
+
+    const ro = new ResizeObserver(syncSize);
+    ro.observe(container);
+    return () => ro.disconnect();
   }, []);
 
   // ── Redraw canvas ──────────────────────────────────────────────────────────
