@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import { toast } from "sonner";
 import {
   FolderKanban, Plus, Kanban, MoreHorizontal, Trash2,
-  Edit2, Users, CheckCircle2, Clock, ListTodo, Archive,
+  Edit2, Users, CheckCircle2, Clock, ListTodo, Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +25,9 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const PROJECT_COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -41,17 +44,18 @@ const STATUS_MAP: Record<string, { label: string; class: string }> = {
 export default function Projects() {
   const utils = trpc.useUtils();
   const { data: projects, isLoading } = trpc.projects.list.useQuery();
+  const { data: clients } = trpc.clients.list.useQuery();
 
   const [showCreate, setShowCreate] = useState(false);
   const [editProject, setEditProject] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", color: "#6366f1" });
+  const [form, setForm] = useState({ name: "", description: "", color: "#6366f1", clientId: "" });
 
   const createMutation = trpc.projects.create.useMutation({
     onSuccess: () => {
       utils.projects.list.invalidate();
       setShowCreate(false);
-      setForm({ name: "", description: "", color: "#6366f1" });
+      setForm({ name: "", description: "", color: "#6366f1", clientId: "" });
       toast.success("Projeto criado com sucesso!");
     },
     onError: (e) => toast.error(e.message),
@@ -77,7 +81,39 @@ export default function Projects() {
 
   const openEdit = (p: any) => {
     setEditProject(p);
-    setForm({ name: p.name, description: p.description ?? "", color: p.color });
+    setForm({
+      name: p.name,
+      description: p.description ?? "",
+      color: p.color,
+      clientId: p.clientId ? String(p.clientId) : "",
+    });
+  };
+
+  const handleSubmit = () => {
+    if (!form.name.trim()) return toast.error("Nome é obrigatório");
+    const clientId = form.clientId ? Number(form.clientId) : undefined;
+    if (editProject) {
+      updateMutation.mutate({
+        id: editProject.id,
+        name: form.name,
+        description: form.description || undefined,
+        color: form.color,
+        clientId: clientId ?? null,
+      });
+    } else {
+      createMutation.mutate({
+        name: form.name,
+        description: form.description || undefined,
+        color: form.color,
+        clientId,
+      });
+    }
+  };
+
+  // Find client name by id
+  const getClientName = (clientId?: number | null) => {
+    if (!clientId || !clients) return null;
+    return clients.find((c: { id: number; name: string }) => c.id === clientId)?.name ?? null;
   };
 
   return (
@@ -121,6 +157,7 @@ export default function Projects() {
                 ? Math.round(((project.taskCounts.published + project.taskCounts.archived) / project.taskCounts.total) * 100)
                 : 0;
               const statusInfo = STATUS_MAP[project.status];
+              const clientName = getClientName((project as any).clientId);
               return (
                 <Card key={project.id} className="bg-card border-border hover:border-primary/30 transition-all duration-200 group overflow-hidden">
                   <div className="h-1 w-full" style={{ backgroundColor: project.color }} />
@@ -135,9 +172,17 @@ export default function Projects() {
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold truncate">{project.name}</h3>
-                          <Badge className={`text-xs border ${statusInfo.class} mt-0.5`}>
-                            {statusInfo.label}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <Badge className={`text-xs border ${statusInfo.class}`}>
+                              {statusInfo.label}
+                            </Badge>
+                            {clientName && (
+                              <Badge variant="outline" className="text-xs gap-1 border-border text-muted-foreground">
+                                <Building2 className="w-3 h-3" />
+                                {clientName}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <DropdownMenu>
@@ -246,6 +291,25 @@ export default function Projects() {
               />
             </div>
             <div className="space-y-2">
+              <Label>Cliente (opcional)</Label>
+              <Select
+                value={form.clientId}
+                onValueChange={(v) => setForm(f => ({ ...f, clientId: v }))}
+              >
+                <SelectTrigger className="bg-input border-border">
+                  <SelectValue placeholder="Selecionar cliente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum cliente</SelectItem>
+                  {clients?.map((c: { id: number; name: string; company?: string | null }) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}{c.company ? ` — ${c.company}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Cor do Projeto</Label>
               <div className="flex gap-2 flex-wrap">
                 {PROJECT_COLORS.map((color) => (
@@ -264,14 +328,7 @@ export default function Projects() {
               Cancelar
             </Button>
             <Button
-              onClick={() => {
-                if (!form.name.trim()) return toast.error("Nome é obrigatório");
-                if (editProject) {
-                  updateMutation.mutate({ id: editProject.id, ...form });
-                } else {
-                  createMutation.mutate(form);
-                }
-              }}
+              onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
               className="bg-primary hover:bg-primary/90"
             >

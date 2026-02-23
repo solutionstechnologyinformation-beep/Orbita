@@ -54,8 +54,10 @@ export default function Whiteboard() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentEl, setCurrentEl] = useState<CanvasElement | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   const projectsQ = trpc.projects.list.useQuery();
   const tasksQ = trpc.tasks.list.useQuery(
@@ -89,41 +91,65 @@ export default function Whiteboard() {
   // Reset task selection when project changes
   useEffect(() => { setTaskId(undefined); }, [projectId]);
 
-  // ── Canvas resize: match logical size to display size ──────────────────────
-  useEffect(() => {
+  // ── Canvas resize: use RAF to wait for layout, then set logical size ─────────
+  const syncCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas || !container) return false;
 
-    const syncSize = () => {
-      const { width, height } = container.getBoundingClientRect();
-      const w = Math.floor(width);
-      const h = Math.floor(height);
-      if (w === 0 || h === 0) return;
-      if (canvas.width !== w || canvas.height !== h) {
-        // Snapshot current pixels
-        const snap = document.createElement("canvas");
-        snap.width = canvas.width || w;
-        snap.height = canvas.height || h;
-        snap.getContext("2d")?.drawImage(canvas, 0, 0);
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext("2d")?.drawImage(snap, 0, 0);
+    const rect = container.getBoundingClientRect();
+    const w = Math.floor(rect.width);
+    const h = Math.floor(rect.height);
+    if (w < 10 || h < 10) return false;
+
+    if (canvas.width !== w || canvas.height !== h) {
+      // Save current drawing before resizing
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext("2d");
+      if (tempCtx && canvas.width > 0 && canvas.height > 0) {
+        tempCtx.drawImage(canvas, 0, 0);
+      }
+      canvas.width = w;
+      canvas.height = h;
+      // Restore drawing
+      const ctx = canvas.getContext("2d");
+      if (ctx && tempCanvas.width > 0 && tempCanvas.height > 0) {
+        ctx.drawImage(tempCanvas, 0, 0);
+      }
+    }
+    return true;
+  }, []);
+
+  useEffect(() => {
+    // Use RAF to ensure DOM has been laid out
+    const init = () => {
+      const ready = syncCanvasSize();
+      if (ready) {
+        setCanvasReady(true);
+      } else {
+        // Retry if container not ready yet
+        rafRef.current = requestAnimationFrame(init);
       }
     };
+    rafRef.current = requestAnimationFrame(init);
 
-    // Run immediately on mount
-    syncSize();
+    const ro = new ResizeObserver(() => {
+      syncCanvasSize();
+    });
+    if (containerRef.current) ro.observe(containerRef.current);
 
-    const ro = new ResizeObserver(syncSize);
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, []);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+    };
+  }, [syncCanvasSize]);
 
   // ── Redraw canvas ──────────────────────────────────────────────────────────
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !canvasReady) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -133,7 +159,7 @@ export default function Whiteboard() {
 
     const allEls = currentEl ? [...elements, currentEl] : elements;
     allEls.forEach(el => drawElement(ctx, el));
-  }, [elements, currentEl]);
+  }, [elements, currentEl, canvasReady]);
 
   useEffect(() => { redraw(); }, [redraw]);
 
@@ -215,7 +241,8 @@ export default function Whiteboard() {
   function getPos(e: React.MouseEvent<HTMLCanvasElement>): { x: number; y: number } {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    // Scale factor: logical canvas size vs displayed size
+    // Since canvas logical size == displayed size (we sync them), scale is 1:1
+    // But keep scale calculation for safety
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
@@ -225,6 +252,7 @@ export default function Whiteboard() {
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (!canvasReady) return;
     const pos = getPos(e);
     if (tool === "text") {
       const text = prompt("Digite o texto:");
@@ -258,7 +286,7 @@ export default function Whiteboard() {
   }
 
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (!isDrawing || !currentEl) return;
+    if (!isDrawing || !currentEl || !canvasReady) return;
     const pos = getPos(e);
     if (tool === "pen" || tool === "eraser") {
       setCurrentEl(el => el ? { ...el, points: [...(el.points ?? []), pos] } : el);
@@ -411,7 +439,7 @@ export default function Whiteboard() {
                     <button
                       onClick={() => setTool(t.id)}
                       className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-                        tool === t.id ? "bg-indigo-100 text-indigo-700" : "text-gray-500 hover:bg-gray-100"
+                        tool === t.id ? "bg-yellow-100 text-yellow-700" : "text-gray-500 hover:bg-gray-100"
                       }`}
                     >
                       {t.icon}
@@ -430,7 +458,7 @@ export default function Whiteboard() {
                     <button
                       onClick={() => setColor(c)}
                       className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                        color === c ? "scale-125 border-indigo-500" : "border-gray-200 hover:scale-110"
+                        color === c ? "scale-125 border-yellow-500" : "border-gray-200 hover:scale-110"
                       }`}
                       style={{ backgroundColor: c }}
                     />
@@ -448,7 +476,7 @@ export default function Whiteboard() {
                     <button
                       onClick={() => setStrokeWidth(w)}
                       className={`w-10 h-7 rounded flex items-center justify-center ${
-                        strokeWidth === w ? "bg-indigo-100" : "hover:bg-gray-100"
+                        strokeWidth === w ? "bg-yellow-100" : "hover:bg-gray-100"
                       }`}
                     >
                       <div className="rounded-full bg-gray-700" style={{ width: w * 3, height: w * 3 }} />
@@ -464,6 +492,7 @@ export default function Whiteboard() {
           <div
             ref={containerRef}
             className="flex-1 bg-white rounded-xl border shadow-inner overflow-hidden relative"
+            style={{ minHeight: 300 }}
           >
             {!projectId && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center bg-gray-50/80 z-10 pointer-events-none">
@@ -471,10 +500,17 @@ export default function Whiteboard() {
                 <p className="font-medium text-gray-400">Selecione um projeto para começar</p>
               </div>
             )}
+            {!canvasReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white z-5">
+                <div className="text-gray-400 text-sm">Carregando quadro...</div>
+              </div>
+            )}
             <canvas
               ref={canvasRef}
-              className="block w-full h-full"
               style={{
+                display: "block",
+                width: "100%",
+                height: "100%",
                 cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : tool === "select" ? "default" : "crosshair",
                 touchAction: "none",
               }}
@@ -490,7 +526,7 @@ export default function Whiteboard() {
         <div className="flex items-center gap-4 text-xs text-gray-400 flex-shrink-0">
           <span>Ferramenta: <strong className="text-gray-600">{TOOLS.find(t => t.id === tool)?.label}</strong></span>
           {taskId && (
-            <span>Atividade: <strong className="text-indigo-600">{tasks.find((t: any) => t.id === taskId)?.title ?? `#${taskId}`}</strong></span>
+            <span>Atividade: <strong className="text-yellow-600">{tasks.find((t: any) => t.id === taskId)?.title ?? `#${taskId}`}</strong></span>
           )}
           <span className="ml-auto">{elements.length} elemento(s) no quadro</span>
         </div>

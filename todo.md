@@ -295,3 +295,18 @@
 - [x] Quadro Branco: corrigir inicialização do canvas (syncSize no mount + ResizeObserver)
 - [x] Usuários: botão "Novo Usuário" no Admin com dialog de cadastro (nome, e-mail, papel)
 - [x] Usuários: botões de promover/rebaixar papel e excluir usuário em cada linha
+
+## Correções e Melhorias v3.23
+- [ ] Quadro Branco: diagnosticar e corrigir erro de funcionamento
+- [ ] Projetos: campo de seleção de cliente ao criar/editar projeto
+- [ ] Kanban: modal de motivo ao mover tarefa para coluna Bloqueado
+- [ ] Sprints: botão exportar relatório de Sprint como PDF
+
+## Correções e Melhorias v3.23
+- [x] Quadro Branco: diagnosticar e corrigir erro de funcionamento (canvas init com requestAnimationFrame)
+- [x] Projetos: campo de seleção de cliente ao criar/editar projeto (seletor com nome + empresa)
+- [x] Projetos: exibir badge do cliente no card do projeto
+- [x] Kanban: modal de motivo ao mover tarefa para coluna Bloqueado (campo blockReason no schema/backend)
+- [x] Kanban: tooltip com motivo do bloqueio no card (badge vermelho "Bloqueado")
+- [x] Sprints: botão "Exportar PDF" com relatório completo (KPIs, lista de tarefas, burndown, branding Orbita)
+- [x] 14/14 testes passando, 0 erros TypeScript

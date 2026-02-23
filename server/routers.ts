@@ -192,6 +192,7 @@ export const appRouter = router({
         name: z.string().min(1).max(255),
         description: z.string().optional(),
         color: z.string().default("#6366f1"),
+        clientId: z.number().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const id = await createProject({ ...input, ownerId: ctx.user.id, status: "active" });
@@ -208,6 +209,7 @@ export const appRouter = router({
         description: z.string().optional(),
         color: z.string().optional(),
         status: z.enum(["active", "archived", "completed"]).optional(),
+        clientId: z.number().nullable().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
@@ -349,6 +351,7 @@ export const appRouter = router({
         endDate: z.date().nullable().optional(),
         position: z.number().optional(),
         setor: z.string().nullable().optional(),
+        blockReason: z.string().nullable().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;

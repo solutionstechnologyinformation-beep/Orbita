@@ -131,6 +131,7 @@ export const tasks = mysqlTable("tasks", {
   revisionsCount: int("revisionsCount").default(0).notNull(),
   // Setor (disciplina/departamento) — ex: Geometria, Geoprocessamento, Drenagem...
   setor: varchar("setor", { length: 128 }),
+  blockReason: text("blockReason"),
   openedAt: timestamp("openedAt"),
   completedAt: timestamp("completedAt"),
   statusChangedAt: timestamp("statusChangedAt"),

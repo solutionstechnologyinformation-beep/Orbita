@@ -56,6 +56,7 @@ interface Task {
   position: number;
   revisionsCount?: number | null;
   setor?: string | null;
+  blockReason?: string | null;
   openedAt?: Date | null;
   completedAt?: Date | null;
 }
@@ -449,6 +450,19 @@ function TaskCard({
             </Badge>
           )}
 
+          {task.status === "blocked" && task.blockReason && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 border border-red-200 font-medium gap-0.5 cursor-help">
+                  <Ban className="w-2.5 h-2.5" />Bloqueado
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs max-w-[200px]">
+                <strong>Motivo:</strong> {task.blockReason}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {task.openedAt && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -642,6 +656,9 @@ export default function Kanban() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
+  // Block reason modal
+  const [blockModal, setBlockModal] = useState<{ taskId: number } | null>(null);
+  const [blockReasonText, setBlockReasonText] = useState("");
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
@@ -701,6 +718,13 @@ export default function Kanban() {
     }
     if (task.status === "shared" && !isLeader) {
       toast.error("Somente o Líder pode mover tarefas de Compartilhado.");
+      return;
+    }
+
+    // If moving to blocked, show reason modal
+    if (newStatus === "blocked") {
+      setBlockReasonText("");
+      setBlockModal({ taskId });
       return;
     }
 
@@ -967,6 +991,50 @@ export default function Kanban() {
               className="bg-primary hover:bg-primary/90"
             >
               {createMutation.isPending ? "Criando..." : "Criar tarefa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Reason Modal */}
+      <Dialog open={!!blockModal} onOpenChange={(o) => { if (!o) setBlockModal(null); }}>
+        <DialogContent className="bg-white border-gray-200 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Ban className="w-4 h-4 text-red-500" />
+              <span>Motivo do Bloqueio</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Descreva o motivo pelo qual esta tarefa está sendo bloqueada. Isso ajuda a equipe a entender o impedimento.
+            </p>
+            <Textarea
+              placeholder="Ex: Aguardando aprovação do cliente, dependência de outra tarefa..."
+              value={blockReasonText}
+              onChange={(e) => setBlockReasonText(e.target.value)}
+              className="bg-gray-50 border-gray-200 resize-none"
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockModal(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!blockModal) return;
+                updateMutation.mutate({
+                  id: blockModal.taskId,
+                  status: "blocked",
+                  blockReason: blockReasonText.trim() || null,
+                });
+                setBlockModal(null);
+              }}
+              disabled={updateMutation.isPending}
+            >
+              <Ban className="w-4 h-4 mr-2" />
+              Confirmar Bloqueio
             </Button>
           </DialogFooter>
         </DialogContent>
