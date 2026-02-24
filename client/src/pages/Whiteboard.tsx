@@ -371,15 +371,15 @@ export default function Whiteboard() {
 
             {/* Task filter */}
             <Select
-              value={taskId?.toString() ?? ""}
-              onValueChange={v => setTaskId(v ? Number(v) : undefined)}
+              value={taskId?.toString() ?? "none"}
+              onValueChange={v => setTaskId(v && v !== "none" ? Number(v) : undefined)}
               disabled={!projectId}
             >
               <SelectTrigger className="w-56 h-9 text-sm">
                 <SelectValue placeholder={projectId ? "Filtrar por atividade" : "Selecione um projeto"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma atividade</SelectItem>
+                <SelectItem value="none">Nenhuma atividade</SelectItem>
                 {tasks.map((t: any) => (
                   <SelectItem key={t.id} value={t.id.toString()}>
                     <span className="truncate max-w-[180px]">{t.title}</span>

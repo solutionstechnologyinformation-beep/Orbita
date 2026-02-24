@@ -310,3 +310,6 @@
 - [x] Kanban: tooltip com motivo do bloqueio no card (badge vermelho "Bloqueado")
 - [x] Sprints: botão "Exportar PDF" com relatório completo (KPIs, lista de tarefas, burndown, branding Orbita)
 - [x] 14/14 testes passando, 0 erros TypeScript
+
+## Bug Fix v3.24
+- [x] Quadro Branco: corrigir SelectItem value="" no seletor de atividade (causa raiz do erro em produção)
