@@ -326,3 +326,37 @@ export const clients = mysqlTable("clients", {
 });
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = typeof clients.$inferInsert;
+
+// ─── Direct Message Conversations ────────────────────────────────────────────
+// A conversation can be 1-on-1 (type="direct") or a group (type="group")
+export const conversations = mysqlTable("conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", ["direct", "group"]).default("direct").notNull(),
+  name: varchar("name", { length: 256 }),          // only for groups
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
+
+// ─── Conversation Participants ────────────────────────────────────────────────
+export const conversationParticipants = mysqlTable("conversation_participants", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  userId: int("userId").notNull(),
+  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+  lastReadAt: timestamp("lastReadAt"),
+});
+export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
+
+// ─── Direct / Group Messages ──────────────────────────────────────────────────
+export const directMessages = mysqlTable("direct_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  senderId: int("senderId").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type DirectMessage = typeof directMessages.$inferSelect;
+export type InsertDirectMessage = typeof directMessages.$inferInsert;

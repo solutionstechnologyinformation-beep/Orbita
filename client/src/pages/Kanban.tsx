@@ -656,6 +656,7 @@ export default function Kanban() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
+  const [filterAssignee, setFilterAssignee] = useState("all");
   // Block reason modal
   const [blockModal, setBlockModal] = useState<{ taskId: number } | null>(null);
   const [blockReasonText, setBlockReasonText] = useState("");
@@ -680,6 +681,13 @@ export default function Kanban() {
   const tasks = (rawTasks as Task[]).filter((t) => {
     if (filterPriority !== "all" && t.priority !== filterPriority) return false;
     if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+    if (filterAssignee !== "all") {
+      if (filterAssignee === "unassigned") {
+        if (t.assigneeId) return false;
+      } else {
+        if (String(t.assigneeId) !== filterAssignee) return false;
+      }
+    }
     return true;
   });
 
@@ -805,6 +813,20 @@ export default function Kanban() {
             <SelectItem value="high">Alta</SelectItem>
             <SelectItem value="medium">Média</SelectItem>
             <SelectItem value="low">Baixa</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+          <SelectTrigger className="w-44 h-9 bg-white border-gray-200 text-sm">
+            <SelectValue placeholder="Responsável" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os membros</SelectItem>
+            <SelectItem value="unassigned">Sem responsável</SelectItem>
+            {(members as any[]).map((m) => (
+              <SelectItem key={m.userId} value={String(m.userId)}>
+                {m.userName ?? `Usuário ${m.userId}`}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 ml-auto">

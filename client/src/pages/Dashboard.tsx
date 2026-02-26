@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { useLocation } from "wouter";
@@ -7,10 +7,12 @@ import {
 } from "recharts";
 import {
   AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp,
-  Layers, Briefcase, FolderKanban, CalendarDays, Zap,
+  Layers, Briefcase, FolderKanban, CalendarDays, Zap, FileDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function pct(n: number, total: number) {
@@ -85,8 +87,166 @@ function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: an
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
+// ── Dashboard PDF Export ──────────────────────────────────────────────────────
+function exportDashboardPDF(data: {
+  stats: any; projects: any[]; sprints: any[]; recentTasks: any[];
+  conflicts: any[]; clientCount: number;
+  overdueP: number; completedP: number; revisionP: number; onTimeP: number;
+}) {
+  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP } = data;
+  const total = stats?.totalTasks ?? 0;
+  const now = new Date().toLocaleString("pt-BR");
+  const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+
+  const projectRows = projects.slice(0, 10).map(p => {
+    const tc = p.taskCounts ?? {};
+    const ptotal = (tc.pending ?? 0) + (tc.in_progress ?? 0) + (tc.shared ?? 0) + (tc.published ?? 0) + (tc.archived ?? 0);
+    const pdone = (tc.published ?? 0) + (tc.archived ?? 0);
+    const ppct = ptotal > 0 ? Math.round((pdone / ptotal) * 100) : 0;
+    return `<tr>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${p.name}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">${ptotal}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">${pdone}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">
+        <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden">
+          <div style="background:#1e2d5a;height:8px;border-radius:99px;width:${ppct}%"></div>
+        </div>
+        <span style="font-size:10px;color:#64748b">${ppct}%</span>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const taskRows = recentTasks.slice(0, 10).map(t => {
+    const color = STATUS_COLORS[t.status] ?? "#94a3b8";
+    const label = STATUS_LABELS[t.status] ?? t.status;
+    const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "published" && t.status !== "archived";
+    return `<tr>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${t.title}${isOverdue ? ' <span style="color:#ef4444;font-size:10px">⚠ Atrasada</span>' : ""}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${t.projectName ?? "—"}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">
+        <span style="background:${color}22;color:${color};padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600">${label}</span>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const conflictRows = conflicts.slice(0, 5).map(c => `<tr>
+    <td style="padding:5px 8px;border:1px solid #e2e8f0">${c.projectName ?? "—"}</td>
+    <td style="padding:5px 8px;border:1px solid #e2e8f0">${c.task1?.assigneeName ?? "Membro"}</td>
+    <td style="padding:5px 8px;border:1px solid #e2e8f0">${c.task1?.title ?? ""} / ${c.task2?.title ?? ""}</td>
+  </tr>`).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Relatório Dashboard — Orbita</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 0; }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #1e2d5a; color: #fff; padding: 18px 28px; }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+    .logo span { color: #FFBE00; }
+    .subtitle { font-size: 11px; color: #a0b0d0; margin-top: 2px; }
+    .content { padding: 28px; }
+    h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
+    .kpi-value { font-size: 28px; font-weight: 800; color: #1e2d5a; }
+    .kpi-label { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .gauge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .gauge { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
+    .gauge-value { font-size: 22px; font-weight: 800; }
+    .gauge-label { font-size: 10px; color: #64748b; margin-top: 2px; }
+    section { margin-bottom: 24px; }
+    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #FFBE00; padding-left: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #1e2d5a; color: #fff; padding: 7px 8px; text-align: left; border: 1px solid #1e2d5a; font-weight: 600; }
+    .footer { margin-top: 32px; border-top: 2px solid #1e2d5a; padding: 12px 28px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
+    .ls-badge { display: flex; align-items: center; gap: 8px; }
+    .ls-icon { width: 28px; height: 28px; background: #1e2d5a; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .ls-icon span { color: #FFBE00; font-weight: 900; font-size: 13px; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">Orbi<span>ta</span></div>
+      <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:13px;font-weight:700;color:#FFBE00">Relatório do Dashboard</div>
+      <div style="font-size:11px;color:#a0b0d0">Gerado em ${now}</div>
+    </div>
+  </div>
+  <div class="content">
+    <h2>Acompanhamento dos Projetos</h2>
+    <div class="meta">${date}</div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-value">${projects.length}</div><div class="kpi-label">Total de Projetos</div></div>
+      <div class="kpi"><div class="kpi-value">${total}</div><div class="kpi-label">Total de Tarefas</div></div>
+      <div class="kpi"><div class="kpi-value">${clientCount}</div><div class="kpi-label">Clientes</div></div>
+      <div class="kpi"><div class="kpi-value">${stats?.overdueTasks ?? 0}</div><div class="kpi-label">Tarefas em Atraso</div></div>
+    </div>
+
+    <div class="gauge-grid">
+      <div class="gauge"><div class="gauge-value" style="color:#ef4444">${overdueP}%</div><div class="gauge-label">Em Atraso</div></div>
+      <div class="gauge"><div class="gauge-value" style="color:#22c55e">${completedP}%</div><div class="gauge-label">Concluídas</div></div>
+      <div class="gauge"><div class="gauge-value" style="color:#f59e0b">${revisionP}%</div><div class="gauge-label">Em Revisão</div></div>
+      <div class="gauge"><div class="gauge-value" style="color:#3b82f6">${onTimeP}%</div><div class="gauge-label">Dentro do Prazo</div></div>
+    </div>
+
+    ${projects.length > 0 ? `<section>
+      <h3>Projetos Ativos (${projects.length})</h3>
+      <table>
+        <thead><tr><th>Projeto</th><th style="text-align:center">Total</th><th style="text-align:center">Concluídas</th><th>Progresso</th></tr></thead>
+        <tbody>${projectRows}</tbody>
+      </table>
+    </section>` : ""}
+
+    ${recentTasks.length > 0 ? `<section>
+      <h3>Minhas Tarefas Recentes</h3>
+      <table>
+        <thead><tr><th>Tírulo</th><th>Projeto</th><th>Status</th></tr></thead>
+        <tbody>${taskRows}</tbody>
+      </table>
+    </section>` : ""}
+
+    ${conflicts.length > 0 ? `<section>
+      <h3>Alertas de Conflito (${conflicts.length})</h3>
+      <table>
+        <thead><tr><th>Projeto</th><th>Membro</th><th>Tarefas em Conflito</th></tr></thead>
+        <tbody>${conflictRows}</tbody>
+      </table>
+    </section>` : ""}
+  </div>
+
+  <div class="footer">
+    <div class="ls-badge">
+      <div class="ls-icon"><span>LS</span></div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#334155">LS Solutions</div>
+        <div style="font-size:9px;color:#94a3b8">Orbita — Plataforma de Gestão de Projetos</div>
+      </div>
+    </div>
+    <span>Gerado em ${now}</span>
+  </div>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) { toast.error("Popup bloqueado. Permita popups para exportar o PDF."); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+}
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const statsQ = trpc.dashboard.stats.useQuery();
   const conflictsQ = trpc.dashboard.conflicts.useQuery();
@@ -139,11 +299,30 @@ export default function Dashboard() {
       <div className="space-y-6">
 
         {/* ── Header ── */}
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Acompanhamento dos Projetos</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Acompanhamento dos Projetos</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 flex-shrink-0"
+            disabled={exportingPdf || isLoading}
+            onClick={() => {
+              setExportingPdf(true);
+              try {
+                exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP });
+              } finally {
+                setExportingPdf(false);
+              }
+            }}
+          >
+            <FileDown className="w-4 h-4" />
+            Exportar PDF
+          </Button>
         </div>
 
         {/* ── Top KPI Row ── */}

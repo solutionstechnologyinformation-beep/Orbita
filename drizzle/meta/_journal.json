@@ -64,6 +64,13 @@
       "when": 1771719402787,
       "tag": "0008_tranquil_hammerhead",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1771978988402,
+      "tag": "0009_giant_electro",
+      "breakpoints": true
     }
   ]
 }

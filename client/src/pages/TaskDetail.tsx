@@ -6,8 +6,9 @@ import { useState, useRef, useEffect } from "react";
 import {
   MessageSquare, Paperclip, Flag, Calendar, User2,
   Send, Upload, Trash2, Download, FileText, Image,
-  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2, Pencil,
+  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2, Pencil, Eye,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +139,7 @@ export default function TaskDetail() {
   const [dueDateInput, setDueDateInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; mimeType?: string | null } | null>(null);
 
   const { data: task, isLoading } = trpc.tasks.get.useQuery({ id: taskId });
 
@@ -656,6 +658,12 @@ export default function TaskDetail() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {(att.mimeType?.startsWith("image/") || att.mimeType === "application/pdf") && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => setPreviewAttachment({ url: att.fileUrl, filename: att.filename, mimeType: att.mimeType })}>
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                       <a href={att.fileUrl} target="_blank" rel="noopener noreferrer">
                         <Button variant="ghost" size="icon" className="h-7 w-7">
                           <Download className="w-3.5 h-3.5" />
@@ -767,6 +775,41 @@ export default function TaskDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* File Preview Modal */}
+      <Dialog open={!!previewAttachment} onOpenChange={() => setPreviewAttachment(null)}>
+        <DialogContent className="max-w-4xl w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="w-4 h-4" />
+              {previewAttachment?.filename}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center min-h-[400px] max-h-[70vh] overflow-auto">
+            {previewAttachment?.mimeType?.startsWith("image/") ? (
+              <img
+                src={previewAttachment.url}
+                alt={previewAttachment.filename}
+                className="max-w-full max-h-full object-contain rounded-lg"
+              />
+            ) : previewAttachment?.mimeType === "application/pdf" ? (
+              <iframe
+                src={previewAttachment.url}
+                title={previewAttachment.filename}
+                className="w-full h-[65vh] rounded-lg border"
+              />
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <a href={previewAttachment?.url} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Download className="w-3.5 h-3.5" /> Baixar
+              </Button>
+            </a>
+            <Button size="sm" onClick={() => setPreviewAttachment(null)}>Fechar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

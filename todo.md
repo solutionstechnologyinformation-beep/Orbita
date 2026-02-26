@@ -313,3 +313,24 @@
 
 ## Bug Fix v3.24
 - [x] Quadro Branco: corrigir SelectItem value="" no seletor de atividade (causa raiz do erro em produção)
+
+## Melhorias v3.25
+- [ ] PDFs: atualizar identidade visual com cor #FFBE00, azul-marinho e logo LS no rodapé (Sprint PDF, AIChat PDF)
+- [ ] Dashboard: botão "Exportar PDF" com KPIs, gráficos e tabelas
+- [ ] Kanban: filtro por usuário/responsável (dropdown na barra de filtros)
+- [ ] TeamChat: chat privado 1-a-1 entre membros
+- [ ] TeamChat: criação de grupos de chat
+- [ ] Notificação automática ao bloquear tarefa (notificar criador e responsável com motivo)
+- [ ] TaskDetail: visualizador inline de anexos (PDF via iframe, imagens via img, fallback download)
+
+## Melhorias v3.25
+- [x] PDFs (Sprint, AIChat, Dashboard): identidade visual com header azul-marinho + amarelo #FFBE00 e logo LS Solutions no rodapé
+- [x] Dashboard: botão "Exportar PDF" com KPIs, gráfico de status, tabela de projetos e rodapé LS Solutions
+- [x] Kanban: filtro por usuário/responsável (dropdown na barra de filtros)
+- [x] TeamChat: aba "Privado / Grupos" com conversas 1-a-1 e grupos (schema + backend + frontend)
+- [x] TeamChat: criar conversa privada com busca de usuário
+- [x] TeamChat: criar grupo com nome e seleção de membros
+- [x] TeamChat: badge de mensagens não lidas nas conversas
+- [x] Backend: notificação específica ao bloquear tarefa (inclui motivo do bloqueio na mensagem)
+- [x] TaskDetail: botão "Visualizar" nos anexos abre modal inline (imagens e PDFs)
+- [x] 0 erros TypeScript, 14/14 testes passando

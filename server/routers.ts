@@ -388,20 +388,38 @@ export const appRouter = router({
         if (statusChanged && data.status) {
           const STATUS_LABELS: Record<string, string> = {
             pending: "Para Iniciar", in_progress: "Em Andamento",
-            shared: "Compartilhado", published: "Publicado", archived: "Arquivado",
+            shared: "Compartilhado", published: "Publicado", archived: "Arquivado", blocked: "Bloqueado",
           };
           const notifyIdsSet = new Set<number>();
           if (task.assigneeId && task.assigneeId !== ctx.user.id) notifyIdsSet.add(task.assigneeId);
           if (task.createdById !== ctx.user.id) notifyIdsSet.add(task.createdById);
-          for (const uid of Array.from(notifyIdsSet)) {
-            await notifyUser({
-              userId: uid,
-              title: `Status alterado: ${STATUS_LABELS[data.status] ?? data.status}`,
-              message: `A tarefa "${task.title}" mudou de "${STATUS_LABELS[task.status] ?? task.status}" para "${STATUS_LABELS[data.status] ?? data.status}".`,
-              notificationType: "task_status_changed",
-              relatedTaskId: id,
-              relatedProjectId: task.projectId,
-            });
+
+          // Special notification for blocked status with reason
+          if (data.status === "blocked") {
+            const blockMsg = data.blockReason
+              ? `A tarefa "${task.title}" foi bloqueada. Motivo: ${data.blockReason}`
+              : `A tarefa "${task.title}" foi marcada como Bloqueada.`;
+            for (const uid of Array.from(notifyIdsSet)) {
+              await notifyUser({
+                userId: uid,
+                title: "Tarefa bloqueada",
+                message: blockMsg,
+                notificationType: "task_status_changed",
+                relatedTaskId: id,
+                relatedProjectId: task.projectId,
+              });
+            }
+          } else {
+            for (const uid of Array.from(notifyIdsSet)) {
+              await notifyUser({
+                userId: uid,
+                title: `Status alterado: ${STATUS_LABELS[data.status] ?? data.status}`,
+                message: `A tarefa "${task.title}" mudou de "${STATUS_LABELS[task.status] ?? task.status}" para "${STATUS_LABELS[data.status] ?? data.status}".`,
+                notificationType: "task_status_changed",
+                relatedTaskId: id,
+                relatedProjectId: task.projectId,
+              });
+            }
           }
         }
         return { success: true };
@@ -1058,6 +1076,189 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
         }
         return { success: true };
       }),
+  }),
+
+  // ── Direct / Group Chat ────────────────────────────────────────────────
+  directChat: router({
+    // List all conversations for the current user
+    listConversations: protectedProcedure.query(async ({ ctx }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) return [];
+      const { conversations, conversationParticipants, directMessages, users } = await import("../drizzle/schema");
+      const { eq, desc, and, sql } = await import("drizzle-orm");
+
+      const myConvos = await db
+        .select({ conversationId: conversationParticipants.conversationId })
+        .from(conversationParticipants)
+        .where(eq(conversationParticipants.userId, ctx.user.id));
+
+      if (myConvos.length === 0) return [];
+
+      const convIds = myConvos.map((r: any) => r.conversationId);
+
+      const result = [];
+      for (const convId of convIds) {
+        const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId));
+        if (!conv) continue;
+
+        const participants = await db
+          .select({ userId: conversationParticipants.userId, userName: users.name, avatarUrl: users.avatarUrl })
+          .from(conversationParticipants)
+          .leftJoin(users, eq(users.id, conversationParticipants.userId))
+          .where(eq(conversationParticipants.conversationId, convId));
+
+        const [lastMsg] = await db
+          .select({ content: directMessages.content, createdAt: directMessages.createdAt, senderId: directMessages.senderId })
+          .from(directMessages)
+          .where(eq(directMessages.conversationId, convId))
+          .orderBy(desc(directMessages.createdAt))
+          .limit(1);
+
+        const [myPart] = await db
+          .select({ lastReadAt: conversationParticipants.lastReadAt })
+          .from(conversationParticipants)
+          .where(and(eq(conversationParticipants.conversationId, convId), eq(conversationParticipants.userId, ctx.user.id)));
+
+        const unreadCount = myPart?.lastReadAt
+          ? (await db.select({ count: sql<number>`count(*)` }).from(directMessages)
+              .where(and(eq(directMessages.conversationId, convId), sql`${directMessages.createdAt} > ${myPart.lastReadAt}`))
+            )[0]?.count ?? 0
+          : (await db.select({ count: sql<number>`count(*)` }).from(directMessages)
+              .where(eq(directMessages.conversationId, convId))
+            )[0]?.count ?? 0;
+
+        result.push({ ...conv, participants, lastMessage: lastMsg ?? null, unreadCount });
+      }
+
+      return result.sort((a, b) => {
+        const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+        const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+        return bTime - aTime;
+      });
+    }),
+
+    // Get messages for a conversation
+    getMessages: protectedProcedure
+      .input(z.object({ conversationId: z.number(), limit: z.number().default(50) }))
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return [];
+        const { directMessages, conversationParticipants, users } = await import("../drizzle/schema");
+        const { eq, and, desc } = await import("drizzle-orm");
+
+        // Verify access
+        const [part] = await db.select().from(conversationParticipants)
+          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
+        if (!part) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const msgs = await db
+          .select({ id: directMessages.id, content: directMessages.content, createdAt: directMessages.createdAt,
+            senderId: directMessages.senderId, senderName: users.name, senderAvatar: users.avatarUrl })
+          .from(directMessages)
+          .leftJoin(users, eq(users.id, directMessages.senderId))
+          .where(eq(directMessages.conversationId, input.conversationId))
+          .orderBy(desc(directMessages.createdAt))
+          .limit(input.limit);
+
+        return msgs.reverse();
+      }),
+
+    // Send a message
+    sendMessage: protectedProcedure
+      .input(z.object({ conversationId: z.number(), content: z.string().min(1).max(4000) }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { directMessages, conversationParticipants, conversations } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+
+        const [part] = await db.select().from(conversationParticipants)
+          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
+        if (!part) throw new TRPCError({ code: "FORBIDDEN" });
+
+        await db.insert(directMessages).values({ conversationId: input.conversationId, senderId: ctx.user.id, content: input.content });
+        // Update conversation updatedAt
+        await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, input.conversationId));
+        // Mark sender as read
+        await db.update(conversationParticipants).set({ lastReadAt: new Date() })
+          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    // Start or get a direct conversation with another user
+    startDirect: protectedProcedure
+      .input(z.object({ targetUserId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { conversations, conversationParticipants } = await import("../drizzle/schema");
+        const { eq, and, sql } = await import("drizzle-orm");
+
+        // Check if direct conversation already exists between these two users
+        const existing = await db.execute(sql`
+          SELECT c.id FROM conversations c
+          JOIN conversation_participants p1 ON p1.conversationId = c.id AND p1.userId = ${ctx.user.id}
+          JOIN conversation_participants p2 ON p2.conversationId = c.id AND p2.userId = ${input.targetUserId}
+          WHERE c.type = 'direct'
+          LIMIT 1
+        `);
+        const rows = existing[0] as unknown as any[];
+        if (rows.length > 0) return { conversationId: rows[0].id };
+
+        // Create new conversation
+        const [res] = await db.insert(conversations).values({ type: "direct", createdById: ctx.user.id });
+        const convId = (res as any).insertId;
+        await db.insert(conversationParticipants).values([
+          { conversationId: convId, userId: ctx.user.id },
+          { conversationId: convId, userId: input.targetUserId },
+        ]);
+        return { conversationId: convId };
+      }),
+
+    // Create a group conversation
+    createGroup: protectedProcedure
+      .input(z.object({ name: z.string().min(1).max(256), memberIds: z.array(z.number()).min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { conversations, conversationParticipants } = await import("../drizzle/schema");
+
+        const [res] = await db.insert(conversations).values({ type: "group", name: input.name, createdById: ctx.user.id });
+        const convId = (res as any).insertId;
+        const allMembers = [ctx.user.id, ...input.memberIds.filter(id => id !== ctx.user.id)];
+        await db.insert(conversationParticipants).values(allMembers.map(uid => ({ conversationId: convId, userId: uid })));
+        return { conversationId: convId };
+      }),
+
+    // Mark conversation as read
+    markRead: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { conversationParticipants } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        await db.update(conversationParticipants).set({ lastReadAt: new Date() })
+          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
+        return { success: true };
+      }),
+
+    // List all users for starting a new conversation
+    listUsers: protectedProcedure.query(async ({ ctx }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) return [];
+      const { users } = await import("../drizzle/schema");
+      const { ne } = await import("drizzle-orm");
+      return db.select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
+        .from(users).where(ne(users.id, ctx.user.id));
+    }),
   }),
 });
 export type AppRouter = typeof appRouter;

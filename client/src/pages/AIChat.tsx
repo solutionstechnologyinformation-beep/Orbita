@@ -42,27 +42,33 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const margin = 20;
   const maxW = pageW - margin * 2;
 
-  // Header bar
+  // Header bar (navy)
   doc.setFillColor(30, 45, 90);
-  doc.rect(0, 0, pageW, 18, "F");
-  // Logo icon
-  drawOrbitaLogo(doc, margin, 5, 8);
+  doc.rect(0, 0, pageW, 20, "F");
+  // LS badge
+  doc.setFillColor(255, 190, 0);
+  doc.roundedRect(margin, 5, 12, 10, 2, 2, "F");
+  doc.setTextColor(30, 45, 90);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("LS", margin + 6, 11.5, { align: "center" });
+  // Orbita name
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita", margin + 10, 10.5);
+  doc.text("Orbita", margin + 15, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(180, 200, 255);
-  doc.text("— Resultado da Pesquisa", margin + 28, 10.5);
+  doc.setTextColor(160, 190, 220);
+  doc.text("— Resultado da Pesquisa", margin + 33, 11.5);
   if (projectName) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(200, 220, 255);
-    doc.text(projectName, pageW - margin, 10.5, { align: "right" });
+    doc.setTextColor(255, 190, 0);
+    doc.text(projectName, pageW - margin, 11.5, { align: "right" });
   }
 
-  let y = 26;
+  let y = 28;
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(8);
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, y);
@@ -86,6 +92,19 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
     y += 5.5;
   }
 
+  // Footer
+  const totalPages = (doc.internal as any).getNumberOfPages();
+  for (let pg = 1; pg <= totalPages; pg++) {
+    doc.setPage(pg);
+    doc.setFillColor(30, 45, 90);
+    doc.rect(0, doc.internal.pageSize.getHeight() - 10, pageW, 10, "F");
+    doc.setTextColor(160, 190, 220);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("LS Solutions — Orbita Plataforma de Gestão de Projetos", margin, doc.internal.pageSize.getHeight() - 3.5);
+    doc.setTextColor(255, 190, 0);
+    doc.text(`Pág. ${pg}/${totalPages}`, pageW - margin, doc.internal.pageSize.getHeight() - 3.5, { align: "right" });
+  }
   doc.save(`orbita-pesquisa-${Date.now()}.pdf`);
 }
 
@@ -99,16 +118,21 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
   // ── Cover ——
   doc.setFillColor(30, 45, 90);
   doc.rect(0, 0, pageW, 62, "F");
-  // Logo in cover
-  drawOrbitaLogo(doc, margin, 10, 14);
+  // LS badge
+  doc.setFillColor(255, 190, 0);
+  doc.roundedRect(margin, 10, 16, 13, 2, 2, "F");
+  doc.setTextColor(30, 45, 90);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("LS", margin + 8, 18.5, { align: "center" });
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("ORBITA", margin + 17, 16);
+  doc.text("ORBITA", margin + 20, 16);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(160, 190, 255);
-  doc.text("Plataforma de Gestão de Projetos", margin + 17, 21);
+  doc.setTextColor(160, 190, 220);
+  doc.text("Plataforma de Gestão de Projetos — LS Solutions", margin + 20, 21);
   // Divider line
   doc.setDrawColor(255, 255, 255, 0.2);
   doc.setLineWidth(0.3);
@@ -252,6 +276,19 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
     y += 5.5;
   }
 
+  // Footer on all pages
+  const totalPgs = (doc.internal as any).getNumberOfPages();
+  for (let pg = 1; pg <= totalPgs; pg++) {
+    doc.setPage(pg);
+    doc.setFillColor(30, 45, 90);
+    doc.rect(0, doc.internal.pageSize.getHeight() - 10, pageW, 10, "F");
+    doc.setTextColor(160, 190, 220);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("LS Solutions — Orbita Plataforma de Gestão de Projetos", margin, doc.internal.pageSize.getHeight() - 3.5);
+    doc.setTextColor(255, 190, 0);
+    doc.text(`Pág. ${pg}/${totalPgs}`, pageW - margin, doc.internal.pageSize.getHeight() - 3.5, { align: "right" });
+  }
   doc.save(`orbita-relatorio-${Date.now()}.pdf`);
 }
 
