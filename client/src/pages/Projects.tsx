@@ -50,6 +50,8 @@ export default function Projects() {
   const [editProject, setEditProject] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", description: "", color: "#6366f1", clientId: "" });
+  const [filterClient, setFilterClient] = useState("all");
+  const [filterSearch, setFilterSearch] = useState("");
 
   const createMutation = trpc.projects.create.useMutation({
     onSuccess: () => {
@@ -116,6 +118,12 @@ export default function Projects() {
     return clients.find((c: { id: number; name: string }) => c.id === clientId)?.name ?? null;
   };
 
+  const filteredProjects = (projects ?? []).filter((p: any) => {
+    if (filterSearch && !p.name.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+    if (filterClient !== "all" && String(p.clientId ?? "") !== filterClient) return false;
+    return true;
+  });
+
   return (
     <AppLayout title="Projetos">
       <div className="space-y-6">
@@ -131,6 +139,35 @@ export default function Projects() {
             <Plus className="w-4 h-4" />
             Novo Projeto
           </Button>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <Input
+            placeholder="Buscar projeto..."
+            value={filterSearch}
+            onChange={e => setFilterSearch(e.target.value)}
+            className="w-64 h-9"
+          />
+          <Select value={filterClient} onValueChange={setFilterClient}>
+            <SelectTrigger className="w-48 h-9">
+              <SelectValue placeholder="Filtrar por cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os clientes</SelectItem>
+              {(clients ?? []).map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(filterSearch || filterClient !== "all") && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterSearch(""); setFilterClient("all"); }}>
+              Limpar filtros
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground ml-auto">
+            {filteredProjects.length} de {projects?.length ?? 0} projeto{projects?.length !== 1 ? "s" : ""}
+          </span>
         </div>
 
         {/* Projects Grid */}
@@ -150,9 +187,16 @@ export default function Projects() {
               Criar Projeto
             </Button>
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <FolderKanban className="w-16 h-16 text-muted-foreground/20 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum projeto encontrado</h3>
+            <p className="text-muted-foreground mb-4">Tente ajustar os filtros de busca.</p>
+            <Button variant="outline" size="sm" onClick={() => { setFilterSearch(""); setFilterClient("all"); }}>Limpar filtros</Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {projects.map((project) => {
+            {filteredProjects.map((project: any) => {
               const rate = project.taskCounts.total > 0
                 ? Math.round(((project.taskCounts.published + project.taskCounts.archived) / project.taskCounts.total) * 100)
                 : 0;

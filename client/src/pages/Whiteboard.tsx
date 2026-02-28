@@ -358,7 +358,7 @@ export default function Whiteboard() {
         <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Project filter */}
-            <Select value={projectId?.toString() ?? ""} onValueChange={v => setProjectId(Number(v))}>
+            <Select value={projectId?.toString() ?? "none"} onValueChange={v => { if (v !== "none") setProjectId(Number(v)); }}>
               <SelectTrigger className="w-48 h-9 text-sm">
                 <SelectValue placeholder="Selecionar projeto" />
               </SelectTrigger>

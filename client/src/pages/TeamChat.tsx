@@ -1,18 +1,32 @@
 import AppLayout from "@/components/AppLayout";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
   MessageSquare, Send, AtSign, Users, Lock, Plus, Search, Check
 } from "lucide-react";
 import { toast } from "sonner";
+
+// Optimized polling: 2s when tab is visible, 15s when hidden
+function useSmartInterval(visibleMs: number, hiddenMs: number) {
+  const [interval, setInt] = useState(visibleMs);
+  useEffect(() => {
+    const update = () => setInt(document.hidden ? hiddenMs : visibleMs);
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, [visibleMs, hiddenMs]);
+  return interval;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getInitials(name: string | null | undefined) {
@@ -64,9 +78,11 @@ function TaskChatTab({ currentUserId }: { currentUserId: number }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const chatInterval = useSmartInterval(2000, 15000);
+
   const projectsQ = trpc.projects.list.useQuery();
   const tasksQ = trpc.tasks.list.useQuery({ projectId: projectId! }, { enabled: !!projectId, retry: false });
-  const messagesQ = trpc.taskChat.messages.useQuery({ taskId: taskId! }, { enabled: !!taskId, refetchInterval: 5000 });
+  const messagesQ = trpc.taskChat.messages.useQuery({ taskId: taskId! }, { enabled: !!taskId, refetchInterval: chatInterval });
   const membersQ = trpc.projects.members.useQuery({ projectId: projectId! }, { enabled: !!projectId });
 
   const utils = trpc.useUtils();
@@ -132,7 +148,7 @@ function TaskChatTab({ currentUserId }: { currentUserId: number }) {
     <div className="flex gap-4 flex-1 min-h-0">
       {/* Left: selector */}
       <div className="w-64 flex-shrink-0 flex flex-col gap-3">
-        <Select value={projectId?.toString() ?? ""} onValueChange={v => { setProjectId(Number(v)); setTaskId(undefined); }}>
+        <Select value={projectId?.toString() ?? "none"} onValueChange={v => { if (v !== "none") { setProjectId(Number(v)); setTaskId(undefined); } }}>
           <SelectTrigger><SelectValue placeholder="Selecione um projeto" /></SelectTrigger>
           <SelectContent>
             {(projectsQ.data ?? []).map((p: any) => (
@@ -270,10 +286,12 @@ function DirectChatTab({ currentUserId }: { currentUserId: number }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const utils = trpc.useUtils();
-  const convsQ = trpc.directChat.listConversations.useQuery(undefined, { refetchInterval: 5000 });
+  const convsInterval = useSmartInterval(3000, 15000);
+  const msgsInterval = useSmartInterval(2000, 15000);
+  const convsQ = trpc.directChat.listConversations.useQuery(undefined, { refetchInterval: convsInterval });
   const msgsQ = trpc.directChat.getMessages.useQuery(
     { conversationId: selectedConvId! },
-    { enabled: !!selectedConvId, refetchInterval: 3000 }
+    { enabled: !!selectedConvId, refetchInterval: msgsInterval }
   );
   const usersQ = trpc.directChat.listUsers.useQuery();
 

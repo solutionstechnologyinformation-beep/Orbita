@@ -334,3 +334,18 @@
 - [x] Backend: notificação específica ao bloquear tarefa (inclui motivo do bloqueio na mensagem)
 - [x] TaskDetail: botão "Visualizar" nos anexos abre modal inline (imagens e PDFs)
 - [x] 0 erros TypeScript, 14/14 testes passando
+
+## Próximos Passos v3.26
+- [ ] Kanban: filtro por cliente (dropdown na barra de filtros, filtra projetos e tarefas do cliente)
+- [ ] Dashboard: filtro por cliente (seletor no cabeçalho, filtra KPIs e gráficos)
+- [ ] Chat: polling otimizado (refetchInterval 2s quando aba ativa, 10s em background) + indicador "digitando..."
+- [ ] Página /relatorios: painel consolidado com todos os PDFs disponíveis (Sprint, Dashboard, Chat IA)
+- [ ] /relatorios: filtros de período e projeto, prévia dos dados antes de exportar
+
+## Melhorias v3.26
+- [x] Erro de runtime Select.Item corrigido (TeamChat e Whiteboard - value="" → "none")
+- [x] Filtro por cliente na página de Projetos (busca + dropdown de cliente + estado vazio)
+- [x] Filtro por cliente no Dashboard (dropdown no header, filtra KPIs e lista de projetos)
+- [x] Chat: polling otimizado (2s visível / 15s em background) para task chat e direct chat
+- [x] Página /relatorios: painel consolidado com 3 tipos de relatório (Dashboard, Projetos, Sprint)
+- [x] Relatórios: link "Relatórios" adicionado à barra lateral de navegação

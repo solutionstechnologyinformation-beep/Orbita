@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -248,17 +249,25 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const [exportingPdf, setExportingPdf] = useState(false);
 
+  const [filterClient, setFilterClient] = useState("all");
+
   const statsQ = trpc.dashboard.stats.useQuery();
   const conflictsQ = trpc.dashboard.conflicts.useQuery();
   const clientCountQ = trpc.dashboard.clientCount.useQuery();
   const projectsQ = trpc.projects.list.useQuery();
   const sprintsQ = trpc.sprints.listAll.useQuery();
   const recentQ = trpc.dashboard.recentTasks.useQuery();
+  const clientsQ = trpc.clients.list.useQuery();
 
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
   const clientCount = clientCountQ.data ?? 0;
-  const projects = (projectsQ.data ?? []) as any[];
+  const allProjects = (projectsQ.data ?? []) as any[];
+  const clients = (clientsQ.data ?? []) as any[];
+  // Filter projects by selected client
+  const projects = filterClient === "all"
+    ? allProjects
+    : allProjects.filter((p: any) => String(p.clientId ?? "") === filterClient);
   const sprints = (sprintsQ.data ?? []) as any[];
   const recentTasks = (recentQ.data ?? []) as any[];
 
@@ -299,30 +308,45 @@ export default function Dashboard() {
       <div className="space-y-6">
 
         {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Acompanhamento dos Projetos</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 flex-shrink-0"
-            disabled={exportingPdf || isLoading}
-            onClick={() => {
-              setExportingPdf(true);
-              try {
-                exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP });
-              } finally {
-                setExportingPdf(false);
-              }
-            }}
-          >
-            <FileDown className="w-4 h-4" />
-            Exportar PDF
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {clients.length > 0 && (
+              <Select value={filterClient} onValueChange={setFilterClient}>
+                <SelectTrigger className="w-44 h-9 text-sm">
+                  <SelectValue placeholder="Todos os clientes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  {clients.map((c: any) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={exportingPdf || isLoading}
+              onClick={() => {
+                setExportingPdf(true);
+                try {
+                  exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP });
+                } finally {
+                  setExportingPdf(false);
+                }
+              }}
+            >
+              <FileDown className="w-4 h-4" />
+              Exportar PDF
+            </Button>
+          </div>
         </div>
 
         {/* ── Top KPI Row ── */}

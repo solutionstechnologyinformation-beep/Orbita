@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CalendarRange,
   ChevronLeft,
+  FileBarChart,
   FolderKanban,
   GanttChartSquare,
   LayoutDashboard,
@@ -47,6 +48,7 @@ const navItems = [
   { href: "/calendar", icon: CalendarDays, label: "Calendário" },
   { href: "/team-chat", icon: MessageSquare, label: "Chat de Tarefas" },
   { href: "/whiteboard", icon: PenSquare, label: "Quadro Branco" },
+  { href: "/relatorios", icon: FileBarChart, label: "Relatórios" },
   { href: "/notifications", icon: Bell, label: "Notificações" },
   { href: "/chat", icon: Bot, label: "Chat IA" },
 ];
