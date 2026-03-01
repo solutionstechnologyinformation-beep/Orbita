@@ -10,19 +10,20 @@ import { toast } from "sonner";
 
 // ─── PDF helpers (re-used from other pages) ───────────────────────────────────
 
-const NAVY = "#1e2d5a";
 const YELLOW = "#FFBE00";
+const BLACK = "#1a1a1a";
+const LIGHT_GRAY = "#f8fafc";
 
 function pdfHeader(title: string, subtitle?: string) {
   return `
-    <div style="background:${NAVY};color:#fff;padding:28px 36px 20px;border-radius:10px 10px 0 0;">
+    <div style="background:${YELLOW};color:${BLACK};padding:28px 36px 20px;border-radius:10px 10px 0 0;border-bottom:3px solid rgba(0,0,0,0.1);">
       <div style="display:flex;align-items:center;gap:16px;">
-        <div style="background:${YELLOW};color:${NAVY};font-weight:900;font-size:22px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">LS</div>
+        <div style="background:#fff;color:${BLACK};font-weight:900;font-size:18px;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);">LS</div>
         <div>
-          <div style="font-size:20px;font-weight:700;">${title}</div>
-          ${subtitle ? `<div style="font-size:12px;opacity:.75;margin-top:2px;">${subtitle}</div>` : ""}
+          <div style="font-size:20px;font-weight:800;color:${BLACK};">${title}</div>
+          ${subtitle ? `<div style="font-size:12px;color:rgba(0,0,0,0.6);margin-top:2px;">${subtitle}</div>` : ""}
         </div>
-        <div style="margin-left:auto;text-align:right;font-size:11px;opacity:.65;">
+        <div style="margin-left:auto;text-align:right;font-size:11px;color:rgba(0,0,0,0.55);">
           Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
         </div>
       </div>
@@ -31,9 +32,10 @@ function pdfHeader(title: string, subtitle?: string) {
 
 function pdfFooter() {
   return `
-    <div style="margin-top:40px;padding:16px 36px;background:${NAVY};color:#fff;font-size:11px;border-radius:0 0 10px 10px;display:flex;justify-content:space-between;align-items:center;">
-      <span>LS Solutions — Orbita</span>
-      <span>Relatório gerado automaticamente</span>
+    <div style="margin-top:40px;padding:14px 36px;background:${YELLOW};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
+      <div style="background:#fff;color:${BLACK};font-weight:900;font-size:13px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.15);">LS</div>
+      <span style="font-size:13px;font-weight:700;color:${BLACK};">by LS Solutions</span>
+      <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Relatório gerado automaticamente</span>
     </div>`;
 }
 
@@ -42,16 +44,16 @@ function openPrint(html: string, title: string) {
   if (!w) { toast.error("Pop-up bloqueado. Permita pop-ups para exportar."); return; }
   w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
     <style>
-      body{font-family:Inter,sans-serif;margin:0;padding:24px;background:#f8fafc;}
+      body{font-family:Inter,sans-serif;margin:0;padding:24px;background:#f0f2f5;}
       table{border-collapse:collapse;width:100%;}
       th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:12px;}
       th{background:#f1f5f9;font-weight:600;color:#475569;}
-      @media print{body{padding:0;}button{display:none!important;}}
+      @media print{body{padding:0;background:#fff;}button{display:none!important;}}
     </style></head><body>
     <div style="max-width:900px;margin:0 auto;">
       ${html}
       <div style="text-align:center;margin-top:20px;">
-        <button onclick="window.print()" style="background:${NAVY};color:#fff;border:none;padding:10px 28px;border-radius:6px;cursor:pointer;font-size:14px;">Imprimir / Salvar PDF</button>
+        <button onclick="window.print()" style="background:${YELLOW};color:${BLACK};border:none;padding:10px 28px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;">Imprimir / Salvar PDF</button>
       </div>
     </div></body></html>`);
   w.document.close();
@@ -65,7 +67,7 @@ function exportDashboardReport(projects: any[], stats: any, sprints: any[]) {
   const blocked = projects.reduce((s: number, p: any) => s + (p.taskCounts?.blocked ?? 0), 0);
   const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const kpiRow = (label: string, value: string | number, color = NAVY) =>
+  const kpiRow = (label: string, value: string | number, color = BLACK) =>
     `<div style="background:#f8fafc;border-radius:8px;padding:16px 20px;text-align:center;border:1px solid #e2e8f0;">
       <div style="font-size:28px;font-weight:800;color:${color};">${value}</div>
       <div style="font-size:11px;color:#64748b;margin-top:4px;">${label}</div>
@@ -76,7 +78,7 @@ function exportDashboardReport(projects: any[], stats: any, sprints: any[]) {
     const d = (p.taskCounts?.published ?? 0) + (p.taskCounts?.archived ?? 0);
     const rate = t > 0 ? Math.round((d / t) * 100) : 0;
     return `<tr>
-      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color ?? NAVY};margin-right:8px;"></span>${p.name}</td>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color ?? BLACK};margin-right:8px;"></span>${p.name}</td>
       <td>${p.status ?? "—"}</td>
       <td>${t}</td>
       <td>${d}</td>
@@ -98,7 +100,7 @@ function exportDashboardReport(projects: any[], stats: any, sprints: any[]) {
         ${kpiRow("Bloqueadas", blocked, "#dc2626")}
         ${kpiRow("Sprints Ativas", sprints.filter((s: any) => s.status === "active").length, "#7c3aed")}
       </div>
-      <h3 style="font-size:14px;font-weight:600;color:${NAVY};margin-bottom:12px;">Projetos</h3>
+      <h3 style="font-size:14px;font-weight:600;color:${BLACK};margin-bottom:12px;">Projetos</h3>
       <table>
         <thead><tr><th>Projeto</th><th>Status</th><th>Total</th><th>Concluídas</th><th>Taxa</th></tr></thead>
         <tbody>${projectRows}</tbody>
@@ -138,7 +140,7 @@ function exportSprintReport(sprint: any, tasks: any[]) {
     <div style="padding:24px 36px;">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
         <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;border:1px solid #e2e8f0;">
-          <div style="font-size:28px;font-weight:800;color:${NAVY};">${total}</div>
+          <div style="font-size:28px;font-weight:800;color:${BLACK};">${total}</div>
           <div style="font-size:11px;color:#64748b;margin-top:4px;">Total de Tarefas</div>
         </div>
         <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;border:1px solid #e2e8f0;">
@@ -154,7 +156,7 @@ function exportSprintReport(sprint: any, tasks: any[]) {
           <div style="font-size:11px;color:#64748b;margin-top:4px;">Taxa de Conclusão</div>
         </div>
       </div>
-      <h3 style="font-size:14px;font-weight:600;color:${NAVY};margin-bottom:12px;">Tarefas da Sprint</h3>
+      <h3 style="font-size:14px;font-weight:600;color:${BLACK};margin-bottom:12px;">Tarefas da Sprint</h3>
       <table>
         <thead><tr><th>Título</th><th>Status</th><th>Prioridade</th><th>Responsável</th></tr></thead>
         <tbody>${taskRows}</tbody>
@@ -172,7 +174,7 @@ function exportProjectsReport(projects: any[], clients: any[]) {
     const d = (p.taskCounts?.published ?? 0) + (p.taskCounts?.archived ?? 0);
     const rate = t > 0 ? Math.round((d / t) * 100) : 0;
     return `<tr>
-      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color ?? NAVY};margin-right:8px;"></span>${p.name}</td>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color ?? BLACK};margin-right:8px;"></span>${p.name}</td>
       <td>${clientMap[p.clientId] ?? "—"}</td>
       <td>${p.status ?? "—"}</td>
       <td>${t}</td>

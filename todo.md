@@ -349,3 +349,14 @@
 - [x] Chat: polling otimizado (2s visível / 15s em background) para task chat e direct chat
 - [x] Página /relatorios: painel consolidado com 3 tipos de relatório (Dashboard, Projetos, Sprint)
 - [x] Relatórios: link "Relatórios" adicionado à barra lateral de navegação
+
+## Melhorias v3.27
+- [ ] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
+- [ ] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
+- [ ] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
+
+## Revisão de Identidade Visual dos PDFs v3.27a
+- [x] Reports.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
+- [x] Sprints.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
+- [x] AIChat.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
+- [x] Dashboard.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions

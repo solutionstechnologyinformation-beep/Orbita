@@ -167,10 +167,10 @@ export default function Sprints() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #1e2d5a; color: #fff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; }
-    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
-    .logo span { color: #FFBE00; }
-    .subtitle { font-size: 11px; color: #a0b0d0; margin-top: 2px; }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #FFBE00; color: #1a1a1a; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #1a1a1a; }
+    .logo span { color: #1a1a1a; }
+    .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
     h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
@@ -193,13 +193,16 @@ export default function Sprints() {
 </head>
 <body>
   <div class="header">
-    <div>
-      <div class="logo">Orbi<span>ta</span></div>
-      <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="background:#fff;color:#1a1a1a;font-weight:900;font-size:16px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">LS</div>
+      <div>
+        <div class="logo">Orbita</div>
+        <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+      </div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:13px;font-weight:700;color:#FFBE00">Relatório de Sprint</div>
-      <div style="font-size:11px;color:#a0b0d0">Gerado em ${now}</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a1a">Relatório de Sprint</div>
+      <div style="font-size:11px;color:rgba(0,0,0,0.55)">Gerado em ${now}</div>
     </div>
   </div>
 
@@ -262,17 +265,10 @@ export default function Sprints() {
     </table>
   </section>` : ""}
 
-  <div class="footer">
-    <div style="display:flex;align-items:center;gap:8px">
-      <div style="width:28px;height:28px;background:#1e2d5a;border-radius:6px;display:flex;align-items:center;justify-content:center">
-        <span style="color:#FFBE00;font-weight:900;font-size:13px">LS</span>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:#334155">LS Solutions</div>
-        <div style="font-size:9px;color:#94a3b8">Orbita — Plataforma de Gestão de Projetos</div>
-      </div>
-    </div>
-    <span>Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
+  <div style="margin-top:32px;padding:14px 0;background:#FFBE00;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;padding:12px 24px;">
+    <div style="background:#fff;color:#1a1a1a;font-weight:900;font-size:13px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.15);">LS</div>
+    <span style="font-size:13px;font-weight:700;color:#1a1a1a;">by LS Solutions</span>
+    <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>
 </html>`;

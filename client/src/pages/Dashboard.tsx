@@ -109,8 +109,8 @@ function exportDashboardPDF(data: {
       <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">${ptotal}</td>
       <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">${pdone}</td>
       <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">
-        <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden">
-          <div style="background:#1e2d5a;height:8px;border-radius:99px;width:${ppct}%"></div>
+          <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden">
+          <div style="background:#FFBE00;height:8px;border-radius:99px;width:${ppct}%"></div>
         </div>
         <span style="font-size:10px;color:#64748b">${ppct}%</span>
       </td>
@@ -144,16 +144,16 @@ function exportDashboardPDF(data: {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 0; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #1e2d5a; color: #fff; padding: 18px 28px; }
-    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
-    .logo span { color: #FFBE00; }
-    .subtitle { font-size: 11px; color: #a0b0d0; margin-top: 2px; }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #FFBE00; color: #1a1a1a; padding: 18px 28px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #1a1a1a; }
+    .logo span { color: #1a1a1a; }
+    .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
     .content { padding: 28px; }
     h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
     .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
-    .kpi-value { font-size: 28px; font-weight: 800; color: #1e2d5a; }
+    .kpi-value { font-size: 28px; font-weight: 800; color: #1a1a1a; }
     .kpi-label { font-size: 11px; color: #64748b; margin-top: 2px; }
     .gauge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
     .gauge { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
@@ -162,23 +162,26 @@ function exportDashboardPDF(data: {
     section { margin-bottom: 24px; }
     h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #FFBE00; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { background: #1e2d5a; color: #fff; padding: 7px 8px; text-align: left; border: 1px solid #1e2d5a; font-weight: 600; }
-    .footer { margin-top: 32px; border-top: 2px solid #1e2d5a; padding: 12px 28px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; }
+    th { background: #f1f5f9; color: #475569; padding: 7px 8px; text-align: left; border: 1px solid #e2e8f0; font-weight: 600; }
+    .footer { margin-top: 32px; background: #FFBE00; padding: 12px 28px; font-size: 10px; border-radius: 0 0 8px 8px; display: flex; justify-content: space-between; align-items: center; }
     .ls-badge { display: flex; align-items: center; gap: 8px; }
-    .ls-icon { width: 28px; height: 28px; background: #1e2d5a; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-    .ls-icon span { color: #FFBE00; font-weight: 900; font-size: 13px; }
+    .ls-icon { width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .ls-icon span { color: #1a1a1a; font-weight: 900; font-size: 13px; }
     @media print { body { padding: 0; } }
   </style>
 </head>
 <body>
   <div class="header">
-    <div>
-      <div class="logo">Orbi<span>ta</span></div>
-      <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="background:#fff;color:#1a1a1a;font-weight:900;font-size:16px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">LS</div>
+      <div>
+        <div class="logo">Orbita</div>
+        <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+      </div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:13px;font-weight:700;color:#FFBE00">Relatório do Dashboard</div>
-      <div style="font-size:11px;color:#a0b0d0">Gerado em ${now}</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a1a">Relatório do Dashboard</div>
+      <div style="font-size:11px;color:rgba(0,0,0,0.55)">Gerado em ${now}</div>
     </div>
   </div>
   <div class="content">
@@ -227,12 +230,9 @@ function exportDashboardPDF(data: {
   <div class="footer">
     <div class="ls-badge">
       <div class="ls-icon"><span>LS</span></div>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:#334155">LS Solutions</div>
-        <div style="font-size:9px;color:#94a3b8">Orbita — Plataforma de Gestão de Projetos</div>
-      </div>
+      <span style="font-size:13px;font-weight:700;color:#1a1a1a;">by LS Solutions</span>
     </div>
-    <span>Gerado em ${now}</span>
+    <span style="color:rgba(0,0,0,0.55);">Gerado em ${now}</span>
   </div>
 </body>
 </html>`;
