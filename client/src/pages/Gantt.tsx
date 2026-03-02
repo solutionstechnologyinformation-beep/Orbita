@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertTriangle, Calendar, ZoomIn, ZoomOut, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { AlertTriangle, Calendar, ZoomIn, ZoomOut, ChevronDown, ChevronRight as ChevronRightIcon, FileDown } from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const LEFT_WIDTH = 260; // px — fixed left panel
@@ -155,6 +155,76 @@ export default function Gantt() {
 
   const totalGridWidth = totalDays * colPx;
 
+  // ── Export PDF ────────────────────────────────────────────────────────────
+  function exportGanttPDF() {
+    const YELLOW = "#FFBE00";
+    const BLACK = "#1a1a1a";
+    const priorityLabel: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", urgent: "Urgente" };
+    const conflictSet = new Set(conflicts.flatMap((c: any) => [c.task1.id, c.task2.id]));
+
+    const rows = tasks.map((t: any) => {
+      const hasConflict = conflictSet.has(t.id);
+      const statusLabel = STATUS_LABELS[t.status] ?? t.status;
+      const statusColor = STATUS_COLORS[t.status] ?? "#94a3b8";
+      return `<tr>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-weight:500;max-width:200px">${t.title}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.projectName ?? "—"}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.assigneeName ?? "Não atribuído"}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0">
+          <span style="background:${statusColor}22;color:${statusColor};padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600">${statusLabel}</span>
+        </td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px">${t.startDate ? new Date(t.startDate).toLocaleDateString("pt-BR") : "—"}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px">${(t.endDate || t.dueDate) ? new Date(t.endDate ?? t.dueDate).toLocaleDateString("pt-BR") : "—"}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:11px">${priorityLabel[t.priority] ?? t.priority}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${hasConflict ? '<span style="color:#ef4444;font-weight:700">⚠ Conflito</span>' : '<span style="color:#22c55e">✔</span>'}</td>
+      </tr>`;
+    }).join("");
+
+    const conflictRows = conflicts.map((c: any) =>
+      `<li style="margin-bottom:4px"><strong>${c.task1.assigneeName ?? "Usuário"}</strong>: “${c.task1.title}” e “${c.task2.title}” se sobrepõem</li>`
+    ).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>@page{size:A4 landscape;margin:15mm}body{font-family:Arial,sans-serif;margin:0;padding:0;color:${BLACK}}</style></head><body>
+    <div style="background:${YELLOW};padding:18px 28px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:20px;font-weight:800;color:${BLACK}">Relatório de Gantt</div>
+        <div style="font-size:12px;color:${BLACK};opacity:0.7;margin-top:2px">Orbita — LS Solutions</div>
+      </div>
+      <div style="background:${BLACK};color:${YELLOW};border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px">LS</div>
+    </div>
+    <div style="padding:20px 28px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:16px">Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })} • ${tasks.length} tarefa(s)</div>
+      ${tasks.length === 0
+        ? `<div style="text-align:center;padding:40px;color:#64748b">Nenhuma tarefa encontrada para os filtros selecionados.</div>`
+        : `<table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:#f1f5f9">
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Tarefa</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Projeto</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Responsável</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Status</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Início</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Término</th>
+          <th style="padding:7px 10px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Prioridade</th>
+          <th style="padding:7px 10px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Conflito</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`}
+      ${conflicts.length > 0 ? `<div style="margin-top:20px;background:#fee2e2;border-radius:8px;padding:14px 18px">
+        <div style="font-weight:700;color:#ef4444;margin-bottom:8px">⚠ ${conflicts.length} conflito(s) de agenda detectado(s)</div>
+        <ul style="margin:0;padding-left:18px;font-size:11px;color:#7f1d1d">${conflictRows}</ul>
+      </div>` : ""}
+    </div>
+    <div style="background:${YELLOW};padding:10px 28px;display:flex;align-items:center;gap:10px;position:fixed;bottom:0;left:0;right:0">
+      <div style="background:${BLACK};color:${YELLOW};border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px">LS</div>
+      <span style="font-size:11px;font-weight:600;color:${BLACK}">by LS Solutions</span>
+      <span style="margin-left:auto;font-size:10px;color:${BLACK};opacity:0.6">© ${new Date().getFullYear()} LS Solutions. Todos os direitos reservados.</span>
+    </div>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
+  }
+
   return (
     <AppLayout title="Gráfico de Gantt">
       {/* Toolbar */}
@@ -212,6 +282,10 @@ export default function Gantt() {
           </Button>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setColPx(p => Math.min(80, p + 6))} title="Aumentar zoom">
             <ZoomIn className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 ml-1" onClick={exportGanttPDF}>
+            <FileDown className="w-3.5 h-3.5" />
+            Exportar PDF
           </Button>
         </div>
       </div>

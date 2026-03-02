@@ -514,6 +514,32 @@ export const appRouter = router({
         await deleteTaskAttachment(input.id);
         return { success: true };
       }),
+
+    listBlocked: protectedProcedure.query(async ({ ctx }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) return [];
+      const userProjects = await getProjectsByUser(ctx.user.id);
+      const projectIds = userProjects.map((p: any) => p.id);
+      if (projectIds.length === 0) return [];
+      const { tasks: t, users: u, projects: pr } = await import("../drizzle/schema.js");
+      const { inArray, eq: eqFn, and: andFn } = await import("drizzle-orm");
+      const rows = await db.select({
+        id: t.id,
+        title: t.title,
+        blockReason: t.blockReason,
+        projectId: t.projectId,
+        projectName: pr.name,
+        assigneeName: u.name,
+        statusChangedAt: t.statusChangedAt,
+        priority: t.priority,
+      }).from(t)
+        .leftJoin(u, eqFn(t.assigneeId, u.id))
+        .leftJoin(pr, eqFn(t.projectId, pr.id))
+        .where(andFn(eqFn(t.status, "blocked"), inArray(t.projectId, projectIds)))
+        .orderBy(t.statusChangedAt);
+      return rows;
+    }),
   }),
 
   // ── Notifications ─────────────────────────────────────────────────────────
@@ -707,6 +733,18 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
           u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
         ).slice(0, 10);
       }),
+  }),
+
+  presence: router({
+    ping: protectedProcedure.mutation(async ({ ctx }) => {
+      const { updateLastSeen } = await import("./db");
+      await updateLastSeen(ctx.user.id);
+      return { ok: true };
+    }),
+    online: protectedProcedure.query(async () => {
+      const { getOnlineUsers } = await import("./db");
+      return getOnlineUsers(5);
+    }),
   }),
 
   roles: router({
@@ -1128,7 +1166,11 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
               .where(eq(directMessages.conversationId, convId))
             )[0]?.count ?? 0;
 
-        result.push({ ...conv, participants, lastMessage: lastMsg ?? null, unreadCount });
+        // For direct (non-group) conversations, expose the other user's id for presence indicator
+        const otherUserId = conv.type !== "group"
+          ? (participants.find((p: any) => p.userId !== ctx.user.id)?.userId ?? null)
+          : null;
+        result.push({ ...conv, participants, lastMessage: lastMsg ?? null, unreadCount, otherUserId });
       }
 
       return result.sort((a, b) => {

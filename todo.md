@@ -360,3 +360,8 @@
 - [x] Sprints.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
 - [x] AIChat.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
 - [x] Dashboard.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
+
+## Melhorias v3.28
+- [ ] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
+- [ ] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
+- [ ] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito

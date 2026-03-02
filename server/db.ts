@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   activityLogs,
@@ -1148,4 +1148,24 @@ export async function countClients(companyId?: number) {
   const conditions: any[] = companyId ? [eq(clients.companyId, companyId)] : [];
   const [row] = await db.select({ count: count() }).from(clients).where(conditions.length > 0 ? and(...conditions) : undefined);
   return row?.count ?? 0;
+}
+
+// ─── User Presence ────────────────────────────────────────────────────────────
+export async function updateLastSeen(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ lastSeenAt: new Date() } as any).where(eq(users.id, userId));
+}
+
+export async function getOnlineUsers(withinMinutes = 5): Promise<{ id: number; name: string | null; avatarUrl: string | null; lastSeenAt: Date | null }[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000);
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    avatarUrl: users.avatarUrl,
+    lastSeenAt: (users as any).lastSeenAt,
+  }).from(users).where(gte((users as any).lastSeenAt, cutoff));
+  return rows;
 }

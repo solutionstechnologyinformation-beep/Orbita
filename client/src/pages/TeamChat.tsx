@@ -288,12 +288,25 @@ function DirectChatTab({ currentUserId }: { currentUserId: number }) {
   const utils = trpc.useUtils();
   const convsInterval = useSmartInterval(3000, 15000);
   const msgsInterval = useSmartInterval(2000, 15000);
+  const presenceInterval = useSmartInterval(30000, 60000);
   const convsQ = trpc.directChat.listConversations.useQuery(undefined, { refetchInterval: convsInterval });
   const msgsQ = trpc.directChat.getMessages.useQuery(
     { conversationId: selectedConvId! },
     { enabled: !!selectedConvId, refetchInterval: msgsInterval }
   );
   const usersQ = trpc.directChat.listUsers.useQuery();
+  const onlineQ = trpc.presence.online.useQuery(undefined, { refetchInterval: presenceInterval });
+  const pingMut = trpc.presence.ping.useMutation();
+
+  // Ping presence every 60s
+  useEffect(() => {
+    pingMut.mutate();
+    const id = setInterval(() => pingMut.mutate(), 60000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onlineIds = new Set((onlineQ.data ?? []).map((u: any) => u.id));
 
   const sendMut = trpc.directChat.sendMessage.useMutation({
     onSuccess: () => {
@@ -401,7 +414,12 @@ function DirectChatTab({ currentUserId }: { currentUserId: number }) {
                         <Users className="h-4 w-4" />
                       </div>
                     ) : (
-                      <Avatar name={getConvName(conv)} url={getConvAvatar(conv)} size="md" />
+                      <div className="relative flex-shrink-0">
+                        <Avatar name={getConvName(conv)} url={getConvAvatar(conv)} size="md" />
+                        {conv.otherUserId && onlineIds.has(conv.otherUserId) && (
+                          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white" />
+                        )}
+                      </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileDown, BarChart2, Zap, FolderKanban, Loader2 } from "lucide-react";
+import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── PDF helpers (re-used from other pages) ───────────────────────────────────
@@ -195,6 +195,51 @@ function exportProjectsReport(projects: any[], clients: any[]) {
   openPrint(html, "Relatório de Projetos");
 }
 
+// ─── Blocked Tasks Report ─────────────────────────────────────────────────────
+function exportBlockedReport(blockedTasks: any[]) {
+  const priorityLabel: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", urgent: "Urgente" };
+  const priorityColor: Record<string, string> = { low: "#64748b", medium: "#f59e0b", high: "#ef4444", urgent: "#7c3aed" };
+
+  const rows = blockedTasks.map(t => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:500">${t.title}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.projectName ?? "—"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.assigneeName ?? "Não atribuído"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:${priorityColor[t.priority] ?? BLACK};font-weight:600">${priorityLabel[t.priority] ?? t.priority}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#ef4444">${t.blockReason ?? "Motivo não informado"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#94a3b8;font-size:11px">${t.statusChangedAt ? new Date(t.statusChangedAt).toLocaleDateString("pt-BR") : "—"}</td>
+    </tr>`).join("");
+
+  const html = `
+    ${pdfHeader("Relatório de Tarefas Bloqueadas", "LS Solutions — Orbita")}
+    <div style="padding:28px 36px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+        <div style="background:#fee2e2;color:#ef4444;border-radius:8px;padding:12px 20px;font-size:24px;font-weight:800;">${blockedTasks.length}</div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:${BLACK}">Tarefas Bloqueadas</div>
+          <div style="font-size:12px;color:#64748b">Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</div>
+        </div>
+      </div>
+      ${blockedTasks.length === 0
+        ? `<div style="text-align:center;padding:40px;color:#64748b;">Nenhuma tarefa bloqueada no momento.</div>`
+        : `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Tarefa</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Projeto</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Responsável</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Prioridade</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Motivo do Bloqueio</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Bloqueado em</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`}
+    </div>
+    ${pdfFooter()}`;
+  openPrint(html, "Tarefas Bloqueadas — Orbita");
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Reports() {
   const [selectedSprint, setSelectedSprint] = useState("none");
@@ -204,6 +249,7 @@ export default function Reports() {
   const sprintsQ = trpc.sprints.listAll.useQuery();
   const statsQ = trpc.dashboard.stats.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
+  const blockedTasksQ = trpc.tasks.listBlocked.useQuery();
 
   const projects = (projectsQ.data ?? []) as any[];
   const sprints = (sprintsQ.data ?? []) as any[];
@@ -233,8 +279,10 @@ export default function Reports() {
       } else if (type === "sprint") {
         if (!selectedSprintObj) { toast.error("Selecione uma sprint primeiro."); return; }
         const sprintData = sprintDetailQ.data as any;
-        const tasks = (sprintData?.tasks ?? []) as any[];
-        exportSprintReport(selectedSprintObj, tasks);
+        const sprintTasks = (sprintData?.tasks ?? []) as any[];
+        exportSprintReport(selectedSprintObj, sprintTasks);
+      } else if (type === "blocked") {
+        exportBlockedReport((blockedTasksQ.data ?? []) as any[]);
       }
     } catch (e) {
       toast.error("Erro ao gerar relatório.");
@@ -261,6 +309,17 @@ export default function Reports() {
       badge: "Projetos",
       badgeColor: "bg-indigo-100 text-indigo-700",
       extra: null,
+    },
+    {
+      id: "blocked",
+      icon: ShieldAlert,
+      title: "Tarefas Bloqueadas",
+      description: "Lista todas as tarefas com status Bloqueado: motivo do bloqueio, responsável, projeto, prioridade e data de bloqueio.",
+      badge: "Impedimentos",
+      badgeColor: "bg-red-100 text-red-700",
+      extra: blockedTasksQ.data && blockedTasksQ.data.length > 0 ? (
+        <div className="mt-2 text-sm text-red-600 font-semibold">{blockedTasksQ.data.length} tarefa{blockedTasksQ.data.length !== 1 ? "s" : ""} bloqueada{blockedTasksQ.data.length !== 1 ? "s" : ""}</div>
+      ) : null,
     },
     {
       id: "sprint",
