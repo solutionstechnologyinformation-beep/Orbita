@@ -191,7 +191,7 @@ export default function Gantt() {
         <div style="font-size:20px;font-weight:800;color:${BLACK}">Relatório de Gantt</div>
         <div style="font-size:12px;color:${BLACK};opacity:0.7;margin-top:2px">Orbita — LS Solutions</div>
       </div>
-      <div style="background:${BLACK};color:${YELLOW};border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px">LS</div>
+      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
     </div>
     <div style="padding:20px 28px">
       <div style="font-size:11px;color:#64748b;margin-bottom:16px">Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })} • ${tasks.length} tarefa(s)</div>
@@ -216,7 +216,7 @@ export default function Gantt() {
       </div>` : ""}
     </div>
     <div style="background:${YELLOW};padding:10px 28px;display:flex;align-items:center;gap:10px;position:fixed;bottom:0;left:0;right:0">
-      <div style="background:${BLACK};color:${YELLOW};border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px">LS</div>
+      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
       <span style="font-size:11px;font-weight:600;color:${BLACK}">by LS Solutions</span>
       <span style="margin-left:auto;font-size:10px;color:${BLACK};opacity:0.6">© ${new Date().getFullYear()} LS Solutions. Todos os direitos reservados.</span>
     </div>

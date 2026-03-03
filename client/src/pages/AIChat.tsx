@@ -42,21 +42,16 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const margin = 20;
   const maxW = pageW - margin * 2;
 
-  // Header bar (navy)
-  doc.setFillColor(30, 45, 90);
-  doc.rect(0, 0, pageW, 20, "F");
-  // LS badge
+  // Header bar (yellow)
   doc.setFillColor(255, 190, 0);
-  doc.roundedRect(margin, 5, 12, 10, 2, 2, "F");
-  doc.setTextColor(30, 45, 90);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("LS", margin + 6, 11.5, { align: "center" });
+  doc.rect(0, 0, pageW, 20, "F");
+  // LS official logo
+  try { doc.addImage("https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png", "PNG", margin, 3, 14, 14); } catch(e) {}
   // Orbita name
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(26, 26, 26);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita", margin + 15, 11.5);
+  doc.text("Orbita", margin + 17, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(160, 190, 220);
@@ -118,13 +113,8 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
   // ── Cover ——
   doc.setFillColor(255, 190, 0); // #FFBE00
   doc.rect(0, 0, pageW, 62, "F");
-  // LS badge (white circle)
-  doc.setFillColor(255, 255, 255);
-  doc.circle(margin + 8, 18, 7, "F");
-  doc.setTextColor(26, 26, 26);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text("LS", margin + 8, 20, { align: "center" });
+  // LS official logo
+  try { doc.addImage("https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png", "PNG", margin, 11, 14, 14); } catch(e) {}
   // Title
   doc.setTextColor(26, 26, 26);
   doc.setFontSize(11);
@@ -286,15 +276,11 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
     const pageH = doc.internal.pageSize.getHeight();
     doc.setFillColor(255, 190, 0); // #FFBE00
     doc.rect(0, pageH - 10, pageW, 10, "F");
-    // LS circle
-    doc.setFillColor(255, 255, 255);
-    doc.circle(margin + 3.5, pageH - 5, 3, "F");
-    doc.setTextColor(26, 26, 26);
-    doc.setFontSize(5.5);
-    doc.setFont("helvetica", "bold");
-    doc.text("LS", margin + 3.5, pageH - 3.8, { align: "center" });
+    // LS official logo in footer
+    try { doc.addImage("https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png", "PNG", margin, pageH - 9, 7, 7); } catch(e) {}
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
+    doc.setTextColor(26, 26, 26);
     doc.text("by LS Solutions", margin + 9, pageH - 3.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);

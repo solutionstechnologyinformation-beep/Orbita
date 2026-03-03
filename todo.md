@@ -365,3 +365,8 @@
 - [ ] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
 - [ ] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
 - [ ] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
+
+## Logo Oficial LS Solutions v3.29
+- [ ] Upload da logo oficial PNG para CDN
+- [ ] Substituir "LS" texto na sidebar (AppLayout.tsx) pela logo oficial
+- [ ] Substituir "LS" texto nos PDFs (Sprints, Dashboard, AIChat, Reports, Gantt) pela logo oficial

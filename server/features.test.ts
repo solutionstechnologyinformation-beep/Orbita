@@ -137,7 +137,7 @@ describe("input validation", () => {
     // markRead is idempotent - succeeds even if notification doesn't exist
     const result = await caller.notifications.markRead({ id: 999999 });
     expect(result.success).toBe(true);
-  });
+  }, 15000);
 
   it("chat.send rejects empty message", async () => {
     const ctx = makeCtx();

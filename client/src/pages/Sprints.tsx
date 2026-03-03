@@ -194,7 +194,7 @@ export default function Sprints() {
 <body>
   <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
-      <div style="background:#fff;color:#1a1a1a;font-weight:900;font-size:16px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">LS</div>
+      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
       <div>
         <div class="logo">Orbita</div>
         <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
@@ -266,7 +266,7 @@ export default function Sprints() {
   </section>` : ""}
 
   <div style="margin-top:32px;padding:14px 0;background:#FFBE00;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;padding:12px 24px;">
-    <div style="background:#fff;color:#1a1a1a;font-weight:900;font-size:13px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.15);">LS</div>
+    <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
     <span style="font-size:13px;font-weight:700;color:#1a1a1a;">by LS Solutions</span>
     <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
