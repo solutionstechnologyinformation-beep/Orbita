@@ -370,3 +370,8 @@
 - [ ] Upload da logo oficial PNG para CDN
 - [ ] Substituir "LS" texto na sidebar (AppLayout.tsx) pela logo oficial
 - [ ] Substituir "LS" texto nos PDFs (Sprints, Dashboard, AIChat, Reports, Gantt) pela logo oficial
+
+## Próximos Passos v3.30
+- [x] Relatório de Tarefas Bloqueadas na página /relatorios (card + PDF com motivo, responsável, projeto)
+- [x] Indicador de presença online no chat (ponto verde para usuários ativos nos últimos 5 min)
+- [x] Exportar Gantt como PDF (tabela de tarefas, datas, responsáveis, alertas de conflito)
