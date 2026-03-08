@@ -375,3 +375,17 @@
 - [x] Relatório de Tarefas Bloqueadas na página /relatorios (card + PDF com motivo, responsável, projeto)
 - [x] Indicador de presença online no chat (ponto verde para usuários ativos nos últimos 5 min)
 - [x] Exportar Gantt como PDF (tabela de tarefas, datas, responsáveis, alertas de conflito)
+
+## Melhorias v3.31
+- [x] Convidar membros para projetos via link (schema, backend, frontend)
+- [x] Histórico de status no TaskDetail (linha do tempo de mudanças)
+- [x] Relatório de desempenho por membro na página /relatorios
+
+## Melhorias v3.31
+- [x] Clientes: corrigir validação de e-mail (campo opcional rejeitando valor vazio)
+- [x] tasks.update: registrar histórico de status automaticamente em task_status_history
+- [x] Projetos: botão "Convidar" que gera link de convite de 7 dias
+- [x] Página /join para aceitar convite via token
+- [x] TaskDetail: aba "Histórico" com linha do tempo de mudanças de status
+- [x] Relatórios: card de desempenho por membro (tarefas concluídas, em andamento, bloqueadas)
+- [ ] Admin: aba "Disciplinas" para criar, editar e excluir disciplinas/setores usados nas tarefas

@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   MessageSquare, Paperclip, Flag, Calendar, User2,
   Send, Upload, Trash2, Download, FileText, Image,
-  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2, Pencil, Eye,
+  CheckCircle2, Clock, ListTodo, Edit2, Save, X, TrendingUp, Share2, Pencil, Eye, History, ArrowRight,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,54 @@ const STATUS_LABELS: Record<string, string> = {
   published: "Publicado",
   archived: "Arquivado",
 };
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  in_progress: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  shared: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  published: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  archived: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  blocked: "bg-red-500/20 text-red-400 border-red-500/30",
+};
+
+function StatusHistorySection({ taskId }: { taskId: number }) {
+  const { data: history, isLoading } = trpc.statusHistory.list.useQuery({ taskId });
+  if (isLoading) return <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>;
+  if (!history?.length) return (
+    <div className="flex flex-col items-center py-6 text-center">
+      <History className="w-8 h-8 text-muted-foreground/20 mb-2" />
+      <p className="text-sm text-muted-foreground">Nenhuma alteração de status registrada.</p>
+    </div>
+  );
+  return (
+    <div className="space-y-3">
+      {history.map((h: any) => (
+        <div key={h.id} className="flex items-start gap-3">
+          <div className="w-2 h-2 rounded-full bg-primary/60 mt-2 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {h.fromStatus && (
+                <Badge variant="outline" className={`text-xs border ${STATUS_COLORS[h.fromStatus] ?? ""}`}>
+                  {STATUS_LABELS[h.fromStatus] ?? h.fromStatus}
+                </Badge>
+              )}
+              {h.fromStatus && <ArrowRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+              <Badge variant="outline" className={`text-xs border ${STATUS_COLORS[h.toStatus] ?? ""}`}>
+                {STATUS_LABELS[h.toStatus] ?? h.toStatus}
+              </Badge>
+            </div>
+            {h.blockReason && (
+              <p className="text-xs text-muted-foreground mt-1">Motivo: {h.blockReason}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {h.changedByName ?? "Usuário"} · {new Date(h.changedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function FileIcon({ mimeType }: { mimeType?: string | null }) {
   if (mimeType?.startsWith("image/")) return <Image className="w-4 h-4 text-blue-400" />;
@@ -774,6 +822,18 @@ export default function TaskDetail() {
             )}
           </CardContent>
         </Card>
+      {/* Status History */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <History className="w-4 h-4 text-primary" />
+            Histórico de Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StatusHistorySection taskId={taskId} />
+        </CardContent>
+      </Card>
       </div>
 
       {/* File Preview Modal */}

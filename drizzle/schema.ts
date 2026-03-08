@@ -361,3 +361,45 @@ export const directMessages = mysqlTable("direct_messages", {
 });
 export type DirectMessage = typeof directMessages.$inferSelect;
 export type InsertDirectMessage = typeof directMessages.$inferInsert;
+
+// ─── Project Invites ──────────────────────────────────────────────────────────
+export const projectInvites = mysqlTable("project_invites", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  token: varchar("token", { length: 128 }).notNull().unique(),
+  createdById: int("createdById").notNull(),
+  role: mysqlEnum("role", ["admin", "member", "viewer"]).default("member").notNull(),
+  usedById: int("usedById"),
+  usedAt: timestamp("usedAt"),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ProjectInvite = typeof projectInvites.$inferSelect;
+export type InsertProjectInvite = typeof projectInvites.$inferInsert;
+
+// ─── Task Status History ──────────────────────────────────────────────────────
+export const taskStatusHistory = mysqlTable("task_status_history", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId").notNull(),
+  changedById: int("changedById").notNull(),
+  fromStatus: varchar("fromStatus", { length: 64 }),
+  toStatus: varchar("toStatus", { length: 64 }).notNull(),
+  blockReason: text("blockReason"),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+});
+export type TaskStatusHistory = typeof taskStatusHistory.$inferSelect;
+export type InsertTaskStatusHistory = typeof taskStatusHistory.$inferInsert;
+
+// ─── Disciplines (Setores/Disciplinas gerenciáveis pelo Admin) ────────────────
+export const disciplines = mysqlTable("disciplines", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 128 }).notNull().unique(),
+  color: varchar("color", { length: 32 }).default("#6366f1").notNull(),
+  description: text("description"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Discipline = typeof disciplines.$inferSelect;
+export type InsertDiscipline = typeof disciplines.$inferInsert;

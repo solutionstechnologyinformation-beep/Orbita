@@ -8,6 +8,7 @@ import {
   Users, Kanban, Bot, UserPlus, UserMinus,
   Crown, Shield, Eye, User, LayoutDashboard, RefreshCw,
   ChevronRight, AlertCircle, Archive, ArchiveRestore, Trash2,
+  Link2, Copy, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,11 +65,22 @@ export default function ProjectDetail() {
   );
 
   const [showInvite, setShowInvite] = useState(false);
+  const [showInviteLink, setShowInviteLink] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteLinkRole, setInviteLinkRole] = useState<"admin" | "member" | "viewer">("member");
+  const [copiedLink, setCopiedLink] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<"admin" | "member" | "viewer">("member");
+
+  const createInviteMutation = trpc.invites.create.useMutation({
+    onSuccess: (data) => {
+      setInviteLink(data.inviteUrl);
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const { data: searchResults } = trpc.users.search.useQuery(
     { query: searchQuery },
@@ -211,6 +223,19 @@ export default function ProjectDetail() {
                 Funções
               </Button>
             </Link>
+            {isOwner && !isArchived && (
+              <Button
+                variant="outline"
+                className="gap-2 border-border"
+                onClick={() => {
+                  setInviteLink("");
+                  setShowInviteLink(true);
+                }}
+              >
+                <Link2 className="w-4 h-4" />
+                Link de Convite
+              </Button>
+            )}
 
             {/* Archive / Reactivate */}
             {isOwner && (
@@ -539,6 +564,76 @@ export default function ProjectDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Invite Link Dialog */}
+      <Dialog open={showInviteLink} onOpenChange={(open) => { setShowInviteLink(open); if (!open) { setInviteLink(""); setCopiedLink(false); } }}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-primary" />
+              Convidar por Link
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Gere um link de convite para compartilhar com qualquer pessoa. O link expira em <strong>7 dias</strong> e pode ser usado uma vez.
+            </p>
+            <div className="space-y-2">
+              <Label>Função do convidado</Label>
+              <Select value={inviteLinkRole} onValueChange={(v: any) => setInviteLinkRole(v)}>
+                <SelectTrigger className="bg-input border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin — pode gerenciar tarefas e membros</SelectItem>
+                  <SelectItem value="member">Membro — pode criar e editar tarefas</SelectItem>
+                  <SelectItem value="viewer">Visualizador — somente leitura</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {!inviteLink ? (
+              <Button
+                className="w-full gap-2 bg-primary hover:bg-primary/90"
+                onClick={() => createInviteMutation.mutate({ projectId, role: inviteLinkRole, origin: window.location.origin })}
+                disabled={createInviteMutation.isPending}
+              >
+                <Link2 className="w-4 h-4" />
+                {createInviteMutation.isPending ? "Gerando..." : "Gerar Link de Convite"}
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Label>Link gerado</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={inviteLink}
+                    readOnly
+                    className="bg-input border-border text-xs font-mono"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="flex-shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(inviteLink);
+                      setCopiedLink(true);
+                      toast.success("Link copiado!");
+                      setTimeout(() => setCopiedLink(false), 2000);
+                    }}
+                  >
+                    {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Este link expira em 7 dias e pode ser usado uma única vez.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowInviteLink(false); setInviteLink(""); setCopiedLink(false); }}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Member Dialog */}
       <Dialog open={showInvite} onOpenChange={setShowInvite}>

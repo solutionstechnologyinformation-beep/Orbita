@@ -373,6 +373,21 @@ export const appRouter = router({
           entityId: id,
           metadata: statusChanged ? JSON.stringify({ from: task.status, to: data.status }) : undefined,
         });
+        // Record status history
+        if (statusChanged && data.status) {
+          const { taskStatusHistory } = await import("../drizzle/schema");
+          const { getDb: getDb2 } = await import("./db");
+          const db2 = await getDb2();
+          if (db2) {
+            await db2.insert(taskStatusHistory).values({
+              taskId: id,
+              fromStatus: task.status,
+              toStatus: data.status,
+              changedById: ctx.user.id,
+              blockReason: data.blockReason ?? null,
+            });
+          }
+        }
         // Notify assignee if re-assigned
         if (data.assigneeId && data.assigneeId !== task.assigneeId && data.assigneeId !== ctx.user.id) {
           await notifyUser({
@@ -1055,7 +1070,7 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
     create: protectedProcedure
       .input(z.object({
         name: z.string().min(1),
-        email: z.string().email().optional(),
+        email: z.string().email().optional().or(z.literal("")),
         phone: z.string().optional(),
         company: z.string().optional(),
         notes: z.string().optional(),
@@ -1068,7 +1083,7 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
       .input(z.object({
         id: z.number(),
         name: z.string().min(1).optional(),
-        email: z.string().email().optional(),
+        email: z.string().email().optional().or(z.literal("")),
         phone: z.string().optional(),
         company: z.string().optional(),
         notes: z.string().optional(),
@@ -1301,6 +1316,247 @@ Inclua: resumo executivo, análise de progresso, riscos identificados, recomenda
       return db.select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
         .from(users).where(ne(users.id, ctx.user.id));
     }),
+  }),
+
+  // ─── Project Invites ────────────────────────────────────────────────────────
+  invites: router({
+    create: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        role: z.enum(["admin", "member", "viewer"]).default("member"),
+        origin: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { projectInvites } = await import("../drizzle/schema");
+        const crypto = await import("crypto");
+        const token = crypto.randomBytes(32).toString("hex");
+        // expires in 7 days
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await db.insert(projectInvites).values({
+          projectId: input.projectId,
+          token,
+          createdById: ctx.user.id,
+          role: input.role,
+          expiresAt,
+        });
+        const inviteUrl = `${input.origin}/join?token=${token}`;
+        return { token, inviteUrl, expiresAt };
+      }),
+
+    accept: protectedProcedure
+      .input(z.object({ token: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { projectInvites, projectMembers } = await import("../drizzle/schema");
+        const { eq, and, isNull, gt } = await import("drizzle-orm");
+        const [invite] = await db.select().from(projectInvites)
+          .where(and(
+            eq(projectInvites.token, input.token),
+            isNull(projectInvites.usedById),
+            gt(projectInvites.expiresAt, new Date()),
+          ));
+        if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "Convite inválido ou expirado" });
+        // Check if already a member
+        const [existing] = await db.select().from(projectMembers)
+          .where(and(eq(projectMembers.projectId, invite.projectId), eq(projectMembers.userId, ctx.user.id)));
+        if (!existing) {
+          await db.insert(projectMembers).values({
+            projectId: invite.projectId,
+            userId: ctx.user.id,
+            role: invite.role,
+          });
+        }
+        await db.update(projectInvites)
+          .set({ usedById: ctx.user.id, usedAt: new Date() })
+          .where(eq(projectInvites.id, invite.id));
+        return { projectId: invite.projectId };
+      }),
+
+    list: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        await assertProjectAccess(input.projectId, ctx.user.id);
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return [];
+        const { projectInvites } = await import("../drizzle/schema");
+        const { eq, isNull, and: andOp } = await import("drizzle-orm");
+        return db.select().from(projectInvites)
+          .where(andOp(eq(projectInvites.projectId, input.projectId), isNull(projectInvites.usedById)))
+          .orderBy(projectInvites.createdAt);
+      }),
+  }),
+
+  // ─── Disciplines ──────────────────────────────────────────────────────────────
+  disciplines: router({
+    list: protectedProcedure
+      .input(z.object({ activeOnly: z.boolean().optional() }).optional())
+      .query(async ({ input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return [];
+        const { disciplines } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        if (input?.activeOnly) {
+          return db.select().from(disciplines).where(eq(disciplines.isActive, true)).orderBy(disciplines.name);
+        }
+        return db.select().from(disciplines).orderBy(disciplines.name);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1).max(128),
+        color: z.string().optional().default("#6366f1"),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { disciplines } = await import("../drizzle/schema");
+        const [result] = await db.insert(disciplines).values({
+          name: input.name,
+          color: input.color ?? "#6366f1",
+          description: input.description,
+          createdById: ctx.user.id,
+        });
+        return { id: (result as any).insertId };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(128).optional(),
+        color: z.string().optional(),
+        description: z.string().optional(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { disciplines } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const { id, ...data } = input;
+        await db.update(disciplines).set(data).where(eq(disciplines.id, id));
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { disciplines } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        await db.delete(disciplines).where(eq(disciplines.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ─── Member Performance Report ────────────────────────────────────────────────
+  reports: router({
+    memberPerformance: protectedProcedure
+      .input(z.object({ projectId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return [];
+        const { tasks: t, users: u, projectMembers: pm } = await import("../drizzle/schema.js");
+        const { eq, and, inArray, sql } = await import("drizzle-orm");
+
+        // Get projects accessible to user
+        const userProjects = await getProjectsByUser(ctx.user.id);
+        let projectIds = userProjects.map((p: any) => p.id);
+        if (input?.projectId) {
+          projectIds = projectIds.filter((id: number) => id === input.projectId);
+        }
+        if (projectIds.length === 0) return [];
+
+        // Get all members across those projects
+        const members = await db
+          .select({ userId: pm.userId, userName: u.name, avatarUrl: u.avatarUrl })
+          .from(pm)
+          .leftJoin(u, eq(pm.userId, u.id))
+          .where(inArray(pm.projectId, projectIds));
+
+        // Deduplicate by userId
+        const uniqueMembers = Array.from(
+          new Map(members.map((m: any) => [m.userId, m])).values()
+        );
+
+        // For each member, count tasks by status
+        const result = await Promise.all(uniqueMembers.map(async (member: any) => {
+          const memberTasks = await db
+            .select({ status: t.status, id: t.id })
+            .from(t)
+            .where(and(
+              eq(t.assigneeId, member.userId),
+              inArray(t.projectId, projectIds)
+            ));
+
+          const total = memberTasks.length;
+          const completed = memberTasks.filter((tk: any) => tk.status === "published" || tk.status === "archived").length;
+          const inProgress = memberTasks.filter((tk: any) => tk.status === "in_progress").length;
+          const blocked = memberTasks.filter((tk: any) => tk.status === "blocked").length;
+          const pending = memberTasks.filter((tk: any) => tk.status === "pending").length;
+          const shared = memberTasks.filter((tk: any) => tk.status === "shared").length;
+          const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+          return {
+            userId: member.userId,
+            userName: member.userName ?? `Usuário ${member.userId}`,
+            avatarUrl: member.avatarUrl,
+            total,
+            completed,
+            inProgress,
+            blocked,
+            pending,
+            shared,
+            completionRate,
+          };
+        }));
+
+        return result.sort((a, b) => b.total - a.total);
+      }),
+  }),
+
+  // ─── Task Status History ─────────────────────────────────────────────────────
+  statusHistory: router({
+    list: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return [];
+        const { taskStatusHistory, users } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const rows = await db
+          .select({
+            id: taskStatusHistory.id,
+            fromStatus: taskStatusHistory.fromStatus,
+            toStatus: taskStatusHistory.toStatus,
+            blockReason: taskStatusHistory.blockReason,
+            changedAt: taskStatusHistory.changedAt,
+            changedByName: users.name,
+            changedByAvatar: users.avatarUrl,
+          })
+          .from(taskStatusHistory)
+          .leftJoin(users, eq(taskStatusHistory.changedById, users.id))
+          .where(eq(taskStatusHistory.taskId, input.taskId))
+          .orderBy(taskStatusHistory.changedAt);
+        return rows;
+      }),
   }),
 });
 export type AppRouter = typeof appRouter;

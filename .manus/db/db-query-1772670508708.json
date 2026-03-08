@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE IF NOT EXISTS `disciplines` (\n  `id` int AUTO_INCREMENT PRIMARY KEY,\n  `name` varchar(128) NOT NULL UNIQUE,\n  `color` varchar(32) NOT NULL DEFAULT '#6366f1',\n  `description` text,\n  `isActive` boolean NOT NULL DEFAULT true,\n  `createdById` int NOT NULL,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n);\n\n-- Seed with common disciplines\nINSERT IGNORE INTO `disciplines` (`name`, `color`, `createdById`) VALUES\n  ('Arquitetura', '#3b82f6', 1),\n  ('Estrutural', '#ef4444', 1),\n  ('Elétrica', '#f59e0b', 1),\n  ('Hidráulica', '#06b6d4', 1),\n  ('Mecânica', '#8b5cf6', 1),\n  ('Civil', '#10b981', 1),\n  ('Design', '#ec4899', 1),\n  ('TI', '#6366f1', 1);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute \nCREATE TABLE IF NOT EXISTS `disciplines` (\n  `id` int AUTO_INCREMENT PRIMARY KEY,\n  `name` varchar(128) NOT NULL UNIQUE,\n  `color` varchar(32) NOT NULL DEFAULT '#6366f1',\n  `description` text,\n  `isActive` boolean NOT NULL DEFAULT true,\n  `createdById` int NOT NULL,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n);\n\n-- Seed with common disciplines\nINSERT IGNORE INTO `disciplines` (`name`, `color`, `createdById`) VALUES\n  ('Arquitetura', '#3b82f6', 1),\n  ('Estrutural', '#ef4444', 1),\n  ('Elétrica', '#f59e0b', 1),\n  ('Hidráulica', '#06b6d4', 1),\n  ('Mecânica', '#8b5cf6', 1),\n  ('Civil', '#10b981', 1),\n  ('Design', '#ec4899', 1),\n  ('TI', '#6366f1', 1);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1156
+}

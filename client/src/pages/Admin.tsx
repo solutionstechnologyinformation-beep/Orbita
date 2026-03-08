@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import { useEffect } from "react";
 import {
   Shield, Users, FolderKanban, Activity, Crown, User,
-  CheckCircle2, Clock, ListTodo, Briefcase, Plus, Pencil, Trash2, X, Check,
+  CheckCircle2, Clock, ListTodo, Briefcase, Plus, Pencil, Trash2, X, Check, BookOpen,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +100,41 @@ export default function Admin() {
     setClientForm({ name: c.name ?? "", email: c.email ?? "", phone: c.phone ?? "", company: c.company ?? "", notes: c.notes ?? "" });
     setClientDialog({ open: true, editing: c });
   }
+  // Disciplines state
+  const { data: disciplinesList, isLoading: disciplinesLoading } = trpc.disciplines.list.useQuery();
+  const [discDialog, setDiscDialog] = useState<{ open: boolean; editing?: any }>({ open: false });
+  const [discForm, setDiscForm] = useState({ name: "", color: "#6366f1", description: "" });
+
+  const createDiscMut = trpc.disciplines.create.useMutation({
+    onSuccess: () => { utils.disciplines.list.invalidate(); setDiscDialog({ open: false }); toast.success("Disciplina criada!"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateDiscMut = trpc.disciplines.update.useMutation({
+    onSuccess: () => { utils.disciplines.list.invalidate(); setDiscDialog({ open: false }); toast.success("Disciplina atualizada!"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteDiscMut = trpc.disciplines.delete.useMutation({
+    onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina removida!"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function openCreateDisc() {
+    setDiscForm({ name: "", color: "#6366f1", description: "" });
+    setDiscDialog({ open: true });
+  }
+  function openEditDisc(d: any) {
+    setDiscForm({ name: d.name ?? "", color: d.color ?? "#6366f1", description: d.description ?? "" });
+    setDiscDialog({ open: true, editing: d });
+  }
+  function saveDisc() {
+    if (!discForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
+    if (discDialog.editing) {
+      updateDiscMut.mutate({ id: discDialog.editing.id, ...discForm });
+    } else {
+      createDiscMut.mutate(discForm);
+    }
+  }
+
   function saveClient() {
     if (!clientForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
     if (clientDialog.editing) {
@@ -167,6 +202,10 @@ export default function Admin() {
             <TabsTrigger value="clients" className="gap-2">
               <Briefcase className="w-4 h-4" />
               Clientes
+            </TabsTrigger>
+            <TabsTrigger value="disciplines" className="gap-2">
+              <BookOpen className="w-4 h-4" />
+              Disciplinas
             </TabsTrigger>
           </TabsList>
 
@@ -369,8 +408,103 @@ export default function Admin() {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* Disciplines Tab */}
+          <TabsContent value="disciplines" className="mt-4">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-sm text-muted-foreground">{disciplinesList?.length ?? 0} disciplina(s) cadastrada(s)</p>
+              <Button size="sm" onClick={openCreateDisc} className="gap-2">
+                <Plus className="w-4 h-4" /> Nova Disciplina
+              </Button>
+            </div>
+            <Card className="bg-card border-border">
+              <CardContent className="p-0">
+                {disciplinesLoading ? (
+                  <div className="p-4 space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                  </div>
+                ) : !disciplinesList?.length ? (
+                  <div className="flex flex-col items-center py-12 text-center">
+                    <BookOpen className="w-10 h-10 text-muted-foreground/20 mb-3" />
+                    <p className="text-muted-foreground">Nenhuma disciplina cadastrada.</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={openCreateDisc}>Adicionar primeira disciplina</Button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {disciplinesList.map((d: any) => (
+                      <div key={d.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${d.color}20` }}
+                        >
+                          <BookOpen className="w-5 h-5" style={{ color: d.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{d.name}</p>
+                          {d.description && (
+                            <p className="text-sm text-muted-foreground truncate">{d.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: d.color }} />
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDisc(d)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => { if (confirm(`Remover disciplina "${d.name}"?`)) deleteDiscMut.mutate({ id: d.id }); }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Discipline Dialog */}
+      <Dialog open={discDialog.open} onOpenChange={open => setDiscDialog(s => ({ ...s, open }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{discDialog.editing ? "Editar Disciplina" : "Nova Disciplina"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nome <span className="text-destructive">*</span></Label>
+              <Input placeholder="Ex: Estrutural, Elétrico, Hidráulico..." value={discForm.name} onChange={e => setDiscForm(s => ({ ...s, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cor</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={discForm.color}
+                  onChange={e => setDiscForm(s => ({ ...s, color: e.target.value }))}
+                  className="w-10 h-10 rounded-md border border-input cursor-pointer"
+                />
+                <Input
+                  placeholder="#6366f1"
+                  value={discForm.color}
+                  onChange={e => setDiscForm(s => ({ ...s, color: e.target.value }))}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Descrição</Label>
+              <Textarea placeholder="Descrição opcional da disciplina..." rows={2} value={discForm.description} onChange={e => setDiscForm(s => ({ ...s, description: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiscDialog({ open: false })}>Cancelar</Button>
+            <Button onClick={saveDisc} disabled={createDiscMut.isPending || updateDiscMut.isPending}>
+              {createDiscMut.isPending || updateDiscMut.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* User Dialog */}
       <Dialog open={userDialog.open} onOpenChange={open => setUserDialog(s => ({ ...s, open }))}>

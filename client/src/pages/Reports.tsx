@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert } from "lucide-react";
+import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 
-// ─── PDF helpers (re-used from other pages) ───────────────────────────────────
+// ─── PDF helpers ───────────────────────────────────────────────────────────────
 
 const YELLOW = "#FFBE00";
 const BLACK = "#1a1a1a";
@@ -240,9 +240,81 @@ function exportBlockedReport(blockedTasks: any[]) {
   openPrint(html, "Tarefas Bloqueadas — Orbita");
 }
 
+// ─── Member Performance Report ────────────────────────────────────────────────
+function exportMemberPerformanceReport(members: any[], projectName?: string) {
+  const totalTasks = members.reduce((s, m) => s + m.total, 0);
+  const totalCompleted = members.reduce((s, m) => s + m.completed, 0);
+  const avgRate = members.length > 0
+    ? Math.round(members.reduce((s, m) => s + m.completionRate, 0) / members.length)
+    : 0;
+
+  const rateBar = (rate: number) =>
+    `<div style="display:flex;align-items:center;gap:8px;">
+      <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+        <div style="width:${rate}%;height:100%;background:${rate >= 80 ? "#16a34a" : rate >= 50 ? "#f59e0b" : "#ef4444"};border-radius:3px;"></div>
+      </div>
+      <span style="font-size:11px;font-weight:600;color:${rate >= 80 ? "#16a34a" : rate >= 50 ? "#854d0e" : "#991b1b"};min-width:32px;">${rate}%</span>
+    </div>`;
+
+  const memberRows = members.map((m, i) => `
+    <tr style="${i % 2 === 0 ? "background:#f8fafc;" : ""}">
+      <td style="padding:10px 12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:${YELLOW};color:${BLACK};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">
+            ${(m.userName ?? "?").slice(0, 2).toUpperCase()}
+          </div>
+          <span style="font-weight:500;">${m.userName}</span>
+        </div>
+      </td>
+      <td style="padding:10px 12px;text-align:center;font-weight:700;">${m.total}</td>
+      <td style="padding:10px 12px;text-align:center;color:#16a34a;font-weight:600;">${m.completed}</td>
+      <td style="padding:10px 12px;text-align:center;color:#2563eb;">${m.inProgress}</td>
+      <td style="padding:10px 12px;text-align:center;color:#f59e0b;">${m.shared}</td>
+      <td style="padding:10px 12px;text-align:center;color:#ef4444;">${m.blocked}</td>
+      <td style="padding:10px 12px;min-width:140px;">${rateBar(m.completionRate)}</td>
+    </tr>`).join("");
+
+  const html = `
+    ${pdfHeader("Desempenho por Membro", projectName ? `Projeto: ${projectName}` : "Todos os projetos")}
+    <div style="padding:24px 36px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
+        <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;border:1px solid #e2e8f0;">
+          <div style="font-size:28px;font-weight:800;color:${BLACK};">${members.length}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">Membros</div>
+        </div>
+        <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;border:1px solid #e2e8f0;">
+          <div style="font-size:28px;font-weight:800;color:#16a34a;">${totalCompleted}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">Tarefas Concluídas</div>
+        </div>
+        <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;border:1px solid #e2e8f0;">
+          <div style="font-size:28px;font-weight:800;color:${avgRate >= 70 ? "#16a34a" : "#dc2626"};">${avgRate}%</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">Taxa Média de Conclusão</div>
+        </div>
+      </div>
+      <h3 style="font-size:14px;font-weight:600;color:${BLACK};margin-bottom:12px;">Desempenho Individual</h3>
+      <table style="border-collapse:collapse;width:100%;">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Membro</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Total</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Concluídas</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Em Andamento</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Compartilhado</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Bloqueadas</th>
+            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Taxa de Conclusão</th>
+          </tr>
+        </thead>
+        <tbody>${memberRows}</tbody>
+      </table>
+    </div>
+    ${pdfFooter()}`;
+  openPrint(html, "Desempenho por Membro — Orbita");
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Reports() {
   const [selectedSprint, setSelectedSprint] = useState("none");
+  const [selectedProjectForMembers, setSelectedProjectForMembers] = useState("none");
   const [loadingReport, setLoadingReport] = useState<string | null>(null);
 
   const projectsQ = trpc.projects.list.useQuery();
@@ -250,6 +322,9 @@ export default function Reports() {
   const statsQ = trpc.dashboard.stats.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
   const blockedTasksQ = trpc.tasks.listBlocked.useQuery();
+  const memberPerfQ = trpc.reports.memberPerformance.useQuery(
+    selectedProjectForMembers !== "none" ? { projectId: Number(selectedProjectForMembers) } : undefined
+  );
 
   const projects = (projectsQ.data ?? []) as any[];
   const sprints = (sprintsQ.data ?? []) as any[];
@@ -269,6 +344,11 @@ export default function Reports() {
     [sprints, selectedSprint]
   );
 
+  const selectedProjectObj = useMemo(
+    () => projects.find((p: any) => String(p.id) === selectedProjectForMembers),
+    [projects, selectedProjectForMembers]
+  );
+
   function handleExport(type: string) {
     setLoadingReport(type);
     try {
@@ -283,6 +363,9 @@ export default function Reports() {
         exportSprintReport(selectedSprintObj, sprintTasks);
       } else if (type === "blocked") {
         exportBlockedReport((blockedTasksQ.data ?? []) as any[]);
+      } else if (type === "members") {
+        const memberData = (memberPerfQ.data ?? []) as any[];
+        exportMemberPerformanceReport(memberData, selectedProjectObj?.name);
       }
     } catch (e) {
       toast.error("Erro ao gerar relatório.");
@@ -320,6 +403,34 @@ export default function Reports() {
       extra: blockedTasksQ.data && blockedTasksQ.data.length > 0 ? (
         <div className="mt-2 text-sm text-red-600 font-semibold">{blockedTasksQ.data.length} tarefa{blockedTasksQ.data.length !== 1 ? "s" : ""} bloqueada{blockedTasksQ.data.length !== 1 ? "s" : ""}</div>
       ) : null,
+    },
+    {
+      id: "members",
+      icon: Users,
+      title: "Desempenho por Membro",
+      description: "Relatório individual de cada membro da equipe: total de tarefas, concluídas, em andamento, bloqueadas e taxa de conclusão.",
+      badge: "Equipe",
+      badgeColor: "bg-emerald-100 text-emerald-700",
+      extra: (
+        <div className="mt-3 space-y-2">
+          <Select value={selectedProjectForMembers} onValueChange={setSelectedProjectForMembers}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Filtrar por projeto (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Todos os projetos</SelectItem>
+              {projects.map((p: any) => (
+                <SelectItem key={p.id} value={String(p.id)}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {memberPerfQ.data && memberPerfQ.data.length > 0 && (
+            <p className="text-xs text-muted-foreground">{memberPerfQ.data.length} membro{memberPerfQ.data.length !== 1 ? "s" : ""} encontrado{memberPerfQ.data.length !== 1 ? "s" : ""}</p>
+          )}
+        </div>
+      ),
     },
     {
       id: "sprint",
@@ -388,7 +499,8 @@ export default function Reports() {
                       isLoading ||
                       loadingReport === id ||
                       (id === "sprint" && selectedSprint === "none") ||
-                      (id === "sprint" && sprintDetailQ.isLoading && selectedSprint !== "none")
+                      (id === "sprint" && sprintDetailQ.isLoading && selectedSprint !== "none") ||
+                      (id === "members" && memberPerfQ.isLoading)
                     }
                     onClick={() => handleExport(id)}
                   >
