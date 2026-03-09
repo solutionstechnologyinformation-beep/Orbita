@@ -389,3 +389,14 @@
 - [x] TaskDetail: aba "Histórico" com linha do tempo de mudanças de status
 - [x] Relatórios: card de desempenho por membro (tarefas concluídas, em andamento, bloqueadas)
 - [ ] Admin: aba "Disciplinas" para criar, editar e excluir disciplinas/setores usados nas tarefas
+
+## Melhorias v3.32 — Paleta, Landing Page e Planos
+- [x] Paleta de cores: atualizar CSS variables (--primary, --accent, etc.) para nova paleta #1561ad / #1c77ac / #1dbab4 / #fc5226
+- [x] Paleta de cores: atualizar sidebar (AppLayout) com nova paleta
+- [x] Paleta de cores: atualizar PDFs (Reports, AIChat, Dashboard, Sprints, Gantt) com nova paleta
+- [x] Landing page (Home.tsx): redesenhar como página pública de entrada com hero, features, planos e CTA de login/cadastro
+- [x] Landing page: rota "/" sempre acessível sem autenticação (usuário logado é redirecionado para /dashboard)
+- [x] Planos e Preços: criar página /planos com 3 tiers (Starter, Pro, Enterprise) + trial 15 dias
+- [x] Planos e Preços: valores de mercado realistas (mensal + anual com desconto)
+- [x] Planos e Preços: botão "Testar Grátis por 15 dias" no plano Pro
+- [x] Planos e Preços: link na landing page e na sidebar/header

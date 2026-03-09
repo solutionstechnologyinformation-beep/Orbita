@@ -41,55 +41,61 @@
 }
 
 /* ── Light theme (default) ──────────────────────────────────────────────── */
+/* Brand palette:
+   Primary Blue:    #1561ad  → oklch(0.44 0.14 234)
+   Secondary Blue:  #1c77ac  → oklch(0.50 0.12 228)
+   Teal:            #1dbab4  → oklch(0.69 0.13 188)
+   Red-Orange:      #fc5226  → oklch(0.65 0.22 28)
+*/
 :root {
   --radius: 0.625rem;
 
   /* Backgrounds */
-  --background:             oklch(0.99 0.002 240);
-  --foreground:             oklch(0.13 0.015 250);
+  --background:             oklch(0.98 0.003 220);
+  --foreground:             oklch(0.12 0.020 230);
 
   /* Cards */
   --card:                   oklch(1.00 0.000 0);
-  --card-foreground:        oklch(0.13 0.015 250);
+  --card-foreground:        oklch(0.12 0.020 230);
 
   /* Popovers */
   --popover:                oklch(1.00 0.000 0);
-  --popover-foreground:     oklch(0.13 0.015 250);
+  --popover-foreground:     oklch(0.12 0.020 230);
 
-  /* Primary — indigo-600 */
-  --primary:                oklch(0.51 0.22 264);
+  /* Primary — #1561ad Azul Forte */
+  --primary:                oklch(0.44 0.14 234);
   --primary-foreground:     oklch(1.00 0.000 0);
 
-  /* Secondary — slate-100 */
-  --secondary:              oklch(0.96 0.004 240);
-  --secondary-foreground:   oklch(0.25 0.015 250);
+  /* Secondary — light blue-gray */
+  --secondary:              oklch(0.95 0.010 220);
+  --secondary-foreground:   oklch(0.25 0.020 230);
 
-  /* Muted — slate-100 */
-  --muted:                  oklch(0.96 0.004 240);
-  --muted-foreground:       oklch(0.52 0.015 250);
+  /* Muted */
+  --muted:                  oklch(0.95 0.008 220);
+  --muted-foreground:       oklch(0.50 0.018 230);
 
-  /* Accent — indigo-50 */
-  --accent:                 oklch(0.96 0.012 264);
-  --accent-foreground:      oklch(0.35 0.18 264);
+  /* Accent — #1dbab4 Teal */
+  --accent:                 oklch(0.93 0.040 188);
+  --accent-foreground:      oklch(0.35 0.12 188);
 
-  /* Destructive */
-  --destructive:            oklch(0.58 0.22 27);
+  /* Destructive — #fc5226 Red-Orange */
+  --destructive:            oklch(0.65 0.22 28);
   --destructive-foreground: oklch(1.00 0.000 0);
 
   /* Border / Input / Ring */
-  --border:                 oklch(0.91 0.005 240);
-  --input:                  oklch(0.96 0.004 240);
-  --ring:                   oklch(0.51 0.22 264);
+  --border:                 oklch(0.89 0.010 220);
+  --input:                  oklch(0.95 0.008 220);
+  --ring:                   oklch(0.44 0.14 234);
 
-  /* Sidebar — navy blue */
-  --sidebar:                oklch(0.25 0.065 252);
-  --sidebar-foreground:     oklch(0.96 0.006 240);
-  --sidebar-primary:        oklch(0.78 0.10 200);
-  --sidebar-primary-foreground: oklch(0.18 0.05 252);
-  --sidebar-accent:         oklch(0.31 0.065 252);
-  --sidebar-accent-foreground: oklch(0.96 0.006 240);
-  --sidebar-border:         oklch(0.33 0.055 252);
-  --sidebar-ring:           oklch(0.65 0.12 200);
+  /* Sidebar — #1561ad deep blue */
+  --sidebar:                oklch(0.44 0.14 234);
+  --sidebar-foreground:     oklch(0.97 0.004 220);
+  --sidebar-primary:        oklch(0.69 0.13 188);
+  --sidebar-primary-foreground: oklch(0.12 0.020 230);
+  --sidebar-accent:         oklch(0.50 0.14 228);
+  --sidebar-accent-foreground: oklch(0.97 0.004 220);
+  --sidebar-border:         oklch(0.52 0.13 228);
+  --sidebar-ring:           oklch(0.69 0.13 188);
 }
 
 /* ── Base styles ─────────────────────────────────────────────────────────── */
@@ -139,20 +145,20 @@
     border: 1px solid oklch(0.91 0.005 240);
   }
 
-  /* Gradient text — indigo to violet */
+  /* Gradient text — brand blue to teal */
   .gradient-text {
-    background: linear-gradient(135deg, oklch(0.51 0.22 264), oklch(0.55 0.22 290));
+    background: linear-gradient(135deg, #1561ad, #1dbab4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Hero background — subtle geometric gradient */
+  /* Hero background — brand blue gradient */
   .hero-bg {
     background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.92 0.04 264 / 0.5) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 90% 80%, oklch(0.94 0.03 290 / 0.3) 0%, transparent 50%),
-      oklch(0.99 0.002 240);
+      radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.44 0.14 234 / 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 80%, oklch(0.69 0.13 188 / 0.10) 0%, transparent 50%),
+      oklch(0.98 0.003 220);
   }
 
   /* Priority badges */

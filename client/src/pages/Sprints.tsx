@@ -167,9 +167,9 @@ export default function Sprints() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #FFBE00; color: #1a1a1a; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
-    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #1a1a1a; }
-    .logo span { color: #1a1a1a; }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #1561ad; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff; }
+    .logo span { color: #ffffff; }
     .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
     h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
@@ -180,11 +180,11 @@ export default function Sprints() {
     .kpi-completed .kpi-value { color: #22c55e; }
     .kpi-progress .kpi-value { color: #3b82f6; }
     .kpi-blocked .kpi-value { color: #ef4444; }
-    .kpi-rate .kpi-value { color: #FFBE00; }
+    .kpi-rate .kpi-value { color: #1dbab4; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 10px; margin: 8px 0 20px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #FFBE00, #f59e0b); }
+    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #1561ad, #1dbab4); }
     section { margin-bottom: 24px; }
-    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #FFBE00; padding-left: 8px; }
+    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #1dbab4; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { background: #f1f5f9; padding: 6px 8px; text-align: left; border: 1px solid #e2e8f0; font-weight: 600; color: #475569; }
     .footer { margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
@@ -201,7 +201,7 @@ export default function Sprints() {
       </div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:13px;font-weight:700;color:#1a1a1a">Relatório de Sprint</div>
+      <div style="font-size:13px;font-weight:700;color:#ffffff">Relatório de Sprint</div>
       <div style="font-size:11px;color:rgba(0,0,0,0.55)">Gerado em ${now}</div>
     </div>
   </div>
@@ -265,9 +265,9 @@ export default function Sprints() {
     </table>
   </section>` : ""}
 
-  <div style="margin-top:32px;padding:14px 0;background:#FFBE00;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;padding:12px 24px;">
+  <div style="margin-top:32px;padding:14px 0;background:#1561ad;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;padding:12px 24px;">
     <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
-    <span style="font-size:13px;font-weight:700;color:#1a1a1a;">by LS Solutions</span>
+    <span style="font-size:13px;font-weight:700;color:#ffffff;">by LS Solutions</span>
     <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>

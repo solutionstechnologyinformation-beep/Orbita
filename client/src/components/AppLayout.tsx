@@ -34,10 +34,10 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-const SIDEBAR_BG = "#FFBE00";
-const SIDEBAR_TEXT = "#1a1a1a";
-const SIDEBAR_ACTIVE_BG = "rgba(0,0,0,0.12)";
-const SIDEBAR_HOVER_BG = "rgba(0,0,0,0.07)";
+const SIDEBAR_BG = "#1561ad";
+const SIDEBAR_TEXT = "#ffffff";
+const SIDEBAR_ACTIVE_BG = "rgba(255,255,255,0.18)";
+const SIDEBAR_HOVER_BG = "rgba(255,255,255,0.10)";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -103,9 +103,9 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
       >
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: "#1a1a1a" }}
+          style={{ backgroundColor: "rgba(255,255,255,0.20)" }}
         >
-          <Zap className="w-4 h-4" style={{ color: SIDEBAR_BG }} />
+          <Zap className="w-4 h-4" style={{ color: "#ffffff" }} />
         </div>
         <span className="font-bold text-xl tracking-tight" style={{ color: SIDEBAR_TEXT }}>
           Orbita
@@ -137,7 +137,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
               {active && (
                 <div
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"
-                  style={{ backgroundColor: "#1a1a1a" }}
+                  style={{ backgroundColor: "#1dbab4" }}
                 />
               )}
               <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
@@ -145,7 +145,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
               {label === "Notificações" && unreadCount > 0 && (
                 <Badge
                   className="text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center"
-                  style={{ backgroundColor: "#1a1a1a", color: SIDEBAR_BG }}
+                  style={{ backgroundColor: "#fc5226", color: "white" }}
                 >
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </Badge>
@@ -159,7 +159,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
             <div className="pt-4 pb-1 px-3">
               <p
                 className="text-xs font-semibold uppercase tracking-wider"
-                style={{ color: "rgba(0,0,0,0.45)" }}
+                style={{ color: "rgba(255,255,255,0.55)" }}
               >
                 Admin
               </p>
@@ -209,7 +209,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
               <Avatar className="w-8 h-8 flex-shrink-0">
                 <AvatarFallback
                   className="text-xs font-semibold"
-                  style={{ backgroundColor: "#1a1a1a", color: SIDEBAR_BG }}
+                  style={{ backgroundColor: "rgba(255,255,255,0.20)", color: "white" }}
                 >
                   {initials}
                 </AvatarFallback>
@@ -218,7 +218,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
                 <p className="text-sm font-semibold truncate" style={{ color: SIDEBAR_TEXT }}>
                   {user?.name ?? "Usuário"}
                 </p>
-                <p className="text-xs truncate" style={{ color: "rgba(0,0,0,0.55)" }}>
+                <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.65)" }}>
                   {user?.email ?? ""}
                 </p>
               </div>
@@ -251,7 +251,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
           alt="LS Solutions"
           className="w-6 h-6 rounded-full object-cover"
         />
-        <span className="text-xs font-medium" style={{ color: "rgba(0,0,0,0.5)" }}>
+        <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>
           by LS Solutions
         </span>
       </div>

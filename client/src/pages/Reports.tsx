@@ -10,8 +10,8 @@ import { toast } from "sonner";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
 
-const YELLOW = "#FFBE00";
-const BLACK = "#1a1a1a";
+const YELLOW = "#1561ad";
+const BLACK = "#ffffff";
 const LIGHT_GRAY = "#f8fafc";
 
 function pdfHeader(title: string, subtitle?: string) {

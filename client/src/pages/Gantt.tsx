@@ -157,8 +157,8 @@ export default function Gantt() {
 
   // ── Export PDF ────────────────────────────────────────────────────────────
   function exportGanttPDF() {
-    const YELLOW = "#FFBE00";
-    const BLACK = "#1a1a1a";
+    const YELLOW = "#1561ad";
+    const BLACK = "#ffffff";
     const priorityLabel: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", urgent: "Urgente" };
     const conflictSet = new Set(conflicts.flatMap((c: any) => [c.task1.id, c.task2.id]));
 

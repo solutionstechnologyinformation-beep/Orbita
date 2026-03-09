@@ -24,6 +24,7 @@ import Whiteboard from "./pages/Whiteboard";
 import Scheduling from "./pages/Scheduling";
 import Reports from "./pages/Reports";
 import JoinProject from "./pages/JoinProject";
+import Plans from "./pages/Plans";
 
 function Router() {
   return (
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/scheduling" component={Scheduling} />
       <Route path="/relatorios" component={Reports} />
       <Route path="/join" component={JoinProject} />
+      <Route path="/planos" component={Plans} />
       <Route path="/admin" component={Admin} />
       <Route path="/profile" component={Profile} />
       <Route path="/404" component={NotFound} />
