@@ -190,6 +190,7 @@ export default function TaskDetail() {
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; mimeType?: string | null } | null>(null);
 
   const { data: task, isLoading } = trpc.tasks.get.useQuery({ id: taskId });
+  const { data: disciplinesList = [] } = trpc.disciplines.list.useQuery({ activeOnly: true });
 
   const addCommentMutation = trpc.tasks.addComment.useMutation({
     onSuccess: () => {
@@ -570,8 +571,13 @@ export default function TaskDetail() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sem setor</SelectItem>
-                    {["Geometria","Geoprocessamento","Drenagem","Sinalização","Geotecnia","Hidrologia","Geologia","Orçamento"].map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    {(disciplinesList as any[]).map((d: any) => (
+                      <SelectItem key={d.id} value={d.name}>
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: d.color }} />
+                          {d.name}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

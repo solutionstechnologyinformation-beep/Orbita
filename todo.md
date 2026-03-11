@@ -400,3 +400,11 @@
 - [x] Planos e Preços: valores de mercado realistas (mensal + anual com desconto)
 - [x] Planos e Preços: botão "Testar Grátis por 15 dias" no plano Pro
 - [x] Planos e Preços: link na landing page e na sidebar/header
+
+## Melhorias v3.33 — Disciplinas dinâmicas e Onboarding
+- [x] Admin: aba Disciplinas já existe — verificar e garantir que está funcionando corretamente
+- [x] Kanban: substituir lista hardcoded de setores por busca dinâmica do banco de disciplinas
+- [x] TaskDetail: substituir lista hardcoded de setores por busca dinâmica do banco de disciplinas
+- [x] Onboarding: criar componente OnboardingWizard (wizard 3 passos: criar projeto, convidar membro, criar tarefa)
+- [x] Onboarding: exibir automaticamente para novos usuários (sem projetos criados)
+- [x] Onboarding: botão "Pular" e persistência do estado (não mostrar novamente após concluir)

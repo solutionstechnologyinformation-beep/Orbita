@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { useLocation } from "wouter";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -248,6 +249,7 @@ function exportDashboardPDF(data: {
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [filterClient, setFilterClient] = useState("all");
 
@@ -263,6 +265,19 @@ export default function Dashboard() {
   const conflicts = conflictsQ.data ?? [];
   const clientCount = clientCountQ.data ?? 0;
   const allProjects = (projectsQ.data ?? []) as any[];
+
+  // Show onboarding for new users (no projects and hasn't dismissed before)
+  useEffect(() => {
+    if (!projectsQ.isLoading && allProjects.length === 0) {
+      const dismissed = localStorage.getItem("onboarding_dismissed");
+      if (!dismissed) setShowOnboarding(true);
+    }
+  }, [projectsQ.isLoading, allProjects.length]);
+
+  function handleCloseOnboarding() {
+    setShowOnboarding(false);
+    localStorage.setItem("onboarding_dismissed", "1");
+  }
   const clients = (clientsQ.data ?? []) as any[];
   // Filter projects by selected client
   const projects = filterClient === "all"
@@ -305,6 +320,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout title="Dashboard">
+      <OnboardingWizard open={showOnboarding} onClose={handleCloseOnboarding} />
       <div className="space-y-6">
 
         {/* ── Header ── */}

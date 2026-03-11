@@ -669,6 +669,7 @@ export default function Kanban() {
   const { data: project } = trpc.projects.get.useQuery({ id: projectId });
   const { data: rawTasks = [], isLoading } = trpc.tasks.list.useQuery({ projectId });
   const { data: members = [] } = trpc.projects.members.useQuery({ projectId });
+  const { data: disciplinesList = [] } = trpc.disciplines.list.useQuery({ activeOnly: true });
 
   // Determine if current user is leader/owner
   const isLeader = (() => {
@@ -979,8 +980,13 @@ export default function Kanban() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sem setor</SelectItem>
-                  {["Geometria","Geoprocessamento","Drenagem","Sinalização","Geotecnia","Hidrologia","Geologia","Orçamento"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  {(disciplinesList as any[]).map((d: any) => (
+                    <SelectItem key={d.id} value={d.name}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: d.color }} />
+                        {d.name}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
