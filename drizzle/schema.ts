@@ -53,7 +53,7 @@ export const crs = mysqlTable("crs", {
   countryCode: varchar("countryCode", { length: 8 }), // código ISO do país
   state: varchar("state", { length: 128 }),            // estado/província
   stateCode: varchar("stateCode", { length: 16 }),     // código do estado
-  status: mysqlEnum("status", ["active", "archived", "completed"]).default("active").notNull(),
+  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
   progress: float("progress").default(0).notNull(),    // 0-100, calculado automaticamente
   // ── Dados técnicos da obra ──────────────────────────────────────────────────
   tipoObra: mysqlEnum("tipoObra", ["implementacao", "restauracao", "aumento_capacidade", "levantamento", "outro"]),

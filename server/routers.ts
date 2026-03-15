@@ -17,6 +17,7 @@ import {
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
+  createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
   getSprintsByCrs, getDb,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
@@ -147,7 +148,7 @@ export const appRouter = router({
         countryCode: z.string().optional(),
         state: z.string().optional(),
         stateCode: z.string().optional(),
-        status: z.enum(["active", "archived", "completed"]).optional(),
+        status: z.enum(["active", "archived"]).optional(),
         tipoObra: z.enum(["implementacao", "restauracao", "aumento_capacidade", "levantamento", "outro"]).nullable().optional(),
         extensaoKm: z.number().nullable().optional(),
         areaHa: z.number().nullable().optional(),
@@ -512,8 +513,36 @@ export const appRouter = router({
         if (input.userId !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "master_admin") {
           throw new TRPCError({ code: "FORBIDDEN" });
         }
+        // Check for tasks conflicting with this vacation period
+        const conflictingTasks = await getTasksInVacationPeriod(input.userId, input.startDate, input.endDate);
         const id = await createVacationPeriod(input);
-        return { id };
+        // Notify if there are conflicting tasks
+        if (conflictingTasks.length > 0) {
+          const taskTitles = conflictingTasks.slice(0, 3).map((t: any) => t.title).join(", ");
+          const more = conflictingTasks.length > 3 ? ` e mais ${conflictingTasks.length - 3}` : "";
+          await notifyUser({
+            userId: input.userId,
+            title: "Conflito de Férias com Atividades",
+            message: `O período de férias conflita com ${conflictingTasks.length} tarefa(s): ${taskTitles}${more}. Remaneje as atividades antes de confirmar.`,
+            notificationType: "vacation_conflict",
+          });
+          // Also notify admin if creating for another user
+          if (input.userId !== ctx.user.id) {
+            await notifyUser({
+              userId: ctx.user.id,
+              title: "Conflito de Férias Detectado",
+              message: `As férias cadastradas conflitam com ${conflictingTasks.length} tarefa(s) de ${taskTitles}${more}.`,
+              notificationType: "vacation_conflict",
+            });
+          }
+        }
+        return { id, conflictingTasksCount: conflictingTasks.length, conflictingTasks };
+      }),
+    checkConflictsForPeriod: protectedProcedure
+      .input(z.object({ userId: z.number(), startDate: z.date(), endDate: z.date() }))
+      .query(async ({ input }) => {
+        const tasks = await getTasksInVacationPeriod(input.userId, input.startDate, input.endDate);
+        return { conflictingTasks: tasks, hasConflicts: tasks.length > 0 };
       }),
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
@@ -659,12 +688,25 @@ export const appRouter = router({
       const result = await getUserConversations(ctx.user.id);
       return (result[0] as any[]) ?? [];
     }),
+    getGroupConversations: protectedProcedure.query(async ({ ctx }) => {
+      const result = await getGroupConversations(ctx.user.id);
+      return (result[0] as any[]) ?? [];
+    }),
     getOrCreate: protectedProcedure
       .input(z.object({ otherUserId: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const id = await getOrCreateConversation(ctx.user.id, input.otherUserId);
         return { id };
       }),
+    createGroup: protectedProcedure
+      .input(z.object({ name: z.string().min(1), memberIds: z.array(z.number()) }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createGroupConversation(ctx.user.id, input.name, input.memberIds);
+        return { id };
+      }),
+    getMembers: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .query(async ({ input }) => getConversationMembers(input.conversationId)),
     getMessages: protectedProcedure
       .input(z.object({ conversationId: z.number() }))
       .query(async ({ input }) => getDirectMessages(input.conversationId)),

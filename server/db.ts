@@ -453,6 +453,20 @@ export async function deleteVacationPeriod(id: number) {
   const db = await getDb();
   await db.delete(vacationPeriods).where(eq(vacationPeriods.id, id));
 }
+export async function getTasksInVacationPeriod(userId: number, startDate: Date, endDate: Date) {
+  const db = await getDb();
+  const r = await db.execute(
+    sql`SELECT t.id, t.title, t.dueDate, t.startDate, t.endDate FROM tasks t
+        WHERE t.assigneeId = ${userId}
+        AND (
+          (t.startDate IS NOT NULL AND t.startDate <= ${endDate} AND t.startDate >= ${startDate})
+          OR (t.dueDate IS NOT NULL AND t.dueDate >= ${startDate} AND t.dueDate <= ${endDate})
+          OR (t.endDate IS NOT NULL AND t.endDate >= ${startDate} AND t.endDate <= ${endDate})
+        )
+        LIMIT 20`
+  );
+  return (r[0] as any[]) ?? [];
+}
 export async function isUserOnVacation(userId: number, date: Date): Promise<boolean> {
   const db = await getDb();
   const r = await db.select({ id: vacationPeriods.id }).from(vacationPeriods)
@@ -510,9 +524,13 @@ export async function getDashboardStats() {
   const inProgressTasks = allTasksRaw.filter((t: any) => t.progress > 0 && t.progress < 100).length;
   const pendingTasks = allTasksRaw.filter((t: any) => t.progress === 0).length;
   const overdueTasks = allTasksRaw.filter((t: any) => t.dueDate && new Date(t.dueDate) < now && t.progress < 100).length;
-  const sharedTasks = 0;
-  const publishedTasks = completedTasks;
-  const archivedTasks = 0;
+  // Checklist stats — status: 'published' or 'archived' = completed; completedAt != null also counts
+  const allChecklist = await db.select({ status: checklistItems.status, completedAt: checklistItems.completedAt, endDate: checklistItems.endDate }).from(checklistItems);
+  const totalChecklist = allChecklist.length;
+  const completedChecklist = allChecklist.filter((c: any) => c.status === 'published' || c.status === 'archived' || c.completedAt != null).length;
+  const pendingChecklist = totalChecklist - completedChecklist;
+  const overdueChecklist = allChecklist.filter((c: any) => (c.status !== 'published' && c.status !== 'archived' && c.completedAt == null) && c.endDate && new Date(c.endDate) < now).length;
+  const checklistProgress = totalChecklist > 0 ? Math.round((completedChecklist / totalChecklist) * 100) : 0;
   return {
     totalClients: totalClients[0]?.count ?? 0,
     totalCrs: totalCrs[0]?.count ?? 0,
@@ -520,11 +538,14 @@ export async function getDashboardStats() {
     avgProgress: Math.round((avgProgress[0]?.avg ?? 0) * 10) / 10,
     pendingTasks,
     inProgressTasks,
-    sharedTasks,
-    publishedTasks,
-    archivedTasks,
     completedTasks,
     overdueTasks,
+    // Checklist KPIs
+    totalChecklist,
+    completedChecklist,
+    pendingChecklist,
+    overdueChecklist,
+    checklistProgress,
   };
 }
 export async function getWorldMapData() {
@@ -648,6 +669,39 @@ export async function getUserConversations(userId: number) {
   );
 }
 
+export async function createGroupConversation(createdById: number, name: string, memberIds: number[]) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO conversations (type, name, createdById, createdAt, updatedAt) VALUES ('group', ${name}, ${createdById}, NOW(), NOW())`
+  );
+  const convId = (result as any).insertId as number;
+  // Add all members including creator
+  const allMembers = Array.from(new Set([createdById, ...memberIds]));
+  for (const uid of allMembers) {
+    await db.execute(sql`INSERT INTO conversation_participants (conversationId, userId, joinedAt) VALUES (${convId}, ${uid}, NOW())`);
+  }
+  return convId;
+}
+export async function getGroupConversations(userId: number) {
+  const db = await getDb();
+  return db.execute(
+    sql`SELECT c.id, c.type, c.name, c.updatedAt,
+        (SELECT dm.content FROM direct_messages dm WHERE dm.conversationId = c.id ORDER BY dm.createdAt DESC LIMIT 1) as lastMessage,
+        (SELECT COUNT(*) FROM conversation_participants cp3 WHERE cp3.conversationId = c.id) as memberCount
+        FROM conversations c
+        JOIN conversation_participants cp ON cp.conversationId = c.id AND cp.userId = ${userId}
+        WHERE c.type = 'group'
+        ORDER BY c.updatedAt DESC LIMIT 50`
+  );
+}
+export async function getConversationMembers(conversationId: number) {
+  const db = await getDb();
+  return db.select({
+    id: users.id, name: users.name, avatarUrl: users.avatarUrl, role: users.role,
+  }).from(conversationParticipants)
+    .leftJoin(users, eq(conversationParticipants.userId, users.id))
+    .where(eq(conversationParticipants.conversationId, conversationId));
+}
 // ─── Sprints ───────────────────────────────────────────────────────────────────
 export async function getSprintsByCrs(crsId: number) {
   const db = await getDb();

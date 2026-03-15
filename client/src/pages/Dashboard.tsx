@@ -332,16 +332,16 @@ export default function Dashboard() {
   const total = stats?.totalTasks ?? 0;
   const overdueP = pct(stats?.overdueTasks ?? 0, total);
   const completedP = pct(stats?.completedTasks ?? 0, total);
-  const revisionP = pct(stats?.sharedTasks ?? 0, total);
   const onTimeP = total > 0 ? Math.max(0, 100 - overdueP) : 0;
+  // Checklist KPIs
+  const checklistTotal = stats?.totalChecklist ?? 0;
+  const checklistCompletedP = checklistTotal > 0 ? Math.round(((stats?.completedChecklist ?? 0) / checklistTotal) * 100) : 0;
 
   // Donut data
   const donutData = [
     { name: STATUS_LABELS.pending,     value: stats?.pendingTasks ?? 0,    color: STATUS_COLORS.pending },
     { name: STATUS_LABELS.in_progress, value: stats?.inProgressTasks ?? 0, color: STATUS_COLORS.in_progress },
-    { name: STATUS_LABELS.shared,      value: stats?.sharedTasks ?? 0,     color: STATUS_COLORS.shared },
-    { name: STATUS_LABELS.published,   value: stats?.publishedTasks ?? 0,  color: STATUS_COLORS.published },
-    { name: STATUS_LABELS.archived,    value: stats?.archivedTasks ?? 0,   color: STATUS_COLORS.archived },
+    { name: STATUS_LABELS.published,   value: stats?.completedTasks ?? 0,  color: STATUS_COLORS.published },
   ].filter(d => d.value > 0);
 
   const isLoading = statsQ.isLoading;
@@ -444,7 +444,7 @@ export default function Dashboard() {
               onClick={() => {
                 setExportingPdf(true);
                 try {
-                  exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP });
+                  exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP });
                 } finally {
                   setExportingPdf(false);
                 }
@@ -490,8 +490,8 @@ export default function Dashboard() {
                 description={`${stats?.overdueTasks ?? 0} de ${total} tarefas`} />
               <GaugeCard label="Tarefas Concluídas" value={completedP} color="#22c55e" icon={CheckCircle2}
                 description={`${stats?.completedTasks ?? 0} de ${total} tarefas`} />
-              <GaugeCard label="Em Revisão"         value={revisionP}  color="#f59e0b" icon={Clock}
-                description={`${stats?.sharedTasks ?? 0} de ${total} tarefas`} />
+              <GaugeCard label="Checklist Concluído" value={checklistCompletedP} color="#f59e0b" icon={Clock}
+                description={`${stats?.completedChecklist ?? 0} de ${checklistTotal} itens`} />
               <GaugeCard label="Dentro do Prazo"    value={onTimeP}    color="#3b82f6" icon={TrendingUp}
                 description={`${total - (stats?.overdueTasks ?? 0)} de ${total} tarefas`} />
             </>

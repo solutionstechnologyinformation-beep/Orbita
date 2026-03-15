@@ -539,3 +539,14 @@
 - [x] Gantt: visualização padrão por disciplina → usuário → tarefa (grupos colapsáveis)
 - [x] Gantt: 3 modos de agrupamento: Por Disciplina, Por CRS, Por Usuário
 - [x] Gantt: filtros dinâmicos (disciplinas e usuários disponíveis mudam conforme as tarefas filtradas)
+
+## Correções e Melhorias v4.9
+- [x] Restaurar 10 tarefas antigas (crsId=null) para CRS Br-101 fase "Para Iniciar", preservando usuários e setores
+- [x] Chat: reescrito com chat privado, criação de grupos e somente usuários do sistema
+- [x] Férias: alerta bidirecional — ao criar tarefa em período de férias e ao cadastrar férias com tarefas existentes
+- [x] CRS: status simplificado para ativo/arquivado (removido "completed" do enum)
+- [x] Kanban: colunas de disciplina sem badge de status (apenas contagem e barra de progresso)
+- [x] Kanban: cards de tarefa sem badge de status (prioridade, fase, data, progresso)
+- [x] Status somente nos itens de checklist (published/pending)
+- [x] Dashboard: KPI "Checklist Concluído" com dados dinâmicos reais dos itens de checklist
+- [x] Dashboard: donut chart atualizado (pendente, em andamento, concluído)
