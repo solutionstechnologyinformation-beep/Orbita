@@ -491,3 +491,15 @@
 
 ## Bug v4.3
 - [x] Bug: Kanban dos CRS não abria — rota /kanban faltava no App.tsx e o componente não lia o parâmetro ?crs=X da URL — corrigido
+
+## Melhorias v4.4
+- [ ] Bug: Erro ao inserir nova tarefa no Kanban — investigar e corrigir
+- [ ] Fases padrão automáticas ao criar CRS (A Fazer, Em Andamento, Revisão, Concluído)
+- [ ] Submenu de CRS na sidebar com link direto para o Kanban de cada CRS ativo
+- [ ] Filtro de disciplina no Kanban (chips na barra superior)
+
+## Melhorias v4.4 — Sidebar CRS + Filtro Disciplina Kanban
+- [x] AppLayout: submenu expansível "Projetos" com lista de CRS ativos (links diretos para /kanban?crs=X)
+- [x] Kanban: chips de filtro de disciplina abaixo da toolbar (clicar oculta/mostra colunas)
+- [x] Kanban: botão "Todas" para restaurar visibilidade de todas as disciplinas
+- [x] Kanban: chips mostram contagem de tarefas por disciplina

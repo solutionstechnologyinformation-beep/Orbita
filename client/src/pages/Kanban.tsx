@@ -260,6 +260,16 @@ export default function Kanban() {
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
+  // Discipline visibility filter: set of discipline names to HIDE (empty = show all)
+  const [hiddenDisciplines, setHiddenDisciplines] = useState<Set<string>>(new Set());
+  function toggleDiscipline(name: string) {
+    setHiddenDisciplines((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
 
   // Dialogs
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -338,15 +348,19 @@ export default function Kanban() {
     return map;
   }, [filteredTasks, disciplines]);
 
-  // Columns: disciplines that have tasks OR all disciplines if no filter
-  const columnsToShow = useMemo(() => {
+  // All available discipline columns (for filter chips)
+  const allColumns = useMemo(() => {
     const cols = disciplines.map((d) => ({ id: d.id, name: d.name, color: d.color ?? "#6366f1" }));
-    // Add "Sem Disciplina" column if there are tasks without discipline
     if ((tasksByDiscipline["Sem Disciplina"] ?? []).length > 0) {
       cols.push({ id: -1, name: "Sem Disciplina", color: "#94a3b8" });
     }
     return cols;
   }, [disciplines, tasksByDiscipline]);
+
+  // Columns filtered by hiddenDisciplines
+  const columnsToShow = useMemo(() => {
+    return allColumns.filter((d) => !hiddenDisciplines.has(d.name));
+  }, [allColumns, hiddenDisciplines]);
 
   function openAddTask(disciplineId: number, disciplineName: string) {
     const disc = disciplines.find((d) => d.id === disciplineId);
@@ -472,6 +486,42 @@ export default function Kanban() {
             </div>
           </div>
         </div>
+
+        {/* ── Discipline Filter Chips ── */}
+        {allColumns.length > 1 && (
+          <div className="px-4 py-2 border-b border-border bg-background/60 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground font-medium flex-shrink-0">Disciplinas:</span>
+            <button
+              onClick={() => setHiddenDisciplines(new Set())}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
+                hiddenDisciplines.size === 0
+                  ? "bg-primary text-white border-primary"
+                  : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              Todas
+            </button>
+            {allColumns.map((disc) => {
+              const isHidden = hiddenDisciplines.has(disc.name);
+              return (
+                <button
+                  key={disc.id}
+                  onClick={() => toggleDiscipline(disc.name)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
+                    isHidden
+                      ? "bg-transparent text-muted-foreground/50 border-border/50 line-through"
+                      : "border-transparent text-white"
+                  }`}
+                  style={!isHidden ? { backgroundColor: disc.color, borderColor: disc.color } : {}}
+                >
+                  {!isHidden && <span className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />}
+                  {disc.name}
+                  <span className="opacity-70">({(tasksByDiscipline[disc.name] ?? []).length})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Board ── */}
         {!effectiveCrsId ? (

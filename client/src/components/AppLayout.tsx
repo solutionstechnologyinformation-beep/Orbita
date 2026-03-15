@@ -7,10 +7,13 @@ import {
   Bot,
   CalendarDays,
   CalendarRange,
+  ChevronDown,
   ChevronLeft,
+  ChevronRight,
   FileBarChart,
   FolderKanban,
   GanttChartSquare,
+  Kanban,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -67,6 +70,12 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [crsExpanded, setCrsExpanded] = useState(false);
+
+  const { data: crsList = [] } = trpc.crs.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 60000,
+  });
 
   const { data: notifList = [] } = trpc.notifications.list.useQuery(undefined, {
     refetchInterval: 30000,
@@ -117,6 +126,87 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" style={{ backgroundColor: SIDEBAR_BG }}>
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = location === href || (href !== "/dashboard" && location.startsWith(href));
+
+          // Item especial: Projetos com submenu de CRS
+          if (href === "/projects") {
+            return (
+              <div key={href}>
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative w-full cursor-pointer"
+                  style={{
+                    color: SIDEBAR_TEXT,
+                    backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
+                    fontWeight: active ? 700 : 500,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                  }}
+                  onClick={() => {
+                    setSidebarOpen(false);
+                    navigate("/projects");
+                    setCrsExpanded(!crsExpanded);
+                  }}
+                >
+                  {active && (
+                    <div
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"
+                      style={{ backgroundColor: "#1dbab4" }}
+                    />
+                  )}
+                  <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
+                  <span className="flex-1">{label}</span>
+                  {crsList.length > 0 && (
+                    crsExpanded
+                      ? <ChevronDown className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                      : <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                  )}
+                </div>
+                {/* Submenu de CRS */}
+                {crsExpanded && crsList.length > 0 && (
+                  <div className="ml-4 mt-0.5 space-y-0.5">
+                    {(crsList as any[]).slice(0, 8).map((c: any) => {
+                      const kanbanHref = `/kanban?crs=${c.id}`;
+                      const crsActive = location === `/kanban` && window.location.search.includes(`crs=${c.id}`);
+                      return (
+                        <Link
+                          key={c.id}
+                          href={kanbanHref}
+                          onClick={() => setSidebarOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 w-full"
+                          style={{
+                            color: crsActive ? "#1dbab4" : "rgba(255,255,255,0.75)",
+                            backgroundColor: crsActive ? SIDEBAR_ACTIVE_BG : "transparent",
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = crsActive ? SIDEBAR_ACTIVE_BG : "transparent";
+                          }}
+                        >
+                          <Kanban className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{c.code ? `${c.code} — ` : ""}{c.name}</span>
+                        </Link>
+                      );
+                    })}
+                    {crsList.length > 8 && (
+                      <Link
+                        href="/projects"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all duration-150 w-full"
+                        style={{ color: "rgba(255,255,255,0.5)" }}
+                      >
+                        +{crsList.length - 8} mais...
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <Link
               key={href}
