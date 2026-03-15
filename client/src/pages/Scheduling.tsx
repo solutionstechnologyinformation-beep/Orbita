@@ -45,10 +45,10 @@ export default function Scheduling() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  const projectsQ = trpc.projects.list.useQuery();
-  const schedulingQ = trpc.scheduling.tasks.useQuery({ projectId });
+  const projectsQ = trpc.crs.list.useQuery();
+  const schedulingQ = trpc.agenda.list.useQuery({});
 
-  const tasks = schedulingQ.data ?? [];
+  const tasks = (schedulingQ.data ?? []) as any[];
 
   // ── Calendar mode helpers ──────────────────────────────────────────────────
   const { calendarDays, year, month } = useMemo(() => {

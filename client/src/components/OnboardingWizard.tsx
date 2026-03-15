@@ -56,14 +56,14 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
 
   // Step 1: Create project
   const [projectForm, setProjectForm] = useState({ name: "", description: "" });
-  const createProjectMut = trpc.projects.create.useMutation({
+  const createProjectMut = trpc.crs.create.useMutation({
     onSuccess: (data: any) => {
       setCreatedProjectId(data.id);
-      utils.projects.list.invalidate();
+      utils.crs.list.invalidate();
       toast.success("Projeto criado com sucesso!");
       setStep(2);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   // Step 2: Generate invite link
@@ -74,7 +74,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
       setInviteLink(link);
       toast.success("Link de convite gerado!");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   // Step 3: Create task
@@ -82,16 +82,16 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
   const createTaskMut = trpc.tasks.create.useMutation({
     onSuccess: (data: any) => {
       setCreatedTaskId(data.id);
-      utils.tasks.list.invalidate();
+      utils.tasks.listByCrs.invalidate();
       toast.success("Tarefa criada com sucesso!");
       setStep(4); // done
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   function handleCreateProject() {
     if (!projectForm.name.trim()) { toast.error("Informe o nome do projeto."); return; }
-    createProjectMut.mutate({ name: projectForm.name.trim(), description: projectForm.description.trim() || undefined });
+    createProjectMut.mutate({ name: projectForm.name.trim(), description: projectForm.description.trim() || undefined, clientId: 1 });
   }
 
   function handleGenerateInvite() {
@@ -108,12 +108,12 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
   function handleCreateTask() {
     if (!taskForm.title.trim()) { toast.error("Informe o título da tarefa."); return; }
     if (!createdProjectId) return;
-    createTaskMut.mutate({ projectId: createdProjectId, title: taskForm.title.trim(), description: taskForm.description.trim() || undefined, priority: "medium" });
+    createTaskMut.mutate({ crsId: createdProjectId ?? 1, phaseId: 1, title: taskForm.title.trim(), description: taskForm.description.trim() || undefined, priority: "medium" });
   }
 
   function handleFinish() {
     onClose();
-    if (createdProjectId) navigate(`/projects/${createdProjectId}/kanban`);
+    if (createdProjectId) navigate(`/kanban?crs=${createdProjectId}`);
   }
 
   function handleSkip() {
@@ -207,8 +207,8 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                     <Input
                       placeholder="Ex: Projeto Rodovia BR-040"
                       value={projectForm.name}
-                      onChange={(e) => setProjectForm((f) => ({ ...f, name: e.target.value }))}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateProject(); }}
+                      onChange={(e: any) => setProjectForm((f) => ({ ...f, name: e.target.value }))}
+                      onKeyDown={(e: any) => { if (e.key === "Enter") handleCreateProject(); }}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -217,7 +217,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                       placeholder="Breve descrição do projeto..."
                       rows={2}
                       value={projectForm.description}
-                      onChange={(e) => setProjectForm((f) => ({ ...f, description: e.target.value }))}
+                      onChange={(e: any) => setProjectForm((f) => ({ ...f, description: e.target.value }))}
                     />
                   </div>
                   <div className="flex gap-2 pt-1">
@@ -315,8 +315,8 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                     <Input
                       placeholder="Ex: Levantamento topográfico inicial"
                       value={taskForm.title}
-                      onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateTask(); }}
+                      onChange={(e: any) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                      onKeyDown={(e: any) => { if (e.key === "Enter") handleCreateTask(); }}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -325,7 +325,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                       placeholder="Detalhes da tarefa..."
                       rows={2}
                       value={taskForm.description}
-                      onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
+                      onChange={(e: any) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
                     />
                   </div>
                   <div className="flex gap-2 pt-1">

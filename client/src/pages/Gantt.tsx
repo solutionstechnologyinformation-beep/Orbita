@@ -56,21 +56,18 @@ export default function Gantt() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const projectsQ = trpc.projects.list.useQuery();
-  const ganttQ = trpc.gantt.tasks.useQuery({ projectId });
-  const conflictsQ = trpc.gantt.conflicts.useQuery({ projectId });
-  const membersQ = trpc.projects.members.useQuery(
-    { projectId: projectId! },
-    { enabled: !!projectId }
-  );
+  const projectsQ = trpc.crs.list.useQuery();
+  const ganttQ = trpc.tasks.listByCrs.useQuery({ crsId: projectId ?? 0 }, { enabled: !!projectId });
+  const conflictsQ = trpc.vacations.list.useQuery({});
+  const membersQ = trpc.users.list.useQuery();
 
   const allTasks = (ganttQ.data ?? []) as any[];
   const tasks = useMemo(() =>
     memberId ? allTasks.filter((t: any) => t.assigneeId === memberId) : allTasks,
     [allTasks, memberId]
   );
-  const conflicts = (conflictsQ.data ?? []) as any[];
-  const conflictIds = useMemo(() => new Set(conflicts.flatMap((c: any) => [c.task1.id, c.task2.id])), [conflicts]);
+  const conflicts: any[] = [];
+  const conflictIds = useMemo(() => new Set<number>(), []);
 
   // ── Date range ────────────────────────────────────────────────────────────
   const today = useMemo(() => dayStart(new Date()), []);

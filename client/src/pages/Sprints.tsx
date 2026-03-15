@@ -60,7 +60,7 @@ export default function Sprints() {
   const burndownChartRef = useRef<HTMLDivElement>(null);
 
   const crsQ = trpc.crs.list.useQuery();
-  const sprintsQ = trpc.sprints.list.useQuery(
+  const sprintsQ = trpc.sprints.listByCrs.useQuery(
     { crsId: crsId! },
     { enabled: !!crsId }
   );
@@ -68,15 +68,15 @@ export default function Sprints() {
     { id: selectedSprintId! },
     { enabled: !!selectedSprintId }
   );
-  const burndownQ = trpc.burndown.data.useQuery(
-    { sprintId: selectedSprintId! },
+  const burndownQ = trpc.sprints.get.useQuery(
+    { id: selectedSprintId! },
     { enabled: !!selectedSprintId }
   );
 
   const utils = trpc.useUtils();
   const createMut = trpc.sprints.create.useMutation({
     onSuccess: () => {
-      utils.sprints.list.invalidate();
+      utils.sprints.listByCrs.invalidate();
       setShowCreate(false);
       setForm({ name: "", goal: "", startDate: "", endDate: "" });
       toast.success("Sprint criada com sucesso!");
@@ -84,14 +84,14 @@ export default function Sprints() {
   });
   const deleteMut = trpc.sprints.delete.useMutation({
     onSuccess: () => {
-      utils.sprints.list.invalidate();
+      utils.sprints.listByCrs.invalidate();
       if (selectedSprintId) setSelectedSprintId(null);
       toast.success("Sprint removida.");
     },
   });
   const updateStatusMut = trpc.sprints.update.useMutation({
     onSuccess: () => {
-      utils.sprints.list.invalidate();
+      utils.sprints.listByCrs.invalidate();
       utils.sprints.get.invalidate();
     },
   });

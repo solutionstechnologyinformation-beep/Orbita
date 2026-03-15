@@ -255,24 +255,24 @@ export default function Dashboard() {
 
   const statsQ = trpc.dashboard.stats.useQuery();
   const conflictsQ = trpc.dashboard.conflicts.useQuery();
-  const clientCountQ = trpc.dashboard.clientCount.useQuery();
-  const projectsQ = trpc.projects.list.useQuery();
-  const sprintsQ = trpc.sprints.listAll.useQuery();
-  const recentQ = trpc.dashboard.recentTasks.useQuery();
+  const clientCountQ = trpc.dashboard.stats.useQuery();
+  const projectsQ = trpc.crs.list.useQuery();
+  const sprintsQ = trpc.sprints.listByCrs.useQuery({ crsId: 0 }, { enabled: false });
+  const recentQ = trpc.dashboard.weekDeliveries.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
 
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
-  const clientCount = clientCountQ.data ?? 0;
-  const allProjects = (projectsQ.data ?? []) as any[];
+  const clientCount = statsQ.data?.totalClients ?? 0;
+  const allCrs = (projectsQ.data ?? []) as any[];
 
   // Show onboarding for new users (no projects and hasn't dismissed before)
   useEffect(() => {
-    if (!projectsQ.isLoading && allProjects.length === 0) {
+    if (!projectsQ.isLoading && allCrs.length === 0) {
       const dismissed = localStorage.getItem("onboarding_dismissed");
       if (!dismissed) setShowOnboarding(true);
     }
-  }, [projectsQ.isLoading, allProjects.length]);
+  }, [projectsQ.isLoading, allCrs.length]);
 
   function handleCloseOnboarding() {
     setShowOnboarding(false);
@@ -281,8 +281,8 @@ export default function Dashboard() {
   const clients = (clientsQ.data ?? []) as any[];
   // Filter projects by selected client
   const projects = filterClient === "all"
-    ? allProjects
-    : allProjects.filter((p: any) => String(p.clientId ?? "") === filterClient);
+    ? allCrs
+    : allCrs.filter((p: any) => String(p.clientId ?? "") === filterClient);
   const sprints = (sprintsQ.data ?? []) as any[];
   const recentTasks = (recentQ.data ?? []) as any[];
 

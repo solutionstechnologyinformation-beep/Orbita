@@ -605,6 +605,16 @@ export const appRouter = router({
 
   // ─── Sprints ────────────────────────────────────────────────────────────────
   sprints: router({
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        const { sprints: sp, tasks } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
+        const [sprint] = await db.select().from(sp).where(eq2(sp.id, input.id));
+        if (!sprint) throw new TRPCError({ code: "NOT_FOUND" });
+        return { ...sprint, tasks: [] };
+      }),
     listByCrs: protectedProcedure
       .input(z.object({ crsId: z.number() }))
       .query(async ({ input }) => getSprintsByCrs(input.crsId)),
