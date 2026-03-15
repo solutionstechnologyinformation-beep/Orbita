@@ -92,6 +92,7 @@ export async function getAllCrs() {
     id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
     state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
+    tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
     createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'active')).orderBy(asc(crs.name));
@@ -110,16 +111,17 @@ export async function getCrsById(id: number) {
     id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
     state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
+    tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
     createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.id, id)).limit(1);
   return r[0];
 }
-export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; createdById: number }) {
+export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; tipoObra?: string; extensaoKm?: number; areaHa?: number; perimetroUrbano?: number; createdById: number }) {
   const db = await getDb();
   const [result] = await db.execute(
-    sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, status, progress, createdById, createdAt, updatedAt)
-        VALUES (${data.clientId}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
+    sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, tipoObra, extensaoKm, areaHa, perimetroUrbano, status, progress, createdById, createdAt, updatedAt)
+        VALUES (${data.clientId}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, ${data.tipoObra ?? null}, ${data.extensaoKm ?? null}, ${data.areaHa ?? null}, ${data.perimetroUrbano ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
   );
   const crsId = (result as any).insertId as number;
   // Create default phases for the new CRS
@@ -486,6 +488,7 @@ export async function getWorldMapData() {
     id: crs.id, name: crs.name, code: crs.code, country: crs.country,
     countryCode: crs.countryCode, state: crs.state, stateCode: crs.stateCode,
     progress: crs.progress, status: crs.status, clientName: clients.name,
+    tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
   }).from(crs)
     .leftJoin(clients, eq(crs.clientId, clients.id))
     .where(eq(crs.status, "active"));

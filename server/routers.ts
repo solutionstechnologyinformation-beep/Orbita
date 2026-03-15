@@ -126,6 +126,10 @@ export const appRouter = router({
         countryCode: z.string().optional(),
         state: z.string().optional(),
         stateCode: z.string().optional(),
+        tipoObra: z.enum(["implementacao", "restauracao", "aumento_capacidade", "levantamento", "outro"]).optional(),
+        extensaoKm: z.number().optional(),
+        areaHa: z.number().optional(),
+        perimetroUrbano: z.number().int().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const id = await createCrs({ ...input, createdById: ctx.user.id });
@@ -143,6 +147,10 @@ export const appRouter = router({
         state: z.string().optional(),
         stateCode: z.string().optional(),
         status: z.enum(["active", "archived", "completed"]).optional(),
+        tipoObra: z.enum(["implementacao", "restauracao", "aumento_capacidade", "levantamento", "outro"]).nullable().optional(),
+        extensaoKm: z.number().nullable().optional(),
+        areaHa: z.number().nullable().optional(),
+        perimetroUrbano: z.number().int().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;

@@ -55,6 +55,11 @@ export const crs = mysqlTable("crs", {
   stateCode: varchar("stateCode", { length: 16 }),     // código do estado
   status: mysqlEnum("status", ["active", "archived", "completed"]).default("active").notNull(),
   progress: float("progress").default(0).notNull(),    // 0-100, calculado automaticamente
+  // ── Dados técnicos da obra ──────────────────────────────────────────────────
+  tipoObra: mysqlEnum("tipoObra", ["implementacao", "restauracao", "aumento_capacidade", "levantamento", "outro"]),
+  extensaoKm: float("extensaoKm"),          // extensão em km (para rodovias/ferrovias)
+  areaHa: float("areaHa"),                  // área em hectares
+  perimetroUrbano: int("perimetroUrbano"),   // quantidade de perímetros urbanos
   createdById: int("createdById").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

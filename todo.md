@@ -503,3 +503,13 @@
 - [x] Kanban: chips de filtro de disciplina abaixo da toolbar (clicar oculta/mostra colunas)
 - [x] Kanban: botão "Todas" para restaurar visibilidade de todas as disciplinas
 - [x] Kanban: chips mostram contagem de tarefas por disciplina
+
+## Mapa + Dados Técnicos CRS v4.5
+- [x] Schema: campos tipoObra, extensaoKm, areaHa, perimetroUrbano na tabela crs
+- [x] Backend: getAllCrs, getCrsById, createCrs, updateCrs, getWorldMapData incluem novos campos
+- [x] Router: crs.create e crs.update aceitam novos campos opcionais
+- [x] Projects.tsx: formulário de criação/edição de CRS com seção "Dados Técnicos da Obra" (tipo de obra, extensão km, área ha, perímetros urbanos)
+- [x] Dashboard: mapa com filtro de país e submenu de estado (dropdown dinâmico com estados que têm CRS)
+- [x] Dashboard: pins agrupados por estado com bolinha azul mostrando número de contratos
+- [x] Dashboard: clicar em pin de grupo abre lista de CRS do estado; clicar em CRS individual abre popup com dados técnicos
+- [x] Dashboard: popup de CRS exibe tipo de obra, extensão, área, perímetros urbanos e link para Kanban

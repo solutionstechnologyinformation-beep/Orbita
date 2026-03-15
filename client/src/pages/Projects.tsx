@@ -24,12 +24,20 @@ type CrsItem = {
   description?: string | null; country?: string | null; countryCode?: string | null;
   state?: string | null; stateCode?: string | null; status: string; progress: number;
   clientName?: string | null; clientColor?: string | null;
+  tipoObra?: string | null; extensaoKm?: number | null; areaHa?: number | null; perimetroUrbano?: number | null;
 };
 type Client = { id: number; name: string; color?: string | null };
 
 
 
-const emptyForm = { clientId: "", name: "", code: "", description: "", country: "", countryCode: "", state: "", stateCode: "" };
+const TIPO_OBRA_LABELS: Record<string, string> = {
+  implementacao: "Implementação",
+  restauracao: "Restauração",
+  aumento_capacidade: "Aumento de Capacidade",
+  levantamento: "Levantamento",
+  outro: "Outro",
+};
+const emptyForm = { clientId: "", name: "", code: "", description: "", country: "", countryCode: "", state: "", stateCode: "", tipoObra: "", extensaoKm: "", areaHa: "", perimetroUrbano: "" };
 
 export default function Projects() {
   const { user } = useAuth();
@@ -75,6 +83,10 @@ export default function Projects() {
       code: form.code.trim() || undefined, description: form.description.trim() || undefined,
       country: form.country || undefined, countryCode: form.countryCode || undefined,
       state: form.state.trim() || undefined, stateCode: form.stateCode.trim() || undefined,
+      tipoObra: (form.tipoObra as any) || undefined,
+      extensaoKm: form.extensaoKm ? parseFloat(form.extensaoKm) : undefined,
+      areaHa: form.areaHa ? parseFloat(form.areaHa) : undefined,
+      perimetroUrbano: form.perimetroUrbano ? parseInt(form.perimetroUrbano) : undefined,
     });
   }
 
@@ -85,12 +97,16 @@ export default function Projects() {
       code: form.code.trim() || undefined, description: form.description.trim() || undefined,
       country: form.country || undefined, countryCode: form.countryCode || undefined,
       state: form.state.trim() || undefined, stateCode: form.stateCode.trim() || undefined,
+      tipoObra: (form.tipoObra as any) || null,
+      extensaoKm: form.extensaoKm ? parseFloat(form.extensaoKm) : null,
+      areaHa: form.areaHa ? parseFloat(form.areaHa) : null,
+      perimetroUrbano: form.perimetroUrbano ? parseInt(form.perimetroUrbano) : null,
     });
   }
 
   function openEdit(crs: CrsItem) {
     setEditingCrs(crs);
-    setForm({ clientId: String(crs.clientId), name: crs.name, code: crs.code ?? "", description: crs.description ?? "", country: crs.country ?? "", countryCode: crs.countryCode ?? "", state: crs.state ?? "", stateCode: crs.stateCode ?? "" });
+    setForm({ clientId: String(crs.clientId), name: crs.name, code: crs.code ?? "", description: crs.description ?? "", country: crs.country ?? "", countryCode: crs.countryCode ?? "", state: crs.state ?? "", stateCode: crs.stateCode ?? "", tipoObra: crs.tipoObra ?? "", extensaoKm: crs.extensaoKm != null ? String(crs.extensaoKm) : "", areaHa: crs.areaHa != null ? String(crs.areaHa) : "", perimetroUrbano: crs.perimetroUrbano != null ? String(crs.perimetroUrbano) : "" });
   }
 
   function handleCountryChange(code: string) {
@@ -295,6 +311,25 @@ export default function Projects() {
                 )}
               </div>
             </div>
+            {/* Dados técnicos da obra */}
+            <div className="border-t border-border pt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo de Obra</Label>
+                  <Select value={form.tipoObra} onValueChange={(v) => setForm((f) => ({ ...f, tipoObra: v === "_none" ? "" : v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Não informado</SelectItem>
+                      {Object.entries(TIPO_OBRA_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Perímetros Urbanos (qtd)</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
+                <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
+                <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.01" placeholder="Ex: 120.0" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
@@ -334,6 +369,25 @@ export default function Projects() {
                 ) : (
                   <Input className="mt-1" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
                 )}
+              </div>
+            </div>
+            {/* Dados técnicos da obra */}
+            <div className="border-t border-border pt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo de Obra</Label>
+                  <Select value={form.tipoObra} onValueChange={(v) => setForm((f) => ({ ...f, tipoObra: v === "_none" ? "" : v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Não informado</SelectItem>
+                      {Object.entries(TIPO_OBRA_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Perímetros Urbanos (qtd)</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
+                <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
+                <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.01" placeholder="Ex: 120.0" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
               </div>
             </div>
           </div>

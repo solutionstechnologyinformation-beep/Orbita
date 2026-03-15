@@ -16,9 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { MapView } from "@/components/Map";
-import { getCountryByCode } from "@/lib/geoData";
+import { getCountryByCode, COUNTRIES, getStatesForCountry } from "@/lib/geoData";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const TIPO_OBRA_MAP: Record<string, string> = {
+  implementacao: "Implementação",
+  restauracao: "Restauração",
+  aumento_capacidade: "Aumento de Capacidade",
+  levantamento: "Levantamento",
+  outro: "Outro",
+};
 function pct(n: number, total: number) {
   if (!total) return 0;
   return Math.round((n / total) * 100);
@@ -255,6 +262,9 @@ export default function Dashboard() {
 
   const [filterClient, setFilterClient] = useState("all");
   const [selectedMapCrs, setSelectedMapCrs] = useState<any>(null);
+  const [mapFilterCountry, setMapFilterCountry] = useState("all");
+  const [mapFilterState, setMapFilterState] = useState("all");
+  const [selectedStateGroup, setSelectedStateGroup] = useState<{ state: string; stateCode: string; countryCode: string; crsList: any[] } | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<any[]>([]);
 
@@ -324,24 +334,67 @@ export default function Dashboard() {
 
   const isLoading = statsQ.isLoading;
 
-  // Build CRS map markers when map is ready
-  function initMapMarkers(map: google.maps.Map) {
-    mapRef.current = map;
-    markersRef.current.forEach((m: any) => { m.map = null; });
+  // Build CRS map markers grouped by state/country
+  function buildMapMarkers(map: google.maps.Map, crsData: any[], filterCountry: string, filterState: string) {
+    markersRef.current.forEach((m: any) => { try { m.map = null; } catch {} });
     markersRef.current = [];
-    const crsWithLocation = allCrs.filter((c: any) => c.country);
-    crsWithLocation.forEach((crs: any) => {
-      const country = getCountryByCode(crs.country);
-      if (!country) return;
-      const lat = country.lat + (Math.random() - 0.5) * 1.5;
-      const lng = country.lng + (Math.random() - 0.5) * 1.5;
+    const filtered = crsData.filter((c: any) => {
+      if (!c.countryCode) return false;
+      if (filterCountry !== "all" && c.countryCode !== filterCountry) return false;
+      if (filterState !== "all" && c.stateCode !== filterState) return false;
+      return true;
+    });
+    // Group by state (or country if no state)
+    const groups: Record<string, { lat: number; lng: number; crsList: any[]; label: string; stateCode: string; countryCode: string; state: string }> = {};
+    filtered.forEach((crs: any) => {
+      const key = crs.stateCode ? `${crs.countryCode}-${crs.stateCode}` : crs.countryCode;
+      if (!groups[key]) {
+        let lat = 0, lng = 0, label = "";
+        if (crs.stateCode) {
+          const states = getStatesForCountry(crs.countryCode);
+          const st = states.find(s => s.code === crs.stateCode);
+          lat = st?.lat ?? getCountryByCode(crs.countryCode)?.lat ?? 0;
+          lng = st?.lng ?? getCountryByCode(crs.countryCode)?.lng ?? 0;
+          label = st?.name ?? crs.state ?? crs.stateCode;
+        } else {
+          const country = getCountryByCode(crs.countryCode);
+          lat = country?.lat ?? 0;
+          lng = country?.lng ?? 0;
+          label = country?.name ?? crs.countryCode;
+        }
+        groups[key] = { lat, lng, crsList: [], label, stateCode: crs.stateCode ?? "", countryCode: crs.countryCode, state: crs.state ?? crs.stateCode ?? "" };
+      }
+      groups[key].crsList.push(crs);
+    });
+    Object.values(groups).forEach((group) => {
+      if (!group.lat && !group.lng) return;
+      const count = group.crsList.length;
       const pin = document.createElement("div");
-      pin.style.cssText = `width:22px;height:22px;border-radius:50% 50% 50% 0;background:${crs.color ?? "#1561ad"};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;transform:rotate(-45deg);`;
-      const marker = new google.maps.marker.AdvancedMarkerElement({ map, position: { lat, lng }, title: crs.name, content: pin });
-      marker.addListener("click", () => { setSelectedMapCrs(crs); map.panTo({ lat, lng }); map.setZoom(5); });
+      pin.style.cssText = `min-width:32px;height:32px;border-radius:16px;background:#1561ad;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;padding:0 8px;gap:4px;`;
+      pin.innerHTML = `<span>${count}</span>`;
+      const marker = new google.maps.marker.AdvancedMarkerElement({ map, position: { lat: group.lat, lng: group.lng }, title: group.label, content: pin });
+      marker.addListener("click", () => {
+        if (count === 1) {
+          setSelectedMapCrs(group.crsList[0]);
+          setSelectedStateGroup(null);
+        } else {
+          setSelectedStateGroup({ state: group.label, stateCode: group.stateCode, countryCode: group.countryCode, crsList: group.crsList });
+          setSelectedMapCrs(null);
+        }
+        map.panTo({ lat: group.lat, lng: group.lng });
+        map.setZoom(group.stateCode ? 6 : 4);
+      });
       markersRef.current.push(marker);
     });
   }
+  function initMapMarkers(map: google.maps.Map) {
+    mapRef.current = map;
+    buildMapMarkers(map, allCrs, mapFilterCountry, mapFilterState);
+  }
+  // Rebuild markers when filters change
+  useEffect(() => {
+    if (mapRef.current) buildMapMarkers(mapRef.current, allCrs, mapFilterCountry, mapFilterState);
+  }, [mapFilterCountry, mapFilterState, allCrs]);
 
   return (
     <AppLayout title="Dashboard">
@@ -576,45 +629,91 @@ export default function Dashboard() {
 
         {/* ── World Map ── */}
         <div className="bg-card border border-border rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <span className="text-base">🌍</span>
-            Mapa de CRS por Localização
-          </h3>
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <span className="text-base">🌍</span>
+              Mapa de CRS por Localização
+            </h3>
+            {/* Filtros de país e estado */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={mapFilterCountry} onValueChange={(v) => { setMapFilterCountry(v); setMapFilterState("all"); }}>
+                <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="Todos os países" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os países</SelectItem>
+                  {Array.from(new Set(allCrs.filter((c: any) => c.countryCode).map((c: any) => c.countryCode))).map((code: any) => {
+                    const country = getCountryByCode(code);
+                    return <SelectItem key={code} value={code}>{country?.flag ?? ""} {country?.name ?? code}</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+              {mapFilterCountry !== "all" && getStatesForCountry(mapFilterCountry).length > 0 && (
+                <Select value={mapFilterState} onValueChange={setMapFilterState}>
+                  <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="Todos os estados" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os estados</SelectItem>
+                    {getStatesForCountry(mapFilterCountry)
+                      .filter(st => allCrs.some((c: any) => c.countryCode === mapFilterCountry && c.stateCode === st.code))
+                      .map((st) => <SelectItem key={st.code} value={st.code}>{st.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
           <div className="relative">
-            <div className="rounded-xl overflow-hidden" style={{ height: 340 }}>
+            <div className="rounded-xl overflow-hidden" style={{ height: 380 }}>
               <MapView initialCenter={{ lat: 10, lng: 0 }} initialZoom={2} onMapReady={initMapMarkers} />
             </div>
+            {/* Popup de CRS individual */}
             {selectedMapCrs && (
-              <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-52 z-10">
+              <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-56 z-10">
                 <button className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedMapCrs(null)}>✕</button>
                 <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.color ?? "#1561ad" }} />
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.clientColor ?? "#1561ad" }} />
                   <p className="text-sm font-semibold truncate pr-4">{selectedMapCrs.name}</p>
                 </div>
+                {selectedMapCrs.code && <p className="text-xs font-mono text-blue-500 mb-1">{selectedMapCrs.code}</p>}
                 {selectedMapCrs.clientName && <p className="text-xs text-muted-foreground">Cliente: {selectedMapCrs.clientName}</p>}
-                {selectedMapCrs.country && (
+                {selectedMapCrs.countryCode && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {getCountryByCode(selectedMapCrs.country)?.flag ?? ""} {getCountryByCode(selectedMapCrs.country)?.name ?? selectedMapCrs.country}
+                    {getCountryByCode(selectedMapCrs.countryCode)?.flag ?? ""} {getCountryByCode(selectedMapCrs.countryCode)?.name ?? selectedMapCrs.countryCode}
                     {selectedMapCrs.state ? ` — ${selectedMapCrs.state}` : ""}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-1 pt-1 border-t border-border">{selectedMapCrs.taskCount ?? 0} tarefas</p>
+                {selectedMapCrs.tipoObra && <p className="text-xs text-muted-foreground mt-0.5">Tipo: {TIPO_OBRA_MAP[selectedMapCrs.tipoObra] ?? selectedMapCrs.tipoObra}</p>}
+                {selectedMapCrs.extensaoKm != null && <p className="text-xs text-muted-foreground">Extensão: {selectedMapCrs.extensaoKm} km</p>}
+                {selectedMapCrs.areaHa != null && <p className="text-xs text-muted-foreground">Área: {selectedMapCrs.areaHa} ha</p>}
+                {selectedMapCrs.perimetroUrbano != null && <p className="text-xs text-muted-foreground">Perím. urbanos: {selectedMapCrs.perimetroUrbano}</p>}
+                <div className="mt-1.5 pt-1.5 border-t border-border flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{Math.round(selectedMapCrs.progress ?? 0)}% concluído</span>
+                  <button className="text-xs text-blue-500 hover:underline" onClick={() => navigate(`/kanban?crs=${selectedMapCrs.id}`)}>Ver Kanban →</button>
+                </div>
+              </div>
+            )}
+            {/* Popup de grupo de estado */}
+            {selectedStateGroup && (
+              <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-64 z-10">
+                <button className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedStateGroup(null)}>✕</button>
+                <p className="text-sm font-semibold mb-2 pr-4">
+                  {getCountryByCode(selectedStateGroup.countryCode)?.flag ?? ""} {selectedStateGroup.state}
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">({selectedStateGroup.crsList.length} contratos)</span>
+                </p>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                  {selectedStateGroup.crsList.map((crs: any) => (
+                    <button key={crs.id} onClick={() => { setSelectedMapCrs(crs); setSelectedStateGroup(null); }}
+                      className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary/60 transition-colors">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{crs.name}</p>
+                        {crs.code && <p className="text-xs text-muted-foreground font-mono">{crs.code}</p>}
+                      </div>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{Math.round(crs.progress ?? 0)}%</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-          {allCrs.filter((c: any) => c.country).length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {allCrs.filter((c: any) => c.country).slice(0, 10).map((crs: any) => (
-                <button key={crs.id} onClick={() => {
-                  const country = getCountryByCode(crs.country);
-                  if (country && mapRef.current) { mapRef.current.panTo({ lat: country.lat, lng: country.lng }); mapRef.current.setZoom(5); setSelectedMapCrs(crs); }
-                }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-border hover:bg-secondary/60 transition-colors">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: crs.color ?? "#1561ad" }} />
-                  {getCountryByCode(crs.country)?.flag ?? ""} {crs.name}
-                </button>
-              ))}
-            </div>
-          ) : (
+          {allCrs.filter((c: any) => c.countryCode).length === 0 && (
             <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos CRS para visualizá-los no mapa</p>
           )}
         </div>
