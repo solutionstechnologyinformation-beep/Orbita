@@ -189,8 +189,28 @@ function DisciplineColumn({
   onAddTask: (disciplineId: number, disciplineName: string) => void;
   onEdit: (t: any) => void; onDelete: (id: number) => void; onNavigate: (id: number) => void;
 }) {
-  const done = tasks.filter((t) => t.progress >= 100).length;
-  const colPct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+  // Progresso da coluna = média ponderada dos itens de checklist de todas as tarefas
+  // Cada tarefa contribui com (itens concluídos / total de itens) ou progress se não tiver checklist
+  const colPct = (() => {
+    if (!tasks.length) return 0;
+    let totalWeight = 0;
+    let totalDone = 0;
+    for (const t of tasks) {
+      const cl: any[] = t.checklistItems ?? [];
+      if (cl.length > 0) {
+        // Cada item do checklist vale (1 / totalItems) da tarefa
+        // Cada item concluído (status === 'published') vale 1 ponto
+        const itemsDone = cl.filter((i: any) => i.status === "published").length;
+        totalWeight += cl.length;
+        totalDone += itemsDone;
+      } else {
+        // Sem checklist: usa o campo progress (0-100) como 1 item
+        totalWeight += 100;
+        totalDone += Math.min(100, t.progress ?? 0);
+      }
+    }
+    return totalWeight > 0 ? Math.round((totalDone / totalWeight) * 100) : 0;
+  })();
 
   return (
     <div className="flex flex-col min-w-[280px] max-w-[320px] bg-secondary/30 rounded-2xl border border-border overflow-hidden">

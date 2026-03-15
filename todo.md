@@ -550,3 +550,15 @@
 - [x] Status somente nos itens de checklist (published/pending)
 - [x] Dashboard: KPI "Checklist Concluído" com dados dinâmicos reais dos itens de checklist
 - [x] Dashboard: donut chart atualizado (pendente, em andamento, concluído)
+
+## Melhorias v5.0 — Relatórios, Tipos de Obra Múltiplos, KPIs e Progresso
+- [x] CRS: campo tipoObra como seleção múltipla (array JSON) — pode ter implantação + restauração no mesmo CRS
+- [x] Backend: schema, db.ts e routers atualizados para tipoObra como array JSON
+- [x] Projects.tsx: checkboxes para seleção múltipla de tipos de obra (criação e edição)
+- [x] Dashboard: KPIs de extensão total (km), área total (ha) e perímetros urbanos totais
+- [x] Dashboard: pins coloridos corretamente com tipoObra como array JSON
+- [x] Dashboard PDF: captura do mapa com html2canvas incluida no relatório
+- [x] Gantt PDF: gráfico real HTML com barras de atividades, colunas de mês e semanas
+- [x] Sprint PDF: gráfico burndown SVG substituí a tabela de dados no relatório
+- [x] Kanban: progresso da coluna de disciplina calculado por itens de checklist (concluídos/total) em vez de tarefas com progress>=100
+- [x] Fix: import duplicado do React no Dashboard.tsx removido

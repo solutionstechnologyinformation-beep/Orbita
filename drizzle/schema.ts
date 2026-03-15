@@ -56,7 +56,7 @@ export const crs = mysqlTable("crs", {
   status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
   progress: float("progress").default(0).notNull(),    // 0-100, calculado automaticamente
   // ── Dados técnicos da obra ──────────────────────────────────────────────────
-  tipoObra: mysqlEnum("tipoObra", ["implementacao", "restauracao", "aumento_capacidade", "levantamento", "outro"]),
+  tipoObra: text("tipoObra"),  // JSON array: ["implementacao","restauracao",...] — múltiplos tipos por CRS
   extensaoKm: float("extensaoKm"),          // extensão em km (para rodovias/ferrovias)
   areaHa: float("areaHa"),                  // área em hectares
   perimetroUrbano: int("perimetroUrbano"),   // quantidade de perímetros urbanos

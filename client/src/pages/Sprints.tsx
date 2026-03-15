@@ -252,17 +252,45 @@ export default function Sprints() {
     }
   </section>
 
-  ${burndownRows ? `<section>
-    <h3>Burndown — Dados</h3>
-    <table>
-      <thead><tr>
-        <th>Data</th>
-        <th style="text-align:center">Tarefas Restantes</th>
-        <th style="text-align:center">Linha Ideal</th>
-      </tr></thead>
-      <tbody>${burndownRows}</tbody>
-    </table>
-  </section>` : ""}
+  ${burndown?.dataPoints?.length > 0 ? (() => {
+        const pts = burndown.dataPoints;
+        const maxY = Math.max(...pts.map((p: any) => Math.max(p.remaining ?? 0, p.ideal ?? 0)), 1);
+        const svgW = 680; const svgH = 220;
+        const padL = 40; const padR = 20; const padT = 20; const padB = 40;
+        const chartW = svgW - padL - padR;
+        const chartH = svgH - padT - padB;
+        const n = pts.length;
+        const xStep = n > 1 ? chartW / (n - 1) : chartW;
+        const yScale = (v: number) => chartH - (v / maxY) * chartH;
+        const remainingPath = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${padL + i * xStep},${padT + yScale(p.remaining ?? 0)}`).join(' ');
+        const idealPath = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${padL + i * xStep},${padT + yScale(p.ideal ?? 0)}`).join(' ');
+        const xLabels = pts.filter((_: any, i: number) => n <= 14 || i % Math.ceil(n / 10) === 0).map((p: any, _: number, arr: any[]) => {
+          const origIdx = pts.indexOf(p);
+          const [y2, m2, d2] = p.date.split('-');
+          return `<text x="${padL + origIdx * xStep}" y="${svgH - 8}" text-anchor="middle" font-size="9" fill="#64748b">${d2}/${m2}</text>`;
+        }).join('');
+        const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => {
+          const v = Math.round(maxY * f);
+          return `<text x="${padL - 6}" y="${padT + yScale(v) + 4}" text-anchor="end" font-size="9" fill="#64748b">${v}</text><line x1="${padL}" y1="${padT + yScale(v)}" x2="${padL + chartW}" y2="${padT + yScale(v)}" stroke="#f0f0f0" stroke-width="1"/>`;
+        }).join('');
+        return `<section>
+    <h3>Burndown Chart</h3>
+    <svg width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
+      ${yLabels}
+      <path d="${idealPath}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4"/>
+      <path d="${remainingPath}" fill="none" stroke="#6366f1" stroke-width="2.5"/>
+      ${pts.map((p: any, i: number) => `<circle cx="${padL + i * xStep}" cy="${padT + yScale(p.remaining ?? 0)}" r="3" fill="#6366f1"/>`).join('')}
+      ${xLabels}
+      <text x="${padL + chartW / 2}" y="${svgH}" text-anchor="middle" font-size="10" fill="#94a3b8">Data</text>
+      <text x="14" y="${padT + chartH / 2}" text-anchor="middle" font-size="10" fill="#94a3b8" transform="rotate(-90 14 ${padT + chartH / 2})">Tarefas</text>
+      <rect x="${padL + chartW - 160}" y="${padT}" width="155" height="38" fill="white" stroke="#e2e8f0" rx="4"/>
+      <line x1="${padL + chartW - 152}" y1="${padT + 12}" x2="${padL + chartW - 132}" y2="${padT + 12}" stroke="#6366f1" stroke-width="2.5"/>
+      <text x="${padL + chartW - 126}" y="${padT + 16}" font-size="10" fill="#1e293b">Tarefas Restantes</text>
+      <line x1="${padL + chartW - 152}" y1="${padT + 28}" x2="${padL + chartW - 132}" y2="${padT + 28}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4"/>
+      <text x="${padL + chartW - 126}" y="${padT + 32}" font-size="10" fill="#1e293b">Linha Ideal</text>
+    </svg>
+  </section>`;
+      })() : ''}
 
   <div style="margin-top:32px;padding:12px 24px;background:#1561ad;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
     <span style="font-size:13px;font-weight:700;color:#ffffff;">Orbita</span>

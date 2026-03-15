@@ -12,12 +12,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Plus, Search, Layers, Globe, MapPin, ArchiveRestore,
   Archive, Trash2, ExternalLink, FolderOpen, Filter, Calendar,
 } from "lucide-react";
 import { COUNTRIES, getStatesForCountry } from "@/lib/geoData";
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const TIPO_OBRA_OPTIONS = [
+  { key: "implementacao", label: "Implementação" },
+  { key: "restauracao", label: "Restauração" },
+  { key: "aumento_capacidade", label: "Aumento de Capacidade" },
+  { key: "levantamento", label: "Levantamento" },
+  { key: "outro", label: "Outro" },
+] as const;
+
+type TipoObraKey = typeof TIPO_OBRA_OPTIONS[number]["key"];
+
+/** Parseia o campo tipoObra que pode ser string JSON, string simples ou null */
+function parseTipoObra(raw: string | null | undefined): TipoObraKey[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as TipoObraKey[];
+    return [parsed as TipoObraKey];
+  } catch {
+    return [raw as TipoObraKey];
+  }
+}
+
+function formatTipoObra(keys: TipoObraKey[]): string {
+  if (keys.length === 0) return "—";
+  return keys.map(k => TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k).join(", ");
+}
 
 type CrsItem = {
   id: number; clientId: number; name: string; code?: string | null;
@@ -29,16 +58,12 @@ type CrsItem = {
 };
 type Client = { id: number; name: string; color?: string | null };
 
-
-
-const TIPO_OBRA_LABELS: Record<string, string> = {
-  implementacao: "Implementação",
-  restauracao: "Restauração",
-  aumento_capacidade: "Aumento de Capacidade",
-  levantamento: "Levantamento",
-  outro: "Outro",
+const emptyForm = {
+  clientId: "", name: "", code: "", description: "",
+  country: "", countryCode: "", state: "", stateCode: "",
+  tiposObra: [] as TipoObraKey[],
+  extensaoKm: "", areaHa: "", perimetroUrbano: "",
 };
-const emptyForm = { clientId: "", name: "", code: "", description: "", country: "", countryCode: "", state: "", stateCode: "", tipoObra: "", extensaoKm: "", areaHa: "", perimetroUrbano: "" };
 
 export default function Projects() {
   const { user } = useAuth();
@@ -84,7 +109,7 @@ export default function Projects() {
       code: form.code.trim() || undefined, description: form.description.trim() || undefined,
       country: form.country || undefined, countryCode: form.countryCode || undefined,
       state: form.state.trim() || undefined, stateCode: form.stateCode.trim() || undefined,
-      tipoObra: (form.tipoObra as any) || undefined,
+      tipoObra: form.tiposObra.length > 0 ? form.tiposObra : undefined,
       extensaoKm: form.extensaoKm ? parseFloat(form.extensaoKm) : undefined,
       areaHa: form.areaHa ? parseFloat(form.areaHa) : undefined,
       perimetroUrbano: form.perimetroUrbano ? parseInt(form.perimetroUrbano) : undefined,
@@ -98,7 +123,7 @@ export default function Projects() {
       code: form.code.trim() || undefined, description: form.description.trim() || undefined,
       country: form.country || undefined, countryCode: form.countryCode || undefined,
       state: form.state.trim() || undefined, stateCode: form.stateCode.trim() || undefined,
-      tipoObra: (form.tipoObra as any) || null,
+      tipoObra: form.tiposObra.length > 0 ? form.tiposObra : null,
       extensaoKm: form.extensaoKm ? parseFloat(form.extensaoKm) : null,
       areaHa: form.areaHa ? parseFloat(form.areaHa) : null,
       perimetroUrbano: form.perimetroUrbano ? parseInt(form.perimetroUrbano) : null,
@@ -107,12 +132,29 @@ export default function Projects() {
 
   function openEdit(crs: CrsItem) {
     setEditingCrs(crs);
-    setForm({ clientId: String(crs.clientId), name: crs.name, code: crs.code ?? "", description: crs.description ?? "", country: crs.country ?? "", countryCode: crs.countryCode ?? "", state: crs.state ?? "", stateCode: crs.stateCode ?? "", tipoObra: crs.tipoObra ?? "", extensaoKm: crs.extensaoKm != null ? String(crs.extensaoKm) : "", areaHa: crs.areaHa != null ? String(crs.areaHa) : "", perimetroUrbano: crs.perimetroUrbano != null ? String(crs.perimetroUrbano) : "" });
+    setForm({
+      clientId: String(crs.clientId), name: crs.name, code: crs.code ?? "",
+      description: crs.description ?? "", country: crs.country ?? "",
+      countryCode: crs.countryCode ?? "", state: crs.state ?? "", stateCode: crs.stateCode ?? "",
+      tiposObra: parseTipoObra(crs.tipoObra),
+      extensaoKm: crs.extensaoKm != null ? String(crs.extensaoKm) : "",
+      areaHa: crs.areaHa != null ? String(crs.areaHa) : "",
+      perimetroUrbano: crs.perimetroUrbano != null ? String(crs.perimetroUrbano) : "",
+    });
   }
 
   function handleCountryChange(code: string) {
     const country = COUNTRIES.find((c) => c.code === code);
     setForm((f) => ({ ...f, countryCode: code, country: country?.name ?? "", state: "", stateCode: "" }));
+  }
+
+  function toggleTipoObra(key: TipoObraKey) {
+    setForm((f) => ({
+      ...f,
+      tiposObra: f.tiposObra.includes(key)
+        ? f.tiposObra.filter(k => k !== key)
+        : [...f.tiposObra, key],
+    }));
   }
 
   const allCrs: CrsItem[] = filterStatus === "archived" ? (archivedQ.data ?? []) : (crsQ.data ?? []);
@@ -122,6 +164,43 @@ export default function Projects() {
     return matchSearch && matchClient;
   });
   const clients: Client[] = clientsQ.data ?? [];
+
+  // ── Shared form fields ───────────────────────────────────────────────────
+  function TipoObraCheckboxes() {
+    return (
+      <div>
+        <Label>Tipo(s) de Obra</Label>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {TIPO_OBRA_OPTIONS.map(({ key, label }) => (
+            <div key={key} className="flex items-center gap-2">
+              <Checkbox
+                id={`tipo-${key}`}
+                checked={form.tiposObra.includes(key)}
+                onCheckedChange={() => toggleTipoObra(key)}
+              />
+              <label htmlFor={`tipo-${key}`} className="text-sm cursor-pointer select-none">{label}</label>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function TechnicalFields() {
+    return (
+      <div className="border-t border-border pt-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
+        <div className="space-y-3">
+          <TipoObraCheckboxes />
+          <div className="grid grid-cols-3 gap-3">
+            <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
+            <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.01" placeholder="Ex: 120.0" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
+            <div><Label>Perím. Urbanos</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AppLayout>
@@ -203,91 +282,112 @@ export default function Projects() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((crs) => (
-              <Card key={crs.id} className="border-border hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      {crs.clientName && (
-                        <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 font-medium"
-                          style={{ backgroundColor: (crs.clientColor ?? "#1561ad") + "20", color: crs.clientColor ?? "#1561ad" }}>
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
-                          {crs.clientName}
-                        </div>
-                      )}
-                      <h3 className="font-semibold text-foreground truncate">{crs.name}</h3>
-                      {crs.code && <p className="text-xs text-muted-foreground mt-0.5">#{crs.code}</p>}
-                    </div>
-                    {crs.status === "archived" && <Badge variant="secondary" className="text-xs shrink-0">Arquivado</Badge>}
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  {(crs.country || crs.state) && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
-                      <MapPin className="w-3 h-3" />
-                      <span>{[crs.state, crs.country].filter(Boolean).join(", ")}</span>
-                    </div>
-                  )}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                      <span>Progresso</span><span className="font-medium">{crs.progress}%</span>
-                    </div>
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#1561ad" }} />
-                    </div>
-                  </div>
-                  {crs.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{crs.description}</p>}
-                  {/* Datas derivadas do checklist */}
-                  {(crs.derivedStartDate || crs.derivedEndDate) && (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 bg-muted/50 rounded-md px-2 py-1.5">
-                      <Calendar className="w-3 h-3 shrink-0" />
-                      {crs.derivedStartDate && (
-                        <span><span className="font-medium text-foreground/70">Início:</span> {new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</span>
-                      )}
-                      {crs.derivedStartDate && crs.derivedEndDate && <span className="text-muted-foreground/40">•</span>}
-                      {crs.derivedEndDate && (
-                        <span><span className="font-medium text-foreground/70">Entrega:</span> {new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</span>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    {crs.status !== "archived" && (
-                      <Link href={`/kanban?crs=${crs.id}`} className="flex-1">
-                        <Button variant="default" size="sm" className="w-full gap-1.5 text-xs">
-                          <ExternalLink className="w-3.5 h-3.5" /> Abrir Kanban
-                        </Button>
-                      </Link>
-                    )}
-                    {isAdmin && (
-                      <>
-                        <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(crs)}>Editar</Button>
-                        {crs.status !== "archived" ? (
-                          <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => archiveMut.mutate({ id: crs.id })}>
-                            <Archive className="w-3.5 h-3.5" />
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => restoreMut.mutate({ id: crs.id })}>
-                            <ArchiveRestore className="w-3.5 h-3.5" />
-                          </Button>
+            {filtered.map((crs) => {
+              const tipos = parseTipoObra(crs.tipoObra);
+              return (
+                <Card key={crs.id} className="border-border hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        {crs.clientName && (
+                          <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 font-medium"
+                            style={{ backgroundColor: (crs.clientColor ?? "#1561ad") + "20", color: crs.clientColor ?? "#1561ad" }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
+                            {crs.clientName}
+                          </div>
                         )}
-                        <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10"
-                          onClick={() => { if (confirm(`Excluir "${crs.name}"? Esta ação não pode ser desfeita.`)) deleteMut.mutate({ id: crs.id }); }}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </>
+                        <h3 className="font-semibold text-foreground truncate">{crs.name}</h3>
+                        {crs.code && <p className="text-xs text-muted-foreground mt-0.5">#{crs.code}</p>}
+                      </div>
+                      {crs.status === "archived" && <Badge variant="secondary" className="text-xs shrink-0">Arquivado</Badge>}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {(crs.country || crs.state) && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                        <MapPin className="w-3 h-3" />
+                        <span>{[crs.state, crs.country].filter(Boolean).join(", ")}</span>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    {/* Tipos de obra */}
+                    {tipos.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {tipos.map(k => (
+                          <span key={k} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                            {TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Dados técnicos inline */}
+                    {(crs.extensaoKm != null || crs.areaHa != null || crs.perimetroUrbano != null) && (
+                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
+                        {crs.extensaoKm != null && <span><span className="font-medium text-foreground/70">Ext:</span> {crs.extensaoKm} km</span>}
+                        {crs.areaHa != null && <span><span className="font-medium text-foreground/70">Área:</span> {crs.areaHa} ha</span>}
+                        {crs.perimetroUrbano != null && <span><span className="font-medium text-foreground/70">Perím.:</span> {crs.perimetroUrbano}</span>}
+                      </div>
+                    )}
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span>Progresso</span><span className="font-medium">{crs.progress}%</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all"
+                          style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#1561ad" }} />
+                      </div>
+                    </div>
+                    {crs.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{crs.description}</p>}
+                    {/* Datas derivadas do checklist */}
+                    {(crs.derivedStartDate || crs.derivedEndDate) && (
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2 bg-muted/50 rounded-md px-2 py-1.5">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        {crs.derivedStartDate && (
+                          <span><span className="font-medium text-foreground/70">Início:</span> {new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</span>
+                        )}
+                        {crs.derivedStartDate && crs.derivedEndDate && <span className="text-muted-foreground/40">•</span>}
+                        {crs.derivedEndDate && (
+                          <span><span className="font-medium text-foreground/70">Entrega:</span> {new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      {crs.status !== "archived" && (
+                        <Link href={`/kanban?crs=${crs.id}`} className="flex-1">
+                          <Button variant="default" size="sm" className="w-full gap-1.5 text-xs">
+                            <ExternalLink className="w-3.5 h-3.5" /> Abrir Kanban
+                          </Button>
+                        </Link>
+                      )}
+                      {isAdmin && (
+                        <>
+                          <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(crs)}>Editar</Button>
+                          {crs.status !== "archived" ? (
+                            <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => archiveMut.mutate({ id: crs.id })}>
+                              <Archive className="w-3.5 h-3.5" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => restoreMut.mutate({ id: crs.id })}>
+                              <ArchiveRestore className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10"
+                            onClick={() => { if (confirm(`Excluir "${crs.name}"? Esta ação não pode ser desfeita.`)) deleteMut.mutate({ id: crs.id }); }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Novo CRS</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -325,25 +425,7 @@ export default function Projects() {
                 )}
               </div>
             </div>
-            {/* Dados técnicos da obra */}
-            <div className="border-t border-border pt-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Tipo de Obra</Label>
-                  <Select value={form.tipoObra} onValueChange={(v) => setForm((f) => ({ ...f, tipoObra: v === "_none" ? "" : v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">Não informado</SelectItem>
-                      {Object.entries(TIPO_OBRA_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Perímetros Urbanos (qtd)</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
-                <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
-                <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.01" placeholder="Ex: 120.0" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
-              </div>
-            </div>
+            <TechnicalFields />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
@@ -354,7 +436,7 @@ export default function Projects() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingCrs} onOpenChange={(o) => !o && setEditingCrs(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Editar CRS</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
@@ -385,25 +467,7 @@ export default function Projects() {
                 )}
               </div>
             </div>
-            {/* Dados técnicos da obra */}
-            <div className="border-t border-border pt-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Tipo de Obra</Label>
-                  <Select value={form.tipoObra} onValueChange={(v) => setForm((f) => ({ ...f, tipoObra: v === "_none" ? "" : v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">Não informado</SelectItem>
-                      {Object.entries(TIPO_OBRA_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Perímetros Urbanos (qtd)</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
-                <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
-                <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.01" placeholder="Ex: 120.0" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
-              </div>
-            </div>
+            <TechnicalFields />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingCrs(null)}>Cancelar</Button>

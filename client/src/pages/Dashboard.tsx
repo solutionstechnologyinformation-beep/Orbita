@@ -8,13 +8,14 @@ import {
 } from "recharts";
 import {
   AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp,
-  Layers, Briefcase, FolderKanban, CalendarDays, Zap, FileDown,
+  Layers, Briefcase, FolderKanban, CalendarDays, Zap, FileDown, Ruler, Building2, MapPin,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import html2canvas from "html2canvas";
 import { MapView } from "@/components/Map";
 import { getCountryByCode, COUNTRIES, getStatesForCountry } from "@/lib/geoData";
 
@@ -33,13 +34,19 @@ const TIPO_OBRA_COLOR: Record<string, string> = {
   levantamento: "#6b7280",
   outro: "#0ea5e9",
 };
+function parseTipoObra(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [raw]; } catch { return [raw]; }
+}
 function getPinColor(crsList: any[]): string {
-  if (crsList.length === 1 && crsList[0].tipoObra) {
-    return TIPO_OBRA_COLOR[crsList[0].tipoObra] ?? "#1561ad";
+  const allTypes: string[] = [];
+  for (const c of crsList) {
+    const types = parseTipoObra(c.tipoObra);
+    allTypes.push(...types);
   }
-  // Multiple CRS: check if all same type
-  const types = Array.from(new Set(crsList.map((c: any) => c.tipoObra).filter(Boolean)));
-  if (types.length === 1) return TIPO_OBRA_COLOR[types[0]] ?? "#1561ad";
+  const unique = Array.from(new Set(allTypes.filter(Boolean)));
+  if (unique.length === 1) return TIPO_OBRA_COLOR[unique[0]] ?? "#1561ad";
   return "#1561ad";
 }
 function pct(n: number, total: number) {
@@ -113,14 +120,14 @@ function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: an
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
-// ── Dashboard PDF Export ──────────────────────────────────────────────────────
-function exportDashboardPDF(data: {
+// ── Dashboard PDF Export ──────────────────────────────────────────────────────────────────────────────
+async function exportDashboardPDF(data: {
   stats: any; projects: any[]; sprints: any[]; recentTasks: any[];
   conflicts: any[]; clientCount: number;
   overdueP: number; completedP: number; revisionP: number; onTimeP: number;
+  mapContainerEl?: HTMLElement | null;
 }) {
-  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP } = data;
+  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl } = data;
   const total = stats?.totalTasks ?? 0;
   const now = new Date().toLocaleString("pt-BR");
   const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
@@ -259,12 +266,29 @@ function exportDashboardPDF(data: {
 </body>
 </html>`;
 
+  // Capture map image if container is available
+  let mapImageHtml = "";
+  if (mapContainerEl) {
+    try {
+      const canvas = await html2canvas(mapContainerEl, { useCORS: true, allowTaint: true, scale: 1.5, logging: false });
+      const mapDataUrl = canvas.toDataURL("image/png");
+      mapImageHtml = `<section>
+        <h3>Mapa de CRS por Localização</h3>
+        <img src="${mapDataUrl}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px" alt="Mapa de CRS" />
+      </section>`;
+    } catch (e) {
+      mapImageHtml = `<section><h3>Mapa de CRS por Localização</h3><p style="color:#64748b;font-size:12px">Mapa não disponível na exportação.</p></section>`;
+    }
+  }
+
+  const finalHtml = html.replace("</div>\n\n  <div class=\"footer\"", `${mapImageHtml}\n  </div>\n\n  <div class=\"footer\"`);
+
   const win = window.open("", "_blank");
   if (!win) { toast.error("Popup bloqueado. Permita popups para exportar o PDF."); return; }
-  win.document.write(html);
+  win.document.write(finalHtml);
   win.document.close();
   win.focus();
-  setTimeout(() => win.print(), 500);
+  setTimeout(() => win.print(), 800);
 }
 
 export default function Dashboard() {
@@ -279,6 +303,7 @@ export default function Dashboard() {
   const [selectedStateGroup, setSelectedStateGroup] = useState<{ state: string; stateCode: string; countryCode: string; crsList: any[] } | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<any[]>([]);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
   const statsQ = trpc.dashboard.stats.useQuery();
   // conflictsQ removed - dashboard.conflicts not available
@@ -441,10 +466,10 @@ export default function Dashboard() {
               size="sm"
               className="gap-2"
               disabled={exportingPdf || isLoading}
-              onClick={() => {
+              onClick={async () => {
                 setExportingPdf(true);
                 try {
-                  exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP });
+                  await exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP, mapContainerEl: mapContainerRef.current });
                 } finally {
                   setExportingPdf(false);
                 }
@@ -480,6 +505,53 @@ export default function Dashboard() {
           ))}
         </div>
 
+        {/* ── Dados Técnicos KPIs ── */}
+        {!isLoading && allCrs.some((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano) && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              {
+                label: "Extensão Total",
+                value: allCrs.reduce((s: number, c: any) => s + (Number(c.extensaoKm) || 0), 0).toFixed(1) + " km",
+                icon: Ruler,
+                color: "text-blue-400",
+                bg: "bg-blue-500/10",
+              },
+              {
+                label: "Área Total",
+                value: allCrs.reduce((s: number, c: any) => s + (Number(c.areaHa) || 0), 0).toFixed(1) + " ha",
+                icon: MapPin,
+                color: "text-violet-400",
+                bg: "bg-violet-500/10",
+              },
+              {
+                label: "Perímetros Urbanos",
+                value: allCrs.reduce((s: number, c: any) => s + (Number(c.perimetroUrbano) || 0), 0),
+                icon: Building2,
+                color: "text-orange-400",
+                bg: "bg-orange-500/10",
+              },
+              {
+                label: "CRS com Dados Técnicos",
+                value: allCrs.filter((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano).length + "/" + allCrs.length,
+                icon: FolderKanban,
+                color: "text-emerald-400",
+                bg: "bg-emerald-500/10",
+              },
+            ].map(({ label, value, icon: Icon, color, bg }) => (
+              <div key={label} className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                    <p className="text-2xl font-bold text-foreground">{value}</p>
+                  </div>
+                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
+                    <Icon className={`w-5 h-5 ${color}`} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {/* ── Gauge KPIs ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {isLoading ? (
@@ -672,7 +744,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div className="relative">
+          <div className="relative" ref={mapContainerRef}>
             <div className="rounded-xl overflow-hidden" style={{ height: 380 }}>
               <MapView initialCenter={{ lat: 10, lng: 0 }} initialZoom={2} onMapReady={initMapMarkers} />
             </div>
@@ -708,7 +780,9 @@ export default function Dashboard() {
                     {selectedMapCrs.state ? ` — ${selectedMapCrs.state}` : ""}
                   </p>
                 )}
-                {selectedMapCrs.tipoObra && <p className="text-xs text-muted-foreground mt-0.5">Tipo: {TIPO_OBRA_MAP[selectedMapCrs.tipoObra] ?? selectedMapCrs.tipoObra}</p>}
+                {parseTipoObra(selectedMapCrs.tipoObra).length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Tipo: {parseTipoObra(selectedMapCrs.tipoObra).map((t: string) => TIPO_OBRA_MAP[t] ?? t).join(", ")}</p>
+                )}
                 {selectedMapCrs.extensaoKm != null && <p className="text-xs text-muted-foreground">Extensão: {selectedMapCrs.extensaoKm} km</p>}
                 {selectedMapCrs.areaHa != null && <p className="text-xs text-muted-foreground">Área: {selectedMapCrs.areaHa} ha</p>}
                 {selectedMapCrs.perimetroUrbano != null && <p className="text-xs text-muted-foreground">Perím. urbanos: {selectedMapCrs.perimetroUrbano}</p>}
