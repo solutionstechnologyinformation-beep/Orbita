@@ -1,0 +1,86 @@
+{
+  "query": "SELECT kp.id, kp.crsId, kp.name, kp.color FROM kanban_phases kp ORDER BY kp.crsId, kp.position; SELECT id, name FROM crs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute SELECT kp.id, kp.crsId, kp.name, kp.color FROM kanban_phases kp ORDER BY kp.crsId, kp.position; SELECT id, name FROM crs;",
+  "rows": [
+    {
+      "id": "1",
+      "crsId": "1",
+      "name": "Para Iniciar",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "2",
+      "crsId": "1",
+      "name": "Em Andamento",
+      "color": "#1c77ac"
+    },
+    {
+      "id": "3",
+      "crsId": "1",
+      "name": "Compartilhado",
+      "color": "#1dbab4"
+    },
+    {
+      "id": "4",
+      "crsId": "1",
+      "name": "Publicado",
+      "color": "#22c55e"
+    },
+    {
+      "id": "5",
+      "crsId": "1",
+      "name": "Arquivado",
+      "color": "#6366f1"
+    },
+    {
+      "id": "6",
+      "crsId": "1",
+      "name": "Bloqueado",
+      "color": "#fc5226"
+    },
+    {
+      "id": "7",
+      "crsId": "2",
+      "name": "Para Iniciar",
+      "color": "#94a3b8"
+    },
+    {
+      "id": "8",
+      "crsId": "2",
+      "name": "Em Andamento",
+      "color": "#1c77ac"
+    },
+    {
+      "id": "9",
+      "crsId": "2",
+      "name": "Compartilhado",
+      "color": "#1dbab4"
+    },
+    {
+      "id": "10",
+      "crsId": "2",
+      "name": "Publicado",
+      "color": "#22c55e"
+    },
+    {
+      "id": "11",
+      "crsId": "2",
+      "name": "Arquivado",
+      "color": "#6366f1"
+    },
+    {
+      "id": "12",
+      "crsId": "2",
+      "name": "Bloqueado",
+      "color": "#fc5226"
+    }
+  ],
+  "messages": [
+    "id\tname",
+    "1\tBr-101",
+    "2\t265"
+  ],
+  "stdout": "id\tcrsId\tname\tcolor\n1\t1\tPara Iniciar\t#94a3b8\n2\t1\tEm Andamento\t#1c77ac\n3\t1\tCompartilhado\t#1dbab4\n4\t1\tPublicado\t#22c55e\n5\t1\tArquivado\t#6366f1\n6\t1\tBloqueado\t#fc5226\n7\t2\tPara Iniciar\t#94a3b8\n8\t2\tEm Andamento\t#1c77ac\n9\t2\tCompartilhado\t#1dbab4\n10\t2\tPublicado\t#22c55e\n11\t2\tArquivado\t#6366f1\n12\t2\tBloqueado\t#fc5226\nid\tname\n1\tBr-101\n2\t265\n",
+  "stderr": "",
+  "execution_time_ms": 424
+}

@@ -258,10 +258,10 @@ export default function TaskDetail() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Responsavel</label>
-                  <Select value={editAssigneeId} onValueChange={setEditAssigneeId}>
+                  <Select value={editAssigneeId || "_none"} onValueChange={(v) => setEditAssigneeId(v === "_none" ? "" : v)}>
                     <SelectTrigger><SelectValue placeholder="Sem responsavel" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sem responsavel</SelectItem>
+                      <SelectItem value="_none">Sem responsavel</SelectItem>
                       {usersQ.data?.map((u: any) => (
                         <SelectItem key={u.id} value={String(u.id)}>{u.name ?? u.email}</SelectItem>
                       ))}
@@ -274,10 +274,10 @@ export default function TaskDetail() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Setor/Disciplina</label>
-                  <Select value={editSetor} onValueChange={setEditSetor}>
+                  <Select value={editSetor || "_none"} onValueChange={(v) => setEditSetor(v === "_none" ? "" : v)}>
                     <SelectTrigger><SelectValue placeholder="Sem setor" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sem setor</SelectItem>
+                      <SelectItem value="_none">Sem setor</SelectItem>
                       {disciplinesQ.data?.map((d: any) => (
                         <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
                       ))}

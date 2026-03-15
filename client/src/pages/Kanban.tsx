@@ -19,6 +19,15 @@ import {
   ChevronUp, ListChecks, Pencil, Trash2, FolderKanban,
 } from "lucide-react";
 
+// ── Tipo de Obra config ──────────────────────────────────────────────────────
+const TIPO_OBRA_MAP: Record<string, string> = {
+  implementacao: "Implementação",
+  restauracao: "Restauração",
+  aumento_capacidade: "Aumento de Capacidade",
+  levantamento: "Levantamento",
+  outro: "Outro",
+};
+
 // ── Priority config ────────────────────────────────────────────────────────────
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   low:    { label: "Baixa",    color: "#22c55e", bg: "#22c55e20" },
@@ -260,6 +269,7 @@ export default function Kanban() {
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
+  const [filterPhase, setFilterPhase] = useState("all");
   // Discipline visibility filter: set of discipline names to HIDE (empty = show all)
   const [hiddenDisciplines, setHiddenDisciplines] = useState<Set<string>>(new Set());
   function toggleDiscipline(name: string) {
@@ -332,9 +342,10 @@ export default function Kanban() {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterAssignee !== "all" && String(t.assigneeId) !== filterAssignee) return false;
+      if (filterPhase !== "all" && String(t.phaseId) !== filterPhase) return false;
       return true;
     });
-  }, [allTasks, search, filterPriority, filterAssignee]);
+  }, [allTasks, search, filterPriority, filterAssignee, filterPhase]);
 
   // Group tasks by discipline (setor)
   const tasksByDiscipline = useMemo(() => {
@@ -473,7 +484,32 @@ export default function Kanban() {
               </SelectContent>
             </Select>
 
+            {phases.length > 0 && (
+              <Select value={filterPhase} onValueChange={setFilterPhase}>
+                <SelectTrigger className="w-40 h-8 text-sm">
+                  <Layers className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                  <SelectValue placeholder="Fase" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as fases</SelectItem>
+                  {phases.map((ph: any) => (
+                    <SelectItem key={ph.id} value={String(ph.id)}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: ph.color }} />
+                        {ph.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             <div className="ml-auto flex items-center gap-2">
+              {selectedCrs?.tipoObra && (
+                <span className="text-xs px-2 py-1 rounded-full border border-border text-muted-foreground">
+                  {TIPO_OBRA_MAP[selectedCrs.tipoObra] ?? selectedCrs.tipoObra}
+                </span>
+              )}
               {isAdmin && effectiveCrsId && (
                 <Button size="sm" onClick={() => {
                   setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "", phaseId: phases[0]?.id ? String(phases[0].id) : "" });
@@ -611,10 +647,10 @@ export default function Kanban() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Disciplina</Label>
-                <Select value={taskForm.setor} onValueChange={(v) => setTaskForm((f) => ({ ...f, setor: v }))}>
+                <Select value={taskForm.setor || "_none"} onValueChange={(v) => setTaskForm((f) => ({ ...f, setor: v === "_none" ? "" : v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem disciplina</SelectItem>
+                    <SelectItem value="_none">Sem disciplina</SelectItem>
                     {disciplines.map((d: any) => (
                       <SelectItem key={d.id} value={d.name}>
                         <span className="flex items-center gap-2">
@@ -628,10 +664,10 @@ export default function Kanban() {
               </div>
               <div>
                 <Label>Responsável</Label>
-                <Select value={taskForm.assigneeId} onValueChange={(v) => setTaskForm((f) => ({ ...f, assigneeId: v }))}>
+                <Select value={taskForm.assigneeId || "_none"} onValueChange={(v) => setTaskForm((f) => ({ ...f, assigneeId: v === "_none" ? "" : v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="_none">Nenhum</SelectItem>
                     {members.map((m: any) => <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -696,10 +732,10 @@ export default function Kanban() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Disciplina</Label>
-                <Select value={taskForm.setor} onValueChange={(v) => setTaskForm((f) => ({ ...f, setor: v }))}>
+                <Select value={taskForm.setor || "_none"} onValueChange={(v) => setTaskForm((f) => ({ ...f, setor: v === "_none" ? "" : v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem disciplina</SelectItem>
+                    <SelectItem value="_none">Sem disciplina</SelectItem>
                     {disciplines.map((d: any) => (
                       <SelectItem key={d.id} value={d.name}>
                         <span className="flex items-center gap-2">
@@ -713,10 +749,10 @@ export default function Kanban() {
               </div>
               <div>
                 <Label>Responsável</Label>
-                <Select value={taskForm.assigneeId} onValueChange={(v) => setTaskForm((f) => ({ ...f, assigneeId: v }))}>
+                <Select value={taskForm.assigneeId || "_none"} onValueChange={(v) => setTaskForm((f) => ({ ...f, assigneeId: v === "_none" ? "" : v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="_none">Nenhum</SelectItem>
                     {members.map((m: any) => <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

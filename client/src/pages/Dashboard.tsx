@@ -26,6 +26,22 @@ const TIPO_OBRA_MAP: Record<string, string> = {
   levantamento: "Levantamento",
   outro: "Outro",
 };
+const TIPO_OBRA_COLOR: Record<string, string> = {
+  implementacao: "#1561ad",
+  restauracao: "#f97316",
+  aumento_capacidade: "#8b5cf6",
+  levantamento: "#6b7280",
+  outro: "#0ea5e9",
+};
+function getPinColor(crsList: any[]): string {
+  if (crsList.length === 1 && crsList[0].tipoObra) {
+    return TIPO_OBRA_COLOR[crsList[0].tipoObra] ?? "#1561ad";
+  }
+  // Multiple CRS: check if all same type
+  const types = Array.from(new Set(crsList.map((c: any) => c.tipoObra).filter(Boolean)));
+  if (types.length === 1) return TIPO_OBRA_COLOR[types[0]] ?? "#1561ad";
+  return "#1561ad";
+}
 function pct(n: number, total: number) {
   if (!total) return 0;
   return Math.round((n / total) * 100);
@@ -370,7 +386,8 @@ export default function Dashboard() {
       if (!group.lat && !group.lng) return;
       const count = group.crsList.length;
       const pin = document.createElement("div");
-      pin.style.cssText = `min-width:32px;height:32px;border-radius:16px;background:#1561ad;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;padding:0 8px;gap:4px;`;
+      const pinColor = getPinColor(group.crsList);
+      pin.style.cssText = `min-width:32px;height:32px;border-radius:16px;background:${pinColor};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;padding:0 8px;gap:4px;`;
       pin.innerHTML = `<span>${count}</span>`;
       const marker = new google.maps.marker.AdvancedMarkerElement({ map, position: { lat: group.lat, lng: group.lng }, title: group.label, content: pin });
       marker.addListener("click", () => {
@@ -662,6 +679,22 @@ export default function Dashboard() {
           <div className="relative">
             <div className="rounded-xl overflow-hidden" style={{ height: 380 }}>
               <MapView initialCenter={{ lat: 10, lng: 0 }} initialZoom={2} onMapReady={initMapMarkers} />
+            </div>
+            {/* Legenda de tipos de obra */}
+            <div className="absolute bottom-3 left-3 bg-card/90 backdrop-blur-sm border border-border rounded-xl p-2 shadow-md z-10">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Tipo de Obra</p>
+              <div className="space-y-1">
+                {Object.entries(TIPO_OBRA_MAP).map(([key, label]) => (
+                  <div key={key} className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: TIPO_OBRA_COLOR[key] }} />
+                    <span className="text-[10px] text-foreground/80">{label}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0 bg-[#1561ad]" />
+                  <span className="text-[10px] text-foreground/80">Misto / Sem tipo</span>
+                </div>
+              </div>
             </div>
             {/* Popup de CRS individual */}
             {selectedMapCrs && (

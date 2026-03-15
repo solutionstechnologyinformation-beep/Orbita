@@ -513,3 +513,10 @@
 - [x] Dashboard: pins agrupados por estado com bolinha azul mostrando número de contratos
 - [x] Dashboard: clicar em pin de grupo abre lista de CRS do estado; clicar em CRS individual abre popup com dados técnicos
 - [x] Dashboard: popup de CRS exibe tipo de obra, extensão, área, perímetros urbanos e link para Kanban
+
+## Bug + Sugestões v4.6
+- [x] BUG: Corrigido erro ao criar nova tarefa no Kanban (SelectItem com value="" em Kanban.tsx e TaskDetail.tsx)
+- [x] Dashboard: pins coloridos por tipo de obra (implementação=azul, restauração=laranja, aumento=roxo, levantamento=cinza, misto=azul)
+- [x] Dashboard: legenda de tipos de obra no canto inferior esquerdo do mapa
+- [x] Kanban: filtro de fase na toolbar (dropdown com fases do CRS selecionado)
+- [x] Kanban: badge de tipo de obra do CRS selecionado exibido na toolbar
