@@ -476,3 +476,7 @@
 - [x] Cadastro de períodos de férias
 - [x] Alerta quando tarefa/item é atribuído a usuário em férias
 - [x] Notificação quando tarefa existente cai em período de férias do responsável
+
+## Bugs v4.1 — Corrigidos
+- [x] Bug: INSERT de clientes falha — colunas description/color/status faltavam na tabela (migração incompleta) — corrigido via ALTER TABLE
+- [x] Bug: Página de Projetos/CRS não abria (estava redirecionando para dashboard) — reescrita como página de listagem de CRS completa com filtros, cards e CRUD
