@@ -68,10 +68,11 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { data: unreadCount = 0 } = trpc.notifications.unreadCount.useQuery(undefined, {
+  const { data: notifList = [] } = trpc.notifications.list.useQuery(undefined, {
     refetchInterval: 30000,
     enabled: isAuthenticated,
   });
+  const unreadCount = notifList.filter((n: any) => !n.isRead).length;
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {

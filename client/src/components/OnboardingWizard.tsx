@@ -68,7 +68,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
 
   // Step 2: Generate invite link
   const [inviteRole, setInviteRole] = useState<"member" | "admin" | "viewer">("member");
-  const createInviteMut = trpc.invites.create.useMutation({
+  const createInviteMut = trpc.crs.createInvite.useMutation({
     onSuccess: (data: any) => {
       const link = `${window.location.origin}/join?token=${data.token}`;
       setInviteLink(link);
@@ -96,7 +96,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
 
   function handleGenerateInvite() {
     if (!createdProjectId) return;
-    createInviteMut.mutate({ projectId: createdProjectId, role: inviteRole, origin: window.location.origin });
+    createInviteMut.mutate({ crsId: createdProjectId!, role: inviteRole, origin: window.location.origin });
   }
 
   function handleCopyLink() {

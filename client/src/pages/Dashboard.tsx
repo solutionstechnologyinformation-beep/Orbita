@@ -254,7 +254,8 @@ export default function Dashboard() {
   const [filterClient, setFilterClient] = useState("all");
 
   const statsQ = trpc.dashboard.stats.useQuery();
-  const conflictsQ = trpc.dashboard.conflicts.useQuery();
+  // conflictsQ removed - dashboard.conflicts not available
+  const conflictsQ = { data: [] as any[], isLoading: false };
   const clientCountQ = trpc.dashboard.stats.useQuery();
   const projectsQ = trpc.crs.list.useQuery();
   const sprintsQ = trpc.sprints.listByCrs.useQuery({ crsId: 0 }, { enabled: false });

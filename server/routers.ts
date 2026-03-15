@@ -168,9 +168,27 @@ export const appRouter = router({
         await updateCrs(input.id, { status: "active" });
         return { success: true };
       }),
-    worldMap: protectedProcedure.query(async () => getWorldMapData()),
+     worldMap: protectedProcedure.query(async () => getWorldMapData()),
+    createInvite: adminProcedure
+      .input(z.object({
+        crsId: z.number(),
+        role: z.enum(["admin", "member", "viewer"]).default("member"),
+        origin: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { sql: sqlExpr } = await import("drizzle-orm");
+        const crypto = await import("crypto");
+        const token = crypto.randomBytes(24).toString("hex");
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await db.execute(
+          sqlExpr`INSERT INTO project_invites (crsId, token, role, createdById, expiresAt, createdAt)
+          VALUES (${input.crsId}, ${token}, ${input.role}, ${ctx.user.id}, ${expiresAt}, NOW())
+          ON DUPLICATE KEY UPDATE token = ${token}, expiresAt = ${expiresAt}`
+        );
+        return { token, link: `${input.origin}/join?token=${token}` };
+      }),
   }),
-
   // ─── Kanban Phases ─────────────────────────────────────────────────────────
   kanbanPhases: router({
     list: protectedProcedure
