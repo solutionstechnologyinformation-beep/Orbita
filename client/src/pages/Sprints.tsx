@@ -46,7 +46,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Sprints() {
-  const [projectId, setProjectId] = useState<number | undefined>(undefined);
+  const [crsId, setCrsId] = useState<number | undefined>(undefined);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -59,10 +59,10 @@ export default function Sprints() {
 
   const burndownChartRef = useRef<HTMLDivElement>(null);
 
-  const projectsQ = trpc.projects.list.useQuery();
+  const crsQ = trpc.crs.list.useQuery();
   const sprintsQ = trpc.sprints.list.useQuery(
-    { projectId: projectId! },
-    { enabled: !!projectId }
+    { crsId: crsId! },
+    { enabled: !!crsId }
   );
   const sprintDetailQ = trpc.sprints.get.useQuery(
     { id: selectedSprintId! },
@@ -101,16 +101,16 @@ export default function Sprints() {
   const burndown = burndownQ.data;
 
   function handleCreate() {
-    if (!projectId || !form.name || !form.startDate || !form.endDate) {
+    if (!crsId || !form.name || !form.startDate || !form.endDate) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
     createMut.mutate({
-      projectId,
+      crsId: crsId!,
       name: form.name,
       goal: form.goal || undefined,
-      startDate: new Date(form.startDate).getTime(),
-      endDate: new Date(form.endDate).getTime(),
+      startDate: new Date(new Date(form.startDate).getTime()),
+      endDate: new Date(new Date(form.endDate).getTime()),
     });
   }
 
@@ -126,18 +126,18 @@ export default function Sprints() {
     try {
       const tasks = selectedSprint.tasks ?? [];
       const total = tasks.length;
-      const completed = tasks.filter(t => t.status === "published" || t.status === "archived").length;
-      const inProgress = tasks.filter(t => t.status === "in_progress").length;
-      const blocked = tasks.filter(t => t.status === "blocked").length;
+      const completed = tasks.filter((t: any) => t.status === "published" || t.status === "archived").length;
+      const inProgress = tasks.filter((t: any) => t.status === "in_progress").length;
+      const blocked = tasks.filter((t: any) => t.status === "blocked").length;
       const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-      const projectName = projectsQ.data?.find(p => p.id === projectId)?.name ?? "—";
+      const crsName = crsQ.data?.find((p: any) => p.id === crsId)?.name ?? "—";
       const startDate = new Date(selectedSprint.startDate).toLocaleDateString("pt-BR");
       const endDate = new Date(selectedSprint.endDate).toLocaleDateString("pt-BR");
       const now = new Date().toLocaleString("pt-BR");
 
       // Build burndown table rows
-      const burndownRows = burndown?.dataPoints?.map(pt => {
+      const burndownRows = burndown?.dataPoints?.map((pt: any) => {
         const [y, m, d] = pt.date.split("-");
         return `<tr>
           <td style="padding:4px 8px;border:1px solid #e2e8f0">${d}/${m}/${y}</td>
@@ -147,7 +147,7 @@ export default function Sprints() {
       }).join("") ?? "";
 
       // Build task rows grouped by status
-      const taskRows = tasks.map(t => {
+      const taskRows = tasks.map((t: any) => {
         const color = TASK_STATUS_COLORS[t.status] ?? "#94a3b8";
         const label = TASK_STATUS_LABELS[t.status] ?? t.status;
         return `<tr>
@@ -208,7 +208,7 @@ export default function Sprints() {
 
   <h2>${selectedSprint.name}</h2>
   <div class="meta">
-    Projeto: <strong>${projectName}</strong> &nbsp;|&nbsp;
+    CRS: <strong>${crsName}</strong> &nbsp;|&nbsp;
     Período: <strong>${startDate} – ${endDate}</strong> &nbsp;|&nbsp;
     Status: <strong>${STATUS_LABELS[selectedSprint.status] ?? selectedSprint.status}</strong>
   </div>
@@ -303,19 +303,19 @@ export default function Sprints() {
         </div>
         <div className="flex gap-2">
           <Select
-            value={projectId?.toString() ?? ""}
-            onValueChange={v => { setProjectId(Number(v)); setSelectedSprintId(null); }}
+            value={crsId?.toString() ?? ""}
+            onValueChange={v => { setCrsId(Number(v)); setSelectedSprintId(null); }}
           >
             <SelectTrigger className="w-52">
-              <SelectValue placeholder="Selecione um projeto" />
+              <SelectValue placeholder="Selecione um CRS" />
             </SelectTrigger>
             <SelectContent>
-              {(projectsQ.data ?? []).map(p => (
+              {(crsQ.data ?? []).map((p: any) => (
                 <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {projectId && (
+          {crsId && (
             <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4 mr-1" /> Nova Sprint
             </Button>
@@ -323,7 +323,7 @@ export default function Sprints() {
         </div>
       </div>
 
-      {!projectId ? (
+      {!crsId ? (
         <Card>
           <CardContent className="py-16 text-center text-gray-400">
             <Target className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -344,7 +344,7 @@ export default function Sprints() {
                 </CardContent>
               </Card>
             ) : (
-              sprints.map(sprint => (
+              sprints.map((sprint: any) => (
                 <Card
                   key={sprint.id}
                   className={`cursor-pointer transition-all hover:shadow-md ${selectedSprintId === sprint.id ? "ring-2 ring-indigo-500" : ""}`}
@@ -445,13 +445,13 @@ export default function Sprints() {
                         </div>
                         <div className="bg-green-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-green-700">
-                            {selectedSprint.tasks?.filter(t => t.status === "published" || t.status === "archived").length ?? 0}
+                            {selectedSprint.tasks?.filter((t: any) => t.status === "published" || t.status === "archived").length ?? 0}
                           </p>
                           <p className="text-xs text-gray-500">Concluídas</p>
                         </div>
                         <div className="bg-blue-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-blue-700">
-                            {selectedSprint.tasks?.filter(t => t.status === "in_progress").length ?? 0}
+                            {selectedSprint.tasks?.filter((t: any) => t.status === "in_progress").length ?? 0}
                           </p>
                           <p className="text-xs text-gray-500">Em andamento</p>
                         </div>
@@ -459,7 +459,7 @@ export default function Sprints() {
                           <p className="text-2xl font-bold text-amber-600">
                             {(() => {
                               const total = selectedSprint.tasks?.length ?? 0;
-                              const done = selectedSprint.tasks?.filter(t => t.status === "published" || t.status === "archived").length ?? 0;
+                              const done = selectedSprint.tasks?.filter((t: any) => t.status === "published" || t.status === "archived").length ?? 0;
                               return total > 0 ? `${Math.round((done / total) * 100)}%` : "0%";
                             })()}
                           </p>
@@ -471,7 +471,7 @@ export default function Sprints() {
                       {(selectedSprint.tasks ?? []).length > 0 && (
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium text-gray-700">Tarefas da Sprint</h4>
-                          {(selectedSprint.tasks ?? []).map(task => (
+                          {(selectedSprint.tasks ?? []).map((task: any) => (
                             <div key={task.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
                               <div
                                 className="w-2 h-2 rounded-full flex-shrink-0"

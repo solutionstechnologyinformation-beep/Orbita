@@ -1,185 +1,72 @@
-import AppLayout from "@/components/AppLayout";
 import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
-import {
-  Bell, CheckCheck, Trash2, FolderKanban, ListTodo, MessageSquare,
-  Info, Settings2, ArrowRightLeft, AlertCircle, Clock, UserPlus,
-} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
-import { cn } from "@/lib/utils";
-
-const TYPE_ICONS: Record<string, any> = {
-  task_assigned: UserPlus,
-  task_status_changed: ArrowRightLeft,
-  task_created: ListTodo,
-  task_deleted: AlertCircle,
-  task_comment: MessageSquare,
-  task_due: Clock,
-  project_invite: FolderKanban,
-  project_update: FolderKanban,
-  system: Info,
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  task_assigned: "text-blue-500 bg-blue-500/10",
-  task_status_changed: "text-indigo-500 bg-indigo-500/10",
-  task_created: "text-violet-500 bg-violet-500/10",
-  task_deleted: "text-red-500 bg-red-500/10",
-  task_comment: "text-amber-500 bg-amber-500/10",
-  task_due: "text-orange-500 bg-orange-500/10",
-  project_invite: "text-emerald-500 bg-emerald-500/10",
-  project_update: "text-teal-500 bg-teal-500/10",
-  system: "text-gray-500 bg-gray-500/10",
-};
+import { Badge } from "@/components/ui/badge";
+import { Bell, CheckCheck, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function Notifications() {
-  const utils = trpc.useUtils();
-  const { data: notifications, isLoading } = trpc.notifications.list.useQuery();
+  const { data: notifications, isLoading, refetch } = trpc.notifications.list.useQuery();
+  const markRead = trpc.notifications.markRead.useMutation({ onSuccess: () => refetch() });
+  const markAllRead = trpc.notifications.markAllRead.useMutation({ onSuccess: () => refetch() });
 
-  const markReadMutation = trpc.notifications.markRead.useMutation({
-    onSuccess: () => utils.notifications.list.invalidate(),
-  });
-  const markAllReadMutation = trpc.notifications.markAllRead.useMutation({
-    onSuccess: () => {
-      utils.notifications.list.invalidate();
-      utils.notifications.unreadCount.invalidate();
-      toast.success("Todas marcadas como lidas!");
-    },
-  });
-  const deleteMutation = trpc.notifications.delete.useMutation({
-    onSuccess: () => {
-      utils.notifications.list.invalidate();
-      utils.notifications.unreadCount.invalidate();
-    },
-  });
-
-  const unread = notifications?.filter((n) => !n.isRead) ?? [];
+  const unreadCount = notifications?.filter((n: any) => !n.isRead).length ?? 0;
 
   return (
-    <AppLayout title="Notificações">
-      <div className="max-w-2xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="text-2xl font-bold">Notificações</h2>
-            {unread.length > 0 && (
-              <p className="text-muted-foreground mt-1">
-                {unread.length} não lida{unread.length !== 1 ? "s" : ""}
-              </p>
+    <div className="container max-w-2xl py-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Bell className="h-6 w-6 text-primary" />
+            Notificações
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="ml-2">{unreadCount}</Badge>
             )}
-          </div>
-          <div className="flex gap-2">
-            {unread.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-border"
-                onClick={() => markAllReadMutation.mutate()}
-                disabled={markAllReadMutation.isPending}
-              >
-                <CheckCheck className="w-4 h-4" />
-                Marcar todas como lidas
-              </Button>
-            )}
-            <Link href="/notification-preferences">
-              <Button variant="outline" size="sm" className="gap-2 border-border">
-                <Settings2 className="w-4 h-4" />
-                Preferências
-              </Button>
-            </Link>
-          </div>
+          </h1>
+          <p className="text-muted-foreground mt-1">Suas notificações recentes</p>
         </div>
-
-        {/* List */}
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : !notifications?.length ? (
-          <div className="flex flex-col items-center py-20 text-center">
-            <Bell className="w-16 h-16 text-muted-foreground/20 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma notificação</h3>
-            <p className="text-muted-foreground">Você está em dia com tudo!</p>
-            <Link href="/notification-preferences" className="mt-4">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings2 className="w-4 h-4" />
-                Configurar preferências
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {notifications.map((n) => {
-              const Icon = TYPE_ICONS[n.notificationType ?? "system"] ?? Info;
-              const colorClass = TYPE_COLORS[n.notificationType ?? "system"] ?? TYPE_COLORS.system;
-              return (
-                <div
-                  key={n.id}
-                  className={cn(
-                    "flex items-start gap-4 p-4 rounded-xl border transition-all duration-150 group cursor-pointer",
-                    n.isRead
-                      ? "bg-card border-border"
-                      : "bg-card border-primary/30 shadow-sm shadow-primary/5"
-                  )}
-                  onClick={() => !n.isRead && markReadMutation.mutate({ id: n.id })}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm font-medium", !n.isRead && "text-foreground")}>
-                          {n.title}
-                          {!n.isRead && (
-                            <span className="inline-block w-2 h-2 rounded-full bg-primary ml-2 align-middle" />
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{n.message}</p>
-                        <p className="text-xs text-muted-foreground/60 mt-1">
-                          {new Date(n.createdAt).toLocaleDateString("pt-BR", {
-                            day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive flex-shrink-0"
-                        onClick={(e) => { e.stopPropagation(); deleteMutation.mutate({ id: n.id }); }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                    {n.relatedTaskId && (
-                      <Link
-                        href={`/tasks/${n.relatedTaskId}`}
-                        className="text-xs text-primary hover:underline mt-1 inline-block"
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        Ver tarefa →
-                      </Link>
-                    )}
-                    {n.relatedProjectId && !n.relatedTaskId && (
-                      <Link
-                        href={`/projects/${n.relatedProjectId}/kanban`}
-                        className="text-xs text-primary hover:underline mt-1 inline-block"
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        Ver projeto →
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {unreadCount > 0 && (
+          <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
+            <CheckCheck className="h-4 w-4 mr-2" />
+            Marcar todas como lidas
+          </Button>
         )}
       </div>
-    </AppLayout>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : !notifications?.length ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Bell className="h-12 w-12 mb-4 opacity-30" />
+            <p>Nenhuma notificação</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {notifications.map((n: any) => (
+            <Card key={n.id} className={n.isRead ? "opacity-60" : "border-primary/30 bg-primary/5"}>
+              <CardContent className="flex items-start gap-3 p-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{n.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: ptBR })}
+                  </p>
+                </div>
+                {!n.isRead && (
+                  <Button variant="ghost" size="sm" onClick={() => markRead.mutate({ id: n.id })}>
+                    <CheckCheck className="h-4 w-4" />
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

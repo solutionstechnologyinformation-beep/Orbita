@@ -1,585 +1,405 @@
-import AppLayout from "@/components/AppLayout";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useLocation } from "wouter";
-import { useEffect } from "react";
-import {
-  Shield, Users, FolderKanban, Activity, Crown, User,
-  CheckCircle2, Clock, ListTodo, Briefcase, Plus, Pencil, Trash2, X, Check, BookOpen,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
+import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Plus, Trash2, Edit2, Users, Building2, Layers, Tag, Globe, Archive, RotateCcw } from "lucide-react";
 
-const ACTION_LABELS: Record<string, string> = {
-  created_project: "Criou projeto",
-  updated_project: "Atualizou projeto",
-  deleted_project: "Excluiu projeto",
-  created_task: "Criou tarefa",
-  updated_task: "Atualizou tarefa",
-  deleted_task: "Excluiu tarefa",
-  uploaded_attachment: "Fez upload de anexo",
-  added_comment: "Adicionou comentário",
-};
+const COUNTRIES = [
+  "Brasil","Argentina","Chile","Colombia","Peru","Uruguai","Paraguai","Bolivia","Venezuela","Ecuador",
+  "Estados Unidos","Canada","Mexico","Portugal","Espanha","Franca","Alemanha","Italia","Reino Unido","Holanda",
+  "Angola","Mocambique","Africa do Sul","Nigeria","Kenya","Etiopia","Tanzania","Ghana","Senegal","Costa do Marfim",
+  "China","Japao","India","Coreia do Sul","Indonesia","Malasia","Tailandia","Vietnam","Filipinas","Paquistao",
+  "Australia","Nova Zelandia","Arabia Saudita","Emirados Arabes","Qatar","Kuwait","Bahrein","Oman","Jordania","Egito",
+];
+
+const ROLES = [
+  { value: "user", label: "Usuario" },
+  { value: "leader", label: "Lider" },
+  { value: "admin", label: "Admin" },
+];
 
 export default function Admin() {
-  const { user, isAuthenticated, loading } = useAuth();
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!loading && isAuthenticated && user?.role !== "admin") {
-      navigate("/dashboard");
-    }
-  }, [loading, isAuthenticated, user]);
-
-  const { data: allUsers, isLoading: usersLoading } = trpc.admin.users.useQuery();
-  const { data: allProjects, isLoading: projectsLoading } = trpc.admin.allProjects.useQuery();
-  const { data: logs, isLoading: logsLoading } = trpc.admin.activityLogs.useQuery({ limit: 50, offset: 0 });
-  const utils = trpc.useUtils();
-
-  // Users state
-  const [userDialog, setUserDialog] = useState<{ open: boolean; editing?: any }>({ open: false });
-  const [userForm, setUserForm] = useState({ name: "", email: "", role: "user" as "user" | "admin" });
-
-  const createUserMut = trpc.admin.createUser.useMutation({
-    onSuccess: () => { utils.admin.users.invalidate(); setUserDialog({ open: false }); toast.success("Usuário criado!"); },
-    onError: (e) => toast.error(e.message),
-  });
-  const updateUserRoleMut = trpc.admin.updateUserRole.useMutation({
-    onSuccess: () => { utils.admin.users.invalidate(); toast.success("Papel atualizado!"); },
-    onError: (e) => toast.error(e.message),
-  });
-  const deleteUserMut = trpc.admin.deleteUser.useMutation({
-    onSuccess: () => { utils.admin.users.invalidate(); toast.success("Usuário removido!"); },
-    onError: (e) => toast.error(e.message),
-  });
-
-  function openCreateUser() {
-    setUserForm({ name: "", email: "", role: "user" });
-    setUserDialog({ open: true });
-  }
-  function saveUser() {
-    if (!userForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
-    createUserMut.mutate({ name: userForm.name, email: userForm.email || undefined, role: userForm.role });
-  }
+  const { user } = useAuth();
+  
+  const isAdmin = user?.role === "admin" || user?.role === "master_admin";
 
   // Clients state
-  const { data: clientsList, isLoading: clientsLoading } = trpc.clients.list.useQuery();
-  const [clientDialog, setClientDialog] = useState<{ open: boolean; editing?: any }>({
-    open: false,
-  });
-  const [clientForm, setClientForm] = useState({ name: "", email: "", phone: "", company: "", notes: "" });
+  const [showClientDialog, setShowClientDialog] = useState(false);
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [clientForm, setClientForm] = useState({ name: "", color: "#1561ad", country: "Brasil", notes: "" });
 
-  const createClientMut = trpc.clients.create.useMutation({
-    onSuccess: () => { utils.clients.list.invalidate(); setClientDialog({ open: false }); toast.success("Cliente criado!"); },
-    onError: (e) => toast.error(e.message),
-  });
-  const updateClientMut = trpc.clients.update.useMutation({
-    onSuccess: () => { utils.clients.list.invalidate(); setClientDialog({ open: false }); toast.success("Cliente atualizado!"); },
-    onError: (e) => toast.error(e.message),
-  });
-  const deleteClientMut = trpc.clients.delete.useMutation({
-    onSuccess: () => { utils.clients.list.invalidate(); toast.success("Cliente removido!"); },
-    onError: (e) => toast.error(e.message),
-  });
+  // CRS state
+  const [showCrsDialog, setShowCrsDialog] = useState(false);
+  const [editingCrs, setEditingCrs] = useState<any>(null);
+  const [crsForm, setCrsForm] = useState({ clientId: "", name: "", code: "", country: "Brasil", state: "", description: "" });
+  const [showArchivedCrs, setShowArchivedCrs] = useState(false);
 
-  function openCreate() {
-    setClientForm({ name: "", email: "", phone: "", company: "", notes: "" });
-    setClientDialog({ open: true });
-  }
-  function openEdit(c: any) {
-    setClientForm({ name: c.name ?? "", email: c.email ?? "", phone: c.phone ?? "", company: c.company ?? "", notes: c.notes ?? "" });
-    setClientDialog({ open: true, editing: c });
-  }
   // Disciplines state
-  const { data: disciplinesList, isLoading: disciplinesLoading } = trpc.disciplines.list.useQuery();
-  const [discDialog, setDiscDialog] = useState<{ open: boolean; editing?: any }>({ open: false });
-  const [discForm, setDiscForm] = useState({ name: "", color: "#6366f1", description: "" });
+  const [showDisciplineDialog, setShowDisciplineDialog] = useState(false);
+  const [disciplineForm, setDisciplineForm] = useState({ name: "", color: "#1561ad", description: "" });
 
-  const createDiscMut = trpc.disciplines.create.useMutation({
-    onSuccess: () => { utils.disciplines.list.invalidate(); setDiscDialog({ open: false }); toast.success("Disciplina criada!"); },
-    onError: (e) => toast.error(e.message),
+  // Users state
+  const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
+
+  const clientsQ = trpc.clients.list.useQuery();
+  const crsQ = trpc.crs.list.useQuery();
+  const archivedCrsQ = trpc.crs.listArchived.useQuery(undefined, { enabled: showArchivedCrs });
+  const disciplinesQ = trpc.disciplines.list.useQuery();
+  const usersQ = trpc.users.list.useQuery();
+  const utils = trpc.useUtils();
+
+  // Client mutations
+  const createClientM = trpc.clients.create.useMutation({
+    onSuccess: () => { utils.clients.list.invalidate(); setShowClientDialog(false); setClientForm({ name: "", color: "#1561ad", country: "Brasil", notes: "" }); toast.success("Cliente criado!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
   });
-  const updateDiscMut = trpc.disciplines.update.useMutation({
-    onSuccess: () => { utils.disciplines.list.invalidate(); setDiscDialog({ open: false }); toast.success("Disciplina atualizada!"); },
-    onError: (e) => toast.error(e.message),
+  const updateClientM = trpc.clients.update.useMutation({
+    onSuccess: () => { utils.clients.list.invalidate(); setShowClientDialog(false); setEditingClient(null); toast.success("Cliente atualizado!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
   });
-  const deleteDiscMut = trpc.disciplines.delete.useMutation({
-    onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina removida!"); },
-    onError: (e) => toast.error(e.message),
+  const deleteClientM = trpc.clients.delete.useMutation({
+    onSuccess: () => { utils.clients.list.invalidate(); toast.success("Cliente excluido"); },
+    onError: (e) => toast.error("Erro: " + e.message),
   });
 
-  function openCreateDisc() {
-    setDiscForm({ name: "", color: "#6366f1", description: "" });
-    setDiscDialog({ open: true });
+  // CRS mutations
+  const createCrsM = trpc.crs.create.useMutation({
+    onSuccess: () => { utils.crs.list.invalidate(); setShowCrsDialog(false); setCrsForm({ clientId: "", name: "", code: "", country: "Brasil", state: "", description: "" }); toast.success("CRS criado!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const updateCrsM = trpc.crs.update.useMutation({
+    onSuccess: () => { utils.crs.list.invalidate(); setShowCrsDialog(false); setEditingCrs(null); toast.success("CRS atualizado!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const archiveCrsM = trpc.crs.archive.useMutation({
+    onSuccess: () => { utils.crs.list.invalidate(); utils.crs.listArchived.invalidate(); toast.success("CRS arquivado"); },
+  });
+  const restoreCrsM = trpc.crs.restore.useMutation({
+    onSuccess: () => { utils.crs.list.invalidate(); utils.crs.listArchived.invalidate(); toast.success("CRS restaurado!"); },
+  });
+
+  // Discipline mutations
+  const createDisciplineM = trpc.disciplines.create.useMutation({
+    onSuccess: () => { utils.disciplines.list.invalidate(); setShowDisciplineDialog(false); setDisciplineForm({ name: "", color: "#1561ad", description: "" }); toast.success("Disciplina criada!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const deleteDisciplineM = trpc.disciplines.delete.useMutation({
+    onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina excluida"); },
+  });
+
+  // User role mutation
+  const updateRoleM = trpc.users.updateRole.useMutation({
+    onSuccess: () => { utils.users.list.invalidate(); setEditingUserRole(null); toast.success("Funcao atualizada!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+
+  const clients = (clientsQ.data ?? []) as any[];
+  const crsList = (crsQ.data ?? []) as any[];
+  const archivedCrsList = (archivedCrsQ.data ?? []) as any[];
+  const disciplines = (disciplinesQ.data ?? []) as any[];
+  const users = (usersQ.data ?? []) as any[];
+
+  if (!isAdmin) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Acesso restrito a administradores.</p>
+        </div>
+      </AppLayout>
+    );
   }
-  function openEditDisc(d: any) {
-    setDiscForm({ name: d.name ?? "", color: d.color ?? "#6366f1", description: d.description ?? "" });
-    setDiscDialog({ open: true, editing: d });
-  }
-  function saveDisc() {
-    if (!discForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
-    if (discDialog.editing) {
-      updateDiscMut.mutate({ id: discDialog.editing.id, ...discForm });
+
+  const openEditClient = (client: any) => {
+    setEditingClient(client);
+    setClientForm({ name: client.name, color: client.color ?? "#1561ad", country: client.country ?? "Brasil", notes: client.notes ?? "" });
+    setShowClientDialog(true);
+  };
+
+  const openEditCrs = (crs: any) => {
+    setEditingCrs(crs);
+    setCrsForm({ clientId: String(crs.clientId), name: crs.name, code: crs.code ?? "", country: crs.country ?? "Brasil", state: crs.state ?? "", description: crs.description ?? "" });
+    setShowCrsDialog(true);
+  };
+
+  const handleSaveClient = () => {
+    if (!clientForm.name.trim()) return;
+    if (editingClient) {
+      updateClientM.mutate({ id: editingClient.id, ...clientForm });
     } else {
-      createDiscMut.mutate(discForm);
+      createClientM.mutate(clientForm);
     }
-  }
+  };
 
-  function saveClient() {
-    if (!clientForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
-    if (clientDialog.editing) {
-      updateClientMut.mutate({ id: clientDialog.editing.id, ...clientForm });
+  const handleSaveCrs = () => {
+    if (!crsForm.name.trim() || !crsForm.clientId) return;
+    if (editingCrs) {
+      updateCrsM.mutate({ id: editingCrs.id, name: crsForm.name, code: crsForm.code, description: crsForm.description, country: crsForm.country, state: crsForm.state });
     } else {
-      createClientMut.mutate(clientForm);
+      createCrsM.mutate({ ...crsForm, clientId: Number(crsForm.clientId) });
     }
-  }
-
-  if (loading || !isAuthenticated) return null;
-  if (user?.role !== "admin") return null;
+  };
 
   return (
-    <AppLayout title="Painel Administrativo">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold">Painel Administrativo</h2>
-            <p className="text-muted-foreground">Gerencie usuários, projetos e monitore atividades.</p>
-          </div>
+    <AppLayout>
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-foreground">Administracao</h1>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { icon: Users, label: "Usuários", value: allUsers?.length ?? 0, color: "text-blue-400", bg: "bg-blue-500/10" },
-            { icon: FolderKanban, label: "Projetos", value: allProjects?.length ?? 0, color: "text-violet-400", bg: "bg-violet-500/10" },
-            { icon: Activity, label: "Atividades", value: logs?.length ?? 0, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-            { icon: Crown, label: "Admins", value: allUsers?.filter((u: any) => u.role === "admin").length ?? 0, color: "text-amber-400", bg: "bg-amber-500/10" },
-          ].map(({ icon: Icon, label, value, color, bg }) => (
-            <Card key={label} className="bg-card border-border">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">{label}</p>
-                    <p className="text-3xl font-bold">{value}</p>
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <Tabs defaultValue="users">
-          <TabsList className="bg-secondary border border-border">
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="w-4 h-4" />
-              Usuários
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="gap-2">
-              <FolderKanban className="w-4 h-4" />
-              Projetos
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-2">
-              <Activity className="w-4 h-4" />
-              Logs
-            </TabsTrigger>
-            <TabsTrigger value="clients" className="gap-2">
-              <Briefcase className="w-4 h-4" />
-              Clientes
-            </TabsTrigger>
-            <TabsTrigger value="disciplines" className="gap-2">
-              <BookOpen className="w-4 h-4" />
-              Disciplinas
-            </TabsTrigger>
+        <Tabs defaultValue="clients">
+          <TabsList className="mb-6">
+            <TabsTrigger value="clients"><Building2 className="w-4 h-4 mr-1.5" />Clientes</TabsTrigger>
+            <TabsTrigger value="crs"><Globe className="w-4 h-4 mr-1.5" />CRS</TabsTrigger>
+            <TabsTrigger value="disciplines"><Tag className="w-4 h-4 mr-1.5" />Disciplinas</TabsTrigger>
+            <TabsTrigger value="users"><Users className="w-4 h-4 mr-1.5" />Usuarios</TabsTrigger>
           </TabsList>
 
-          {/* Users Tab */}
-          <TabsContent value="users" className="mt-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-muted-foreground">{allUsers?.length ?? 0} usuário(s) cadastrado(s)</p>
-              <Button size="sm" className="gap-2" onClick={openCreateUser}>
-                <Plus className="w-4 h-4" /> Novo Usuário
+          {/* CLIENTS TAB */}
+          <TabsContent value="clients">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Clientes ({clients.length})</h2>
+              <Button size="sm" onClick={() => { setEditingClient(null); setClientForm({ name: "", color: "#1561ad", country: "Brasil", notes: "" }); setShowClientDialog(true); }}>
+                <Plus className="w-4 h-4 mr-1" />Novo Cliente
               </Button>
             </div>
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {usersLoading ? (
-                  <div className="p-4 space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Skeleton key={i} className="h-14 w-full" />
-                    ))}
+            <div className="grid gap-3">
+              {clients.map((client: any) => (
+                <div key={client.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: client.color ?? "#1561ad" }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{client.name}</p>
+                    <p className="text-xs text-muted-foreground">{client.country ?? "---"} {client.notes ? " · " + client.notes : ""}</p>
                   </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {allUsers?.map((u: any) => {
-                      const initials = u.name
-                        ? u.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-                        : "U";
-                      return (
-                        <div key={u.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors">
-                          <Avatar className="w-10 h-10">
-                            <AvatarFallback className={`text-sm font-semibold ${u.role === "admin" ? "bg-amber-500/20 text-amber-400" : "bg-primary/20 text-primary"}`}>
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{u.name ?? "Usuário"}</p>
-                            <p className="text-sm text-muted-foreground truncate">{u.email ?? u.openId}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge className={u.role === "admin"
-                              ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                              : "bg-secondary text-muted-foreground border border-border"
-                            }>
-                              {u.role === "admin" ? <Crown className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
-                              {u.role === "admin" ? "Admin" : "Usuário"}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground hidden md:block">
-                              {new Date(u.createdAt).toLocaleDateString("pt-BR")}
-                            </span>
-                            {/* Toggle role */}
-                            <Button
-                              variant="ghost" size="icon" className="h-8 w-8"
-                              title={u.role === "admin" ? "Rebaixar para Usuário" : "Promover para Admin"}
-                              onClick={() => updateUserRoleMut.mutate({ userId: u.id, role: u.role === "admin" ? "user" : "admin" })}
-                            >
-                              {u.role === "admin" ? <User className="w-4 h-4" /> : <Crown className="w-4 h-4" />}
-                            </Button>
-                            {/* Delete */}
-                            <Button
-                              variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700"
-                              title="Remover usuário"
-                              onClick={() => { if (confirm(`Remover ${u.name ?? "usuário"}?`)) deleteUserMut.mutate({ userId: u.id }); }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  <Badge variant="outline" className="text-xs">{crsList.filter((c: any) => c.clientId === client.id).length} CRS</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => openEditClient(client)}><Edit2 className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => { if (confirm("Excluir cliente?")) deleteClientM.mutate({ id: client.id }); }} className="text-destructive hover:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {clients.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum cliente cadastrado</p>}
+            </div>
           </TabsContent>
 
-          {/* Projects Tab */}
-          <TabsContent value="projects" className="mt-4">
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {projectsLoading ? (
-                  <div className="p-4 space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Skeleton key={i} className="h-14 w-full" />
-                    ))}
+          {/* CRS TAB */}
+          <TabsContent value="crs">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">CRS ({crsList.length})</h2>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setShowArchivedCrs(!showArchivedCrs)}>
+                  <Archive className="w-4 h-4 mr-1" />{showArchivedCrs ? "Ocultar Arquivados" : "Ver Arquivados"}
+                </Button>
+                <Button size="sm" onClick={() => { setEditingCrs(null); setCrsForm({ clientId: "", name: "", code: "", country: "Brasil", state: "", description: "" }); setShowCrsDialog(true); }}>
+                  <Plus className="w-4 h-4 mr-1" />Novo CRS
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-3">
+              {crsList.map((crs: any) => (
+                <div key={crs.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: crs.clientColor ?? "#1561ad" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground">{crs.name}</p>
+                      {crs.code && <Badge variant="outline" className="text-xs">{crs.code}</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{crs.clientName} · {crs.country ?? "---"}{crs.state ? ", " + crs.state : ""}</p>
                   </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {allProjects?.map((p: any) => (
-                      <div key={p.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${p.color}20` }}
-                        >
-                          <FolderKanban className="w-5 h-5" style={{ color: p.color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{p.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Dono ID: {p.ownerId} · {new Date(p.createdAt).toLocaleDateString("pt-BR")}
-                          </p>
-                        </div>
-                        <Badge className={
-                          p.status === "active"
-                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                            : "bg-secondary text-muted-foreground border border-border"
-                        }>
-                          {p.status === "active" ? "Ativo" : p.status}
-                        </Badge>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-bold text-primary">{crs.progress ?? 0}%</p>
+                    <p className="text-xs text-muted-foreground">progresso</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => openEditCrs(crs)}><Edit2 className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => { if (confirm("Arquivar este CRS?")) archiveCrsM.mutate({ id: crs.id }); }} className="text-muted-foreground hover:text-orange-500">
+                    <Archive className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {crsList.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum CRS ativo</p>}
+            </div>
+            {showArchivedCrs && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <Archive className="w-4 h-4" />CRS Arquivados ({archivedCrsList.length})
+                </h3>
+                <div className="grid gap-3">
+                  {archivedCrsList.map((crs: any) => (
+                    <div key={crs.id} className="flex items-center gap-3 p-4 bg-muted/30 border border-border rounded-xl opacity-70">
+                      <span className="w-4 h-4 rounded-full shrink-0 bg-muted-foreground/30" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-muted-foreground line-through">{crs.name}</p>
+                        <p className="text-xs text-muted-foreground">{crs.clientName}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      <Button size="sm" variant="ghost" onClick={() => restoreCrsM.mutate({ id: crs.id })} className="text-primary hover:text-primary">
+                        <RotateCcw className="w-4 h-4 mr-1" />Restaurar
+                      </Button>
+                    </div>
+                  ))}
+                  {archivedCrsList.length === 0 && <p className="text-center text-muted-foreground py-4 text-sm">Nenhum CRS arquivado</p>}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
-          {/* Logs Tab */}
-          <TabsContent value="logs" className="mt-4">
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {logsLoading ? (
-                  <div className="p-4 space-y-3">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : !logs?.length ? (
-                  <div className="flex flex-col items-center py-12 text-center">
-                    <Activity className="w-10 h-10 text-muted-foreground/20 mb-3" />
-                    <p className="text-muted-foreground">Nenhuma atividade registrada.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {logs.map((log: any) => (
-                      <div key={log.id} className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/30 transition-colors">
-                        <div className="w-2 h-2 rounded-full bg-primary/60 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm">
-                            <span className="font-medium">{log.userName ?? `Usuário #${log.userId}`}</span>
-                            {" "}
-                            <span className="text-muted-foreground">{ACTION_LABELS[log.action] ?? log.action}</span>
-                          </p>
-                        </div>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {new Date(log.createdAt).toLocaleDateString("pt-BR", {
-                            day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          {/* Clients Tab */}
-          <TabsContent value="clients" className="mt-4">
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-sm text-muted-foreground">{clientsList?.length ?? 0} cliente(s) cadastrado(s)</p>
-              <Button size="sm" onClick={openCreate} className="gap-2">
-                <Plus className="w-4 h-4" /> Novo Cliente
+          {/* DISCIPLINES TAB */}
+          <TabsContent value="disciplines">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Disciplinas ({disciplines.length})</h2>
+              <Button size="sm" onClick={() => { setDisciplineForm({ name: "", color: "#1561ad", description: "" }); setShowDisciplineDialog(true); }}>
+                <Plus className="w-4 h-4 mr-1" />Nova Disciplina
               </Button>
             </div>
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {clientsLoading ? (
-                  <div className="p-4 space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+            <div className="grid gap-3">
+              {disciplines.map((d: any) => (
+                <div key={d.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: d.color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{d.name}</p>
+                    {d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
                   </div>
-                ) : !clientsList?.length ? (
-                  <div className="flex flex-col items-center py-12 text-center">
-                    <Briefcase className="w-10 h-10 text-muted-foreground/20 mb-3" />
-                    <p className="text-muted-foreground">Nenhum cliente cadastrado.</p>
-                    <Button variant="outline" size="sm" className="mt-4" onClick={openCreate}>Adicionar primeiro cliente</Button>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {clientsList.map((c: any) => (
-                      <div key={c.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                          <Briefcase className="w-5 h-5 text-blue-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{c.name}</p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {[c.email, c.phone, c.company].filter(Boolean).join(" · ") || "Sem detalhes"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => { if (confirm(`Remover cliente "${c.name}"?`)) deleteClientMut.mutate({ id: c.id }); }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          {/* Disciplines Tab */}
-          <TabsContent value="disciplines" className="mt-4">
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-sm text-muted-foreground">{disciplinesList?.length ?? 0} disciplina(s) cadastrada(s)</p>
-              <Button size="sm" onClick={openCreateDisc} className="gap-2">
-                <Plus className="w-4 h-4" /> Nova Disciplina
-              </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { if (confirm("Excluir disciplina?")) deleteDisciplineM.mutate({ id: d.id }); }} className="text-destructive hover:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              {disciplines.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhuma disciplina cadastrada</p>}
             </div>
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {disciplinesLoading ? (
-                  <div className="p-4 space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          </TabsContent>
+
+          {/* USERS TAB */}
+          <TabsContent value="users">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Usuarios ({users.length})</h2>
+            </div>
+            <div className="grid gap-3">
+              {users.map((u: any) => (
+                <div key={u.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+                  <div className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold text-sm shrink-0">
+                    {(u.name ?? u.email ?? "?")[0].toUpperCase()}
                   </div>
-                ) : !disciplinesList?.length ? (
-                  <div className="flex flex-col items-center py-12 text-center">
-                    <BookOpen className="w-10 h-10 text-muted-foreground/20 mb-3" />
-                    <p className="text-muted-foreground">Nenhuma disciplina cadastrada.</p>
-                    <Button variant="outline" size="sm" className="mt-4" onClick={openCreateDisc}>Adicionar primeira disciplina</Button>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{u.name ?? "Sem nome"}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
                   </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {disciplinesList.map((d: any) => (
-                      <div key={d.id} className="flex items-center gap-4 p-4 hover:bg-secondary/30 transition-colors">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${d.color}20` }}
-                        >
-                          <BookOpen className="w-5 h-5" style={{ color: d.color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{d.name}</p>
-                          {d.description && (
-                            <p className="text-sm text-muted-foreground truncate">{d.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: d.color }} />
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDisc(d)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => { if (confirm(`Remover disciplina "${d.name}"?`)) deleteDiscMut.mutate({ id: d.id }); }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {editingUserRole?.id === u.id ? (
+                    <div className="flex items-center gap-2">
+                      <Select value={editingUserRole!.role} onValueChange={(v) => setEditingUserRole(prev => prev ? { ...prev, role: v } : null)}>
+                        <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Button size="sm" onClick={() => { if (editingUserRole) updateRoleM.mutate({ userId: editingUserRole.id, role: editingUserRole.role as any }); }} disabled={updateRoleM.isPending}>Salvar</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingUserRole(null)}>Cancelar</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Badge variant={u.role === "admin" || u.role === "master_admin" ? "default" : "outline"} className="text-xs capitalize">{u.role}</Badge>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingUserRole({ id: u.id, role: u.role })}><Edit2 className="w-4 h-4" /></Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {users.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum usuario encontrado</p>}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Discipline Dialog */}
-      <Dialog open={discDialog.open} onOpenChange={open => setDiscDialog(s => ({ ...s, open }))}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{discDialog.editing ? "Editar Disciplina" : "Nova Disciplina"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome <span className="text-destructive">*</span></Label>
-              <Input placeholder="Ex: Estrutural, Elétrico, Hidráulico..." value={discForm.name} onChange={e => setDiscForm(s => ({ ...s, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Cor</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={discForm.color}
-                  onChange={e => setDiscForm(s => ({ ...s, color: e.target.value }))}
-                  className="w-10 h-10 rounded-md border border-input cursor-pointer"
-                />
-                <Input
-                  placeholder="#6366f1"
-                  value={discForm.color}
-                  onChange={e => setDiscForm(s => ({ ...s, color: e.target.value }))}
-                  className="font-mono"
-                />
+      {/* Client Dialog */}
+      <Dialog open={showClientDialog} onOpenChange={(o) => { setShowClientDialog(o); if (!o) setEditingClient(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editingClient ? "Editar Cliente" : "Novo Cliente"}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Nome *</Label><Input value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} placeholder="Nome do cliente" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Cor</Label>
+                <div className="flex gap-2 items-center">
+                  <input type="color" value={clientForm.color} onChange={(e) => setClientForm({ ...clientForm, color: e.target.value })} className="w-10 h-9 rounded border border-border cursor-pointer" />
+                  <Input value={clientForm.color} onChange={(e) => setClientForm({ ...clientForm, color: e.target.value })} className="flex-1 text-xs" />
+                </div>
+              </div>
+              <div>
+                <Label>Pais</Label>
+                <Select value={clientForm.country} onValueChange={(v) => setClientForm({ ...clientForm, country: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Descrição</Label>
-              <Textarea placeholder="Descrição opcional da disciplina..." rows={2} value={discForm.description} onChange={e => setDiscForm(s => ({ ...s, description: e.target.value }))} />
-            </div>
+            <div><Label>Observacoes</Label><Input value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} placeholder="Observacoes opcionais" /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDiscDialog({ open: false })}>Cancelar</Button>
-            <Button onClick={saveDisc} disabled={createDiscMut.isPending || updateDiscMut.isPending}>
-              {createDiscMut.isPending || updateDiscMut.isPending ? "Salvando..." : "Salvar"}
+            <Button variant="outline" onClick={() => setShowClientDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSaveClient} disabled={!clientForm.name.trim() || createClientM.isPending || updateClientM.isPending}>
+              {editingClient ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* User Dialog */}
-      <Dialog open={userDialog.open} onOpenChange={open => setUserDialog(s => ({ ...s, open }))}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Novo Usuário</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome <span className="text-destructive">*</span></Label>
-              <Input placeholder="Nome completo" value={userForm.name} onChange={e => setUserForm(s => ({ ...s, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>E-mail</Label>
-              <Input type="email" placeholder="email@exemplo.com" value={userForm.email} onChange={e => setUserForm(s => ({ ...s, email: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Papel</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={userForm.role}
-                onChange={e => setUserForm(s => ({ ...s, role: e.target.value as "user" | "admin" }))}
-              >
-                <option value="user">Usuário</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              O usuário será criado com acesso manual. Para acesso via login OAuth, o usuário deve fazer login pela primeira vez.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUserDialog({ open: false })}>Cancelar</Button>
-            <Button onClick={saveUser} disabled={createUserMut.isPending}>
-              {createUserMut.isPending ? "Criando..." : "Criar Usuário"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Client Dialog */}
-      <Dialog open={clientDialog.open} onOpenChange={open => setClientDialog(s => ({ ...s, open }))}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{clientDialog.editing ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome <span className="text-destructive">*</span></Label>
-              <Input placeholder="Nome do cliente" value={clientForm.name} onChange={e => setClientForm(s => ({ ...s, name: e.target.value }))} />
+      {/* CRS Dialog */}
+      <Dialog open={showCrsDialog} onOpenChange={(o) => { setShowCrsDialog(o); if (!o) setEditingCrs(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{editingCrs ? "Editar CRS" : "Novo CRS"}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Cliente *</Label>
+              <Select value={crsForm.clientId} onValueChange={(v) => setCrsForm({ ...crsForm, clientId: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
+                <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input type="email" placeholder="email@exemplo.com" value={clientForm.email} onChange={e => setClientForm(s => ({ ...s, email: e.target.value }))} />
+              <div><Label>Nome *</Label><Input value={crsForm.name} onChange={(e) => setCrsForm({ ...crsForm, name: e.target.value })} placeholder="Nome do CRS" /></div>
+              <div><Label>Codigo</Label><Input value={crsForm.code} onChange={(e) => setCrsForm({ ...crsForm, code: e.target.value })} placeholder="Ex: CRS-001" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Pais</Label>
+                <Select value={crsForm.country} onValueChange={(v) => setCrsForm({ ...crsForm, country: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Telefone</Label>
-                <Input placeholder="(11) 99999-9999" value={clientForm.phone} onChange={e => setClientForm(s => ({ ...s, phone: e.target.value }))} />
-              </div>
+              <div><Label>Estado / Regiao</Label><Input value={crsForm.state} onChange={(e) => setCrsForm({ ...crsForm, state: e.target.value })} placeholder="Ex: Sao Paulo" /></div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Empresa</Label>
-              <Input placeholder="Nome da empresa" value={clientForm.company} onChange={e => setClientForm(s => ({ ...s, company: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Observações</Label>
-              <Textarea placeholder="Notas sobre o cliente..." rows={3} value={clientForm.notes} onChange={e => setClientForm(s => ({ ...s, notes: e.target.value }))} />
-            </div>
+            <div><Label>Descricao</Label><Input value={crsForm.description} onChange={(e) => setCrsForm({ ...crsForm, description: e.target.value })} placeholder="Descricao opcional" /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setClientDialog({ open: false })}>Cancelar</Button>
-            <Button onClick={saveClient} disabled={createClientMut.isPending || updateClientMut.isPending}>
-              {createClientMut.isPending || updateClientMut.isPending ? "Salvando..." : "Salvar"}
+            <Button variant="outline" onClick={() => setShowCrsDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSaveCrs} disabled={!crsForm.name.trim() || !crsForm.clientId || createCrsM.isPending || updateCrsM.isPending}>
+              {editingCrs ? "Salvar" : "Criar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discipline Dialog */}
+      <Dialog open={showDisciplineDialog} onOpenChange={setShowDisciplineDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Nova Disciplina</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Nome *</Label><Input value={disciplineForm.name} onChange={(e) => setDisciplineForm({ ...disciplineForm, name: e.target.value })} placeholder="Nome da disciplina" /></div>
+            <div>
+              <Label>Cor</Label>
+              <div className="flex gap-2 items-center">
+                <input type="color" value={disciplineForm.color} onChange={(e) => setDisciplineForm({ ...disciplineForm, color: e.target.value })} className="w-10 h-9 rounded border border-border cursor-pointer" />
+                <Input value={disciplineForm.color} onChange={(e) => setDisciplineForm({ ...disciplineForm, color: e.target.value })} className="flex-1 text-xs" />
+              </div>
+            </div>
+            <div><Label>Descricao</Label><Input value={disciplineForm.description} onChange={(e) => setDisciplineForm({ ...disciplineForm, description: e.target.value })} placeholder="Descricao opcional" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisciplineDialog(false)}>Cancelar</Button>
+            <Button onClick={() => { if (disciplineForm.name.trim()) createDisciplineM.mutate(disciplineForm); }} disabled={!disciplineForm.name.trim() || createDisciplineM.isPending}>Criar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

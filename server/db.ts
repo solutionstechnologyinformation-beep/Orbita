@@ -1,1171 +1,607 @@
-import { and, count, desc, eq, gte, inArray, like, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { eq, and, desc, like, inArray, sql, asc } from "drizzle-orm";
 import {
-  activityLogs,
-  chatMessages,
-  companies,
-  Company,
-  InsertCompany,
-  InsertActivityLog,
-  InsertChatMessage,
-  InsertNotification,
-  InsertProject,
-  InsertProjectMember,
-  InsertTask,
-  InsertTaskAttachment,
-  InsertTaskComment,
-  InsertUser,
-  notifications,
-  notificationPreferences,
-  NOTIFICATION_TYPES,
-  NotificationType,
-  projectMembers,
-  projects,
-  taskAttachments,
-  taskComments,
-  tasks,
-  users,
-  projectRoles,
-  projectMemberRoles,
-  InsertProjectRole,
-  sprints,
-  sprintTasks,
-  Sprint,
-  InsertSprint,
-  agendaEvents,
-  AgendaEvent,
-  InsertAgendaEvent,
-  taskMessages,
-  TaskMessage,
-  InsertTaskMessage,
-  whiteboardData,
-  InsertWhiteboardData,
-  clients,
-  Client,
-  InsertClient,
+  users, clients, crs, kanbanPhases, tasks, checklistItems,
+  checklistItemComments, checklistItemHistory, taskComments,
+  taskPhaseHistory, vacationPeriods, notifications, activityLogs,
+  disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
+  conversations, conversationParticipants, directMessages,
 } from "../drizzle/schema";
-import { ENV } from "./_core/env";
 
-let _db: ReturnType<typeof drizzle> | null = null;
-
+// ─── DB Connection ─────────────────────────────────────────────────────────────
+let _db: any = null;
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
+  if (_db) return _db;
+  const { drizzle } = await import("drizzle-orm/mysql2");
+  const mysql = await import("mysql2/promise");
+  const pool = mysql.createPool({ uri: process.env.DATABASE_URL, waitForConnections: true, connectionLimit: 10 });
+  _db = drizzle(pool);
   return _db;
 }
 
-// ─── Users ────────────────────────────────────────────────────────────────────
+// ─── Users ─────────────────────────────────────────────────────────────────────
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) return undefined;
   const r = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return r[0];
 }
-
-export async function getUserById(id: number) {
+export async function createUser(data: { openId: string; name?: string; email?: string; loginMethod?: string; avatarUrl?: string }) {
   const db = await getDb();
-  if (!db) return undefined;
-  const r = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return r[0];
-}
-export async function getAllUsers(limit = 100, offset = 0) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset);
-}
-
-export async function updateUserRole(userId: number, role: "user" | "admin") {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ role }).where(eq(users.id, userId));
-}
-
-// ─── Projects ─────────────────────────────────────────────────────────────────
-export async function createProject(data: InsertProject) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(projects).values(data);
-  return result.insertId as number;
-}
-
-export async function getProjectsByUser(userId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  // Projects owned by user OR where user is a member
-  const owned = await db.select().from(projects).where(eq(projects.ownerId, userId));
-  const memberRows = await db.select({ projectId: projectMembers.projectId })
-    .from(projectMembers).where(eq(projectMembers.userId, userId));
-  const memberIds = memberRows.map(r => r.projectId).filter(id => !owned.find(p => p.id === id));
-  if (memberIds.length === 0) return owned;
-  const memberProjects = await db.select().from(projects).where(inArray(projects.id, memberIds));
-  return [...owned, ...memberProjects];
-}
-
-export async function getProjectById(id: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const r = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
-  return r[0];
-}
-
-export async function updateProject(id: number, data: Partial<InsertProject>) {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(projects).set({ ...data, updatedAt: new Date() }).where(eq(projects.id, id));
-}
-
-export async function deleteProject(id: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(projects).where(eq(projects.id, id));
-}
-
-export async function getAllProjects() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(projects).orderBy(desc(projects.createdAt));
-}
-
-// ─── Project Members ──────────────────────────────────────────────────────────
-export async function addProjectMember(data: InsertProjectMember) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(projectMembers).values(data);
-}
-
-export async function getProjectMembers(projectId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  const rows = await db.select({
-    id: projectMembers.id,
-    projectId: projectMembers.projectId,
-    userId: projectMembers.userId,
-    role: projectMembers.role,
-    invitedAt: projectMembers.invitedAt,
-    userName: users.name,
-    userEmail: users.email,
-    userAvatarUrl: users.avatarUrl,
-  }).from(projectMembers)
-    .leftJoin(users, eq(projectMembers.userId, users.id))
-    .where(eq(projectMembers.projectId, projectId));
-  return rows;
-}
-
-export async function removeProjectMember(projectId: number, userId: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(projectMembers)
-    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)));
-}
-
-export async function isProjectMember(projectId: number, userId: number) {
-  const db = await getDb();
-  if (!db) return false;
-  const r = await db.select({ id: projectMembers.id }).from(projectMembers)
-    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId))).limit(1);
-  return r.length > 0;
-}
-
-// ─── Tasks ────────────────────────────────────────────────────────────────────
-export async function createTask(data: InsertTask) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  // Use raw SQL to avoid Drizzle mysql2 enum serialization issues.
-  // position uses modulo to stay within INT range (max 2,147,483,647).
-  const safePosition = data.position ? data.position % 2000000000 : Date.now() % 2000000000;
-  const now = new Date();
   const [result] = await db.execute(
-    sql`INSERT INTO tasks (projectId, title, description, status, priority, assigneeId, teamId, createdById, dueDate, position, revisionsCount, setor, openedAt, statusChangedAt)
-        VALUES (${data.projectId}, ${data.title}, ${data.description ?? null}, ${data.status ?? 'pending'}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.teamId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${(data as any).setor ?? null}, ${now}, ${now})`
+    sql`INSERT INTO users (openId, name, email, loginMethod, avatarUrl, role, createdAt, updatedAt, lastSignedIn, lastSeenAt)
+        VALUES (${data.openId}, ${data.name ?? null}, ${data.email ?? null}, ${data.loginMethod ?? null}, ${data.avatarUrl ?? null}, 'user', NOW(), NOW(), NOW(), NOW())`
   );
   return (result as any).insertId as number;
 }
-
-export async function getTasksByProject(
-  projectId: number,
-  filters?: { status?: string; priority?: string; assigneeId?: number; search?: string }
-) {
+export async function upsertUser(data: { openId: string; name?: string | null; email?: string | null; loginMethod?: string | null; lastSignedIn?: Date }) {
   const db = await getDb();
-  if (!db) return [];
-  const conditions = [eq(tasks.projectId, projectId)];
-  if (filters?.status) conditions.push(eq(tasks.status, filters.status as any));
+  const existing = await getUserByOpenId(data.openId);
+  if (existing) {
+    await db.update(users).set({ ...data, updatedAt: new Date() }).where(eq(users.openId, data.openId));
+  } else {
+    await db.insert(users).values({ openId: data.openId, name: data.name ?? null, email: data.email ?? null, loginMethod: data.loginMethod ?? null, lastSignedIn: data.lastSignedIn ?? new Date() });
+  }
+}
+export async function updateUser(id: number, data: Partial<typeof users.$inferInsert>) {
+  const db = await getDb();
+  await db.update(users).set({ ...data, updatedAt: new Date() }).where(eq(users.id, id));
+}
+export async function getAllUsers() {
+  const db = await getDb();
+  return db.select({ id: users.id, name: users.name, email: users.email, role: users.role, avatarUrl: users.avatarUrl, createdAt: users.createdAt }).from(users).orderBy(asc(users.name));
+}
+
+// ─── Clients ───────────────────────────────────────────────────────────────────
+export async function getClients() {
+  const db = await getDb();
+  return db.select().from(clients).where(eq(clients.status, "active")).orderBy(asc(clients.name));
+}
+export async function getAllClients() {
+  const db = await getDb();
+  return db.select().from(clients).orderBy(asc(clients.name));
+}
+export async function getClientById(id: number) {
+  const db = await getDb();
+  const r = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+  return r[0];
+}
+export async function createClient(data: { name: string; description?: string; color?: string; createdById: number }) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO clients (name, description, color, status, createdById, createdAt, updatedAt)
+        VALUES (${data.name}, ${data.description ?? null}, ${data.color ?? '#1561ad'}, 'active', ${data.createdById}, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
+}
+export async function updateClient(id: number, data: Partial<typeof clients.$inferInsert>) {
+  const db = await getDb();
+  await db.update(clients).set({ ...data, updatedAt: new Date() }).where(eq(clients.id, id));
+}
+export async function deleteClient(id: number) {
+  const db = await getDb();
+  await db.update(clients).set({ status: "archived", updatedAt: new Date() }).where(eq(clients.id, id));
+}
+
+// ─── CRS ───────────────────────────────────────────────────────────────────────
+export async function getCrsByClient(clientId: number) {
+  const db = await getDb();
+  return db.select().from(crs).where(and(eq(crs.clientId, clientId), eq(crs.status, "active"))).orderBy(asc(crs.name));
+}
+export async function getAllCrs() {
+  const db = await getDb();
+  return db.select({
+    id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
+    description: crs.description, country: crs.country, countryCode: crs.countryCode,
+    state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
+    createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
+    clientName: clients.name, clientColor: clients.color,
+  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'active')).orderBy(asc(crs.name));
+}
+export async function getArchivedCrs() {
+  const db = await getDb();
+  return db.select({
+    id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
+    description: crs.description, country: crs.country, status: crs.status,
+    clientName: clients.name, clientColor: clients.color,
+  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'archived')).orderBy(asc(crs.name));
+}
+export async function getCrsById(id: number) {
+  const db = await getDb();
+  const r = await db.select({
+    id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
+    description: crs.description, country: crs.country, countryCode: crs.countryCode,
+    state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
+    createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
+    clientName: clients.name, clientColor: clients.color,
+  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.id, id)).limit(1);
+  return r[0];
+}
+export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; createdById: number }) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, status, progress, createdById, createdAt, updatedAt)
+        VALUES (${data.clientId}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
+  );
+  const crsId = (result as any).insertId as number;
+  // Create default phases for the new CRS
+  await createDefaultPhases(crsId, data.createdById);
+  return crsId;
+}
+export async function updateCrs(id: number, data: Partial<typeof crs.$inferInsert>) {
+  const db = await getDb();
+  await db.update(crs).set({ ...data, updatedAt: new Date() }).where(eq(crs.id, id));
+}
+export async function deleteCrs(id: number) {
+  const db = await getDb();
+  await db.update(crs).set({ status: "archived", updatedAt: new Date() }).where(eq(crs.id, id));
+}
+export async function recalcCrsProgress(crsId: number) {
+  const db = await getDb();
+  // Get all tasks for this CRS
+  const allTasks = await db.select({ id: tasks.id, progress: tasks.progress }).from(tasks).where(eq(tasks.crsId, crsId));
+  if (allTasks.length === 0) {
+    await db.update(crs).set({ progress: 0 }).where(eq(crs.id, crsId));
+    return;
+  }
+  const avg = allTasks.reduce((sum: number, t: any) => sum + (t.progress || 0), 0) / allTasks.length;
+  await db.update(crs).set({ progress: Math.round(avg * 10) / 10 }).where(eq(crs.id, crsId));
+}
+
+// ─── Kanban Phases ─────────────────────────────────────────────────────────────
+const DEFAULT_PHASES = [
+  { name: "Para Iniciar", color: "#94a3b8", position: 0, isDefault: true, isTerminal: false },
+  { name: "Em Andamento", color: "#1c77ac", position: 1, isDefault: true, isTerminal: false },
+  { name: "Compartilhado", color: "#1dbab4", position: 2, isDefault: true, isTerminal: false },
+  { name: "Publicado", color: "#22c55e", position: 3, isDefault: true, isTerminal: true },
+  { name: "Arquivado", color: "#6366f1", position: 4, isDefault: true, isTerminal: true },
+  { name: "Bloqueado", color: "#fc5226", position: 5, isDefault: true, isTerminal: false },
+];
+export async function createDefaultPhases(crsId: number, createdById: number) {
+  const db = await getDb();
+  for (const p of DEFAULT_PHASES) {
+    await db.execute(
+      sql`INSERT INTO kanban_phases (crsId, name, color, position, isDefault, isTerminal, createdById, createdAt)
+          VALUES (${crsId}, ${p.name}, ${p.color}, ${p.position}, ${p.isDefault ? 1 : 0}, ${p.isTerminal ? 1 : 0}, ${createdById}, NOW())`
+    );
+  }
+}
+export async function getPhasesByCrs(crsId: number) {
+  const db = await getDb();
+  return db.select().from(kanbanPhases).where(eq(kanbanPhases.crsId, crsId)).orderBy(asc(kanbanPhases.position));
+}
+export async function createPhase(data: { crsId: number; name: string; color?: string; position?: number; isTerminal?: boolean; createdById: number }) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO kanban_phases (crsId, name, color, position, isDefault, isTerminal, createdById, createdAt)
+        VALUES (${data.crsId}, ${data.name}, ${data.color ?? '#6366f1'}, ${data.position ?? 99}, 0, ${data.isTerminal ? 1 : 0}, ${data.createdById}, NOW())`
+  );
+  return (result as any).insertId as number;
+}
+export async function updatePhase(id: number, data: { name?: string; color?: string; position?: number; isTerminal?: boolean }) {
+  const db = await getDb();
+  const updateData: any = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.color !== undefined) updateData.color = data.color;
+  if (data.position !== undefined) updateData.position = data.position;
+  if (data.isTerminal !== undefined) updateData.isTerminal = data.isTerminal;
+  if (Object.keys(updateData).length > 0) {
+    await db.update(kanbanPhases).set(updateData).where(eq(kanbanPhases.id, id));
+  }
+}
+export async function deletePhase(id: number) {
+  const db = await getDb();
+  await db.delete(kanbanPhases).where(eq(kanbanPhases.id, id));
+}
+
+// ─── Tasks ─────────────────────────────────────────────────────────────────────
+export async function getTasksByCrs(crsId: number, filters?: { phaseId?: number; priority?: string; assigneeId?: number; search?: string }) {
+  const db = await getDb();
+  const conditions: any[] = [eq(tasks.crsId, crsId)];
+  if (filters?.phaseId) conditions.push(eq(tasks.phaseId, filters.phaseId));
   if (filters?.priority) conditions.push(eq(tasks.priority, filters.priority as any));
   if (filters?.assigneeId) conditions.push(eq(tasks.assigneeId, filters.assigneeId));
   if (filters?.search) conditions.push(like(tasks.title, `%${filters.search}%`));
-
-  const rows = await db.select({
-    id: tasks.id,
-    projectId: tasks.projectId,
-    title: tasks.title,
-    description: tasks.description,
-    status: tasks.status,
-    priority: tasks.priority,
-    assigneeId: tasks.assigneeId,
-    teamId: tasks.teamId,
-    approvedById: tasks.approvedById,
-    approvedAt: tasks.approvedAt,
-    createdById: tasks.createdById,
-    dueDate: tasks.dueDate,
-    position: tasks.position,
-    revisionsCount: tasks.revisionsCount,
-    setor: tasks.setor,
-    openedAt: tasks.openedAt,
-    completedAt: tasks.completedAt,
-    statusChangedAt: tasks.statusChangedAt,
-    createdAt: tasks.createdAt,
-    updatedAt: tasks.updatedAt,
-    assigneeName: users.name,
-    assigneeAvatarUrl: users.avatarUrl,
+  return db.select({
+    id: tasks.id, crsId: tasks.crsId, phaseId: tasks.phaseId,
+    title: tasks.title, description: tasks.description, priority: tasks.priority,
+    assigneeId: tasks.assigneeId, createdById: tasks.createdById,
+    dueDate: tasks.dueDate, startDate: tasks.startDate, endDate: tasks.endDate,
+    position: tasks.position, revisionsCount: tasks.revisionsCount,
+    setor: tasks.setor, progress: tasks.progress,
+    blockReason: tasks.blockReason, openedAt: tasks.openedAt,
+    completedAt: tasks.completedAt, statusChangedAt: tasks.statusChangedAt,
+    createdAt: tasks.createdAt, updatedAt: tasks.updatedAt,
+    assigneeName: users.name, assigneeAvatarUrl: users.avatarUrl,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(and(...conditions))
     .orderBy(tasks.position, tasks.createdAt);
-  return rows;
 }
-
 export async function getTaskById(id: number) {
   const db = await getDb();
-  if (!db) return undefined;
   const r = await db.select({
-    id: tasks.id,
-    projectId: tasks.projectId,
-    title: tasks.title,
-    description: tasks.description,
-    status: tasks.status,
-    priority: tasks.priority,
-    assigneeId: tasks.assigneeId,
-    teamId: tasks.teamId,
-    approvedById: tasks.approvedById,
-    approvedAt: tasks.approvedAt,
-    createdById: tasks.createdById,
-    dueDate: tasks.dueDate,
-    position: tasks.position,
-    revisionsCount: tasks.revisionsCount,
-    setor: tasks.setor,
-    openedAt: tasks.openedAt,
-    completedAt: tasks.completedAt,
-    statusChangedAt: tasks.statusChangedAt,
-    createdAt: tasks.createdAt,
-    updatedAt: tasks.updatedAt,
+    id: tasks.id, crsId: tasks.crsId, phaseId: tasks.phaseId,
+    title: tasks.title, description: tasks.description, priority: tasks.priority,
+    assigneeId: tasks.assigneeId, approvedById: tasks.approvedById, approvedAt: tasks.approvedAt,
+    createdById: tasks.createdById, dueDate: tasks.dueDate, startDate: tasks.startDate,
+    endDate: tasks.endDate, position: tasks.position, revisionsCount: tasks.revisionsCount,
+    setor: tasks.setor, progress: tasks.progress, blockReason: tasks.blockReason,
+    openedAt: tasks.openedAt, completedAt: tasks.completedAt, statusChangedAt: tasks.statusChangedAt,
+    createdAt: tasks.createdAt, updatedAt: tasks.updatedAt,
     assigneeName: users.name,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(eq(tasks.id, id)).limit(1);
   return r[0];
 }
-
-export async function updateTask(
-  id: number,
-  data: Partial<InsertTask>,
-  options?: { incrementRevisions?: boolean; newStatus?: string; previousStatus?: string }
-) {
+export async function createTask(data: {
+  crsId: number; phaseId: number; title: string; description?: string;
+  priority?: string; assigneeId?: number; dueDate?: Date; setor?: string;
+  createdById: number; position?: number;
+}) {
   const db = await getDb();
-  if (!db) return;
+  const safePosition = data.position ? data.position % 2000000000 : Date.now() % 2000000000;
+  const now = new Date();
+  const [result] = await db.execute(
+    sql`INSERT INTO tasks (crsId, phaseId, title, description, priority, assigneeId, createdById, dueDate, position, revisionsCount, setor, progress, openedAt, statusChangedAt, createdAt, updatedAt)
+        VALUES (${data.crsId}, ${data.phaseId}, ${data.title}, ${data.description ?? null}, ${data.priority ?? 'medium'}, ${data.assigneeId ?? null}, ${data.createdById}, ${data.dueDate ?? null}, ${safePosition}, 0, ${data.setor ?? null}, 0, ${now}, ${now}, ${now}, ${now})`
+  );
+  return (result as any).insertId as number;
+}
+export async function updateTask(id: number, data: any) {
+  const db = await getDb();
   const now = new Date();
   const updateData: Record<string, any> = { ...data, updatedAt: now };
-  // Track status change timestamps
-  if (options?.newStatus && options.newStatus !== options.previousStatus) {
-    updateData.statusChangedAt = now;
-    if (options?.newStatus === 'published' || options?.newStatus === 'archived') {
-      updateData.completedAt = now;
-    } else if ((options?.previousStatus === 'published' || options?.previousStatus === 'archived') && options?.newStatus === 'in_progress') {
-      // Returned from published/archived to in_progress: clear completedAt
-      updateData.completedAt = null;
-    }
-  }
-  if (options?.incrementRevisions) {
-    // Use SQL expression to atomically increment
-    await db.execute(
-      sql`UPDATE tasks SET revisionsCount = revisionsCount + 1, updatedAt = ${now}
-          ${options?.newStatus && options.newStatus !== options.previousStatus ? sql`, statusChangedAt = ${now}` : sql``}
-          ${(options?.newStatus === 'published' || options?.newStatus === 'archived') ? sql`, completedAt = ${now}` : sql``}
-          ${((options?.previousStatus === 'published' || options?.previousStatus === 'archived') && options?.newStatus === 'in_progress') ? sql`, completedAt = NULL` : sql``}
-          WHERE id = ${id}`
-    );
-    // Then apply the rest of the data fields (excluding status-related already handled)
-    const { status, ...restData } = data as any;
-    const cleanData: Record<string, any> = { updatedAt: now };
-    if (status) cleanData.status = status;
-    Object.entries(restData).forEach(([k, v]) => { if (v !== undefined) cleanData[k] = v; });
-    if (Object.keys(cleanData).length > 1) {
-      await db.update(tasks).set(cleanData).where(eq(tasks.id, id));
-    }
-    return;
-  }
+  if (data.phaseId !== undefined) updateData.statusChangedAt = now;
   await db.update(tasks).set(updateData).where(eq(tasks.id, id));
 }
-
 export async function deleteTask(id: number) {
   const db = await getDb();
-  if (!db) return;
   await db.delete(tasks).where(eq(tasks.id, id));
 }
-
-export async function getTasksAssignedToUser(userId: number, filters?: { projectId?: number; setor?: string }) {
+export async function recalcTaskProgress(taskId: number) {
   const db = await getDb();
-  if (!db) return [];
-  const conditions: any[] = [eq(tasks.assigneeId, userId)];
-  if (filters?.projectId) conditions.push(eq(tasks.projectId, filters.projectId));
-  if (filters?.setor) conditions.push(eq(tasks.setor, filters.setor));
-  return db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.createdAt)).limit(20);
-}
-
-export async function getTaskCountsByProject(projectId: number) {
-  const db = await getDb();
-  if (!db) return { pending: 0, in_progress: 0, shared: 0, published: 0, archived: 0, total: 0 };
-  const rows = await db.select({ status: tasks.status, count: sql<number>`count(*)` })
-    .from(tasks).where(eq(tasks.projectId, projectId)).groupBy(tasks.status);
-  const counts = { pending: 0, in_progress: 0, shared: 0, published: 0, archived: 0, total: 0 };
-  for (const r of rows) {
-    const key = r.status as keyof typeof counts;
-    if (key in counts) counts[key] = Number(r.count);
-    counts.total += Number(r.count);
+  const items = await db.select({ status: checklistItems.status }).from(checklistItems).where(eq(checklistItems.taskId, taskId));
+  if (items.length === 0) {
+    await db.update(tasks).set({ progress: 0 }).where(eq(tasks.id, taskId));
+    return 0;
   }
-  return counts;
+  const done = items.filter((i: any) => i.status === 'published' || i.status === 'archived').length;
+  const progress = Math.round((done / items.length) * 100);
+  await db.update(tasks).set({ progress }).where(eq(tasks.id, taskId));
+  // Recalc CRS progress
+  const task = await getTaskById(taskId);
+  if (task) await recalcCrsProgress(task.crsId);
+  return progress;
 }
 
-// ─── Task Comments ────────────────────────────────────────────────────────────
-export async function createTaskComment(data: InsertTaskComment) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(taskComments).values(data);
-  return result.insertId as number;
-}
-
+// ─── Task Comments ─────────────────────────────────────────────────────────────
 export async function getTaskComments(taskId: number) {
   const db = await getDb();
-  if (!db) return [];
   return db.select({
-    id: taskComments.id,
-    taskId: taskComments.taskId,
-    userId: taskComments.userId,
-    content: taskComments.content,
-    createdAt: taskComments.createdAt,
-    updatedAt: taskComments.updatedAt,
-    userName: users.name,
-    userAvatarUrl: users.avatarUrl,
+    id: taskComments.id, taskId: taskComments.taskId, content: taskComments.content,
+    createdAt: taskComments.createdAt, updatedAt: taskComments.updatedAt,
+    userId: taskComments.userId, userName: users.name, userAvatar: users.avatarUrl,
   }).from(taskComments)
     .leftJoin(users, eq(taskComments.userId, users.id))
     .where(eq(taskComments.taskId, taskId))
-    .orderBy(taskComments.createdAt);
+    .orderBy(asc(taskComments.createdAt));
 }
-
+export async function createTaskComment(data: { taskId: number; userId: number; content: string }) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO task_comments (taskId, userId, content, createdAt, updatedAt) VALUES (${data.taskId}, ${data.userId}, ${data.content}, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
+}
 export async function deleteTaskComment(id: number) {
   const db = await getDb();
-  if (!db) return;
   await db.delete(taskComments).where(eq(taskComments.id, id));
 }
 
-// ─── Task Attachments ─────────────────────────────────────────────────────────
-export async function createTaskAttachment(data: InsertTaskAttachment) {
+// ─── Checklist Items ───────────────────────────────────────────────────────────
+export async function getChecklistItems(taskId: number) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(taskAttachments).values(data);
-  return result.insertId as number;
-}
-
-export async function getTaskAttachments(taskId: number) {
-  const db = await getDb();
-  if (!db) return [];
   return db.select({
-    id: taskAttachments.id,
-    taskId: taskAttachments.taskId,
-    uploadedById: taskAttachments.uploadedById,
-    filename: taskAttachments.filename,
-    fileKey: taskAttachments.fileKey,
-    fileUrl: taskAttachments.fileUrl,
-    mimeType: taskAttachments.mimeType,
-    fileSize: taskAttachments.fileSize,
-    createdAt: taskAttachments.createdAt,
-    uploaderName: users.name,
-  }).from(taskAttachments)
-    .leftJoin(users, eq(taskAttachments.uploadedById, users.id))
-    .where(eq(taskAttachments.taskId, taskId))
-    .orderBy(taskAttachments.createdAt);
+    id: checklistItems.id, taskId: checklistItems.taskId, title: checklistItems.title,
+    description: checklistItems.description, assigneeId: checklistItems.assigneeId,
+    status: checklistItems.status, position: checklistItems.position,
+    createdById: checklistItems.createdById, completedAt: checklistItems.completedAt,
+    createdAt: checklistItems.createdAt, updatedAt: checklistItems.updatedAt,
+    assigneeName: users.name, assigneeAvatar: users.avatarUrl,
+  }).from(checklistItems)
+    .leftJoin(users, eq(checklistItems.assigneeId, users.id))
+    .where(eq(checklistItems.taskId, taskId))
+    .orderBy(asc(checklistItems.position));
 }
-
-export async function getAttachmentById(id: number) {
+export async function createChecklistItem(data: { taskId: number; title: string; description?: string; assigneeId?: number; position?: number; createdById: number }) {
   const db = await getDb();
-  if (!db) return undefined;
-  const r = await db.select().from(taskAttachments).where(eq(taskAttachments.id, id)).limit(1);
-  return r[0];
+  const [result] = await db.execute(
+    sql`INSERT INTO checklist_items (taskId, title, description, assigneeId, status, position, createdById, createdAt, updatedAt)
+        VALUES (${data.taskId}, ${data.title}, ${data.description ?? null}, ${data.assigneeId ?? null}, 'pending', ${data.position ?? 99}, ${data.createdById}, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
 }
-
-export async function deleteTaskAttachment(id: number) {
+export async function updateChecklistItem(id: number, data: any) {
   const db = await getDb();
-  if (!db) return;
-  await db.delete(taskAttachments).where(eq(taskAttachments.id, id));
+  await db.update(checklistItems).set({ ...data, updatedAt: new Date() }).where(eq(checklistItems.id, id));
 }
-
-// ─── Notifications ────────────────────────────────────────────────────────────
-export async function createNotification(data: InsertNotification) {
+export async function deleteChecklistItem(id: number) {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(notifications).values(data);
+  await db.delete(checklistItems).where(eq(checklistItems.id, id));
 }
-
-export async function getNotificationsByUser(userId: number) {
+export async function getChecklistItemComments(checklistItemId: number) {
   const db = await getDb();
-  if (!db) return [];
-  return db.select().from(notifications)
-    .where(eq(notifications.userId, userId))
-    .orderBy(desc(notifications.createdAt))
-    .limit(50);
+  return db.select({
+    id: checklistItemComments.id, checklistItemId: checklistItemComments.checklistItemId,
+    content: checklistItemComments.content, createdAt: checklistItemComments.createdAt,
+    userId: checklistItemComments.userId, userName: users.name, userAvatar: users.avatarUrl,
+  }).from(checklistItemComments)
+    .leftJoin(users, eq(checklistItemComments.userId, users.id))
+    .where(eq(checklistItemComments.checklistItemId, checklistItemId))
+    .orderBy(asc(checklistItemComments.createdAt));
 }
-
-export async function getUnreadNotificationCount(userId: number) {
+export async function createChecklistItemComment(data: { checklistItemId: number; userId: number; content: string }) {
   const db = await getDb();
-  if (!db) return 0;
-  const r = await db.select({ count: sql<number>`count(*)` }).from(notifications)
-    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
-  return Number(r[0]?.count ?? 0);
+  const [result] = await db.execute(
+    sql`INSERT INTO checklist_item_comments (checklistItemId, userId, content, createdAt, updatedAt) VALUES (${data.checklistItemId}, ${data.userId}, ${data.content}, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
 }
 
+// ─── Task Phase History ────────────────────────────────────────────────────────
+export async function recordPhaseChange(data: { taskId: number; changedById: number; fromPhaseId?: number; fromPhaseName?: string; toPhaseId: number; toPhaseName: string }) {
+  const db = await getDb();
+  await db.execute(
+    sql`INSERT INTO task_phase_history (taskId, changedById, fromPhaseId, fromPhaseName, toPhaseId, toPhaseName, changedAt)
+        VALUES (${data.taskId}, ${data.changedById}, ${data.fromPhaseId ?? null}, ${data.fromPhaseName ?? null}, ${data.toPhaseId}, ${data.toPhaseName}, NOW())`
+  );
+}
+export async function getTaskPhaseHistory(taskId: number) {
+  const db = await getDb();
+  return db.select({
+    id: taskPhaseHistory.id, fromPhaseId: taskPhaseHistory.fromPhaseId,
+    fromPhaseName: taskPhaseHistory.fromPhaseName, toPhaseId: taskPhaseHistory.toPhaseId,
+    toPhaseName: taskPhaseHistory.toPhaseName, changedAt: taskPhaseHistory.changedAt,
+    changedByName: users.name, changedByAvatar: users.avatarUrl,
+  }).from(taskPhaseHistory)
+    .leftJoin(users, eq(taskPhaseHistory.changedById, users.id))
+    .where(eq(taskPhaseHistory.taskId, taskId))
+    .orderBy(asc(taskPhaseHistory.changedAt));
+}
+export async function getChecklistItemHistory(taskId: number) {
+  const db = await getDb();
+  return db.select({
+    id: checklistItemHistory.id, checklistItemId: checklistItemHistory.checklistItemId,
+    fromStatus: checklistItemHistory.fromStatus, toStatus: checklistItemHistory.toStatus,
+    changedAt: checklistItemHistory.changedAt,
+    changedByName: users.name, changedByAvatar: users.avatarUrl,
+  }).from(checklistItemHistory)
+    .leftJoin(users, eq(checklistItemHistory.changedById, users.id))
+    .where(eq(checklistItemHistory.taskId, taskId))
+    .orderBy(asc(checklistItemHistory.changedAt));
+}
+
+// ─── Vacation Periods ──────────────────────────────────────────────────────────
+export async function getVacationPeriods(userId?: number) {
+  const db = await getDb();
+  const conditions = userId ? [eq(vacationPeriods.userId, userId)] : [];
+  return db.select({
+    id: vacationPeriods.id, userId: vacationPeriods.userId,
+    startDate: vacationPeriods.startDate, endDate: vacationPeriods.endDate,
+    description: vacationPeriods.description, createdAt: vacationPeriods.createdAt,
+    userName: users.name, userAvatar: users.avatarUrl,
+  }).from(vacationPeriods)
+    .leftJoin(users, eq(vacationPeriods.userId, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(vacationPeriods.startDate));
+}
+export async function createVacationPeriod(data: { userId: number; startDate: Date; endDate: Date; description?: string }) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO vacation_periods (userId, startDate, endDate, description, createdAt) VALUES (${data.userId}, ${data.startDate}, ${data.endDate}, ${data.description ?? null}, NOW())`
+  );
+  return (result as any).insertId as number;
+}
+export async function deleteVacationPeriod(id: number) {
+  const db = await getDb();
+  await db.delete(vacationPeriods).where(eq(vacationPeriods.id, id));
+}
+export async function isUserOnVacation(userId: number, date: Date): Promise<boolean> {
+  const db = await getDb();
+  const r = await db.select({ id: vacationPeriods.id }).from(vacationPeriods)
+    .where(and(eq(vacationPeriods.userId, userId), sql`${vacationPeriods.startDate} <= ${date}`, sql`${vacationPeriods.endDate} >= ${date}`))
+    .limit(1);
+  return r.length > 0;
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+export async function notifyUser(data: { userId: number; title: string; message: string; notificationType: any; relatedCrsId?: number; relatedTaskId?: number }) {
+  const db = await getDb();
+  await db.execute(
+    sql`INSERT INTO notifications (userId, title, message, notificationType, isRead, relatedCrsId, relatedTaskId, createdAt)
+        VALUES (${data.userId}, ${data.title}, ${data.message}, ${data.notificationType}, 0, ${data.relatedCrsId ?? null}, ${data.relatedTaskId ?? null}, NOW())`
+  );
+}
+export async function getNotifications(userId: number) {
+  const db = await getDb();
+  return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);
+}
 export async function markNotificationRead(id: number) {
   const db = await getDb();
-  if (!db) return;
   await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
 }
-
 export async function markAllNotificationsRead(userId: number) {
   const db = await getDb();
-  if (!db) return;
-  await db.update(notifications).set({ isRead: true })
-    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+  await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
 }
 
-export async function deleteNotification(id: number) {
+// ─── Activity Logs ─────────────────────────────────────────────────────────────
+export async function logActivity(data: { userId: number; action: string; entityType: string; entityId?: number; metadata?: string }) {
   const db = await getDb();
-  if (!db) return;
-  await db.delete(notifications).where(eq(notifications.id, id));
+  await db.execute(
+    sql`INSERT INTO activity_logs (userId, action, entityType, entityId, metadata, createdAt) VALUES (${data.userId}, ${data.action}, ${data.entityType}, ${data.entityId ?? null}, ${data.metadata ?? null}, NOW())`
+  );
 }
 
-// ─── Activity Logs ────────────────────────────────────────────────────────────
-export async function logActivity(data: InsertActivityLog) {
+// ─── Disciplines ───────────────────────────────────────────────────────────────
+export async function getDisciplines(activeOnly = true) {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(activityLogs).values(data);
+  const conditions = activeOnly ? [eq(disciplines.isActive, true)] : [];
+  return db.select().from(disciplines).where(conditions.length > 0 ? and(...conditions) : undefined).orderBy(asc(disciplines.name));
 }
 
-export async function getActivityLogs(limit = 50, offset = 0) {
+// ─── Dashboard ─────────────────────────────────────────────────────────────────
+export async function getDashboardStats() {
   const db = await getDb();
-  if (!db) return [];
-  return db.select({
-    id: activityLogs.id,
-    userId: activityLogs.userId,
-    action: activityLogs.action,
-    entityType: activityLogs.entityType,
-    entityId: activityLogs.entityId,
-    metadata: activityLogs.metadata,
-    createdAt: activityLogs.createdAt,
-    userName: users.name,
-    userEmail: users.email,
-  }).from(activityLogs)
-    .leftJoin(users, eq(activityLogs.userId, users.id))
-    .orderBy(desc(activityLogs.createdAt))
-    .limit(limit).offset(offset);
-}
-
-// ─── Chat Messages ────────────────────────────────────────────────────────────
-export async function saveChatMessage(data: InsertChatMessage) {
-  const db = await getDb();
-  if (!db) return;
-  const [result] = await db.insert(chatMessages).values(data);
-  return result.insertId as number;
-}
-
-export async function getChatHistory(userId: number, projectId?: number) {
-  const db = await getDb();
-  if (!db) return [];
-  const conditions = [eq(chatMessages.userId, userId)];
-  if (projectId) conditions.push(eq(chatMessages.projectId, projectId));
-  return db.select().from(chatMessages)
-    .where(and(...conditions))
-    .orderBy(chatMessages.createdAt)
-    .limit(100);
-}
-
-export async function clearChatHistory(userId: number, projectId?: number) {
-  const db = await getDb();
-  if (!db) return;
-  const conditions = [eq(chatMessages.userId, userId)];
-  if (projectId) conditions.push(eq(chatMessages.projectId, projectId));
-  await db.delete(chatMessages).where(and(...conditions));
-}
-
-// ─── Setor Stats ─────────────────────────────────────────────────────────────
-export async function getSetorStats(userId: number, filterProjectId?: number) {
-  const db = await getDb();
-  if (!db) return [];
-  const userProjects = await getProjectsByUser(userId);
-  const projectIds = userProjects.map(p => p.id);
-  if (projectIds.length === 0) return [];
-  const filteredIds = filterProjectId ? projectIds.filter(id => id === filterProjectId) : projectIds;
-  if (filteredIds.length === 0) return [];
-  const rows = await db.select({
-    setor: tasks.setor,
-    status: tasks.status,
-    count: sql<number>`count(*)`,
-  })
-    .from(tasks)
-    .where(inArray(tasks.projectId, filteredIds))
-    .groupBy(tasks.setor, tasks.status);
-  // Aggregate by setor
-  const map = new Map<string, { setor: string; total: number; completed: number; in_progress: number; pending: number; shared: number }>();
-  for (const r of rows) {
-    const key = r.setor ?? "Sem Setor";
-    if (!map.has(key)) map.set(key, { setor: key, total: 0, completed: 0, in_progress: 0, pending: 0, shared: 0 });
-    const entry = map.get(key)!;
-    const cnt = Number(r.count);
-    entry.total += cnt;
-    if (r.status === "published" || r.status === "archived") entry.completed += cnt;
-    else if (r.status === "in_progress") entry.in_progress += cnt;
-    else if (r.status === "shared") entry.shared += cnt;
-    else entry.pending += cnt;
-  }
-  return Array.from(map.values()).sort((a, b) => b.total - a.total);
-}
-
-// ─── Dashboard Stats ──────────────────────────────────────────────────────────
-export async function getDashboardStats(userId: number, filters?: { projectId?: number; setor?: string }) {
-  const db = await getDb();
-  if (!db) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0, inProgressTasks: 0, sharedTasks: 0, publishedTasks: 0, archivedTasks: 0, overdueTasks: 0, totalRevisions: 0 };
-  const userProjects = await getProjectsByUser(userId);
-  const projectIds = userProjects.map(p => p.id);
-  if (projectIds.length === 0) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0, inProgressTasks: 0, sharedTasks: 0, publishedTasks: 0, archivedTasks: 0, overdueTasks: 0, totalRevisions: 0 };
-
-  // Apply project filter
-  const filteredProjectIds = filters?.projectId
-    ? projectIds.filter(id => id === filters.projectId)
-    : projectIds;
-  if (filteredProjectIds.length === 0) return { totalProjects: 0, totalTasks: 0, completedTasks: 0, pendingTasks: 0, inProgressTasks: 0, sharedTasks: 0, publishedTasks: 0, archivedTasks: 0, overdueTasks: 0, totalRevisions: 0 };
-
-  // Build where conditions
-  const conditions = [inArray(tasks.projectId, filteredProjectIds)];
-  if (filters?.setor) conditions.push(eq(tasks.setor, filters.setor));
-
-  const taskCounts = await db.select({ status: tasks.status, count: sql<number>`count(*)` })
-    .from(tasks).where(and(...conditions)).groupBy(tasks.status);
-
-  const revisionsRow = await db.select({ total: sql<number>`COALESCE(SUM(revisionsCount), 0)` })
-    .from(tasks).where(and(...conditions));
-  const totalRevisions = Number(revisionsRow[0]?.total ?? 0);
-
+  const totalClients = await db.select({ count: sql<number>`COUNT(*)` }).from(clients).where(eq(clients.status, "active"));
+  const totalCrs = await db.select({ count: sql<number>`COUNT(*)` }).from(crs).where(eq(crs.status, "active"));
+  const totalTasks = await db.select({ count: sql<number>`COUNT(*)` }).from(tasks);
+  const avgProgress = await db.select({ avg: sql<number>`AVG(progress)` }).from(crs).where(eq(crs.status, "active"));
+  const allTasksRaw = await db.select({ progress: tasks.progress, dueDate: tasks.dueDate }).from(tasks);
   const now = new Date();
-  const overdueRows = await db.select({ count: sql<number>`count(*)` })
-    .from(tasks)
-    .where(and(
-      ...conditions,
-      sql`${tasks.dueDate} IS NOT NULL`,
-      sql`${tasks.dueDate} < ${now}`,
-      sql`${tasks.status} NOT IN ('published', 'archived')`
-    ));
-  const overdueTasks = Number(overdueRows[0]?.count ?? 0);
-
-  let pendingTasks = 0, inProgressTasks = 0, sharedTasks = 0, publishedTasks = 0, archivedTasks = 0;
-  for (const r of taskCounts) {
-    const cnt = Number(r.count);
-    if (r.status === "pending") pendingTasks += cnt;
-    else if (r.status === "in_progress") inProgressTasks += cnt;
-    else if (r.status === "shared") sharedTasks += cnt;
-    else if (r.status === "published") publishedTasks += cnt;
-    else if (r.status === "archived") archivedTasks += cnt;
-  }
-  const completedTasks = publishedTasks + archivedTasks;
+  const completedTasks = allTasksRaw.filter((t: any) => t.progress >= 100).length;
+  const inProgressTasks = allTasksRaw.filter((t: any) => t.progress > 0 && t.progress < 100).length;
+  const pendingTasks = allTasksRaw.filter((t: any) => t.progress === 0).length;
+  const overdueTasks = allTasksRaw.filter((t: any) => t.dueDate && new Date(t.dueDate) < now && t.progress < 100).length;
+  const sharedTasks = 0;
+  const publishedTasks = completedTasks;
+  const archivedTasks = 0;
   return {
-    totalProjects: filters?.projectId ? 1 : userProjects.length,
-    totalTasks: pendingTasks + inProgressTasks + sharedTasks + publishedTasks + archivedTasks,
-    completedTasks,
+    totalClients: totalClients[0]?.count ?? 0,
+    totalCrs: totalCrs[0]?.count ?? 0,
+    totalTasks: totalTasks[0]?.count ?? 0,
+    avgProgress: Math.round((avgProgress[0]?.avg ?? 0) * 10) / 10,
     pendingTasks,
     inProgressTasks,
     sharedTasks,
     publishedTasks,
     archivedTasks,
+    completedTasks,
     overdueTasks,
-     totalRevisions,
   };
 }
-// ─── Due-Date Alerts ──────────────────────────────────────────────────────────
-/**
- * Returns tasks that are due within the next `windowHours` hours and are not yet done.
- * Used by the background job that sends 24h-before notifications.
- */
-export async function getTasksDueSoon(windowHours = 24) {
+export async function getWorldMapData() {
   const db = await getDb();
-  if (!db) return [];
-  const now = new Date();
-  const cutoff = new Date(now.getTime() + windowHours * 60 * 60 * 1000);
-  const rows = await db
-    .select({
-      id: tasks.id,
-      title: tasks.title,
-      dueDate: tasks.dueDate,
-      assigneeId: tasks.assigneeId,
-      projectId: tasks.projectId,
-      createdById: tasks.createdById,
-    })
-    .from(tasks)
-    .where(
-      and(
-        sql`${tasks.dueDate} IS NOT NULL`,
-        sql`${tasks.dueDate} > ${now}`,
-        sql`${tasks.dueDate} <= ${cutoff}`,
-        sql`${tasks.status} NOT IN ('published', 'archived')`
-      )
-    );
-  return rows;
-}
-
-// ── Project Roles ─────────────────────────────────────────────────────────────
-export async function getProjectRoles(projectId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(projectRoles).where(eq(projectRoles.projectId, projectId)).orderBy(projectRoles.name);
-}
-
-export async function createProjectRole(data: InsertProjectRole) {
-  const db = await getDb();
-  if (!db) return;
-  await db.insert(projectRoles).values(data);
-}
-
-export async function updateProjectRole(id: number, data: Partial<InsertProjectRole>) {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(projectRoles).set(data).where(eq(projectRoles.id, id));
-}
-
-export async function deleteProjectRole(id: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(projectRoles).where(eq(projectRoles.id, id));
-}
-
-export async function getMemberRoles(projectId: number) {
-  const db = await getDb();
-  if (!db) return [];
   const rows = await db.select({
-    userId: projectMemberRoles.userId,
-    roleId: projectMemberRoles.roleId,
-    roleName: projectRoles.name,
-    isLeader: projectRoles.isLeader,
-    canApprove: projectRoles.canApprove,
-    color: projectRoles.color,
-  })
-    .from(projectMemberRoles)
-    .leftJoin(projectRoles, eq(projectMemberRoles.roleId, projectRoles.id))
-    .where(eq(projectMemberRoles.projectId, projectId));
+    id: crs.id, name: crs.name, code: crs.code, country: crs.country,
+    countryCode: crs.countryCode, state: crs.state, stateCode: crs.stateCode,
+    progress: crs.progress, status: crs.status, clientName: clients.name,
+  }).from(crs)
+    .leftJoin(clients, eq(crs.clientId, clients.id))
+    .where(eq(crs.status, "active"));
   return rows;
 }
-
-export async function assignMemberRole(projectId: number, userId: number, roleId: number) {
+export async function getWeekDeliveries() {
   const db = await getDb();
-  if (!db) return;
-  // Upsert: delete existing then insert
-  await db.delete(projectMemberRoles)
-    .where(and(eq(projectMemberRoles.projectId, projectId), eq(projectMemberRoles.userId, userId)));
-  await db.insert(projectMemberRoles).values({ projectId, userId, roleId });
-}
-
-export async function removeMemberRole(projectId: number, userId: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(projectMemberRoles)
-    .where(and(eq(projectMemberRoles.projectId, projectId), eq(projectMemberRoles.userId, userId)));
-}
-
-// --- Notification Preferences ---
-
-/** Returns all preferences for a user, filling defaults for missing types */
-export async function getNotificationPreferences(userId: number) {
-  const db = await getDb();
-  if (!db) return NOTIFICATION_TYPES.map((t) => ({ notificationType: t, inApp: true, email: false }));
-  const rows = await db.select().from(notificationPreferences)
-    .where(eq(notificationPreferences.userId, userId));
-  // Merge with defaults: any type not yet in DB defaults to inApp=true
-  return NOTIFICATION_TYPES.map((t) => {
-    const existing = rows.find((r) => r.notificationType === t);
-    return existing
-      ? { notificationType: t, inApp: existing.inApp, email: false }
-      : { notificationType: t, inApp: true, email: false };
-  });
-}
-
-/** Upsert a single preference for a user */
-export async function upsertNotificationPreference(
-  userId: number,
-  notificationType: string,
-  inApp: boolean,
-) {
-  const db = await getDb();
-  if (!db) return;
-  // Try update first, then insert
-  const existing = await db.select({ id: notificationPreferences.id })
-    .from(notificationPreferences)
-    .where(and(
-      eq(notificationPreferences.userId, userId),
-      eq(notificationPreferences.notificationType, notificationType),
-    ));
-  if (existing.length > 0) {
-    await db.update(notificationPreferences)
-      .set({ inApp })
-      .where(and(
-        eq(notificationPreferences.userId, userId),
-        eq(notificationPreferences.notificationType, notificationType),
-      ));
-  } else {
-    await db.insert(notificationPreferences).values({ userId, notificationType, inApp, email: false });
-  }
-}
-
-/**
- * Smart notification creator: checks user preferences before inserting.
- * If inApp preference is false for this type, skip creation.
- */
-export async function notifyUser(data: InsertNotification) {
-  const db = await getDb();
-  if (!db) return;
-  // Check preference
-  const notifType = data.notificationType as string;
-  const prefs = await db.select({ inApp: notificationPreferences.inApp })
-    .from(notificationPreferences)
-    .where(and(
-      eq(notificationPreferences.userId, data.userId),
-      eq(notificationPreferences.notificationType, notifType),
-    ));
-  // If preference row exists and inApp is false, skip
-  if (prefs.length > 0 && !prefs[0].inApp) return;
-  // Otherwise create (default = enabled)
-  await db.insert(notifications).values(data);
-}
-
-
-// ─── Companies ────────────────────────────────────────────────────────────────
-export async function getAllCompanies(): Promise<Company[]> {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(companies).orderBy(companies.name);
-}
-export async function getCompanyById(id: number): Promise<Company | undefined> {
-  const db = await getDb();
-  if (!db) return undefined;
-  const r = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
-  return r[0];
-}
-export async function createCompany(data: { name: string; slug: string; color?: string; logoUrl?: string }): Promise<number> {
-  const db = await getDb();
-  if (!db) throw new Error("No DB");
-  const r = await db.insert(companies).values(data);
-  return Number((r as any)[0]?.insertId ?? 0);
-}
-export async function updateCompany(id: number, data: Partial<{ name: string; color: string; logoUrl: string }>): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(companies).set(data).where(eq(companies.id, id));
-}
-export async function deleteCompany(id: number): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(companies).where(eq(companies.id, id));
-}
-export async function getUsersByCompany(companyId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(users).where(eq(users.companyId, companyId)).orderBy(users.name);
-}
-export async function getProjectsByCompany(companyId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(projects).where(eq(projects.companyId, companyId)).orderBy(projects.name);
-}
-export async function updateUserCompany(userId: number, companyId: number | null, role?: "user" | "admin" | "master_admin" | "company_admin"): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  const update: Record<string, unknown> = { companyId };
-  if (role) update.role = role;
-  await db.update(users).set(update).where(eq(users.id, userId));
-}
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) return;
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-  const fields = ["name", "email", "loginMethod", "avatarUrl", "company", "companyId"] as const;
-  for (const f of fields) {
-    const v = (user as any)[f];
-    if (v !== undefined) { (values as any)[f] = v ?? null; updateSet[f] = v ?? null; }
-  }
-  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
-  if (!values.lastSignedIn) values.lastSignedIn = new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
-}
-export async function deleteUser(id: number): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(users).where(eq(users.id, id));
-}
-
-// ─── Gantt & Burndown ─────────────────────────────────────────────────────────
-export async function getGanttTasks(filters: { projectId?: number; assigneeId?: number; companyId?: number } = {}) {
-  const db = await getDb();
-  if (!db) return [];
-  const rows = await db
-    .select({
-      id: tasks.id,
-      title: tasks.title,
-      status: tasks.status,
-      priority: tasks.priority,
-      startDate: tasks.startDate,
-      endDate: tasks.endDate,
-      dueDate: tasks.dueDate,
-      assigneeId: tasks.assigneeId,
-      projectId: tasks.projectId,
-      setor: tasks.setor,
-      assigneeName: users.name,
-      projectName: projects.name,
-    })
-    .from(tasks)
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+  return db.select({
+    id: tasks.id, title: tasks.title, dueDate: tasks.dueDate,
+    progress: tasks.progress, phaseId: tasks.phaseId, crsId: tasks.crsId,
+    assigneeName: users.name, assigneeAvatar: users.avatarUrl,
+    crsName: crs.name,
+  }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
-    .leftJoin(projects, eq(tasks.projectId, projects.id))
-    .where(
-      and(
-        filters.projectId ? eq(tasks.projectId, filters.projectId) : undefined,
-        filters.assigneeId ? eq(tasks.assigneeId, filters.assigneeId) : undefined,
-        filters.companyId ? eq(projects.companyId, filters.companyId) : undefined,
-      )
-    )
-    .orderBy(tasks.startDate);
-  return rows;
+    .leftJoin(crs, eq(tasks.crsId, crs.id))
+    .where(and(sql`${tasks.dueDate} >= ${startOfWeek}`, sql`${tasks.dueDate} <= ${endOfWeek}`))
+    .orderBy(asc(tasks.dueDate));
 }
 
-export async function getBurndownData(projectId: number) {
+// ─── Agenda Events ─────────────────────────────────────────────────────────────
+export async function getAgendaEvents(filters?: { userId?: number; crsId?: number }) {
   const db = await getDb();
-  if (!db) return { total: 0, dataPoints: [] as { date: string; remaining: number; ideal: number }[] };
-  // Get all tasks for the project
-  const allTasks = await db.select({
-    id: tasks.id,
-    status: tasks.status,
-    completedAt: tasks.completedAt,
-    openedAt: tasks.openedAt,
-    dueDate: tasks.dueDate,
-  }).from(tasks).where(eq(tasks.projectId, projectId));
-  if (allTasks.length === 0) return { total: 0, dataPoints: [] };
-  const total = allTasks.length;
-  // Find project start and end dates
-  const projectStart = allTasks.reduce((min, t) => {
-    const d = t.openedAt ? new Date(t.openedAt).getTime() : Infinity;
-    return d < min ? d : min;
-  }, Infinity);
-  const projectEnd = allTasks.reduce((max, t) => {
-    const d = t.dueDate ? new Date(t.dueDate).getTime() : 0;
-    return d > max ? d : max;
-  }, 0);
-  if (!isFinite(projectStart) || projectEnd === 0) return { total, dataPoints: [] };
-  const startDate = new Date(projectStart);
-  const endDate = new Date(projectEnd);
-  const days = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-  const dataPoints: { date: string; remaining: number; ideal: number }[] = [];
-  for (let i = 0; i <= days; i++) {
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().split('T')[0];
-    const completed = allTasks.filter(t =>
-      t.status === 'published' && t.completedAt && new Date(t.completedAt) <= d
-    ).length;
-    const remaining = total - completed;
-    const ideal = Math.round(total - (total * i / days));
-    dataPoints.push({ date: dateStr, remaining, ideal });
-  }
-  return { total, dataPoints };
+  const conditions: any[] = [];
+  if (filters?.crsId) conditions.push(eq(agendaEvents.crsId, filters.crsId));
+  return db.select().from(agendaEvents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(agendaEvents.startDate));
 }
-
-export async function detectGanttConflicts(projectId?: number) {
+export async function createAgendaEvent(data: any) {
   const db = await getDb();
-  if (!db) return [];
-  const rows = await db
-    .select({
-      id: tasks.id,
-      title: tasks.title,
-      startDate: tasks.startDate,
-      endDate: tasks.endDate,
-      assigneeId: tasks.assigneeId,
-      assigneeName: users.name,
-      projectId: tasks.projectId,
-    })
-    .from(tasks)
-    .leftJoin(users, eq(tasks.assigneeId, users.id))
-    .where(
-      and(
-        projectId ? eq(tasks.projectId, projectId) : undefined,
-        sql`${tasks.startDate} IS NOT NULL`,
-        sql`${tasks.endDate} IS NOT NULL`,
-      )
-    );
-  // Find overlapping tasks for same assignee
-  const conflicts: { task1: typeof rows[0]; task2: typeof rows[0] }[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    for (let j = i + 1; j < rows.length; j++) {
-      const a = rows[i], b = rows[j];
-      if (!a.assigneeId || a.assigneeId !== b.assigneeId) continue;
-      if (!a.startDate || !a.endDate || !b.startDate || !b.endDate) continue;
-      const aStart = new Date(a.startDate).getTime();
-      const aEnd = new Date(a.endDate).getTime();
-      const bStart = new Date(b.startDate).getTime();
-      const bEnd = new Date(b.endDate).getTime();
-      if (aStart < bEnd && aEnd > bStart) {
-        conflicts.push({ task1: a, task2: b });
-      }
-    }
-  }
-  return conflicts;
+  const [result] = await db.execute(
+    sql`INSERT INTO agenda_events (createdById, title, type, startDate, endDate, description, meetingUrl, attendeeIds, crsId, isPublic, createdAt)
+        VALUES (${data.createdById}, ${data.title}, ${data.type ?? 'other'}, ${data.startDate}, ${data.endDate}, ${data.description ?? null}, ${data.meetingUrl ?? null}, ${data.attendeeIds ?? null}, ${data.crsId ?? null}, ${data.isPublic ? 1 : 0}, NOW())`
+  );
+  return (result as any).insertId as number;
 }
-
-// ─── Sprints ──────────────────────────────────────────────────────────────────
-export async function createSprint(data: InsertSprint) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(sprints).values(data);
-  return { id: (result as any).insertId as number };
-}
-
-export async function listSprints(projectId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(sprints).where(eq(sprints.projectId, projectId)).orderBy(desc(sprints.startDate));
-}
-
-export async function getAllSprints() {
-  const db = await getDb();
-  if (!db) return [];
-  const allSprints = await db.select().from(sprints).orderBy(desc(sprints.startDate));
-  // Add task counts
-  const result = await Promise.all(allSprints.map(async sprint => {
-    const stRows = await db!.select({ taskId: sprintTasks.taskId }).from(sprintTasks).where(eq(sprintTasks.sprintId, sprint.id));
-    const taskIds = stRows.map(r => r.taskId);
-    const taskCount = taskIds.length;
-    const completedCount = taskIds.length > 0
-      ? (await db!.select({ id: tasks.id }).from(tasks).where(and(inArray(tasks.id, taskIds), eq(tasks.status, 'published')))).length
-      : 0;
-    return { ...sprint, taskCount, completedCount };
-  }));
-  return result;
-}
-
-export async function getSprintWithTasks(sprintId: number) {
-  const db = await getDb();
-  if (!db) return null;
-  const [sprint] = await db.select().from(sprints).where(eq(sprints.id, sprintId));
-  if (!sprint) return null;
-  const stRows = await db.select({ taskId: sprintTasks.taskId }).from(sprintTasks).where(eq(sprintTasks.sprintId, sprintId));
-  const taskIds = stRows.map(r => r.taskId);
-  const sprintTaskList = taskIds.length > 0
-    ? await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, priority: tasks.priority, assigneeId: tasks.assigneeId, setor: tasks.setor }).from(tasks).where(inArray(tasks.id, taskIds))
-    : [];
-  return { ...sprint, tasks: sprintTaskList };
-}
-
-export async function updateSprint(id: number, data: Partial<InsertSprint>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(sprints).set(data).where(eq(sprints.id, id));
-  return { success: true };
-}
-
-export async function deleteSprint(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(sprintTasks).where(eq(sprintTasks.sprintId, id));
-  await db.delete(sprints).where(eq(sprints.id, id));
-  return { success: true };
-}
-
-export async function addTaskToSprint(sprintId: number, taskId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const existing = await db.select().from(sprintTasks).where(and(eq(sprintTasks.sprintId, sprintId), eq(sprintTasks.taskId, taskId)));
-  if (existing.length > 0) return { success: true };
-  await db.insert(sprintTasks).values({ sprintId, taskId });
-  return { success: true };
-}
-
-export async function removeTaskFromSprint(sprintId: number, taskId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(sprintTasks).where(and(eq(sprintTasks.sprintId, sprintId), eq(sprintTasks.taskId, taskId)));
-  return { success: true };
-}
-
-// ─── Agenda Events ────────────────────────────────────────────────────────────
-export async function createAgendaEvent(data: InsertAgendaEvent) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(agendaEvents).values(data);
-  return { id: (result as any).insertId as number };
-}
-
-export async function listAgendaEvents(userId: number, projectId?: number) {
-  const db = await getDb();
-  if (!db) return [];
-  // Return events created by user OR public events OR events where user is attendee
-  const rows = await db
-    .select({
-      id: agendaEvents.id,
-      createdById: agendaEvents.createdById,
-      title: agendaEvents.title,
-      type: agendaEvents.type,
-      startDate: agendaEvents.startDate,
-      endDate: agendaEvents.endDate,
-      description: agendaEvents.description,
-      meetingUrl: agendaEvents.meetingUrl,
-      attendeeIds: agendaEvents.attendeeIds,
-      projectId: agendaEvents.projectId,
-      isPublic: agendaEvents.isPublic,
-      createdAt: agendaEvents.createdAt,
-      creatorName: users.name,
-    })
-    .from(agendaEvents)
-    .leftJoin(users, eq(agendaEvents.createdById, users.id))
-    .where(
-      projectId
-        ? or(eq(agendaEvents.createdById, userId), and(eq(agendaEvents.isPublic, true), eq(agendaEvents.projectId, projectId)))
-        : or(eq(agendaEvents.createdById, userId), eq(agendaEvents.isPublic, true))
-    )
-    .orderBy(agendaEvents.startDate);
-  return rows;
-}
-
-export async function updateAgendaEvent(id: number, data: Partial<InsertAgendaEvent>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(agendaEvents).set(data).where(eq(agendaEvents.id, id));
-  return { success: true };
-}
-
 export async function deleteAgendaEvent(id: number) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
   await db.delete(agendaEvents).where(eq(agendaEvents.id, id));
-  return { success: true };
 }
 
-// ─── Task Messages (Chat entre membros) ──────────────────────────────────────
-export async function sendTaskMessage(data: InsertTaskMessage) {
+// ─── Chat Messages ─────────────────────────────────────────────────────────────
+export async function getChatMessages(userId: number, crsId?: number) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(taskMessages).values(data);
-  return { id: (result as any).insertId as number };
+  const conditions: any[] = [eq(chatMessages.userId, userId)];
+  if (crsId) conditions.push(eq(chatMessages.crsId, crsId));
+  return db.select().from(chatMessages).where(and(...conditions)).orderBy(asc(chatMessages.createdAt)).limit(100);
 }
-
-export async function getTaskMessages(taskId: number) {
+export async function createChatMessage(data: { userId: number; crsId?: number; role: "user" | "assistant"; content: string }) {
   const db = await getDb();
-  if (!db) return [];
-  return db
-    .select({
-      id: taskMessages.id,
-      taskId: taskMessages.taskId,
-      userId: taskMessages.userId,
-      message: taskMessages.message,
-      createdAt: taskMessages.createdAt,
-      userName: users.name,
-    })
-    .from(taskMessages)
-    .leftJoin(users, eq(taskMessages.userId, users.id))
-    .where(eq(taskMessages.taskId, taskId))
-    .orderBy(taskMessages.createdAt);
-}
-
-// ─── Whiteboard ───────────────────────────────────────────────────────────────
-export async function getWhiteboard(projectId: number) {
-  const db = await getDb();
-  if (!db) return null;
-  const [row] = await db.select().from(whiteboardData).where(eq(whiteboardData.projectId, projectId));
-  return row ?? null;
-}
-
-export async function saveWhiteboard(projectId: number, content: string, userId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const existing = await db.select({ id: whiteboardData.id }).from(whiteboardData).where(eq(whiteboardData.projectId, projectId));
-  if (existing.length > 0) {
-    await db.update(whiteboardData).set({ content, updatedById: userId }).where(eq(whiteboardData.projectId, projectId));
-  } else {
-    await db.insert(whiteboardData).values({ projectId, content, updatedById: userId });
-  }
-  return { success: true };
-}
-
-
-// ─── Clients ──────────────────────────────────────────────────────────────────
-export async function createClient(data: { name: string; email?: string; phone?: string; company?: string; notes?: string; companyId?: number; createdById: number }) {
-  const db = await getDb();
-  if (!db) return 0;
-  const [result] = await db.insert(clients).values(data as any);
+  const [result] = await db.execute(
+    sql`INSERT INTO chat_messages (userId, crsId, role, content, createdAt) VALUES (${data.userId}, ${data.crsId ?? null}, ${data.role}, ${data.content}, NOW())`
+  );
   return (result as any).insertId as number;
 }
 
-export async function listClients(filters: { companyId?: number } = {}) {
+// ─── Conversations / Direct Messages ──────────────────────────────────────────
+export async function getOrCreateConversation(userId1: number, userId2: number) {
   const db = await getDb();
-  if (!db) return [];
-  let query = db.select().from(clients) as any;
-  const conditions: any[] = [];
-  if (filters.companyId) conditions.push(eq(clients.companyId, filters.companyId));
-  if (conditions.length > 0) query = query.where(and(...conditions));
-  return query.orderBy(desc(clients.createdAt));
+  // Find existing direct conversation between these two users
+  const existing = await db.execute(
+    sql`SELECT c.id FROM conversations c
+        JOIN conversation_participants cp1 ON cp1.conversationId = c.id AND cp1.userId = ${userId1}
+        JOIN conversation_participants cp2 ON cp2.conversationId = c.id AND cp2.userId = ${userId2}
+        WHERE c.type = 'direct' LIMIT 1`
+  );
+  if ((existing[0] as any[]).length > 0) return (existing[0] as any[])[0].id as number;
+  const [result] = await db.execute(
+    sql`INSERT INTO conversations (type, createdById, createdAt, updatedAt) VALUES ('direct', ${userId1}, NOW(), NOW())`
+  );
+  const convId = (result as any).insertId as number;
+  await db.execute(sql`INSERT INTO conversation_participants (conversationId, userId, joinedAt) VALUES (${convId}, ${userId1}, NOW())`);
+  await db.execute(sql`INSERT INTO conversation_participants (conversationId, userId, joinedAt) VALUES (${convId}, ${userId2}, NOW())`);
+  return convId;
+}
+export async function getDirectMessages(conversationId: number) {
+  const db = await getDb();
+  return db.select({
+    id: directMessages.id, content: directMessages.content, createdAt: directMessages.createdAt,
+    senderId: directMessages.senderId, senderName: users.name, senderAvatar: users.avatarUrl,
+  }).from(directMessages)
+    .leftJoin(users, eq(directMessages.senderId, users.id))
+    .where(eq(directMessages.conversationId, conversationId))
+    .orderBy(asc(directMessages.createdAt)).limit(100);
+}
+export async function sendDirectMessage(data: { conversationId: number; senderId: number; content: string }) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO direct_messages (conversationId, senderId, content, createdAt) VALUES (${data.conversationId}, ${data.senderId}, ${data.content}, NOW())`
+  );
+  await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, data.conversationId));
+  return (result as any).insertId as number;
+}
+export async function getUserConversations(userId: number) {
+  const db = await getDb();
+  return db.execute(
+    sql`SELECT c.id, c.type, c.name, c.updatedAt,
+        u.id as otherUserId, u.name as otherUserName, u.avatarUrl as otherUserAvatar
+        FROM conversations c
+        JOIN conversation_participants cp ON cp.conversationId = c.id AND cp.userId = ${userId}
+        LEFT JOIN conversation_participants cp2 ON cp2.conversationId = c.id AND cp2.userId != ${userId}
+        LEFT JOIN users u ON u.id = cp2.userId
+        WHERE c.type = 'direct'
+        ORDER BY c.updatedAt DESC LIMIT 50`
+  );
 }
 
-export async function updateClient(id: number, data: Partial<{ name: string; email: string; phone: string; company: string; notes: string }>) {
+// ─── Sprints ───────────────────────────────────────────────────────────────────
+export async function getSprintsByCrs(crsId: number) {
   const db = await getDb();
-  if (!db) return;
-  await db.update(clients).set(data as any).where(eq(clients.id, id));
-}
-
-export async function deleteClient(id: number) {
-  const db = await getDb();
-  if (!db) return;
-  await db.delete(clients).where(eq(clients.id, id));
-}
-
-export async function getClientById(id: number) {
-  const db = await getDb();
-  if (!db) return null;
-  const [row] = await db.select().from(clients).where(eq(clients.id, id));
-  return row ?? null;
-}
-
-export async function countClients(companyId?: number) {
-  const db = await getDb();
-  if (!db) return 0;
-  const conditions: any[] = companyId ? [eq(clients.companyId, companyId)] : [];
-  const [row] = await db.select({ count: count() }).from(clients).where(conditions.length > 0 ? and(...conditions) : undefined);
-  return row?.count ?? 0;
-}
-
-// ─── User Presence ────────────────────────────────────────────────────────────
-export async function updateLastSeen(userId: number): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ lastSeenAt: new Date() } as any).where(eq(users.id, userId));
-}
-
-export async function getOnlineUsers(withinMinutes = 5): Promise<{ id: number; name: string | null; avatarUrl: string | null; lastSeenAt: Date | null }[]> {
-  const db = await getDb();
-  if (!db) return [];
-  const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000);
-  const rows = await db.select({
-    id: users.id,
-    name: users.name,
-    avatarUrl: users.avatarUrl,
-    lastSeenAt: (users as any).lastSeenAt,
-  }).from(users).where(gte((users as any).lastSeenAt, cutoff));
-  return rows;
+  return db.select().from(sprints).where(eq(sprints.crsId, crsId)).orderBy(desc(sprints.createdAt));
 }

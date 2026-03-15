@@ -309,7 +309,7 @@ export default function AIChat() {
     onSuccess: () => {
       utils.chat.history.invalidate({ projectId: selectedProjectId });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const clearMutation = trpc.chat.clearHistory.useMutation({
@@ -320,18 +320,18 @@ export default function AIChat() {
   });
 
   const reportMutation = trpc.chat.generateReport.useMutation({
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const checkDueDatesMutation = trpc.notifications.checkDueDates.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       if (data.sent > 0) {
         toast.success(`${data.sent} notificação(ões) de vencimento enviada(s).`);
       } else {
         toast.info("Nenhuma tarefa vence nas próximas 24 horas.");
       }
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   useEffect(() => {
@@ -363,12 +363,12 @@ export default function AIChat() {
 
   const handleExportPDF = () => {
     if (!history?.length) return toast.error("Nenhuma conversa para exportar.");
-    const project = projects?.find((p) => p.id === selectedProjectId);
+    const project = projects?.find((p: any) => p.id === selectedProjectId);
     exportLastResponseToPDF(history, project?.name);
     toast.success("PDF exportado com sucesso!");
   };
 
-  const selectedProject = projects?.find((p) => p.id === selectedProjectId);
+  const selectedProject = projects?.find((p: any) => p.id === selectedProjectId);
   void selectedProject;
 
   const suggestedPrompts = [
@@ -394,7 +394,7 @@ export default function AIChat() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="general">Contexto geral</SelectItem>
-                {projects?.map((p) => (
+                {projects?.map((p: any) => (
                   <SelectItem key={p.id} value={p.id.toString()}>
                     {p.name}
                   </SelectItem>
@@ -486,7 +486,7 @@ export default function AIChat() {
             </div>
           ) : (
             <>
-              {history.map((msg) => (
+              {history.map((msg: any) => (
                 <div
                   key={msg.id}
                   className={cn(

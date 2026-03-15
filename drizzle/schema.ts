@@ -6,19 +6,8 @@ import {
   timestamp,
   varchar,
   boolean,
+  float,
 } from "drizzle-orm/mysql-core";
-// ─── Companies ────────────────────────────────────────────────────────────────
-export const companies = mysqlTable("companies", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 256 }).notNull(),
-  slug: varchar("slug", { length: 128 }).notNull().unique(),
-  color: varchar("color", { length: 32 }).default("#1e2d5a"),
-  logoUrl: text("logoUrl"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type Company = typeof companies.$inferSelect;
-export type InsertCompany = typeof companies.$inferInsert;
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
@@ -27,7 +16,7 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "master_admin", "company_admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "master_admin", "company_admin", "leader"]).default("user").notNull(),
   avatarUrl: text("avatarUrl"),
   company: varchar("company", { length: 256 }),
   companyId: int("companyId"),
@@ -36,112 +25,131 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   lastSeenAt: timestamp("lastSeenAt").defaultNow(),
 });
-
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// ─── Projects ─────────────────────────────────────────────────────────────────
-export const projects = mysqlTable("projects", {
+// ─── Clients (Grupo de Clientes — nível mais alto) ────────────────────────────
+export const clients = mysqlTable("clients", {
   id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
   description: text("description"),
-  color: varchar("color", { length: 32 }).default("#6366f1").notNull(),
-  status: mysqlEnum("status", ["active", "archived", "completed"]).default("active").notNull(),
-   ownerId: int("ownerId").notNull(),
-  companyId: int("companyId"),
-  clientId: int("clientId"),
+  color: varchar("color", { length: 32 }).default("#1561ad").notNull(),
+  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  createdById: int("createdById").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-export type Project = typeof projects.$inferSelect;
-export type InsertProject = typeof projects.$inferInsert;
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = typeof clients.$inferInsert;
 
-// ─── Project Members ──────────────────────────────────────────────────────────
-export const projectMembers = mysqlTable("project_members", {
+// ─── CRS (Contratos/Projetos dentro dos Clientes) ─────────────────────────────
+export const crs = mysqlTable("crs", {
   id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
-  userId: int("userId").notNull(),
-  role: mysqlEnum("role", ["owner", "admin", "member", "viewer"]).default("member").notNull(),
-  invitedAt: timestamp("invitedAt").defaultNow().notNull(),
-});
-
-export type ProjectMember = typeof projectMembers.$inferSelect;
-export type InsertProjectMember = typeof projectMembers.$inferInsert;
-
-// ─── Project Roles (custom roles per project) ────────────────────────────────
-export const projectRoles = mysqlTable("project_roles", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
-  name: varchar("name", { length: 128 }).notNull(),       // e.g. "Líder", "Designer", "Dev"
-  isLeader: boolean("isLeader").default(false).notNull(), // can approve shared→published
-  canApprove: boolean("canApprove").default(false).notNull(),
-  color: varchar("color", { length: 32 }).default("#6366f1"),
+  clientId: int("clientId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  code: varchar("code", { length: 64 }),
+  description: text("description"),
+  country: varchar("country", { length: 128 }),       // país do contrato
+  countryCode: varchar("countryCode", { length: 8 }), // código ISO do país
+  state: varchar("state", { length: 128 }),            // estado/província
+  stateCode: varchar("stateCode", { length: 16 }),     // código do estado
+  status: mysqlEnum("status", ["active", "archived", "completed"]).default("active").notNull(),
+  progress: float("progress").default(0).notNull(),    // 0-100, calculado automaticamente
+  createdById: int("createdById").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+export type Crs = typeof crs.$inferSelect;
+export type InsertCrs = typeof crs.$inferInsert;
 
-export type ProjectRole = typeof projectRoles.$inferSelect;
-export type InsertProjectRole = typeof projectRoles.$inferInsert;
-
-// ─── Project Member Roles (assigns a custom role to a member) ─────────────────
-export const projectMemberRoles = mysqlTable("project_member_roles", {
+// ─── Kanban Phases (Fases customizáveis por CRS) ──────────────────────────────
+// Substitui os status fixos do Kanban — cada CRS pode ter suas próprias fases
+export const kanbanPhases = mysqlTable("kanban_phases", {
   id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
-  userId: int("userId").notNull(),
-  roleId: int("roleId").notNull(),
-  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
-});
-
-export type ProjectMemberRole = typeof projectMemberRoles.$inferSelect;
-export type InsertProjectMemberRole = typeof projectMemberRoles.$inferInsert;
-
-// ─── Teams ────────────────────────────────────────────────────────────────────
-export const teams = mysqlTable("teams", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
+  crsId: int("crsId").notNull(),
   name: varchar("name", { length: 128 }).notNull(),
-  color: varchar("color", { length: 32 }).default("#6366f1"),
+  color: varchar("color", { length: 32 }).default("#6366f1").notNull(),
+  position: int("position").default(0).notNull(),
+  // isDefault: marca fases padrão criadas automaticamente ao criar o CRS
+  isDefault: boolean("isDefault").default(false).notNull(),
+  // isTerminal: fases que contam como "concluído" para cálculo de progresso
+  isTerminal: boolean("isTerminal").default(false).notNull(),
+  createdById: int("createdById").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
-export type Team = typeof teams.$inferSelect;
-export type InsertTeam = typeof teams.$inferInsert;
+export type KanbanPhase = typeof kanbanPhases.$inferSelect;
+export type InsertKanbanPhase = typeof kanbanPhases.$inferInsert;
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
+  crsId: int("crsId").notNull(),
+  phaseId: int("phaseId").notNull(),             // fase atual no Kanban (FK para kanban_phases)
   title: varchar("title", { length: 512 }).notNull(),
   description: text("description"),
-  // 5-phase workflow:
-  // pending     = Para Iniciar (sem responsável, sem iniciar)
-  // in_progress = Em Andamento (com responsável, iniciada)
-  // shared      = Compartilhado (finalizada, aguardando aprovação do Líder)
-  // published   = Publicado (aprovada pelo Líder)
-  // archived    = Arquivado (aprovada e finalizada)
-  status: mysqlEnum("status", ["pending", "in_progress", "shared", "published", "archived", "blocked"]).default("pending").notNull(),
   priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium").notNull(),
   assigneeId: int("assigneeId"),
-  teamId: int("teamId"),                                  // equipe responsável
-  approvedById: int("approvedById"),                      // Líder que aprovou
-  approvedAt: timestamp("approvedAt"),                    // quando foi aprovada
+  approvedById: int("approvedById"),
+  approvedAt: timestamp("approvedAt"),
   createdById: int("createdById").notNull(),
   startDate: timestamp("startDate"),
   endDate: timestamp("endDate"),
   dueDate: timestamp("dueDate"),
   position: int("position").default(0).notNull(),
   revisionsCount: int("revisionsCount").default(0).notNull(),
-  // Setor (disciplina/departamento) — ex: Geometria, Geoprocessamento, Drenagem...
+  // Setor/Disciplina
   setor: varchar("setor", { length: 128 }),
   blockReason: text("blockReason"),
   openedAt: timestamp("openedAt"),
   completedAt: timestamp("completedAt"),
   statusChangedAt: timestamp("statusChangedAt"),
+  // Progresso calculado automaticamente pelos itens do checklist (0-100)
+  progress: float("progress").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
+
+// ─── Checklist Items (Subtarefas dentro de cada Tarefa) ───────────────────────
+export const checklistItems = mysqlTable("checklist_items", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId").notNull(),
+  title: varchar("title", { length: 512 }).notNull(),
+  description: text("description"),
+  assigneeId: int("assigneeId"),
+  status: mysqlEnum("status", ["pending", "in_progress", "shared", "published", "archived", "blocked"]).default("pending").notNull(),
+  position: int("position").default(0).notNull(),
+  createdById: int("createdById").notNull(),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ChecklistItem = typeof checklistItems.$inferSelect;
+export type InsertChecklistItem = typeof checklistItems.$inferInsert;
+
+// ─── Checklist Item Comments ──────────────────────────────────────────────────
+export const checklistItemComments = mysqlTable("checklist_item_comments", {
+  id: int("id").autoincrement().primaryKey(),
+  checklistItemId: int("checklistItemId").notNull(),
+  userId: int("userId").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ChecklistItemComment = typeof checklistItemComments.$inferSelect;
+
+// ─── Checklist Item History ───────────────────────────────────────────────────
+export const checklistItemHistory = mysqlTable("checklist_item_history", {
+  id: int("id").autoincrement().primaryKey(),
+  checklistItemId: int("checklistItemId").notNull(),
+  taskId: int("taskId").notNull(),
+  changedById: int("changedById").notNull(),
+  fromStatus: varchar("fromStatus", { length: 64 }),
+  toStatus: varchar("toStatus", { length: 64 }).notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+});
+export type ChecklistItemHistory = typeof checklistItemHistory.$inferSelect;
 
 // ─── Task Comments ────────────────────────────────────────────────────────────
 export const taskComments = mysqlTable("task_comments", {
@@ -152,37 +160,47 @@ export const taskComments = mysqlTable("task_comments", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type TaskComment = typeof taskComments.$inferSelect;
 export type InsertTaskComment = typeof taskComments.$inferInsert;
 
-// ─── Task Attachments ─────────────────────────────────────────────────────────
-export const taskAttachments = mysqlTable("task_attachments", {
+// ─── Task Phase History (histórico de movimentação entre fases) ───────────────
+export const taskPhaseHistory = mysqlTable("task_phase_history", {
   id: int("id").autoincrement().primaryKey(),
   taskId: int("taskId").notNull(),
-  uploadedById: int("uploadedById").notNull(),
-  filename: varchar("filename", { length: 512 }).notNull(),
-  fileKey: varchar("fileKey", { length: 1024 }).notNull(),
-  fileUrl: text("fileUrl").notNull(),
-  mimeType: varchar("mimeType", { length: 128 }),
-  fileSize: int("fileSize"),
+  changedById: int("changedById").notNull(),
+  fromPhaseId: int("fromPhaseId"),
+  fromPhaseName: varchar("fromPhaseName", { length: 128 }),
+  toPhaseId: int("toPhaseId").notNull(),
+  toPhaseName: varchar("toPhaseName", { length: 128 }).notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+});
+export type TaskPhaseHistory = typeof taskPhaseHistory.$inferSelect;
+
+// ─── Vacation Periods ─────────────────────────────────────────────────────────
+export const vacationPeriods = mysqlTable("vacation_periods", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  description: text("description"),
+  approvedById: int("approvedById"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+export type VacationPeriod = typeof vacationPeriods.$inferSelect;
+export type InsertVacationPeriod = typeof vacationPeriods.$inferInsert;
 
-export type TaskAttachment = typeof taskAttachments.$inferSelect;
-export type InsertTaskAttachment = typeof taskAttachments.$inferInsert;
-
-// --- Notifications ---
+// ─── Notifications ────────────────────────────────────────────────────────────
 export const NOTIFICATION_TYPES = [
-  "task_assigned",     // tarefa atribuída ao usuário
-  "task_status_changed", // status da tarefa mudou
-  "task_created",      // nova tarefa criada no projeto
-  "task_deleted",      // tarefa excluída
-  "task_comment",      // comentário adicionado
-  "task_due",          // prazo próximo (24h)
-  "project_invite",    // convidado para projeto
-  "project_update",    // projeto atualizado
-  "system",            // mensagem do sistema
+  "task_assigned",
+  "task_status_changed",
+  "task_created",
+  "task_deleted",
+  "task_comment",
+  "task_due",
+  "project_invite",
+  "project_update",
+  "vacation_conflict",
+  "system",
 ] as const;
 export type NotificationType = typeof NOTIFICATION_TYPES[number];
 
@@ -200,10 +218,11 @@ export const notifications = mysqlTable("notifications", {
     "task_due",
     "project_invite",
     "project_update",
+    "vacation_conflict",
     "system",
   ]).default("system").notNull(),
   isRead: boolean("isRead").default(false).notNull(),
-  relatedProjectId: int("relatedProjectId"),
+  relatedCrsId: int("relatedCrsId"),
   relatedTaskId: int("relatedTaskId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -220,7 +239,6 @@ export const notificationPreferences = mysqlTable("notification_preferences", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
-export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
 
 // ─── Activity Logs ────────────────────────────────────────────────────────────
 export const activityLogs = mysqlTable("activity_logs", {
@@ -232,27 +250,84 @@ export const activityLogs = mysqlTable("activity_logs", {
   metadata: text("metadata"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type ActivityLog = typeof activityLogs.$inferSelect;
-export type InsertActivityLog = typeof activityLogs.$inferInsert;
 
-// ─── Chat Messages ────────────────────────────────────────────────────────────
+// ─── Chat Messages (AI Chat) ──────────────────────────────────────────────────
 export const chatMessages = mysqlTable("chat_messages", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  projectId: int("projectId"),
+  crsId: int("crsId"),
   role: mysqlEnum("role", ["user", "assistant"]).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = typeof chatMessages.$inferInsert;
+
+// ─── Agenda Events ────────────────────────────────────────────────────────────
+export const agendaEvents = mysqlTable("agenda_events", {
+  id: int("id").autoincrement().primaryKey(),
+  createdById: int("createdById").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  type: mysqlEnum("type", ["vacation", "meeting", "other"]).default("other").notNull(),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  description: text("description"),
+  meetingUrl: varchar("meetingUrl", { length: 1024 }),
+  attendeeIds: text("attendeeIds"),
+  crsId: int("crsId"),
+  isPublic: boolean("isPublic").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AgendaEvent = typeof agendaEvents.$inferSelect;
+export type InsertAgendaEvent = typeof agendaEvents.$inferInsert;
+
+// ─── Direct Message Conversations ────────────────────────────────────────────
+export const conversations = mysqlTable("conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", ["direct", "group"]).default("direct").notNull(),
+  name: varchar("name", { length: 256 }),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Conversation = typeof conversations.$inferSelect;
+
+export const conversationParticipants = mysqlTable("conversation_participants", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  userId: int("userId").notNull(),
+  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+  lastReadAt: timestamp("lastReadAt"),
+});
+
+export const directMessages = mysqlTable("direct_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull(),
+  senderId: int("senderId").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type DirectMessage = typeof directMessages.$inferSelect;
+
+// ─── Disciplines (Setores/Disciplinas gerenciáveis pelo Admin) ────────────────
+export const disciplines = mysqlTable("disciplines", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 128 }).notNull().unique(),
+  color: varchar("color", { length: 32 }).default("#6366f1").notNull(),
+  description: text("description"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Discipline = typeof disciplines.$inferSelect;
+export type InsertDiscipline = typeof disciplines.$inferInsert;
 
 // ─── Sprints ──────────────────────────────────────────────────────────────────
 export const sprints = mysqlTable("sprints", {
   id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
+  crsId: int("crsId").notNull(),
   name: varchar("name", { length: 256 }).notNull(),
   goal: text("goal"),
   startDate: timestamp("startDate").notNull(),
@@ -270,136 +345,3 @@ export const sprintTasks = mysqlTable("sprint_tasks", {
   taskId: int("taskId").notNull(),
   addedAt: timestamp("addedAt").defaultNow().notNull(),
 });
-export type SprintTask = typeof sprintTasks.$inferSelect;
-
-// ─── Agenda Events ────────────────────────────────────────────────────────────
-export const agendaEvents = mysqlTable("agenda_events", {
-  id: int("id").autoincrement().primaryKey(),
-  createdById: int("createdById").notNull(),
-  title: varchar("title", { length: 256 }).notNull(),
-  type: mysqlEnum("type", ["vacation", "meeting", "other"]).default("other").notNull(),
-  startDate: timestamp("startDate").notNull(),
-  endDate: timestamp("endDate").notNull(),
-  description: text("description"),
-  meetingUrl: varchar("meetingUrl", { length: 1024 }),
-  attendeeIds: text("attendeeIds"), // JSON array of user IDs
-  projectId: int("projectId"),
-  isPublic: boolean("isPublic").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type AgendaEvent = typeof agendaEvents.$inferSelect;
-export type InsertAgendaEvent = typeof agendaEvents.$inferInsert;
-
-// ─── Task Messages (Chat entre membros) ──────────────────────────────────────
-export const taskMessages = mysqlTable("task_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  taskId: int("taskId").notNull(),
-  userId: int("userId").notNull(),
-  message: text("message").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type TaskMessage = typeof taskMessages.$inferSelect;
-export type InsertTaskMessage = typeof taskMessages.$inferInsert;
-
-// ─── Whiteboard ───────────────────────────────────────────────────────────────
-export const whiteboardData = mysqlTable("whiteboard_data", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
-  content: text("content").notNull().default("[]"), // JSON array of canvas elements
-  updatedById: int("updatedById"),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
-export type WhiteboardData = typeof whiteboardData.$inferSelect;
-export type InsertWhiteboardData = typeof whiteboardData.$inferInsert;
-
-// ─── Clients ──────────────────────────────────────────────────────────────────
-export const clients = mysqlTable("clients", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 256 }).notNull(),
-  email: varchar("email", { length: 320 }),
-  phone: varchar("phone", { length: 64 }),
-  company: varchar("company", { length: 256 }),
-  notes: text("notes"),
-  companyId: int("companyId"),
-  createdById: int("createdById").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type Client = typeof clients.$inferSelect;
-export type InsertClient = typeof clients.$inferInsert;
-
-// ─── Direct Message Conversations ────────────────────────────────────────────
-// A conversation can be 1-on-1 (type="direct") or a group (type="group")
-export const conversations = mysqlTable("conversations", {
-  id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["direct", "group"]).default("direct").notNull(),
-  name: varchar("name", { length: 256 }),          // only for groups
-  createdById: int("createdById").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type Conversation = typeof conversations.$inferSelect;
-export type InsertConversation = typeof conversations.$inferInsert;
-
-// ─── Conversation Participants ────────────────────────────────────────────────
-export const conversationParticipants = mysqlTable("conversation_participants", {
-  id: int("id").autoincrement().primaryKey(),
-  conversationId: int("conversationId").notNull(),
-  userId: int("userId").notNull(),
-  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
-  lastReadAt: timestamp("lastReadAt"),
-});
-export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
-
-// ─── Direct / Group Messages ──────────────────────────────────────────────────
-export const directMessages = mysqlTable("direct_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  conversationId: int("conversationId").notNull(),
-  senderId: int("senderId").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type DirectMessage = typeof directMessages.$inferSelect;
-export type InsertDirectMessage = typeof directMessages.$inferInsert;
-
-// ─── Project Invites ──────────────────────────────────────────────────────────
-export const projectInvites = mysqlTable("project_invites", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
-  token: varchar("token", { length: 128 }).notNull().unique(),
-  createdById: int("createdById").notNull(),
-  role: mysqlEnum("role", ["admin", "member", "viewer"]).default("member").notNull(),
-  usedById: int("usedById"),
-  usedAt: timestamp("usedAt"),
-  expiresAt: timestamp("expiresAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type ProjectInvite = typeof projectInvites.$inferSelect;
-export type InsertProjectInvite = typeof projectInvites.$inferInsert;
-
-// ─── Task Status History ──────────────────────────────────────────────────────
-export const taskStatusHistory = mysqlTable("task_status_history", {
-  id: int("id").autoincrement().primaryKey(),
-  taskId: int("taskId").notNull(),
-  changedById: int("changedById").notNull(),
-  fromStatus: varchar("fromStatus", { length: 64 }),
-  toStatus: varchar("toStatus", { length: 64 }).notNull(),
-  blockReason: text("blockReason"),
-  changedAt: timestamp("changedAt").defaultNow().notNull(),
-});
-export type TaskStatusHistory = typeof taskStatusHistory.$inferSelect;
-export type InsertTaskStatusHistory = typeof taskStatusHistory.$inferInsert;
-
-// ─── Disciplines (Setores/Disciplinas gerenciáveis pelo Admin) ────────────────
-export const disciplines = mysqlTable("disciplines", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 128 }).notNull().unique(),
-  color: varchar("color", { length: 32 }).default("#6366f1").notNull(),
-  description: text("description"),
-  isActive: boolean("isActive").default(true).notNull(),
-  createdById: int("createdById").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type Discipline = typeof disciplines.$inferSelect;
-export type InsertDiscipline = typeof disciplines.$inferInsert;

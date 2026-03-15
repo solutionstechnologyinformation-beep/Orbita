@@ -81,7 +81,7 @@ export default function CalendarPage() {
   }, [year, month]);
 
   function getEventsForDay(date: Date) {
-    return events.filter(e => {
+    return events.filter((e: any) => {
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
       const d = date;
@@ -114,8 +114,8 @@ export default function CalendarPage() {
     createMut.mutate({
       title: form.title,
       type: form.type,
-      startDate: new Date(form.startDate + "T00:00:00").getTime(),
-      endDate: new Date(form.endDate + "T23:59:59").getTime(),
+      startDate: new Date(new Date(form.startDate + "T00:00:00").getTime()),
+      endDate: new Date(new Date(form.endDate + "T23:59:59").getTime()),
       description: form.description || undefined,
       isPublic: form.isPublic,
     });
@@ -183,7 +183,7 @@ export default function CalendarPage() {
                         {date.getDate()}
                       </div>
                       <div className="space-y-0.5">
-                        {dayEvents.slice(0, 3).map(e => (
+                        {dayEvents.slice(0, 3).map((e: any) => (
                           <div
                             key={e.id}
                             className="text-xs px-1 py-0.5 rounded truncate text-white"
@@ -221,10 +221,10 @@ export default function CalendarPage() {
                 <p className="text-xs text-gray-400">Nenhum evento cadastrado.</p>
               ) : (
                 events
-                  .filter(e => new Date(e.endDate) >= today)
-                  .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                  .filter((e: any) => new Date(e.endDate) >= today)
+                  .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                   .slice(0, 8)
-                  .map(e => (
+                  .map((e: any) => (
                     <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
                       <div
                         className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"

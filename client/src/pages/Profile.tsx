@@ -1,107 +1,104 @@
-import AppLayout from "@/components/AppLayout";
+import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Crown, User, Mail, Calendar, FolderKanban, CheckCircle2 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, User } from "lucide-react";
+import { toast } from "sonner";
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  leader: "Líder",
+  user: "Usuário",
+};
 
 export default function Profile() {
   const { user } = useAuth();
-  const { data: stats } = trpc.dashboard.stats.useQuery();
-  const { data: projects } = trpc.projects.list.useQuery();
+  const utils = trpc.useUtils();
+  const [name, setName] = useState(user?.name ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
 
-  const initials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "U";
+  const updateProfile = trpc.auth.updateProfile.useMutation({
+    onSuccess: () => {
+      toast.success("Perfil atualizado com sucesso!");
+      utils.auth.me.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfile.mutate({ name: name || undefined, avatarUrl: avatarUrl || undefined });
+  };
+
+  const initials = (user?.name ?? user?.email ?? "U").slice(0, 2).toUpperCase();
 
   return (
-    <AppLayout title="Meu Perfil">
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Profile Card */}
-        <Card className="bg-card border-border">
-          <CardContent className="p-8">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-              <Avatar className="w-20 h-20">
-                <AvatarFallback className="bg-primary/20 text-primary text-2xl font-bold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-center sm:text-left">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                  <h2 className="text-2xl font-bold">{user?.name ?? "Usuário"}</h2>
-                  {user?.role === "admin" && (
-                    <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 w-fit mx-auto sm:mx-0">
-                      <Crown className="w-3 h-3 mr-1" />
-                      Admin
-                    </Badge>
-                  )}
-                </div>
-                <div className="space-y-1.5 text-sm text-muted-foreground">
-                  {user?.email && (
-                    <div className="flex items-center gap-2 justify-center sm:justify-start">
-                      <Mail className="w-4 h-4" />
-                      {user.email}
-                    </div>
-                  )}
-                  {user?.createdAt && (
-                    <div className="flex items-center gap-2 justify-center sm:justify-start">
-                      <Calendar className="w-4 h-4" />
-                      Membro desde {new Date(user.createdAt).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <User className="w-4 h-4" />
-                    {user?.loginMethod ?? "Manus OAuth"}
-                  </div>
-                </div>
-              </div>
+    <div className="container max-w-2xl py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <User className="h-6 w-6 text-primary" />
+          Meu Perfil
+        </h1>
+        <p className="text-muted-foreground mt-1">Gerencie suas informações pessoais</p>
+      </div>
+
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Informações da Conta</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={user?.avatarUrl ?? ""} />
+              <AvatarFallback className="text-lg bg-primary text-primary-foreground">{initials}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-semibold text-lg">{user?.name ?? "Sem nome"}</p>
+              <p className="text-sm text-muted-foreground">{user?.email ?? "—"}</p>
+              <Badge variant="secondary" className="mt-1">
+                {ROLE_LABELS[user?.role ?? "user"] ?? user?.role}
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="bg-card border-border">
-            <CardContent className="p-5 text-center">
-              <FolderKanban className="w-8 h-8 text-violet-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold">{stats?.totalProjects ?? 0}</p>
-              <p className="text-sm text-muted-foreground mt-1">Projetos</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border">
-            <CardContent className="p-5 text-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold">{stats?.completedTasks ?? 0}</p>
-              <p className="text-sm text-muted-foreground mt-1">Tarefas Concluídas</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Projects */}
-        {projects && projects.length > 0 && (
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-base">Meus Projetos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {projects.slice(0, 5).map((p) => {
-                const rate = p.taskCounts.total > 0
-                  ? Math.round(((p.taskCounts.published + p.taskCounts.archived) / p.taskCounts.total) * 100)
-                  : 0;
-                return (
-                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-                    <span className="text-sm font-medium flex-1 truncate">{p.name}</span>
-                    <span className="text-xs text-muted-foreground">{rate}%</span>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Editar Perfil</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Seu nome completo"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="avatar">URL do Avatar</Label>
+                <Input
+                  id="avatar"
+                  value={avatarUrl}
+                  onChange={e => setAvatarUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <Button type="submit" disabled={updateProfile.isPending}>
+                {updateProfile.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar Alterações
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 }

@@ -1,316 +1,260 @@
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { invokeLLM } from "./_core/llm";
-import { storagePut } from "./storage";
+import { TRPCError } from "@trpc/server";
+import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import {
-  addProjectMember,
-  clearChatHistory,
-  notifyUser,
-  getNotificationPreferences,
-  upsertNotificationPreference,
-  createProject,
-  createTask,
-  createTaskAttachment,
-  createTaskComment,
-  deleteNotification,
-  deleteProject,
-  deleteTask,
-  deleteTaskAttachment,
-  deleteTaskComment,
-  getActivityLogs,
-  getAllProjects,
-  getAllUsers,
-  getAttachmentById,
-  getChatHistory,
-  getDashboardStats,
-  getNotificationsByUser,
-  getProjectById,
-  getProjectMembers,
-  getProjectsByUser,
-  getTaskAttachments,
-  getTaskById,
-  getTaskComments,
-  getTaskCountsByProject,
-  getTasksByProject,
-  getTasksDueSoon,
-  getUnreadNotificationCount,
-  logActivity,
-  markAllNotificationsRead,
-  markNotificationRead,
-  removeProjectMember,
-  saveChatMessage,
-  updateProject,
-  updateTask,
-  updateUserRole,
-  getProjectRoles,
-  createProjectRole,
-  updateProjectRole,
-  deleteProjectRole,
-  getMemberRoles,
-  assignMemberRole,
-  removeMemberRole,
-  getTasksAssignedToUser,
-  getSetorStats,
-   getUserById,
-  upsertUser,
-  deleteUser,
-  getAllCompanies,
-  getCompanyById,
-  createCompany,
-  updateCompany,
-  deleteCompany,
-  getUsersByCompany,
-  getProjectsByCompany,
-  updateUserCompany,
-  getGanttTasks,
-  getBurndownData,
-  detectGanttConflicts,
-  createSprint,
-  listSprints,
-  getAllSprints,
-  updateSprint,
-  deleteSprint,
-  addTaskToSprint,
-  removeTaskFromSprint,
-  getSprintWithTasks,
-  createAgendaEvent,
-  listAgendaEvents,
-  updateAgendaEvent,
-  deleteAgendaEvent,
-  sendTaskMessage,
-  getTaskMessages,
-  getWhiteboard,
-  saveWhiteboard,
-  createClient,
-  listClients,
-  updateClient,
-  deleteClient,
-  getClientById,
-  countClients,
+  getUserByOpenId, createUser, updateUser, getAllUsers,
+  getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
+  getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs, recalcCrsProgress,
+  getPhasesByCrs, createPhase, updatePhase, deletePhase,
+  getTasksByCrs, getTaskById, createTask, updateTask, deleteTask, recalcTaskProgress,
+  getTaskComments, createTaskComment, deleteTaskComment,
+  getChecklistItems, createChecklistItem, updateChecklistItem, deleteChecklistItem,
+  getChecklistItemComments, createChecklistItemComment,
+  recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
+  getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
+  notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead,
+  logActivity, getDisciplines, getDashboardStats, getWorldMapData, getWeekDeliveries,
+  getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
+  getChatMessages, createChatMessage,
+  getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
+  getSprintsByCrs, getDb,
 } from "./db";
-// ─── Admin Guard ──────────────────────────────────────────────────────────────
+import { notifyOwner } from "./_core/notification";
+import { invokeLLM } from "./_core/llm";
+
+// ─── Admin guard ───────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+  if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem realizar esta ação." });
+  }
   return next({ ctx });
 });
 
-// ─── Project Access Guard ─────────────────────────────────────────────────────
-async function assertProjectAccess(projectId: number, userId: number) {
-  const project = await getProjectById(projectId);
-  if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
-  if (project.ownerId !== userId) {
-    const isMember = await isProjectMemberCheck(projectId, userId);
-    if (!isMember) throw new TRPCError({ code: "FORBIDDEN", message: "No access to this project" });
+// ─── Leader guard (admin or leader) ───────────────────────────────────────────
+const leaderProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "leader") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Apenas líderes ou administradores podem realizar esta ação." });
   }
-  return project;
-}
+  return next({ ctx });
+});
 
-async function isProjectMemberCheck(projectId: number, userId: number) {
-  const { isProjectMember } = await import("./db");
-  return isProjectMember(projectId, userId);
-}
-
-// ─── App Router ───────────────────────────────────────────────────────────────
 export const appRouter = router({
-  system: systemRouter,
-
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  // ─── Auth ──────────────────────────────────────────────────────────────────
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
+    me: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return null;
+      return ctx.user;
     }),
-  }),
-
-  // ── Dashboard ─────────────────────────────────────────────────────────────
-  dashboard: router({
-    stats: protectedProcedure
-      .input(z.object({
-        projectId: z.number().optional(),
-        setor: z.string().optional(),
-      }).optional())
-      .query(async ({ ctx, input }) => {
-        return getDashboardStats(ctx.user.id, input ?? {});
-      }),
-    recentTasks: protectedProcedure
-      .input(z.object({
-        projectId: z.number().optional(),
-        setor: z.string().optional(),
-      }).optional())
-      .query(async ({ ctx, input }) => {
-        return getTasksAssignedToUser(ctx.user.id, input ?? {});
-      }),
-    setorStats: protectedProcedure
-      .input(z.object({ projectId: z.number().optional() }).optional())
-      .query(async ({ ctx, input }) => {
-        return getSetorStats(ctx.user.id, input?.projectId);
-      }),
-    conflicts: protectedProcedure.query(async ({ ctx }) => {
-      // Get all projects for user and detect conflicts across all
-      const projs = await getProjectsByUser(ctx.user.id);
-      const allConflicts: any[] = [];
-      for (const p of projs) {
-        const c = await detectGanttConflicts(p.id);
-        allConflicts.push(...c.map((cf: any) => ({ ...cf, projectName: p.name })));
-      }
-      return allConflicts.slice(0, 10);
+    logout: protectedProcedure.mutation(async ({ ctx }) => {
+      const { COOKIE_NAME } = await import("../shared/const");
+      const { getSessionCookieOptions } = await import("./_core/cookies");
+      ctx.res.clearCookie(COOKIE_NAME, getSessionCookieOptions(ctx.req));
+      return { success: true };
     }),
-    clientCount: protectedProcedure.query(async ({ ctx }) => {
-      return countClients(ctx.user.companyId ?? undefined);
-    }),
-  }),
-
-  // ── Projects ──────────────────────────────────────────────────────────────
-  projects: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      const projs = await getProjectsByUser(ctx.user.id);
-      const withCounts = await Promise.all(projs.map(async p => ({
-        ...p,
-        taskCounts: await getTaskCountsByProject(p.id),
-      })));
-      return withCounts;
-    }),
-
-    get: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ ctx, input }) => {
-        const project = await assertProjectAccess(input.id, ctx.user.id);
-        const members = await getProjectMembers(input.id);
-        const taskCounts = await getTaskCountsByProject(input.id);
-        const owner = await getUserById(project.ownerId);
-        return { ...project, ownerName: owner?.name ?? null, ownerEmail: owner?.email ?? null, members, taskCounts };
-      }),
-
-    create: protectedProcedure
-      .input(z.object({
-        name: z.string().min(1).max(255),
-        description: z.string().optional(),
-        color: z.string().default("#6366f1"),
-        clientId: z.number().optional(),
-      }))
+    updateProfile: protectedProcedure
+      .input(z.object({ name: z.string().optional(), avatarUrl: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
-        const id = await createProject({ ...input, ownerId: ctx.user.id, status: "active" });
-        // Auto-add owner as member with 'owner' role so they appear in member lists
-        await addProjectMember({ projectId: id, userId: ctx.user.id, role: "owner" });
-        await logActivity({ userId: ctx.user.id, action: "created_project", entityType: "project", entityId: id, metadata: JSON.stringify({ name: input.name }) });
+        await updateUser(ctx.user.id, input);
+        return { success: true };
+      }),
+  }),
+
+  // ─── Users ─────────────────────────────────────────────────────────────────
+  users: router({
+    list: protectedProcedure.query(async () => {
+      return getAllUsers();
+    }),
+    updateRole: adminProcedure
+      .input(z.object({ userId: z.number(), role: z.enum(["user", "admin", "leader"]) }))
+      .mutation(async ({ input }) => {
+        await updateUser(input.userId, { role: input.role as any });
+        return { success: true };
+      }),
+  }),
+
+  // ─── Clients ───────────────────────────────────────────────────────────────
+  clients: router({
+    list: protectedProcedure.query(async () => getClients()),
+    listAll: adminProcedure.query(async () => getAllClients()),
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+      const c = await getClientById(input.id);
+      if (!c) throw new TRPCError({ code: "NOT_FOUND" });
+      return c;
+    }),
+    create: adminProcedure
+      .input(z.object({ name: z.string().min(1), description: z.string().optional(), color: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createClient({ ...input, createdById: ctx.user.id });
+        await logActivity({ userId: ctx.user.id, action: "created_client", entityType: "client", entityId: id });
         return { id };
       }),
-
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        name: z.string().min(1).max(255).optional(),
-        description: z.string().optional(),
-        color: z.string().optional(),
-        status: z.enum(["active", "archived", "completed"]).optional(),
-        clientId: z.number().nullable().optional(),
-      }))
+    update: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), description: z.string().optional(), color: z.string().optional(), status: z.enum(["active", "archived"]).optional() }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
-        await assertProjectAccess(id, ctx.user.id);
-        await updateProject(id, data);
-        await logActivity({ userId: ctx.user.id, action: "updated_project", entityType: "project", entityId: id });
+        await updateClient(id, data);
         return { success: true };
       }),
-
-    delete: protectedProcedure
+    delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
-        const project = await getProjectById(input.id);
-        if (!project) throw new TRPCError({ code: "NOT_FOUND" });
-        if (project.ownerId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-        await deleteProject(input.id);
-        await logActivity({ userId: ctx.user.id, action: "deleted_project", entityType: "project", entityId: input.id });
+        await deleteClient(input.id);
         return { success: true };
-      }),
-
-    addMember: protectedProcedure
-      .input(z.object({
-        projectId: z.number(),
-        userId: z.number(),
-        role: z.enum(["admin", "member", "viewer"]).default("member"),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        await addProjectMember({ projectId: input.projectId, userId: input.userId, role: input.role });
-        const proj = await getProjectById(input.projectId);
-        await notifyUser({
-          userId: input.userId,
-          title: "Você foi adicionado a um projeto",
-          message: `Você foi adicionado ao projeto "${proj?.name ?? "Projeto"}" como ${input.role === "admin" ? "Administrador" : input.role === "viewer" ? "Visualizador" : "Membro"}.`,
-          notificationType: "project_invite",
-          relatedProjectId: input.projectId,
-        });
-        return { success: true };
-      }),
-
-    removeMember: protectedProcedure
-      .input(z.object({ projectId: z.number(), userId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        await removeProjectMember(input.projectId, input.userId);
-        return { success: true };
-      }),
-
-    members: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        return getProjectMembers(input.projectId);
       }),
   }),
 
-  // ── Tasks ─────────────────────────────────────────────────────────────────
-  tasks: router({
-    list: protectedProcedure
+  // ─── CRS ───────────────────────────────────────────────────────────────────
+  crs: router({
+    list: protectedProcedure.query(async () => getAllCrs()),
+    listByClient: protectedProcedure
+      .input(z.object({ clientId: z.number() }))
+      .query(async ({ input }) => getCrsByClient(input.clientId)),
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const c = await getCrsById(input.id);
+        if (!c) throw new TRPCError({ code: "NOT_FOUND" });
+        return c;
+      }),
+    create: adminProcedure
       .input(z.object({
-        projectId: z.number(),
-        status: z.string().optional(),
+        clientId: z.number(),
+        name: z.string().min(1),
+        code: z.string().optional(),
+        description: z.string().optional(),
+        country: z.string().optional(),
+        countryCode: z.string().optional(),
+        state: z.string().optional(),
+        stateCode: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createCrs({ ...input, createdById: ctx.user.id });
+        await logActivity({ userId: ctx.user.id, action: "created_crs", entityType: "crs", entityId: id });
+        return { id };
+      }),
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        code: z.string().optional(),
+        description: z.string().optional(),
+        country: z.string().optional(),
+        countryCode: z.string().optional(),
+        state: z.string().optional(),
+        stateCode: z.string().optional(),
+        status: z.enum(["active", "archived", "completed"]).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateCrs(id, data);
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteCrs(input.id);
+        return { success: true };
+      }),
+    listArchived: protectedProcedure.query(async () => getArchivedCrs()),
+    archive: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateCrs(input.id, { status: "archived" });
+        return { success: true };
+      }),
+    restore: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateCrs(input.id, { status: "active" });
+        return { success: true };
+      }),
+    worldMap: protectedProcedure.query(async () => getWorldMapData()),
+  }),
+
+  // ─── Kanban Phases ─────────────────────────────────────────────────────────
+  kanbanPhases: router({
+    list: protectedProcedure
+      .input(z.object({ crsId: z.number() }))
+      .query(async ({ input }) => getPhasesByCrs(input.crsId)),
+    create: adminProcedure
+      .input(z.object({ crsId: z.number(), name: z.string().min(1), color: z.string().optional(), position: z.number().optional(), isTerminal: z.boolean().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createPhase({ ...input, createdById: ctx.user.id });
+        return { id };
+      }),
+    update: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), color: z.string().optional(), position: z.number().optional(), isTerminal: z.boolean().optional() }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updatePhase(id, data);
+        return { success: true };
+      }),
+    reorder: adminProcedure
+      .input(z.object({ phases: z.array(z.object({ id: z.number(), position: z.number() })) }))
+      .mutation(async ({ input }) => {
+        for (const p of input.phases) {
+          await updatePhase(p.id, { position: p.position });
+        }
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deletePhase(input.id);
+        return { success: true };
+      }),
+  }),
+
+  // ─── Tasks ─────────────────────────────────────────────────────────────────
+  tasks: router({
+    listByCrs: protectedProcedure
+      .input(z.object({
+        crsId: z.number(),
+        phaseId: z.number().optional(),
         priority: z.string().optional(),
         assigneeId: z.number().optional(),
         search: z.string().optional(),
       }))
-      .query(async ({ ctx, input }) => {
-        const { projectId, ...filters } = input;
-        await assertProjectAccess(projectId, ctx.user.id);
-        return getTasksByProject(projectId, filters);
+      .query(async ({ input }) => {
+        const { crsId, ...filters } = input;
+        return getTasksByCrs(crsId, filters);
       }),
-
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ ctx, input }) => {
+      .query(async ({ input }) => {
         const task = await getTaskById(input.id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-        await assertProjectAccess(task.projectId, ctx.user.id);
-        const [comments, attachments] = await Promise.all([
-          getTaskComments(input.id),
-          getTaskAttachments(input.id),
-        ]);
-        return { ...task, comments, attachments };
+        const comments = await getTaskComments(input.id);
+        const checklist = await getChecklistItems(input.id);
+        const phaseHistory = await getTaskPhaseHistory(input.id);
+        const checklistHistory = await getChecklistItemHistory(input.id);
+        return { ...task, comments, checklist, phaseHistory, checklistHistory };
       }),
-
-    create: protectedProcedure
+    create: adminProcedure
       .input(z.object({
-        projectId: z.number(),
+        crsId: z.number(),
+        phaseId: z.number(),
         title: z.string().min(1).max(512),
         description: z.string().optional(),
-        status: z.enum(["pending", "in_progress", "shared", "published", "archived", "blocked"]).default("pending"),
         priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
         assigneeId: z.number().optional(),
         dueDate: z.date().optional(),
         setor: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 } as any);
-        await logActivity({ userId: ctx.user.id, action: "created_task", entityType: "task", entityId: id, metadata: JSON.stringify({ title: input.title }) });
-        // Notify assignee
+        // Check if assignee is on vacation
+        if (input.assigneeId && input.dueDate) {
+          const onVacation = await isUserOnVacation(input.assigneeId, input.dueDate);
+          if (onVacation) {
+            await notifyUser({
+              userId: input.assigneeId,
+              title: "Conflito de Férias",
+              message: `A tarefa "${input.title}" foi atribuída a você durante um período de férias.`,
+              notificationType: "vacation_conflict",
+            });
+          }
+        }
+        const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 });
         if (input.assigneeId && input.assigneeId !== ctx.user.id) {
           await notifyUser({
             userId: input.assigneeId,
@@ -318,32 +262,17 @@ export const appRouter = router({
             message: `A tarefa "${input.title}" foi atribuída a você.`,
             notificationType: "task_assigned",
             relatedTaskId: id,
-            relatedProjectId: input.projectId,
           });
         }
-        // Notify all project members about new task (except creator)
-        const members = await getProjectMembers(input.projectId);
-        for (const member of members) {
-          if (member.userId !== ctx.user.id && member.userId !== (input.assigneeId ?? null)) {
-            await notifyUser({
-              userId: member.userId,
-              title: "Nova tarefa criada",
-              message: `Nova tarefa "${input.title}" foi criada no projeto.`,
-              notificationType: "task_created",
-              relatedTaskId: id,
-              relatedProjectId: input.projectId,
-            });
-          }
-        }
+        await logActivity({ userId: ctx.user.id, action: "created_task", entityType: "task", entityId: id });
         return { id };
       }),
-
-    update: protectedProcedure
+    update: adminProcedure
       .input(z.object({
         id: z.number(),
-        title: z.string().min(1).max(512).optional(),
+        phaseId: z.number().optional(),
+        title: z.string().optional(),
         description: z.string().optional(),
-        status: z.enum(["pending", "in_progress", "shared", "published", "archived", "blocked"]).optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
         assigneeId: z.number().nullable().optional(),
         dueDate: z.date().nullable().optional(),
@@ -357,217 +286,189 @@ export const appRouter = router({
         const { id, ...data } = input;
         const task = await getTaskById(id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-        await assertProjectAccess(task.projectId, ctx.user.id);
-        const statusChanged = data.status !== undefined && data.status !== task.status;
-        // Revision count: ONLY increments when moving from 'shared' back to 'in_progress'
-        const shouldIncrementRevision = data.status === 'in_progress' && task.status === 'shared';
-        await updateTask(id, data as any, {
-          incrementRevisions: shouldIncrementRevision,
-          newStatus: data.status,
-          previousStatus: task.status,
-        });
-        await logActivity({
-          userId: ctx.user.id,
-          action: statusChanged ? `status_changed_to_${data.status}` : "updated_task",
-          entityType: "task",
-          entityId: id,
-          metadata: statusChanged ? JSON.stringify({ from: task.status, to: data.status }) : undefined,
-        });
-        // Record status history
-        if (statusChanged && data.status) {
-          const { taskStatusHistory } = await import("../drizzle/schema");
-          const { getDb: getDb2 } = await import("./db");
-          const db2 = await getDb2();
-          if (db2) {
-            await db2.insert(taskStatusHistory).values({
-              taskId: id,
-              fromStatus: task.status,
-              toStatus: data.status,
-              changedById: ctx.user.id,
-              blockReason: data.blockReason ?? null,
-            });
-          }
-        }
-        // Notify assignee if re-assigned
-        if (data.assigneeId && data.assigneeId !== task.assigneeId && data.assigneeId !== ctx.user.id) {
-          await notifyUser({
-            userId: data.assigneeId,
-            title: "Tarefa atribuída a você",
-            message: `A tarefa "${task.title}" foi atribuída a você.`,
-            notificationType: "task_assigned",
-            relatedTaskId: id,
-            relatedProjectId: task.projectId,
+        // Record phase change history
+        if (data.phaseId !== undefined && data.phaseId !== task.phaseId) {
+          const { getDb: db2 } = await import("./db");
+          const { kanbanPhases } = await import("../drizzle/schema");
+          const { eq: eq2 } = await import("drizzle-orm");
+          const dbConn = await db2();
+          const [fromPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, task.phaseId)).limit(1);
+          const [toPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, data.phaseId)).limit(1);
+          await recordPhaseChange({
+            taskId: id,
+            changedById: ctx.user.id,
+            fromPhaseId: task.phaseId,
+            fromPhaseName: fromPhase?.name,
+            toPhaseId: data.phaseId,
+            toPhaseName: toPhase?.name ?? "Desconhecida",
           });
         }
-        // Notify about status change: notify assignee and creator
-        if (statusChanged && data.status) {
-          const STATUS_LABELS: Record<string, string> = {
-            pending: "Para Iniciar", in_progress: "Em Andamento",
-            shared: "Compartilhado", published: "Publicado", archived: "Arquivado", blocked: "Bloqueado",
-          };
-          const notifyIdsSet = new Set<number>();
-          if (task.assigneeId && task.assigneeId !== ctx.user.id) notifyIdsSet.add(task.assigneeId);
-          if (task.createdById !== ctx.user.id) notifyIdsSet.add(task.createdById);
-
-          // Special notification for blocked status with reason
-          if (data.status === "blocked") {
-            const blockMsg = data.blockReason
-              ? `A tarefa "${task.title}" foi bloqueada. Motivo: ${data.blockReason}`
-              : `A tarefa "${task.title}" foi marcada como Bloqueada.`;
-            for (const uid of Array.from(notifyIdsSet)) {
-              await notifyUser({
-                userId: uid,
-                title: "Tarefa bloqueada",
-                message: blockMsg,
-                notificationType: "task_status_changed",
-                relatedTaskId: id,
-                relatedProjectId: task.projectId,
-              });
-            }
-          } else {
-            for (const uid of Array.from(notifyIdsSet)) {
-              await notifyUser({
-                userId: uid,
-                title: `Status alterado: ${STATUS_LABELS[data.status] ?? data.status}`,
-                message: `A tarefa "${task.title}" mudou de "${STATUS_LABELS[task.status] ?? task.status}" para "${STATUS_LABELS[data.status] ?? data.status}".`,
-                notificationType: "task_status_changed",
-                relatedTaskId: id,
-                relatedProjectId: task.projectId,
-              });
-            }
-          }
-        }
+        await updateTask(id, data);
         return { success: true };
       }),
-
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
+    movePhase: protectedProcedure
+      .input(z.object({ id: z.number(), phaseId: z.number(), position: z.number().optional() }))
       .mutation(async ({ ctx, input }) => {
         const task = await getTaskById(input.id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-        await assertProjectAccess(task.projectId, ctx.user.id);
-        // Notify assignee about deletion
-        if (task.assigneeId && task.assigneeId !== ctx.user.id) {
-          await notifyUser({
-            userId: task.assigneeId,
-            title: "Tarefa excluída",
-            message: `A tarefa "${task.title}" foi excluída.`,
-            notificationType: "task_deleted",
-            relatedProjectId: task.projectId,
+        if (input.phaseId !== task.phaseId) {
+          const { getDb: db2 } = await import("./db");
+          const { kanbanPhases } = await import("../drizzle/schema");
+          const { eq: eq2 } = await import("drizzle-orm");
+          const dbConn = await db2();
+          const [fromPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, task.phaseId)).limit(1);
+          const [toPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, input.phaseId)).limit(1);
+          await recordPhaseChange({
+            taskId: input.id, changedById: ctx.user.id,
+            fromPhaseId: task.phaseId, fromPhaseName: fromPhase?.name,
+            toPhaseId: input.phaseId, toPhaseName: toPhase?.name ?? "Desconhecida",
           });
         }
+        await updateTask(input.id, { phaseId: input.phaseId, position: input.position ?? task.position });
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
         await deleteTask(input.id);
         await logActivity({ userId: ctx.user.id, action: "deleted_task", entityType: "task", entityId: input.id });
         return { success: true };
       }),
-
-    // Comments
     addComment: protectedProcedure
       .input(z.object({ taskId: z.number(), content: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
-        const task = await getTaskById(input.taskId);
-        if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-        await assertProjectAccess(task.projectId, ctx.user.id);
         const id = await createTaskComment({ taskId: input.taskId, userId: ctx.user.id, content: input.content });
-        if (task.assigneeId && task.assigneeId !== ctx.user.id) {
-          await notifyUser({
-            userId: task.assigneeId,
-            title: "Novo comentário na sua tarefa",
-            message: `Um comentário foi adicionado na tarefa "${task.title}".`,
-            notificationType: "task_comment",
-            relatedTaskId: input.taskId,
-            relatedProjectId: task.projectId,
-          });
-        }
         return { id };
       }),
-
     deleteComment: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         await deleteTaskComment(input.id);
         return { success: true };
       }),
-
-    // Attachments
-    getUploadUrl: protectedProcedure
-      .input(z.object({
-        taskId: z.number(),
-        filename: z.string(),
-        mimeType: z.string(),
-        fileSize: z.number(),
-        fileData: z.string(), // base64
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const task = await getTaskById(input.taskId);
-        if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-        await assertProjectAccess(task.projectId, ctx.user.id);
-
-        const ext = input.filename.split(".").pop() ?? "bin";
-        const fileKey = `attachments/${task.projectId}/${input.taskId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const buffer = Buffer.from(input.fileData, "base64");
-        const { url } = await storagePut(fileKey, buffer, input.mimeType);
-
-        const attachId = await createTaskAttachment({
-          taskId: input.taskId,
-          uploadedById: ctx.user.id,
-          filename: input.filename,
-          fileKey,
-          fileUrl: url,
-          mimeType: input.mimeType,
-          fileSize: input.fileSize,
-        });
-        await logActivity({ userId: ctx.user.id, action: "uploaded_attachment", entityType: "task", entityId: input.taskId, metadata: JSON.stringify({ filename: input.filename }) });
-        return { id: attachId, url, fileKey };
-      }),
-
-    deleteAttachment: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const attachment = await getAttachmentById(input.id);
-        if (!attachment) throw new TRPCError({ code: "NOT_FOUND" });
-        await deleteTaskAttachment(input.id);
-        return { success: true };
-      }),
-
-    listBlocked: protectedProcedure.query(async ({ ctx }) => {
-      const { getDb } = await import("./db");
-      const db = await getDb();
-      if (!db) return [];
-      const userProjects = await getProjectsByUser(ctx.user.id);
-      const projectIds = userProjects.map((p: any) => p.id);
-      if (projectIds.length === 0) return [];
-      const { tasks: t, users: u, projects: pr } = await import("../drizzle/schema.js");
-      const { inArray, eq: eqFn, and: andFn } = await import("drizzle-orm");
-      const rows = await db.select({
-        id: t.id,
-        title: t.title,
-        blockReason: t.blockReason,
-        projectId: t.projectId,
-        projectName: pr.name,
-        assigneeName: u.name,
-        statusChangedAt: t.statusChangedAt,
-        priority: t.priority,
-      }).from(t)
-        .leftJoin(u, eqFn(t.assigneeId, u.id))
-        .leftJoin(pr, eqFn(t.projectId, pr.id))
-        .where(andFn(eqFn(t.status, "blocked"), inArray(t.projectId, projectIds)))
-        .orderBy(t.statusChangedAt);
-      return rows;
-    }),
   }),
 
-  // ── Notifications ─────────────────────────────────────────────────────────
+  // ─── Checklist Items ────────────────────────────────────────────────────────
+  checklist: router({
+    list: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .query(async ({ input }) => getChecklistItems(input.taskId)),
+    create: adminProcedure
+      .input(z.object({
+        taskId: z.number(),
+        title: z.string().min(1),
+        description: z.string().optional(),
+        assigneeId: z.number().optional(),
+        position: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createChecklistItem({ ...input, createdById: ctx.user.id });
+        await recalcTaskProgress(input.taskId);
+        return { id };
+      }),
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        assigneeId: z.number().nullable().optional(),
+        position: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateChecklistItem(id, data);
+        return { success: true };
+      }),
+    updateStatus: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["pending", "in_progress", "shared", "published", "archived", "blocked"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { checklistItems: ci } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
+        const [item] = await db.select().from(ci).where(eq2(ci.id, input.id)).limit(1);
+        if (!item) throw new TRPCError({ code: "NOT_FOUND" });
+        // Permission check: user can only update items assigned to them (unless admin/leader)
+        if (ctx.user.role === "user" && item.assigneeId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você só pode alterar o status de itens atribuídos a você." });
+        }
+        const completedAt = (input.status === "published" || input.status === "archived") ? new Date() : null;
+        await updateChecklistItem(input.id, { status: input.status, completedAt });
+        // Record history
+        await db.execute(
+          (await import("drizzle-orm")).sql`INSERT INTO checklist_item_history (checklistItemId, taskId, changedById, fromStatus, toStatus, changedAt)
+          VALUES (${input.id}, ${item.taskId}, ${ctx.user.id}, ${item.status}, ${input.status}, NOW())`
+        );
+        // Recalc task progress
+        await recalcTaskProgress(item.taskId);
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        const { checklistItems: ci } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
+        const [item] = await db.select({ taskId: ci.taskId }).from(ci).where(eq2(ci.id, input.id)).limit(1);
+        await deleteChecklistItem(input.id);
+        if (item) await recalcTaskProgress(item.taskId);
+        return { success: true };
+      }),
+    addComment: protectedProcedure
+      .input(z.object({ checklistItemId: z.number(), content: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createChecklistItemComment({ ...input, userId: ctx.user.id });
+        return { id };
+      }),
+    getComments: protectedProcedure
+      .input(z.object({ checklistItemId: z.number() }))
+      .query(async ({ input }) => getChecklistItemComments(input.checklistItemId)),
+  }),
+
+  // ─── Vacation Periods ───────────────────────────────────────────────────────
+  vacations: router({
+    list: protectedProcedure
+      .input(z.object({ userId: z.number().optional() }))
+      .query(async ({ input }) => getVacationPeriods(input.userId)),
+    create: protectedProcedure
+      .input(z.object({ userId: z.number(), startDate: z.date(), endDate: z.date(), description: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        // Only admin can create for others
+        if (input.userId !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "master_admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const id = await createVacationPeriod(input);
+        return { id };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteVacationPeriod(input.id);
+        return { success: true };
+      }),
+    checkConflict: protectedProcedure
+      .input(z.object({ userId: z.number(), date: z.date() }))
+      .query(async ({ input }) => {
+        const onVacation = await isUserOnVacation(input.userId, input.date);
+        return { onVacation };
+      }),
+  }),
+
+  // ─── Dashboard ──────────────────────────────────────────────────────────────
+  dashboard: router({
+    stats: protectedProcedure.query(async () => getDashboardStats()),
+    worldMap: protectedProcedure.query(async () => getWorldMapData()),
+    weekDeliveries: protectedProcedure.query(async () => getWeekDeliveries()),
+  }),
+
+  // ─── Notifications ──────────────────────────────────────────────────────────
   notifications: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return getNotificationsByUser(ctx.user.id);
-    }),
-    unreadCount: protectedProcedure.query(async ({ ctx }) => {
-      return getUnreadNotificationCount(ctx.user.id);
-    }),
+    list: protectedProcedure.query(async ({ ctx }) => getNotifications(ctx.user.id)),
     markRead: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         await markNotificationRead(input.id);
         return { success: true };
       }),
@@ -575,988 +476,186 @@ export const appRouter = router({
       await markAllNotificationsRead(ctx.user.id);
       return { success: true };
     }),
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        await deleteNotification(input.id);
-        return { success: true };
-      }),
-    // Called by a scheduled job or on-demand to send 24h-before due-date alerts
-    checkDueDates: protectedProcedure.mutation(async () => {
-      const dueSoon = await getTasksDueSoon(24);
-      let sent = 0;
-      for (const task of dueSoon) {
-        const recipientId = task.assigneeId ?? task.createdById;
-        if (!recipientId) continue;
-        await notifyUser({
-          userId: recipientId,
-          title: "Tarefa vence em breve",
-          message: `A tarefa "${task.title}" vence em menos de 24 horas.`,
-          notificationType: "task_due",
-          relatedTaskId: task.id,
-          relatedProjectId: task.projectId,
-        });
-        sent++;
-      }
-      return { sent };
-    }),
   }),
 
-  // ── AI Chat ───────────────────────────────────────────────────────────────
-  chat: router({
-    history: protectedProcedure
-      .input(z.object({ projectId: z.number().optional() }))
-      .query(async ({ ctx, input }) => {
-        return getChatHistory(ctx.user.id, input.projectId);
-      }),
-
-    send: protectedProcedure
-      .input(z.object({
-        message: z.string().min(1),
-        projectId: z.number().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        // Save user message
-        await saveChatMessage({ userId: ctx.user.id, projectId: input.projectId ?? null, role: "user", content: input.message });
-
-        // Build context from project data if projectId provided
-        let systemContext = `Você é um assistente de gerenciamento de projetos inteligente chamado Orbita AI. 
-Você ajuda equipes a organizar tarefas, priorizar trabalho e gerar relatórios de progresso.
-Responda sempre em português brasileiro de forma clara e profissional.`;
-
-        if (input.projectId) {
-          const project = await getProjectById(input.projectId);
-          const taskList = await getTasksByProject(input.projectId);
-          const counts = await getTaskCountsByProject(input.projectId);
-          if (project) {
-            systemContext += `\n\nContexto do Projeto: "${project.name}"
-Total de tarefas: ${counts.total}
-Para Iniciar: ${counts.pending} | Em Andamento: ${counts.in_progress} | Compartilhado: ${counts.shared} | Publicado: ${counts.published} | Arquivado: ${counts.archived}
-Tarefas recentes: ${taskList.slice(0, 10).map(t => `"${t.title}" (${t.status}, prioridade: ${t.priority})`).join(", ")}`;
-          }
-        }
-
-        const history = await getChatHistory(ctx.user.id, input.projectId);
-        const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-          { role: "system", content: systemContext },
-          ...history.slice(-10).map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
-          { role: "user", content: input.message },
-        ];
-
-        const response = await invokeLLM({ messages });
-        const rawContent = response.choices[0]?.message?.content;
-        const assistantMessage = typeof rawContent === "string" ? rawContent : "Desculpe, não consegui processar sua mensagem.";
-
-        await saveChatMessage({ userId: ctx.user.id, projectId: input.projectId ?? null, role: "assistant", content: assistantMessage });
-        return { message: assistantMessage };
-      }),
-
-    generateReport: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const project = await assertProjectAccess(input.projectId, ctx.user.id);
-        const tasks = await getTasksByProject(input.projectId);
-        const counts = await getTaskCountsByProject(input.projectId);
-        const members = await getProjectMembers(input.projectId);
-        const completionRate = counts.total > 0 ? Math.round(((counts.published + counts.archived) / counts.total) * 100) : 0;
-        // Priority breakdown
-        const byPriority = { urgent: 0, high: 0, medium: 0, low: 0 };
-        for (const t of tasks) { if (t.priority in byPriority) (byPriority as any)[t.priority]++; }
-        // Overdue
-        const now = new Date();
-        const overdue = tasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "published" && t.status !== "archived").length;
-        const prompt = `Gere um relatório executivo detalhado do projeto "${project.name}":
-- Total de tarefas: ${counts.total} (${counts.published + counts.archived} concluídas, ${counts.in_progress} em andamento, ${counts.shared} aguardando aprovação, ${counts.pending} para iniciar)
-- Membros da equipe: ${members.length}
-- Taxa de conclusão: ${completionRate}%
-- Tarefas urgentes: ${byPriority.urgent} | Alta prioridade: ${byPriority.high} | Média: ${byPriority.medium} | Baixa: ${byPriority.low}
-- Tarefas em atraso: ${overdue}
-Inclua: resumo executivo, análise de progresso, riscos identificados, recomendações e próximos passos.`;
-        const response = await invokeLLM({ messages: [
-          { role: "system", content: "Você é um especialista em gestão de projetos. Gere relatórios executivos profissionais em português brasileiro." },
-          { role: "user", content: prompt },
-        ]});
-        const reportContent = response.choices[0]?.message?.content;
-        return {
-          report: typeof reportContent === "string" ? reportContent : "Não foi possível gerar o relatório.",
-          chartData: {
-            projectName: project.name,
-            completionRate,
-            counts: { pending: counts.pending, in_progress: counts.in_progress, shared: counts.shared, published: counts.published, archived: counts.archived, total: counts.total },
-            byPriority,
-            overdue,
-            members: members.length,
-            generatedAt: new Date().toISOString(),
-          },
-        };
-      }),
-    clearHistory: protectedProcedure
-      .input(z.object({ projectId: z.number().optional() }))
-      .mutation(async ({ ctx, input }) => {
-        await clearChatHistory(ctx.user.id, input.projectId);
-        return { success: true };
-      }),
-  }),
-
-  // ── Admin ─────────────────────────────────────────────────────────────────
-  admin: router({
-    users: adminProcedure.query(async () => getAllUsers()),
-    allProjects: adminProcedure.query(async () => getAllProjects()),
-    activityLogs: adminProcedure
-      .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }))
-      .query(async ({ input }) => getActivityLogs(input.limit, input.offset)),
-    updateUserRole: adminProcedure
-      .input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) }))
-      .mutation(async ({ input }) => {
-        await updateUserRole(input.userId, input.role);
-        return { success: true };
-      }),
-    createUser: adminProcedure
-      .input(z.object({
-        name: z.string().min(1).max(128),
-        email: z.string().email().optional(),
-        role: z.enum(["user", "admin"]).default("user"),
-      }))
-      .mutation(async ({ input }) => {
-        const openId = `manual_${crypto.randomUUID()}`;
-        await upsertUser({
-          openId,
-          name: input.name,
-          email: input.email ?? null,
-          role: input.role,
-          loginMethod: "manual",
-          lastSignedIn: new Date(),
-        });
-        return { success: true, openId };
-      }),
-    deleteUser: adminProcedure
-      .input(z.object({ userId: z.number() }))
-      .mutation(async ({ input }) => {
-        await deleteUser(input.userId);
-        return { success: true };
-      }),
-  }),
-
-  // ── Users (for member search) ─────────────────────────────────────────────
-  users: router({
-    search: protectedProcedure
-      .input(z.object({ query: z.string().min(1) }))
-      .query(async ({ input }) => {
-        const all = await getAllUsers(20, 0);
-        const q = input.query.toLowerCase();
-        return all.filter(u =>
-          u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
-        ).slice(0, 10);
-      }),
-  }),
-
-  presence: router({
-    ping: protectedProcedure.mutation(async ({ ctx }) => {
-      const { updateLastSeen } = await import("./db");
-      await updateLastSeen(ctx.user.id);
-      return { ok: true };
-    }),
-    online: protectedProcedure.query(async () => {
-      const { getOnlineUsers } = await import("./db");
-      return getOnlineUsers(5);
-    }),
-  }),
-
-  roles: router({
-    list: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        return getProjectRoles(input.projectId);
-      }),
-    memberRoles: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        return getMemberRoles(input.projectId);
-      }),
-    create: protectedProcedure
-      .input(z.object({
-        projectId: z.number(),
-        name: z.string().min(1).max(128),
-        isLeader: z.boolean().default(false),
-        canApprove: z.boolean().default(false),
-        color: z.string().default("#6366f1"),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        await createProjectRole({
-          projectId: input.projectId,
-          name: input.name,
-          isLeader: input.isLeader,
-          canApprove: input.canApprove,
-          color: input.color,
-        });
-        return { success: true };
-      }),
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        projectId: z.number(),
-        name: z.string().min(1).max(128).optional(),
-        isLeader: z.boolean().optional(),
-        canApprove: z.boolean().optional(),
-        color: z.string().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        const { id, projectId: _pid, ...data } = input;
-        await updateProjectRole(id, data);
-        return { success: true };
-      }),
-    delete: protectedProcedure
-      .input(z.object({ id: z.number(), projectId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        await deleteProjectRole(input.id);
-        return { success: true };
-      }),
-    assign: protectedProcedure
-      .input(z.object({ projectId: z.number(), userId: z.number(), roleId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        await assignMemberRole(input.projectId, input.userId, input.roleId);
-        return { success: true };
-      }),
-    unassign: protectedProcedure
-      .input(z.object({ projectId: z.number(), userId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        await removeMemberRole(input.projectId, input.userId);
-        return { success: true };
-      }),
-  }),
-  // ── Companies (Master Admin) ───────────────────────────────────────────────
-  companies: router({
-    list: adminProcedure.query(async () => {
-      return getAllCompanies();
-    }),
-    get: adminProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        return getCompanyById(input.id);
-      }),
+  // ─── Disciplines ────────────────────────────────────────────────────────────
+  disciplines: router({
+    list: protectedProcedure.query(async () => getDisciplines(true)),
+    listAll: adminProcedure.query(async () => getDisciplines(false)),
     create: adminProcedure
-      .input(z.object({ name: z.string().min(1), slug: z.string().min(1), color: z.string().optional() }))
-      .mutation(async ({ input }) => {
-        return createCompany({ name: input.name, slug: input.slug, color: input.color });
+      .input(z.object({ name: z.string().min(1), color: z.string().optional(), description: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { disciplines: disc } = await import("../drizzle/schema");
+        const { sql: sqlExpr } = await import("drizzle-orm");
+        const [result] = await db.execute(
+          sqlExpr`INSERT INTO disciplines (name, color, description, isActive, createdById, createdAt, updatedAt)
+          VALUES (${input.name}, ${input.color ?? '#6366f1'}, ${input.description ?? null}, 1, ${ctx.user.id}, NOW(), NOW())`
+        );
+        return { id: (result as any).insertId };
       }),
     update: adminProcedure
-      .input(z.object({ id: z.number(), name: z.string().optional(), color: z.string().optional() }))
+      .input(z.object({ id: z.number(), name: z.string().optional(), color: z.string().optional(), description: z.string().optional(), isActive: z.boolean().optional() }))
       .mutation(async ({ input }) => {
+        const db = await getDb();
+        const { disciplines: disc } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
         const { id, ...data } = input;
-        return updateCompany(id, data);
+        await db.update(disc).set({ ...data, updatedAt: new Date() }).where(eq2(disc.id, id));
+        return { success: true };
       }),
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
-        return deleteCompany(input.id);
-      }),
-    users: adminProcedure
-      .input(z.object({ companyId: z.number() }))
-      .query(async ({ input }) => {
-        return getUsersByCompany(input.companyId);
-      }),
-    projects: adminProcedure
-      .input(z.object({ companyId: z.number() }))
-      .query(async ({ input }) => {
-        return getProjectsByCompany(input.companyId);
-      }),
-    assignUser: adminProcedure
-      .input(z.object({ userId: z.number(), companyId: z.number() }))
-      .mutation(async ({ input }) => {
-        return updateUserCompany(input.userId, input.companyId);
+        const db = await getDb();
+        const { disciplines: disc } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
+        await db.delete(disc).where(eq2(disc.id, input.id));
+        return { success: true };
       }),
   }),
 
-  // ── Gantt ─────────────────────────────────────────────────────────────────
-  gantt: router({
-    tasks: protectedProcedure
-      .input(z.object({ projectId: z.number().optional() }))
-      .query(async ({ input }) => {
-        return getGanttTasks({ projectId: input.projectId });
-      }),
-    conflicts: protectedProcedure
-      .input(z.object({ projectId: z.number().optional() }))
-      .query(async ({ input }) => {
-        return detectGanttConflicts(input.projectId);
-      }),
-  }),
-
-  // ── Burndown ──────────────────────────────────────────────────────────────
-  burndown: router({
-    data: protectedProcedure
-      .input(z.object({ sprintId: z.number() }))
-      .query(async ({ input }) => {
-        return getBurndownData(input.sprintId);
-      }),
-  }),
-
-  // ── Sprints ───────────────────────────────────────────────────────────────
-  sprints: router({
-    list: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
-        return listSprints(input.projectId);
-      }),
-    get: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        return getSprintWithTasks(input.id);
-      }),
-    create: protectedProcedure
-      .input(z.object({
-        projectId: z.number(),
-        name: z.string().min(1),
-        goal: z.string().optional(),
-        startDate: z.number(),
-        endDate: z.number(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        return createSprint({
-          projectId: input.projectId,
-          name: input.name,
-          goal: input.goal,
-          startDate: new Date(input.startDate),
-          endDate: new Date(input.endDate),
-          createdById: ctx.user.id,
-        });
-      }),
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        name: z.string().optional(),
-        goal: z.string().optional(),
-        startDate: z.number().optional(),
-        endDate: z.number().optional(),
-        status: z.enum(["active", "completed", "planned"]).optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const { id, startDate, endDate, ...rest } = input;
-        return updateSprint(id, {
-          ...rest,
-          ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
-          ...(endDate !== undefined ? { endDate: new Date(endDate) } : {}),
-        });
-      }),
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        return deleteSprint(input.id);
-      }),
-    addTask: protectedProcedure
-      .input(z.object({ sprintId: z.number(), taskId: z.number() }))
-      .mutation(async ({ input }) => {
-        return addTaskToSprint(input.sprintId, input.taskId);
-      }),
-    removeTask: protectedProcedure
-      .input(z.object({ sprintId: z.number(), taskId: z.number() }))
-      .mutation(async ({ input }) => {
-        return removeTaskFromSprint(input.sprintId, input.taskId);
-      }),
-    listAll: protectedProcedure
-      .query(async () => {
-        return getAllSprints();
-      }),
-  }),
-
-  // ── Agenda (Calendar) ─────────────────────────────────────────────────────
+  // ─── Agenda Events ──────────────────────────────────────────────────────────
   agenda: router({
     list: protectedProcedure
-      .input(z.object({
-        projectId: z.number().optional(),
-      }).optional())
-      .query(async ({ ctx, input }) => {
-        return listAgendaEvents(ctx.user.id, input?.projectId);
-      }),
+      .input(z.object({ crsId: z.number().optional() }))
+      .query(async ({ input }) => getAgendaEvents(input)),
     create: protectedProcedure
       .input(z.object({
         title: z.string().min(1),
+        type: z.enum(["vacation", "meeting", "other"]).default("other"),
+        startDate: z.date(),
+        endDate: z.date(),
         description: z.string().optional(),
-        startDate: z.number(),
-        endDate: z.number(),
-        type: z.enum(["meeting", "vacation", "other"]).default("other"),
-        projectId: z.number().optional(),
+        meetingUrl: z.string().optional(),
+        attendeeIds: z.string().optional(),
+        crsId: z.number().optional(),
         isPublic: z.boolean().default(true),
       }))
       .mutation(async ({ ctx, input }) => {
-        return createAgendaEvent({
-          title: input.title,
-          description: input.description,
-          startDate: new Date(input.startDate),
-          endDate: new Date(input.endDate),
-          type: input.type,
-          projectId: input.projectId,
-          isPublic: input.isPublic,
-          createdById: ctx.user.id,
-        });
-      }),
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        title: z.string().optional(),
-        description: z.string().optional(),
-        startDate: z.number().optional(),
-        endDate: z.number().optional(),
-        type: z.enum(["meeting", "vacation", "other"]).optional(),
-        isPublic: z.boolean().optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const { id, startDate, endDate, ...rest } = input;
-        return updateAgendaEvent(id, {
-          ...rest,
-          ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
-          ...(endDate !== undefined ? { endDate: new Date(endDate) } : {}),
-        });
-      }),
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        return deleteAgendaEvent(input.id);
-      }),
-  }),
-
-  // ── Task Chat ─────────────────────────────────────────────────────────────
-  taskChat: router({
-    messages: protectedProcedure
-      .input(z.object({ taskId: z.number() }))
-      .query(async ({ input }) => {
-        return getTaskMessages(input.taskId);
-      }),
-    send: protectedProcedure
-      .input(z.object({ taskId: z.number(), message: z.string().min(1) }))
-      .mutation(async ({ ctx, input }) => {
-        return sendTaskMessage({ taskId: input.taskId, userId: ctx.user.id, message: input.message });
-      }),
-  }),
-
-  // ── Whiteboard ────────────────────────────────────────────────────────────
-  whiteboard: router({
-    get: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
-        return getWhiteboard(input.projectId);
-      }),
-    save: protectedProcedure
-      .input(z.object({ projectId: z.number(), content: z.string() }))
-      .mutation(async ({ ctx, input }) => {
-        return saveWhiteboard(input.projectId, input.content, ctx.user.id);
-      }),
-  }),
-
-  // ── Scheduling (Timeline) ─────────────────────────────────────────────────
-  scheduling: router({
-    tasks: protectedProcedure
-      .input(z.object({
-        projectId: z.number().optional(),
-      }).optional())
-      .query(async ({ input }) => {
-        return getGanttTasks({ projectId: input?.projectId });
-      }),
-  }),
-
-  // ── Clients ───────────────────────────────────────────────────────────────
-  clients: router({
-    list: protectedProcedure
-      .input(z.object({ companyId: z.number().optional() }).optional())
-      .query(async ({ ctx, input }) => {
-        return listClients({ companyId: input?.companyId ?? ctx.user.companyId ?? undefined });
-      }),
-    create: protectedProcedure
-      .input(z.object({
-        name: z.string().min(1),
-        email: z.string().email().optional().or(z.literal("")),
-        phone: z.string().optional(),
-        company: z.string().optional(),
-        notes: z.string().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const id = await createClient({ ...input, companyId: ctx.user.companyId ?? undefined, createdById: ctx.user.id });
+        const id = await createAgendaEvent({ ...input, createdById: ctx.user.id });
         return { id };
       }),
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        name: z.string().min(1).optional(),
-        email: z.string().email().optional().or(z.literal("")),
-        phone: z.string().optional(),
-        company: z.string().optional(),
-        notes: z.string().optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const { id, ...data } = input;
-        await updateClient(id, data);
-        return { success: true };
-      }),
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
-        await deleteClient(input.id);
+        await deleteAgendaEvent(input.id);
         return { success: true };
-      }),
-    count: protectedProcedure
-      .input(z.object({ companyId: z.number().optional() }).optional())
-      .query(async ({ ctx, input }) => {
-        return countClients(input?.companyId ?? ctx.user.companyId ?? undefined);
       }),
   }),
 
-  // ── Notification Preferences ──────────────────────────────────────────────
-  notificationPreferences: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      return getNotificationPreferences(ctx.user.id);
-    }),
-    update: protectedProcedure
-      .input(z.object({
-        notificationType: z.string(),
-        inApp: z.boolean(),
-      }))
+  // ─── AI Chat ────────────────────────────────────────────────────────────────
+  aiChat: router({
+    getHistory: protectedProcedure
+      .input(z.object({ crsId: z.number().optional() }))
+      .query(async ({ ctx, input }) => getChatMessages(ctx.user.id, input.crsId)),
+    send: protectedProcedure
+      .input(z.object({ message: z.string().min(1), crsId: z.number().optional() }))
       .mutation(async ({ ctx, input }) => {
-        await upsertNotificationPreference(ctx.user.id, input.notificationType, input.inApp);
-        return { success: true };
+        await createChatMessage({ userId: ctx.user.id, crsId: input.crsId, role: "user", content: input.message });
+        const history = await getChatMessages(ctx.user.id, input.crsId);
+        const messages = history.map((m: any) => ({ role: m.role, content: m.content }));
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: "Você é um assistente de gestão de projetos e contratos CRS. Responda de forma objetiva e útil." },
+            ...messages,
+          ],
+        });
+        const reply = (response?.choices?.[0]?.message?.content as string | null) ?? "Desculpe, não consegui processar sua mensagem.";
+        await createChatMessage({ userId: ctx.user.id, crsId: input.crsId, role: "assistant", content: reply });
+        return { reply };
       }),
-    updateAll: protectedProcedure
-      .input(z.object({ inApp: z.boolean() }))
+    clearHistory: protectedProcedure
+      .input(z.object({ crsId: z.number().optional() }))
       .mutation(async ({ ctx, input }) => {
-        const { NOTIFICATION_TYPES: types } = await import("../drizzle/schema");
-        for (const t of types) {
-          await upsertNotificationPreference(ctx.user.id, t, input.inApp);
+        const db = await getDb();
+        const { chatMessages: cm } = await import("../drizzle/schema");
+        const { eq: eq2, and: and2 } = await import("drizzle-orm");
+        if (input.crsId) {
+          await db.delete(cm).where(and2(eq2(cm.userId, ctx.user.id), eq2(cm.crsId, input.crsId)));
+        } else {
+          await db.delete(cm).where(eq2(cm.userId, ctx.user.id));
         }
         return { success: true };
       }),
   }),
 
-  // ── Direct / Group Chat ────────────────────────────────────────────────
-  directChat: router({
-    // List all conversations for the current user
-    listConversations: protectedProcedure.query(async ({ ctx }) => {
-      const { getDb } = await import("./db");
-      const db = await getDb();
-      if (!db) return [];
-      const { conversations, conversationParticipants, directMessages, users } = await import("../drizzle/schema");
-      const { eq, desc, and, sql } = await import("drizzle-orm");
-
-      const myConvos = await db
-        .select({ conversationId: conversationParticipants.conversationId })
-        .from(conversationParticipants)
-        .where(eq(conversationParticipants.userId, ctx.user.id));
-
-      if (myConvos.length === 0) return [];
-
-      const convIds = myConvos.map((r: any) => r.conversationId);
-
-      const result = [];
-      for (const convId of convIds) {
-        const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId));
-        if (!conv) continue;
-
-        const participants = await db
-          .select({ userId: conversationParticipants.userId, userName: users.name, avatarUrl: users.avatarUrl })
-          .from(conversationParticipants)
-          .leftJoin(users, eq(users.id, conversationParticipants.userId))
-          .where(eq(conversationParticipants.conversationId, convId));
-
-        const [lastMsg] = await db
-          .select({ content: directMessages.content, createdAt: directMessages.createdAt, senderId: directMessages.senderId })
-          .from(directMessages)
-          .where(eq(directMessages.conversationId, convId))
-          .orderBy(desc(directMessages.createdAt))
-          .limit(1);
-
-        const [myPart] = await db
-          .select({ lastReadAt: conversationParticipants.lastReadAt })
-          .from(conversationParticipants)
-          .where(and(eq(conversationParticipants.conversationId, convId), eq(conversationParticipants.userId, ctx.user.id)));
-
-        const unreadCount = myPart?.lastReadAt
-          ? (await db.select({ count: sql<number>`count(*)` }).from(directMessages)
-              .where(and(eq(directMessages.conversationId, convId), sql`${directMessages.createdAt} > ${myPart.lastReadAt}`))
-            )[0]?.count ?? 0
-          : (await db.select({ count: sql<number>`count(*)` }).from(directMessages)
-              .where(eq(directMessages.conversationId, convId))
-            )[0]?.count ?? 0;
-
-        // For direct (non-group) conversations, expose the other user's id for presence indicator
-        const otherUserId = conv.type !== "group"
-          ? (participants.find((p: any) => p.userId !== ctx.user.id)?.userId ?? null)
-          : null;
-        result.push({ ...conv, participants, lastMessage: lastMsg ?? null, unreadCount, otherUserId });
-      }
-
-      return result.sort((a, b) => {
-        const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
-        const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
-        return bTime - aTime;
-      });
+  // ─── Direct Messages ────────────────────────────────────────────────────────
+  messages: router({
+    getConversations: protectedProcedure.query(async ({ ctx }) => {
+      const result = await getUserConversations(ctx.user.id);
+      return (result[0] as any[]) ?? [];
     }),
-
-    // Get messages for a conversation
+    getOrCreate: protectedProcedure
+      .input(z.object({ otherUserId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await getOrCreateConversation(ctx.user.id, input.otherUserId);
+        return { id };
+      }),
     getMessages: protectedProcedure
-      .input(z.object({ conversationId: z.number(), limit: z.number().default(50) }))
-      .query(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) return [];
-        const { directMessages, conversationParticipants, users } = await import("../drizzle/schema");
-        const { eq, and, desc } = await import("drizzle-orm");
-
-        // Verify access
-        const [part] = await db.select().from(conversationParticipants)
-          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
-        if (!part) throw new TRPCError({ code: "FORBIDDEN" });
-
-        const msgs = await db
-          .select({ id: directMessages.id, content: directMessages.content, createdAt: directMessages.createdAt,
-            senderId: directMessages.senderId, senderName: users.name, senderAvatar: users.avatarUrl })
-          .from(directMessages)
-          .leftJoin(users, eq(users.id, directMessages.senderId))
-          .where(eq(directMessages.conversationId, input.conversationId))
-          .orderBy(desc(directMessages.createdAt))
-          .limit(input.limit);
-
-        return msgs.reverse();
-      }),
-
-    // Send a message
-    sendMessage: protectedProcedure
-      .input(z.object({ conversationId: z.number(), content: z.string().min(1).max(4000) }))
-      .mutation(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { directMessages, conversationParticipants, conversations } = await import("../drizzle/schema");
-        const { eq, and } = await import("drizzle-orm");
-
-        const [part] = await db.select().from(conversationParticipants)
-          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
-        if (!part) throw new TRPCError({ code: "FORBIDDEN" });
-
-        await db.insert(directMessages).values({ conversationId: input.conversationId, senderId: ctx.user.id, content: input.content });
-        // Update conversation updatedAt
-        await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, input.conversationId));
-        // Mark sender as read
-        await db.update(conversationParticipants).set({ lastReadAt: new Date() })
-          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
-        return { success: true };
-      }),
-
-    // Start or get a direct conversation with another user
-    startDirect: protectedProcedure
-      .input(z.object({ targetUserId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { conversations, conversationParticipants } = await import("../drizzle/schema");
-        const { eq, and, sql } = await import("drizzle-orm");
-
-        // Check if direct conversation already exists between these two users
-        const existing = await db.execute(sql`
-          SELECT c.id FROM conversations c
-          JOIN conversation_participants p1 ON p1.conversationId = c.id AND p1.userId = ${ctx.user.id}
-          JOIN conversation_participants p2 ON p2.conversationId = c.id AND p2.userId = ${input.targetUserId}
-          WHERE c.type = 'direct'
-          LIMIT 1
-        `);
-        const rows = existing[0] as unknown as any[];
-        if (rows.length > 0) return { conversationId: rows[0].id };
-
-        // Create new conversation
-        const [res] = await db.insert(conversations).values({ type: "direct", createdById: ctx.user.id });
-        const convId = (res as any).insertId;
-        await db.insert(conversationParticipants).values([
-          { conversationId: convId, userId: ctx.user.id },
-          { conversationId: convId, userId: input.targetUserId },
-        ]);
-        return { conversationId: convId };
-      }),
-
-    // Create a group conversation
-    createGroup: protectedProcedure
-      .input(z.object({ name: z.string().min(1).max(256), memberIds: z.array(z.number()).min(1) }))
-      .mutation(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { conversations, conversationParticipants } = await import("../drizzle/schema");
-
-        const [res] = await db.insert(conversations).values({ type: "group", name: input.name, createdById: ctx.user.id });
-        const convId = (res as any).insertId;
-        const allMembers = [ctx.user.id, ...input.memberIds.filter(id => id !== ctx.user.id)];
-        await db.insert(conversationParticipants).values(allMembers.map(uid => ({ conversationId: convId, userId: uid })));
-        return { conversationId: convId };
-      }),
-
-    // Mark conversation as read
-    markRead: protectedProcedure
       .input(z.object({ conversationId: z.number() }))
+      .query(async ({ input }) => getDirectMessages(input.conversationId)),
+    send: protectedProcedure
+      .input(z.object({ conversationId: z.number(), content: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { conversationParticipants } = await import("../drizzle/schema");
-        const { eq, and } = await import("drizzle-orm");
-        await db.update(conversationParticipants).set({ lastReadAt: new Date() })
-          .where(and(eq(conversationParticipants.conversationId, input.conversationId), eq(conversationParticipants.userId, ctx.user.id)));
-        return { success: true };
-      }),
-
-    // List all users for starting a new conversation
-    listUsers: protectedProcedure.query(async ({ ctx }) => {
-      const { getDb } = await import("./db");
-      const db = await getDb();
-      if (!db) return [];
-      const { users } = await import("../drizzle/schema");
-      const { ne } = await import("drizzle-orm");
-      return db.select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
-        .from(users).where(ne(users.id, ctx.user.id));
-    }),
-  }),
-
-  // ─── Project Invites ────────────────────────────────────────────────────────
-  invites: router({
-    create: protectedProcedure
-      .input(z.object({
-        projectId: z.number(),
-        role: z.enum(["admin", "member", "viewer"]).default("member"),
-        origin: z.string(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { projectInvites } = await import("../drizzle/schema");
-        const crypto = await import("crypto");
-        const token = crypto.randomBytes(32).toString("hex");
-        // expires in 7 days
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await db.insert(projectInvites).values({
-          projectId: input.projectId,
-          token,
-          createdById: ctx.user.id,
-          role: input.role,
-          expiresAt,
-        });
-        const inviteUrl = `${input.origin}/join?token=${token}`;
-        return { token, inviteUrl, expiresAt };
-      }),
-
-    accept: protectedProcedure
-      .input(z.object({ token: z.string() }))
-      .mutation(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { projectInvites, projectMembers } = await import("../drizzle/schema");
-        const { eq, and, isNull, gt } = await import("drizzle-orm");
-        const [invite] = await db.select().from(projectInvites)
-          .where(and(
-            eq(projectInvites.token, input.token),
-            isNull(projectInvites.usedById),
-            gt(projectInvites.expiresAt, new Date()),
-          ));
-        if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "Convite inválido ou expirado" });
-        // Check if already a member
-        const [existing] = await db.select().from(projectMembers)
-          .where(and(eq(projectMembers.projectId, invite.projectId), eq(projectMembers.userId, ctx.user.id)));
-        if (!existing) {
-          await db.insert(projectMembers).values({
-            projectId: invite.projectId,
-            userId: ctx.user.id,
-            role: invite.role,
-          });
-        }
-        await db.update(projectInvites)
-          .set({ usedById: ctx.user.id, usedAt: new Date() })
-          .where(eq(projectInvites.id, invite.id));
-        return { projectId: invite.projectId };
-      }),
-
-    list: protectedProcedure
-      .input(z.object({ projectId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        await assertProjectAccess(input.projectId, ctx.user.id);
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) return [];
-        const { projectInvites } = await import("../drizzle/schema");
-        const { eq, isNull, and: andOp } = await import("drizzle-orm");
-        return db.select().from(projectInvites)
-          .where(andOp(eq(projectInvites.projectId, input.projectId), isNull(projectInvites.usedById)))
-          .orderBy(projectInvites.createdAt);
+        const id = await sendDirectMessage({ conversationId: input.conversationId, senderId: ctx.user.id, content: input.content });
+        return { id };
       }),
   }),
 
-  // ─── Disciplines ──────────────────────────────────────────────────────────────
-  disciplines: router({
-    list: protectedProcedure
-      .input(z.object({ activeOnly: z.boolean().optional() }).optional())
-      .query(async ({ input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) return [];
-        const { disciplines } = await import("../drizzle/schema");
-        const { eq } = await import("drizzle-orm");
-        if (input?.activeOnly) {
-          return db.select().from(disciplines).where(eq(disciplines.isActive, true)).orderBy(disciplines.name);
-        }
-        return db.select().from(disciplines).orderBy(disciplines.name);
-      }),
-
-    create: protectedProcedure
+  // ─── Sprints ────────────────────────────────────────────────────────────────
+  sprints: router({
+    listByCrs: protectedProcedure
+      .input(z.object({ crsId: z.number() }))
+      .query(async ({ input }) => getSprintsByCrs(input.crsId)),
+    create: adminProcedure
       .input(z.object({
-        name: z.string().min(1).max(128),
-        color: z.string().optional().default("#6366f1"),
-        description: z.string().optional(),
+        crsId: z.number(),
+        name: z.string().min(1),
+        goal: z.string().optional(),
+        startDate: z.date(),
+        endDate: z.date(),
       }))
       .mutation(async ({ ctx, input }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-        const { getDb } = await import("./db");
         const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { disciplines } = await import("../drizzle/schema");
-        const [result] = await db.insert(disciplines).values({
-          name: input.name,
-          color: input.color ?? "#6366f1",
-          description: input.description,
-          createdById: ctx.user.id,
-        });
+        const { sprints: sp } = await import("../drizzle/schema");
+        const { sql: sqlExpr } = await import("drizzle-orm");
+        const [result] = await db.execute(
+          sqlExpr`INSERT INTO sprints (crsId, name, goal, startDate, endDate, status, createdById, createdAt)
+          VALUES (${input.crsId}, ${input.name}, ${input.goal ?? null}, ${input.startDate}, ${input.endDate}, 'planned', ${ctx.user.id}, NOW())`
+        );
         return { id: (result as any).insertId };
       }),
-
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        name: z.string().min(1).max(128).optional(),
-        color: z.string().optional(),
-        description: z.string().optional(),
-        isActive: z.boolean().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-        const { getDb } = await import("./db");
+    update: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), goal: z.string().optional(), status: z.enum(["active", "completed", "planned"]).optional() }))
+      .mutation(async ({ input }) => {
         const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { disciplines } = await import("../drizzle/schema");
-        const { eq } = await import("drizzle-orm");
+        const { sprints: sp } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
         const { id, ...data } = input;
-        await db.update(disciplines).set(data).where(eq(disciplines.id, id));
+        await db.update(sp).set(data).where(eq2(sp.id, id));
         return { success: true };
       }),
-
-    delete: protectedProcedure
+    delete: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-        const { getDb } = await import("./db");
+      .mutation(async ({ input }) => {
         const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-        const { disciplines } = await import("../drizzle/schema");
-        const { eq } = await import("drizzle-orm");
-        await db.delete(disciplines).where(eq(disciplines.id, input.id));
+        const { sprints: sp } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
+        await db.delete(sp).where(eq2(sp.id, input.id));
         return { success: true };
       }),
   }),
 
-  // ─── Member Performance Report ────────────────────────────────────────────────
-  reports: router({
-    memberPerformance: protectedProcedure
-      .input(z.object({ projectId: z.number().optional() }).optional())
-      .query(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) return [];
-        const { tasks: t, users: u, projectMembers: pm } = await import("../drizzle/schema.js");
-        const { eq, and, inArray, sql } = await import("drizzle-orm");
-
-        // Get projects accessible to user
-        const userProjects = await getProjectsByUser(ctx.user.id);
-        let projectIds = userProjects.map((p: any) => p.id);
-        if (input?.projectId) {
-          projectIds = projectIds.filter((id: number) => id === input.projectId);
-        }
-        if (projectIds.length === 0) return [];
-
-        // Get all members across those projects
-        const members = await db
-          .select({ userId: pm.userId, userName: u.name, avatarUrl: u.avatarUrl })
-          .from(pm)
-          .leftJoin(u, eq(pm.userId, u.id))
-          .where(inArray(pm.projectId, projectIds));
-
-        // Deduplicate by userId
-        const uniqueMembers = Array.from(
-          new Map(members.map((m: any) => [m.userId, m])).values()
-        );
-
-        // For each member, count tasks by status
-        const result = await Promise.all(uniqueMembers.map(async (member: any) => {
-          const memberTasks = await db
-            .select({ status: t.status, id: t.id })
-            .from(t)
-            .where(and(
-              eq(t.assigneeId, member.userId),
-              inArray(t.projectId, projectIds)
-            ));
-
-          const total = memberTasks.length;
-          const completed = memberTasks.filter((tk: any) => tk.status === "published" || tk.status === "archived").length;
-          const inProgress = memberTasks.filter((tk: any) => tk.status === "in_progress").length;
-          const blocked = memberTasks.filter((tk: any) => tk.status === "blocked").length;
-          const pending = memberTasks.filter((tk: any) => tk.status === "pending").length;
-          const shared = memberTasks.filter((tk: any) => tk.status === "shared").length;
-          const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-          return {
-            userId: member.userId,
-            userName: member.userName ?? `Usuário ${member.userId}`,
-            avatarUrl: member.avatarUrl,
-            total,
-            completed,
-            inProgress,
-            blocked,
-            pending,
-            shared,
-            completionRate,
-          };
-        }));
-
-        return result.sort((a, b) => b.total - a.total);
-      }),
-  }),
-
-  // ─── Task Status History ─────────────────────────────────────────────────────
-  statusHistory: router({
-    list: protectedProcedure
-      .input(z.object({ taskId: z.number() }))
-      .query(async ({ ctx, input }) => {
-        const { getDb } = await import("./db");
-        const db = await getDb();
-        if (!db) return [];
-        const { taskStatusHistory, users } = await import("../drizzle/schema");
-        const { eq } = await import("drizzle-orm");
-        const rows = await db
-          .select({
-            id: taskStatusHistory.id,
-            fromStatus: taskStatusHistory.fromStatus,
-            toStatus: taskStatusHistory.toStatus,
-            blockReason: taskStatusHistory.blockReason,
-            changedAt: taskStatusHistory.changedAt,
-            changedByName: users.name,
-            changedByAvatar: users.avatarUrl,
-          })
-          .from(taskStatusHistory)
-          .leftJoin(users, eq(taskStatusHistory.changedById, users.id))
-          .where(eq(taskStatusHistory.taskId, input.taskId))
-          .orderBy(taskStatusHistory.changedAt);
-        return rows;
+  // ─── System ─────────────────────────────────────────────────────────────────
+  system: router({
+    notifyOwner: protectedProcedure
+      .input(z.object({ title: z.string(), content: z.string() }))
+      .mutation(async ({ input }) => {
+        const success = await notifyOwner(input);
+        return { success };
       }),
   }),
 });
+
 export type AppRouter = typeof appRouter;

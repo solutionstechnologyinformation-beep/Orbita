@@ -408,3 +408,71 @@
 - [x] Onboarding: criar componente OnboardingWizard (wizard 3 passos: criar projeto, convidar membro, criar tarefa)
 - [x] Onboarding: exibir automaticamente para novos usuários (sem projetos criados)
 - [x] Onboarding: botão "Pular" e persistência do estado (não mostrar novamente após concluir)
+
+## Melhorias v3.34 — Campo CRS nas Tarefas
+- [ ] Schema: criar tabela `crs` (id, name, code, description, status: active/archived, createdAt)
+- [ ] Schema: adicionar coluna `crsId` na tabela `tasks` (FK opcional para crs.id)
+- [ ] Migrar banco de dados com pnpm db:push
+- [ ] Backend: rotas crs.list, crs.create, crs.update, crs.archive, crs.restore, crs.delete
+- [ ] Backend: incluir crsId no tasks.create e tasks.update
+- [ ] Backend: retornar crsName junto com as tarefas nas queries
+- [ ] Kanban: adicionar select dinâmico de CRS no formulário de criação de tarefa
+- [ ] Kanban: exibir badge CRS no card da tarefa
+- [ ] TaskDetail: adicionar campo CRS editável na seção de detalhes
+- [ ] Admin: adicionar aba "CRS" com CRUD completo (criar, arquivar, restaurar, excluir)
+
+## Refatoração v4.0 — Nova Arquitetura Cliente→CRS→Kanban
+
+### Schema / Banco de Dados
+- [x] Remover tabela `projects` e `project_members` do uso ativo (manter para migração)
+- [x] Criar tabela `clients` com campos: name, description, color, status, createdById
+- [x] Criar tabela `crs` com campos: clientId, name, code, description, country, state, status, createdById
+- [x] Criar tabela `kanban_phases` com campos: crsId, name, color, position, isDefault, createdById
+- [x] Adicionar coluna `phaseId` na tabela `tasks` (substitui `status` como enum fixo)
+- [x] Criar tabela `checklist_items` com campos: taskId, title, assigneeId, status, position, createdById
+- [x] Criar tabela `checklist_item_history` para histórico de movimentações dos itens
+- [x] Criar tabela `vacation_periods` com campos: userId, startDate, endDate, approvedById
+- [x] Migrar banco de dados
+
+### Backend (routers.ts + db.ts)
+- [x] Router `clients`: list, get, create, update, delete (apenas ADM)
+- [x] Router `crs`: list, get, create, update, archive, delete (apenas ADM)
+- [x] Router `kanbanPhases`: list, create, update, reorder, delete
+- [x] Router `tasks`: adaptar para usar phaseId em vez de status enum
+- [x] Router `checklistItems`: list, create, update, delete, reorder
+- [x] Router `checklistItems.updateStatus`: atualizar status e registrar histórico
+- [x] Cálculo automático de progresso da tarefa baseado nos itens do checklist
+- [x] Router `vacations`: list, create, delete + verificação de conflito na atribuição
+- [x] Router `dashboard.worldMap`: retornar CRS agrupados por país/estado com progresso
+- [x] Router `dashboard.weekDeliveries`: tarefas com prazo na semana atual
+
+### Frontend — Kanban Refatorado
+- [x] Página `/kanban` agora lista Clientes → CRS em vez de Projetos
+- [x] Dentro do CRS: Kanban com colunas = fases customizáveis (drag & drop de tarefas)
+- [x] Gerenciar fases: botão para adicionar, renomear, reordenar e excluir fases
+- [x] Card da tarefa: exibir progresso % baseado no checklist
+- [x] Permissões: apenas ADM pode criar/editar/excluir tarefas
+
+### Frontend — TaskDetail Refatorado
+- [x] Aba "Checklist" com lista de subtarefas (criar, editar, excluir, reordenar)
+- [x] Cada item: responsável, status, comentários próprios
+- [x] Barra de progresso automática calculada pelos itens concluídos
+- [x] Aba "Histórico" mostrando movimentações de tarefas E itens do checklist
+- [x] Remover seção de anexos/upload
+
+### Frontend — Admin
+- [x] Aba "Clientes": CRUD completo de clientes
+- [x] Aba "CRS": CRUD com seletor de país e estado/província do mundo
+- [x] Lista completa de países e estados/províncias (dados estáticos)
+
+### Frontend — Dashboard
+- [x] Mapa mundial interativo com estados coloridos por progresso do CRS
+- [x] Bolhas com número de CRS por estado, clicável com lista suspensa
+- [x] Painel "Entregas da Semana": tarefas com prazo na semana, responsável, status, progresso
+- [x] Indicador de progresso médio geral de todos os contratos ativos
+
+### Frontend — Calendário Global
+- [x] Visualização de agenda de todos os usuários
+- [x] Cadastro de períodos de férias
+- [x] Alerta quando tarefa/item é atribuído a usuário em férias
+- [x] Notificação quando tarefa existente cai em período de férias do responsável
