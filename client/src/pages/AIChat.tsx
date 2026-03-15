@@ -300,21 +300,21 @@ export default function AIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: projects } = trpc.projects.list.useQuery();
-  const { data: history, isLoading } = trpc.chat.history.useQuery(
-    { projectId: selectedProjectId },
+  const { data: history, isLoading } = trpc.aiChat.getHistory.useQuery(
+    { crsId: selectedProjectId ?? undefined },
     { refetchInterval: false }
   );
 
-  const sendMutation = trpc.chat.send.useMutation({
+  const sendMutation = trpc.aiChat.send.useMutation({
     onSuccess: () => {
-      utils.chat.history.invalidate({ projectId: selectedProjectId });
+      utils.aiChat.getHistory.invalidate({ crsId: selectedProjectId ?? undefined });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  const clearMutation = trpc.chat.clearHistory.useMutation({
+  const clearMutation = trpc.aiChat.clearHistory.useMutation({
     onSuccess: () => {
-      utils.chat.history.invalidate({ projectId: selectedProjectId });
+      utils.aiChat.getHistory.invalidate({ crsId: selectedProjectId ?? undefined });
       toast.success("Histórico limpo.");
     },
   });
@@ -334,15 +334,15 @@ export default function AIChat() {
     if (!message.trim() || sendMutation.isPending) return;
     const msg = message;
     setMessage("");
-    await sendMutation.mutateAsync({ message: msg, projectId: selectedProjectId });
+    await sendMutation.mutateAsync({ message: msg, crsId: selectedProjectId ?? undefined });
   };
 
   const handleReport = async () => {
     if (!selectedProjectId) return toast.error("Selecione um projeto para gerar o relatório.");
     setGeneratingReport(true);
     try {
-      const result = await reportMutation.mutateAsync({ projectId: selectedProjectId });
-      utils.chat.history.invalidate({ projectId: selectedProjectId });
+      const result = await reportMutation.mutateAsync({ crsId: selectedProjectId ?? undefined });
+      utils.aiChat.getHistory.invalidate({ crsId: selectedProjectId ?? undefined });
       // Generate visual PDF immediately
       if (result.chartData) {
         await generateVisualReportPDF(result.chartData, result.report);
@@ -438,7 +438,7 @@ export default function AIChat() {
                 variant="ghost"
                 size="sm"
                 className="gap-2 text-muted-foreground hover:text-destructive"
-                onClick={() => clearMutation.mutate({ projectId: selectedProjectId })}
+                onClick={() => clearMutation.mutate({ crsId: selectedProjectId ?? undefined })}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Limpar
