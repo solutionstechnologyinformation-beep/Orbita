@@ -488,3 +488,6 @@
 - [x] Kanban: itens = tarefas com checklist sequencial, campo disciplina preenchido automaticamente pela coluna
 - [x] CRS/Projetos: substituir input livre de país por select com lista completa (195 países)
 - [x] CRS/Projetos: substituir input livre de estado por select dinâmico com estados do país selecionado (Brasil: 27 estados + todos os países com regiões)
+
+## Bug v4.3
+- [x] Bug: Kanban dos CRS não abria — rota /kanban faltava no App.tsx e o componente não lia o parâmetro ?crs=X da URL — corrigido

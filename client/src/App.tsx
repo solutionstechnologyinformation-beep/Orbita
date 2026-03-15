@@ -33,6 +33,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/projects" component={Projects} />
       <Route path="/projects/:id" component={ProjectDetail} />
+      <Route path="/kanban" component={Kanban} />
       <Route path="/projects/:id/kanban" component={Kanban} />
       <Route path="/tasks/:id" component={TaskDetail} />
       <Route path="/notifications" component={Notifications} />

@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -245,9 +245,18 @@ export default function Kanban() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "master_admin";
   const [, navigate] = useLocation();
-
-  // CRS selector
+  const queryString = useSearch();
+  // CRS selector — read ?crs=X from URL
+  const urlCrsId = useMemo(() => {
+    const params = new URLSearchParams(queryString);
+    const v = params.get("crs");
+    return v ? parseInt(v, 10) : null;
+  }, [queryString]);
   const [selectedCrsId, setSelectedCrsId] = useState<number | null>(null);
+  // Pre-select CRS from URL param when data loads
+  useEffect(() => {
+    if (urlCrsId) setSelectedCrsId(urlCrsId);
+  }, [urlCrsId]);;
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
