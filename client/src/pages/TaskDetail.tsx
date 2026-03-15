@@ -52,6 +52,7 @@ export default function TaskDetail() {
   const [newChecklistStartDate, setNewChecklistStartDate] = useState("");
   const [newChecklistEndDate, setNewChecklistEndDate] = useState("");
   const [showChecklistDates, setShowChecklistDates] = useState(false);
+  const [newChecklistAssigneeId, setNewChecklistAssigneeId] = useState<string>("_none");
   const [newComment, setNewComment] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -89,6 +90,7 @@ export default function TaskDetail() {
       setNewChecklistStartDate("");
       setNewChecklistEndDate("");
       setShowChecklistDates(false);
+      setNewChecklistAssigneeId("_none");
       toast.success("Item adicionado!");
     },
     onError: (e) => toast.error(e.message),
@@ -366,11 +368,26 @@ export default function TaskDetail() {
                           <Badge className={"text-xs " + (STATUS_COLORS[item.status] ?? "")} variant="outline">
                             {STATUS_LABELS[item.status] ?? item.status}
                           </Badge>
-                          {item.assigneeName && (
+                          {isAdmin ? (
+                            <Select
+                              value={item.assigneeId ? String(item.assigneeId) : "_none"}
+                              onValueChange={(v) => updateChecklistM.mutate({ id: item.id, assigneeId: v !== "_none" ? Number(v) : null })}
+                            >
+                              <SelectTrigger className="h-6 text-xs w-36">
+                                <SelectValue placeholder="Sem responsável" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">Sem responsável</SelectItem>
+                                {(usersQ.data ?? []).map((u: any) => (
+                                  <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : item.assigneeName ? (
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <User className="h-3 w-3" />{item.assigneeName}
                             </span>
-                          )}
+                          ) : null}
                           {canEdit && (
                             <Select
                               value={item.status}
@@ -431,16 +448,18 @@ export default function TaskDetail() {
                   );
                 })}
                 {(user?.role === "admin" || user?.role === "leader") && (
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-2 pt-2 border-t">
+                    <p className="text-xs font-medium text-muted-foreground pt-1">Novo item</p>
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Novo item do checklist..."
+                        placeholder="Título do item..."
                         value={newChecklistTitle}
                         onChange={e => setNewChecklistTitle(e.target.value)}
                         onKeyDown={e => {
                           if (e.key === "Enter" && newChecklistTitle.trim()) {
                             addChecklistM.mutate({
                               taskId, title: newChecklistTitle.trim(),
+                              assigneeId: newChecklistAssigneeId !== "_none" ? Number(newChecklistAssigneeId) : undefined,
                               startDate: newChecklistStartDate || undefined,
                               endDate: newChecklistEndDate || undefined,
                             });
@@ -462,12 +481,29 @@ export default function TaskDetail() {
                         disabled={!newChecklistTitle.trim() || addChecklistM.isPending}
                         onClick={() => addChecklistM.mutate({
                           taskId, title: newChecklistTitle.trim(),
+                          assigneeId: newChecklistAssigneeId !== "_none" ? Number(newChecklistAssigneeId) : undefined,
                           startDate: newChecklistStartDate || undefined,
                           endDate: newChecklistEndDate || undefined,
                         })}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
+                    </div>
+                    {/* Seletor de responsável para novo item */}
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs text-muted-foreground">Responsável:</span>
+                      <Select value={newChecklistAssigneeId} onValueChange={setNewChecklistAssigneeId}>
+                        <SelectTrigger className="h-7 text-xs flex-1">
+                          <SelectValue placeholder="Herdar da tarefa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">Herdar da tarefa ({(usersQ.data ?? []).find((u: any) => u.id === (taskQ.data as any)?.assigneeId)?.name ?? "nenhum"})</SelectItem>
+                          {(usersQ.data ?? []).map((u: any) => (
+                            <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {showChecklistDates && (
                       <div className="flex items-center gap-2 pl-1">

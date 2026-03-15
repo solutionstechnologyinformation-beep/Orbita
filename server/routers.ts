@@ -18,7 +18,7 @@ import {
   getChatMessages, createChatMessage,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
-  getSprintsByCrs, getDb,
+  getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -768,6 +768,50 @@ export const appRouter = router({
         const { sprints: sp } = await import("../drizzle/schema");
         const { eq: eq2 } = await import("drizzle-orm");
         await db.delete(sp).where(eq2(sp.id, input.id));
+        return { success: true };
+      }),
+    // ─── Checklist Items na Sprint ──────────────────────────────────────────────────
+    listChecklistItems: protectedProcedure
+      .input(z.object({ sprintId: z.number() }))
+      .query(async ({ input }) => getSprintChecklistItems(input.sprintId)),
+    // All checklist items for a CRS (to pick from when adding to sprint)
+    listAvailableChecklistItems: protectedProcedure
+      .input(z.object({ crsId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        const { checklistItems: ci, tasks: t, users: u } = await import("../drizzle/schema");
+        const { eq: eq2, inArray } = await import("drizzle-orm");
+        // Get all tasks for this CRS
+        const crsTaskIds = await db.select({ id: t.id }).from(t).where(eq2(t.crsId, input.crsId));
+        if (crsTaskIds.length === 0) return [];
+        const taskIds = crsTaskIds.map((r: any) => r.id);
+        return db.select({
+          id: ci.id,
+          title: ci.title,
+          status: ci.status,
+          startDate: ci.startDate,
+          endDate: ci.endDate,
+          assigneeId: ci.assigneeId,
+          assigneeName: u.name,
+          taskId: ci.taskId,
+          taskTitle: t.title,
+          taskSetor: t.setor,
+        }).from(ci)
+          .leftJoin(u, eq2(ci.assigneeId, u.id))
+          .innerJoin(t, eq2(ci.taskId, t.id))
+          .where(inArray(ci.taskId, taskIds))
+          .orderBy(t.setor, t.title, ci.title);
+      }),
+    addChecklistItem: adminProcedure
+      .input(z.object({ sprintId: z.number(), checklistItemId: z.number() }))
+      .mutation(async ({ input }) => {
+        await addChecklistItemToSprint(input.sprintId, input.checklistItemId);
+        return { success: true };
+      }),
+    removeChecklistItem: adminProcedure
+      .input(z.object({ sprintId: z.number(), checklistItemId: z.number() }))
+      .mutation(async ({ input }) => {
+        await removeChecklistItemFromSprint(input.sprintId, input.checklistItemId);
         return { success: true };
       }),
   }),

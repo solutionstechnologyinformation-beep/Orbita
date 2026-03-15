@@ -13,8 +13,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { Plus, Target, Calendar, CheckCircle2, Trash2, ChevronRight, FileDown } from "lucide-react";
+import { Plus, Target, Calendar, CheckCircle2, Trash2, ChevronRight, FileDown, ListChecks, X, User, Search } from "lucide-react";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "bg-gray-100 text-gray-700",
@@ -50,6 +51,7 @@ export default function Sprints() {
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [checklistSearch, setChecklistSearch] = useState("");
   const [form, setForm] = useState({
     name: "",
     goal: "",
@@ -71,6 +73,16 @@ export default function Sprints() {
   const burndownQ = trpc.sprints.get.useQuery(
     { id: selectedSprintId! },
     { enabled: !!selectedSprintId }
+  );
+  // Checklist items already in this sprint
+  const sprintChecklistQ = trpc.sprints.listChecklistItems.useQuery(
+    { sprintId: selectedSprintId! },
+    { enabled: !!selectedSprintId }
+  );
+  // All checklist items for the selected CRS (to pick from)
+  const allChecklistQ = trpc.sprints.listAvailableChecklistItems.useQuery(
+    { crsId: crsId! },
+    { enabled: !!crsId }
   );
 
   const utils = trpc.useUtils();
@@ -95,10 +107,35 @@ export default function Sprints() {
       utils.sprints.get.invalidate();
     },
   });
+  const addChecklistItemMut = trpc.sprints.addChecklistItem.useMutation({
+    onSuccess: () => {
+      utils.sprints.listChecklistItems.invalidate();
+      toast.success("Item adicionado à sprint!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const removeChecklistItemMut = trpc.sprints.removeChecklistItem.useMutation({
+    onSuccess: () => {
+      utils.sprints.listChecklistItems.invalidate();
+      toast.success("Item removido da sprint.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const sprints = sprintsQ.data ?? [];
   const selectedSprint = sprintDetailQ.data;
   const burndown = burndownQ.data;
+  const sprintChecklistItems = sprintChecklistQ.data ?? [];
+  const allChecklistItems = allChecklistQ.data ?? [];
+  // IDs already in sprint for quick lookup
+  const inSprintIds = new Set(sprintChecklistItems.map((i: any) => i.checklistItemId));
+  // Filter available items not yet in sprint, matching search
+  const availableItems = allChecklistItems.filter((i: any) => {
+    if (inSprintIds.has(i.id)) return false;
+    if (!checklistSearch.trim()) return true;
+    const q = checklistSearch.toLowerCase();
+    return i.title?.toLowerCase().includes(q) || i.taskTitle?.toLowerCase().includes(q) || i.taskSetor?.toLowerCase().includes(q);
+  });
 
   function handleCreate() {
     if (!crsId || !form.name || !form.startDate || !form.endDate) {
@@ -467,7 +504,7 @@ export default function Sprints() {
                       <div className="grid grid-cols-4 gap-3 text-center mb-4">
                         <div className="bg-gray-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-gray-900">{selectedSprint.tasks?.length ?? 0}</p>
-                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="text-xs text-gray-500">Tarefas</p>
                         </div>
                         <div className="bg-green-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-green-700">
@@ -477,9 +514,9 @@ export default function Sprints() {
                         </div>
                         <div className="bg-blue-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-blue-700">
-                            {selectedSprint.tasks?.filter((t: any) => t.status === "in_progress").length ?? 0}
+                            {sprintChecklistItems.length}
                           </p>
-                          <p className="text-xs text-gray-500">Em andamento</p>
+                          <p className="text-xs text-gray-500">Itens Checklist</p>
                         </div>
                         <div className="bg-amber-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-amber-600">
@@ -493,32 +530,121 @@ export default function Sprints() {
                         </div>
                       </div>
 
-                      {/* Task list */}
-                      {(selectedSprint.tasks ?? []).length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-gray-700">Tarefas da Sprint</h4>
-                          {(selectedSprint.tasks ?? []).map((task: any) => (
-                            <div key={task.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                              <div
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: TASK_STATUS_COLORS[task.status] ?? "#94a3b8" }}
-                              />
-                              <span className="text-sm flex-1 truncate">{task.title}</span>
-                              <Badge variant="outline" className="text-xs">{task.setor ?? "—"}</Badge>
-                              <Badge
-                                className="text-xs"
-                                style={{
-                                  backgroundColor: `${TASK_STATUS_COLORS[task.status]}22`,
-                                  color: TASK_STATUS_COLORS[task.status],
-                                  border: `1px solid ${TASK_STATUS_COLORS[task.status]}44`,
-                                }}
-                              >
-                                {TASK_STATUS_LABELS[task.status] ?? task.status}
-                              </Badge>
+                      {/* Tabs: Tarefas | Checklist */}
+                      <Tabs defaultValue="tasks">
+                        <TabsList className="mb-3">
+                          <TabsTrigger value="tasks">Tarefas ({selectedSprint.tasks?.length ?? 0})</TabsTrigger>
+                          <TabsTrigger value="checklist">
+                            <ListChecks className="h-3.5 w-3.5 mr-1" />
+                            Checklist ({sprintChecklistItems.length})
+                          </TabsTrigger>
+                        </TabsList>
+
+                        {/* Tab: Tarefas */}
+                        <TabsContent value="tasks">
+                          {(selectedSprint.tasks ?? []).length === 0 ? (
+                            <p className="text-sm text-gray-400 text-center py-4">Nenhuma tarefa nesta sprint.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {(selectedSprint.tasks ?? []).map((task: any) => (
+                                <div key={task.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                                  <div
+                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: TASK_STATUS_COLORS[task.status] ?? "#94a3b8" }}
+                                  />
+                                  <span className="text-sm flex-1 truncate">{task.title}</span>
+                                  <Badge variant="outline" className="text-xs">{task.setor ?? "—"}</Badge>
+                                  <Badge
+                                    className="text-xs"
+                                    style={{
+                                      backgroundColor: `${TASK_STATUS_COLORS[task.status]}22`,
+                                      color: TASK_STATUS_COLORS[task.status],
+                                      border: `1px solid ${TASK_STATUS_COLORS[task.status]}44`,
+                                    }}
+                                  >
+                                    {TASK_STATUS_LABELS[task.status] ?? task.status}
+                                  </Badge>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          )}
+                        </TabsContent>
+
+                        {/* Tab: Checklist Items */}
+                        <TabsContent value="checklist">
+                          <div className="space-y-3">
+                            {/* Items already in sprint */}
+                            {sprintChecklistItems.length === 0 ? (
+                              <p className="text-sm text-gray-400 text-center py-2">Nenhum item de checklist nesta sprint.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {sprintChecklistItems.map((item: any) => (
+                                  <div key={item.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{item.title}</p>
+                                      <p className="text-xs text-gray-500 truncate">{item.taskSetor ?? "—"} • {item.taskTitle ?? "—"}</p>
+                                      {item.assigneeName && (
+                                        <span className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                          <User className="h-3 w-3" />{item.assigneeName}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <Badge variant="outline" className="text-xs shrink-0">{TASK_STATUS_LABELS[item.status] ?? item.status}</Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-red-400 hover:text-red-600 shrink-0"
+                                      onClick={() => removeChecklistItemMut.mutate({ sprintId: selectedSprint.id, checklistItemId: item.checklistItemId })}
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Add items section */}
+                            <div className="border-t pt-3">
+                              <p className="text-xs font-medium text-gray-600 mb-2">Adicionar itens de checklist</p>
+                              <div className="relative mb-2">
+                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Buscar por título, tarefa ou disciplina..."
+                                  className="w-full pl-7 pr-3 h-8 text-xs border border-border rounded-md bg-background"
+                                  value={checklistSearch}
+                                  onChange={e => setChecklistSearch(e.target.value)}
+                                />
+                              </div>
+                              {availableItems.length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-2">
+                                  {allChecklistItems.length === 0 ? "Nenhum item de checklist neste CRS." : "Todos os itens já estão na sprint."}
+                                </p>
+                              ) : (
+                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                  {availableItems.map((item: any) => (
+                                    <div key={item.id} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer group">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-medium truncate">{item.title}</p>
+                                        <p className="text-xs text-gray-400 truncate">{item.taskSetor ?? "—"} • {item.taskTitle ?? "—"}</p>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 text-xs px-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => addChecklistItemMut.mutate({ sprintId: selectedSprint.id, checklistItemId: item.id })}
+                                        disabled={addChecklistItemMut.isPending}
+                                      >
+                                        <Plus className="h-3 w-3 mr-0.5" /> Adicionar
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
                     </CardContent>
                   </Card>
                 )}

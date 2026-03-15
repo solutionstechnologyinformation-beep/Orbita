@@ -562,3 +562,12 @@
 - [x] Sprint PDF: gráfico burndown SVG substituí a tabela de dados no relatório
 - [x] Kanban: progresso da coluna de disciplina calculado por itens de checklist (concluídos/total) em vez de tarefas com progress>=100
 - [x] Fix: import duplicado do React no Dashboard.tsx removido
+
+## Melhorias v5.1 — Responsável no Checklist + Checklist nas Sprints
+- [x] Schema: tabela sprint_checklist_items criada no banco
+- [x] Backend: db.ts com funções getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint
+- [x] Backend: procedures sprints.listChecklistItems, listAvailableChecklistItems, addChecklistItem, removeChecklistItem
+- [x] Frontend (TaskDetail): seletor de responsável inline em cada item de checklist (admin edita, outros visualizam)
+- [x] Frontend (TaskDetail): formulário de novo item com seletor de responsável (herdar da tarefa ou escolher usuário)
+- [x] Sprint: aba "Checklist" com itens vinculados à sprint (add/remove), busca por título/tarefa/disciplina
+- [x] Sprint: exibir responsável, disciplina, tarefa macro e status em cada item da sprint

@@ -352,3 +352,12 @@ export const sprintTasks = mysqlTable("sprint_tasks", {
   taskId: int("taskId").notNull(),
   addedAt: timestamp("addedAt").defaultNow().notNull(),
 });
+
+// ─── Sprint Checklist Items ────────────────────────────────────────────────────
+export const sprintChecklistItems = mysqlTable("sprint_checklist_items", {
+  id: int("id").autoincrement().primaryKey(),
+  sprintId: int("sprintId").notNull(),
+  checklistItemId: int("checklistItemId").notNull(),
+  addedAt: timestamp("addedAt").defaultNow().notNull(),
+});
+export type SprintChecklistItem = typeof sprintChecklistItems.$inferSelect;

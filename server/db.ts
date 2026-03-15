@@ -5,6 +5,7 @@ import {
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
   conversations, conversationParticipants, directMessages,
+  sprintChecklistItems,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -706,4 +707,48 @@ export async function getConversationMembers(conversationId: number) {
 export async function getSprintsByCrs(crsId: number) {
   const db = await getDb();
   return db.select().from(sprints).where(eq(sprints.crsId, crsId)).orderBy(desc(sprints.createdAt));
+}
+
+// ─── Sprint Checklist Items ────────────────────────────────────────────────────
+export async function getSprintChecklistItems(sprintId: number) {
+  const db = await getDb();
+  return db.select({
+    id: sprintChecklistItems.id,
+    sprintId: sprintChecklistItems.sprintId,
+    checklistItemId: sprintChecklistItems.checklistItemId,
+    addedAt: sprintChecklistItems.addedAt,
+    // Checklist item fields
+    title: checklistItems.title,
+    description: checklistItems.description,
+    status: checklistItems.status,
+    startDate: checklistItems.startDate,
+    endDate: checklistItems.endDate,
+    completedAt: checklistItems.completedAt,
+    assigneeId: checklistItems.assigneeId,
+    taskId: checklistItems.taskId,
+    // Assignee info
+    assigneeName: users.name,
+    assigneeAvatar: users.avatarUrl,
+    // Task info
+    taskTitle: tasks.title,
+    taskSetor: tasks.setor,
+  }).from(sprintChecklistItems)
+    .innerJoin(checklistItems, eq(sprintChecklistItems.checklistItemId, checklistItems.id))
+    .leftJoin(users, eq(checklistItems.assigneeId, users.id))
+    .leftJoin(tasks, eq(checklistItems.taskId, tasks.id))
+    .where(eq(sprintChecklistItems.sprintId, sprintId))
+    .orderBy(asc(sprintChecklistItems.addedAt));
+}
+export async function addChecklistItemToSprint(sprintId: number, checklistItemId: number) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT IGNORE INTO sprint_checklist_items (sprintId, checklistItemId, addedAt)
+        VALUES (${sprintId}, ${checklistItemId}, NOW())`
+  );
+  return (result as any).insertId as number;
+}
+export async function removeChecklistItemFromSprint(sprintId: number, checklistItemId: number) {
+  const db = await getDb();
+  await db.delete(sprintChecklistItems)
+    .where(and(eq(sprintChecklistItems.sprintId, sprintId), eq(sprintChecklistItems.checklistItemId, checklistItemId)));
 }
