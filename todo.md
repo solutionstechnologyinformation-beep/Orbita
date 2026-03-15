@@ -571,3 +571,12 @@
 - [x] Frontend (TaskDetail): formulário de novo item com seletor de responsável (herdar da tarefa ou escolher usuário)
 - [x] Sprint: aba "Checklist" com itens vinculados à sprint (add/remove), busca por título/tarefa/disciplina
 - [x] Sprint: exibir responsável, disciplina, tarefa macro e status em cada item da sprint
+
+## Melhorias v5.2 — Gantt PDF, Filtros Dashboard e Progresso por Cliente
+- [x] Gantt PDF: exibir dias do mês na linha do tempo (3ª linha de cabeçalho: Mês / Semana / Dias)
+- [x] Gantt PDF: marcar coluna do dia de hoje em vermelho (#ef4444) com borda lateral vermelha nas linhas de tarefa
+- [x] Dashboard: filtro de cliente agora afeta KPIs (tarefas, checklist, progresso) via clientId na procedure stats
+- [x] Dashboard: procedure stats aceita clientId opcional e filtra tarefas/checklist pelo cliente selecionado
+- [x] Dashboard: nova procedure clientProgress retorna progresso médio por cliente (com contagem de CRS)
+- [x] Dashboard: seção "Progresso por Cliente" com barras coloridas (cor do cliente), % e contagem de CRS
+- [x] Reports.tsx: corrigido para passar input obrigatório na query de stats

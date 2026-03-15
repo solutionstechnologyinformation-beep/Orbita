@@ -223,7 +223,7 @@ export default function Gantt() {
     const pdfEnd = new Date(maxDate); pdfEnd.setDate(pdfEnd.getDate() + 7);
     const totalPdfDays = Math.max(1, Math.round((pdfEnd.getTime() - pdfStart.getTime()) / dayMs));
 
-    // Build month/week header data
+    // Build month/week/day header data
     const monthGroups: { label: string; days: number }[] = [];
     let curMonth = "";
     for (let i = 0; i < totalPdfDays; i++) {
@@ -241,7 +241,6 @@ export default function Gantt() {
       if (weekKey !== curWeek) { weekGroups.push({ label: `S${week}`, days: 1 }); curWeek = weekKey; }
       else weekGroups[weekGroups.length - 1].days++;
     }
-
     // Build rows from grouped data
     const pdfRows: { type: string; label: string; task?: any; depth: number }[] = [];
     grouped.forEach(g => {
@@ -268,6 +267,20 @@ export default function Gantt() {
     // Today offset
     const todayOffset = Math.round((new Date().getTime() - pdfStart.getTime()) / dayMs);
 
+    // Day cells for the third header row (days of month)
+    const dayHeaderCells: string[] = [];
+    for (let i = 0; i < totalPdfDays; i++) {
+      const d = new Date(pdfStart.getTime() + i * dayMs);
+      const isToday = i === todayOffset;
+      const isSun = d.getDay() === 0;
+      const isSat = d.getDay() === 6;
+      const bg = isToday ? "#ef4444" : isSun || isSat ? "#253a5a" : "#1e3a5f";
+      const color = isToday ? "#fff" : isSun || isSat ? "#64748b" : "#7dd3fc";
+      const fw = isToday ? "800" : "400";
+      dayHeaderCells.push(`<td style="width:${COL_W}px;min-width:${COL_W}px;background:${bg};color:${color};font-size:8px;font-weight:${fw};text-align:center;padding:1px 0;border-right:1px solid rgba(255,255,255,0.1);white-space:nowrap">${d.getDate()}</td>`);
+    }
+    const dayCellsRow = dayHeaderCells.join("");
+
     const taskRowsHtml = pdfRows.map(row => {
       const isGroup = row.type === "group";
       const isSubgroup = row.type === "subgroup";
@@ -284,7 +297,7 @@ export default function Gantt() {
         const isSun = d.getDay() === 0;
         const isSat = d.getDay() === 6;
         const bg = isToday ? "rgba(239,68,68,0.15)" : isSun || isSat ? "#f8fafc" : "transparent";
-        const borderR = (i + 1) % 7 === 0 ? "1px solid #cbd5e1" : "1px solid #f1f5f9";
+        const borderR = isToday ? "2px solid #ef4444" : (i + 1) % 7 === 0 ? "1px solid #cbd5e1" : "1px solid #f1f5f9";
         dayCells += `<td style="width:${COL_W}px;min-width:${COL_W}px;height:${ROW_H_PDF}px;background:${bg};border-right:${borderR};border-bottom:1px solid #e2e8f0;position:relative;padding:0"></td>`;
       }
 
@@ -346,12 +359,16 @@ export default function Gantt() {
     <table style="width:${LEFT_W + totalChartW}px">
       <thead>
         <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1561ad;border-right:2px solid #cbd5e1;height:24px"></td>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1561ad;border-right:2px solid #cbd5e1;height:22px"></td>
           ${monthCells}
         </tr>
         <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1e3a5f;color:#93c5fd;font-size:10px;font-weight:700;padding:3px 8px;border-right:2px solid #cbd5e1">Atividade</td>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1e3a5f;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1">Semana</td>
           ${weekCells}
+        </tr>
+        <tr>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1e3a5f;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1;border-bottom:2px solid #334155">Atividade</td>
+          ${dayCellsRow}
         </tr>
       </thead>
       <tbody>

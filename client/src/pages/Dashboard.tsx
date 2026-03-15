@@ -305,14 +305,15 @@ export default function Dashboard() {
   const markersRef = useRef<any[]>([]);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const statsQ = trpc.dashboard.stats.useQuery();
+  const statsQ = trpc.dashboard.stats.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
   // conflictsQ removed - dashboard.conflicts not available
   const conflictsQ = { data: [] as any[], isLoading: false };
-  const clientCountQ = trpc.dashboard.stats.useQuery();
+  const clientCountQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
   const projectsQ = trpc.crs.list.useQuery();
   const sprintsQ = trpc.sprints.listByCrs.useQuery({ crsId: 0 }, { enabled: false });
   const recentQ = trpc.dashboard.weekDeliveries.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
+  const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
 
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
@@ -820,6 +821,42 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos CRS para visualizá-los no mapa</p>
           )}
         </div>
+
+        {/* ── Client Progress Bars ── */}
+        {(clientProgressQ.data ?? []).length > 0 && (
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-orange-400" />
+              Progresso por Cliente
+            </h3>
+            {clientProgressQ.isLoading ? (
+              <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(clientProgressQ.data ?? []).map((c: any) => (
+                  <div key={c.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }} />
+                        <span className="text-sm font-medium truncate">{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-muted-foreground">{c.crsCount} CRS</span>
+                        <span className="text-sm font-bold" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#1561ad" }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Bottom Row: Recent Tasks + Projects ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

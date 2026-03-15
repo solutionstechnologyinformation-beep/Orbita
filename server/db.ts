@@ -513,20 +513,35 @@ export async function getDisciplines(activeOnly = true) {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
-export async function getDashboardStats() {
+export async function getDashboardStats(clientId?: number) {
   const db = await getDb();
   const totalClients = await db.select({ count: sql<number>`COUNT(*)` }).from(clients).where(eq(clients.status, "active"));
-  const totalCrs = await db.select({ count: sql<number>`COUNT(*)` }).from(crs).where(eq(crs.status, "active"));
-  const totalTasks = await db.select({ count: sql<number>`COUNT(*)` }).from(tasks);
-  const avgProgress = await db.select({ avg: sql<number>`AVG(progress)` }).from(crs).where(eq(crs.status, "active"));
-  const allTasksRaw = await db.select({ progress: tasks.progress, dueDate: tasks.dueDate }).from(tasks);
+  // CRS filtered by clientId if provided
+  const crsConditions = clientId
+    ? and(eq(crs.status, "active"), eq(crs.clientId, clientId))
+    : eq(crs.status, "active");
+  const totalCrs = await db.select({ count: sql<number>`COUNT(*)` }).from(crs).where(crsConditions);
+  const avgProgress = await db.select({ avg: sql<number>`AVG(progress)` }).from(crs).where(crsConditions);
+  // Tasks filtered through CRS
+  const taskQuery = db.select({
+    id: tasks.id, progress: tasks.progress, dueDate: tasks.dueDate, crsId: tasks.crsId,
+  }).from(tasks);
+  const allTasksRaw = clientId
+    ? await taskQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+    : await taskQuery;
+  const totalTasks = allTasksRaw.length;
   const now = new Date();
   const completedTasks = allTasksRaw.filter((t: any) => t.progress >= 100).length;
   const inProgressTasks = allTasksRaw.filter((t: any) => t.progress > 0 && t.progress < 100).length;
   const pendingTasks = allTasksRaw.filter((t: any) => t.progress === 0).length;
   const overdueTasks = allTasksRaw.filter((t: any) => t.dueDate && new Date(t.dueDate) < now && t.progress < 100).length;
-  // Checklist stats — status: 'published' or 'archived' = completed; completedAt != null also counts
-  const allChecklist = await db.select({ status: checklistItems.status, completedAt: checklistItems.completedAt, endDate: checklistItems.endDate }).from(checklistItems);
+  // Checklist stats — filtered by clientId if provided
+  const checklistQuery = db.select({ status: checklistItems.status, completedAt: checklistItems.completedAt, endDate: checklistItems.endDate }).from(checklistItems);
+  const allChecklist = clientId
+    ? await checklistQuery
+        .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
+        .innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+    : await checklistQuery;
   const totalChecklist = allChecklist.length;
   const completedChecklist = allChecklist.filter((c: any) => c.status === 'published' || c.status === 'archived' || c.completedAt != null).length;
   const pendingChecklist = totalChecklist - completedChecklist;
@@ -535,7 +550,7 @@ export async function getDashboardStats() {
   return {
     totalClients: totalClients[0]?.count ?? 0,
     totalCrs: totalCrs[0]?.count ?? 0,
-    totalTasks: totalTasks[0]?.count ?? 0,
+    totalTasks,
     avgProgress: Math.round((avgProgress[0]?.avg ?? 0) * 10) / 10,
     pendingTasks,
     inProgressTasks,
@@ -548,6 +563,37 @@ export async function getDashboardStats() {
     overdueChecklist,
     checklistProgress,
   };
+}
+
+export async function getClientProgress() {
+  const db = await getDb();
+  // Get all active clients with their CRS progress
+  const rows = await db.select({
+    clientId: clients.id,
+    clientName: clients.name,
+    clientColor: clients.color,
+    crsId: crs.id,
+    crsProgress: crs.progress,
+  }).from(clients)
+    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active")))
+    .where(eq(clients.status, "active"))
+    .orderBy(asc(clients.name));
+  // Group by client
+  const clientMap = new Map<number, { id: number; name: string; color: string; crsCount: number; avgProgress: number }>();
+  rows.forEach((r: any) => {
+    if (!clientMap.has(r.clientId)) {
+      clientMap.set(r.clientId, { id: r.clientId, name: r.clientName, color: r.clientColor ?? "#1561ad", crsCount: 0, avgProgress: 0 });
+    }
+    if (r.crsId) {
+      const c = clientMap.get(r.clientId)!;
+      c.crsCount++;
+      c.avgProgress += r.crsProgress ?? 0;
+    }
+  });
+  return Array.from(clientMap.values()).map(c => ({
+    ...c,
+    avgProgress: c.crsCount > 0 ? Math.round(c.avgProgress / c.crsCount) : 0,
+  }));
 }
 export async function getWorldMapData() {
   const db = await getDb();

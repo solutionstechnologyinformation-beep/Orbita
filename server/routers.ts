@@ -19,6 +19,7 @@ import {
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
+  getClientProgress,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -558,11 +559,14 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── Dashboard ──────────────────────────────────────────────────────────────
+  // ─── Dashboard ────────────────────────────────────────────────────────────────────────
   dashboard: router({
-    stats: protectedProcedure.query(async () => getDashboardStats()),
+    stats: protectedProcedure
+      .input(z.object({ clientId: z.number().optional() }))
+      .query(async ({ input }) => getDashboardStats(input.clientId)),
     worldMap: protectedProcedure.query(async () => getWorldMapData()),
     weekDeliveries: protectedProcedure.query(async () => getWeekDeliveries()),
+    clientProgress: protectedProcedure.query(async () => getClientProgress()),
   }),
 
   // ─── Notifications ──────────────────────────────────────────────────────────
