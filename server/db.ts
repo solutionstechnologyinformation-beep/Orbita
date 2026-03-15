@@ -313,7 +313,9 @@ export async function getChecklistItems(taskId: number) {
     id: checklistItems.id, taskId: checklistItems.taskId, title: checklistItems.title,
     description: checklistItems.description, assigneeId: checklistItems.assigneeId,
     status: checklistItems.status, position: checklistItems.position,
-    createdById: checklistItems.createdById, completedAt: checklistItems.completedAt,
+    createdById: checklistItems.createdById,
+    startDate: checklistItems.startDate, endDate: checklistItems.endDate,
+    completedAt: checklistItems.completedAt,
     createdAt: checklistItems.createdAt, updatedAt: checklistItems.updatedAt,
     assigneeName: users.name, assigneeAvatar: users.avatarUrl,
   }).from(checklistItems)
@@ -321,11 +323,48 @@ export async function getChecklistItems(taskId: number) {
     .where(eq(checklistItems.taskId, taskId))
     .orderBy(asc(checklistItems.position));
 }
-export async function createChecklistItem(data: { taskId: number; title: string; description?: string; assigneeId?: number; position?: number; createdById: number }) {
+
+// Deriva datas do CRS a partir dos itens de checklist de todas as suas tarefas
+export async function getCrsDateRange(crsId: number): Promise<{ startDate: Date | null; endDate: Date | null }> {
+  const db = await getDb();
+  // Busca todos os checklist items das tarefas deste CRS que têm datas definidas
+  const rows = await db.select({
+    startDate: checklistItems.startDate,
+    endDate: checklistItems.endDate,
+    taskStartDate: tasks.startDate,
+    taskEndDate: tasks.endDate,
+    taskDueDate: tasks.dueDate,
+  }).from(checklistItems)
+    .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
+    .where(eq(tasks.crsId, crsId));
+
+  const allStarts: Date[] = [];
+  const allEnds: Date[] = [];
+  for (const r of rows) {
+    if (r.startDate) allStarts.push(new Date(r.startDate));
+    if (r.endDate) allEnds.push(new Date(r.endDate));
+  }
+  // Fallback: usar datas das tarefas se não houver datas no checklist
+  if (allStarts.length === 0 || allEnds.length === 0) {
+    const taskRows = await db.select({
+      startDate: tasks.startDate, endDate: tasks.endDate, dueDate: tasks.dueDate,
+    }).from(tasks).where(eq(tasks.crsId, crsId));
+    for (const t of taskRows) {
+      if (t.startDate) allStarts.push(new Date(t.startDate));
+      if (t.endDate) allEnds.push(new Date(t.endDate));
+      else if (t.dueDate) allEnds.push(new Date(t.dueDate));
+    }
+  }
+  return {
+    startDate: allStarts.length > 0 ? new Date(Math.min(...allStarts.map(d => d.getTime()))) : null,
+    endDate: allEnds.length > 0 ? new Date(Math.max(...allEnds.map(d => d.getTime()))) : null,
+  };
+}
+export async function createChecklistItem(data: { taskId: number; title: string; description?: string; assigneeId?: number; position?: number; startDate?: Date | null; endDate?: Date | null; createdById: number }) {
   const db = await getDb();
   const [result] = await db.execute(
-    sql`INSERT INTO checklist_items (taskId, title, description, assigneeId, status, position, createdById, createdAt, updatedAt)
-        VALUES (${data.taskId}, ${data.title}, ${data.description ?? null}, ${data.assigneeId ?? null}, 'pending', ${data.position ?? 99}, ${data.createdById}, NOW(), NOW())`
+    sql`INSERT INTO checklist_items (taskId, title, description, assigneeId, status, position, startDate, endDate, createdById, createdAt, updatedAt)
+        VALUES (${data.taskId}, ${data.title}, ${data.description ?? null}, ${data.assigneeId ?? null}, 'pending', ${data.position ?? 99}, ${data.startDate ?? null}, ${data.endDate ?? null}, ${data.createdById}, NOW(), NOW())`
   );
   return (result as any).insertId as number;
 }

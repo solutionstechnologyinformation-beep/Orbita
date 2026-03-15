@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Plus, Search, Layers, Globe, MapPin, ArchiveRestore,
-  Archive, Trash2, ExternalLink, FolderOpen, Filter,
+  Archive, Trash2, ExternalLink, FolderOpen, Filter, Calendar,
 } from "lucide-react";
 import { COUNTRIES, getStatesForCountry } from "@/lib/geoData";
 
@@ -25,6 +25,7 @@ type CrsItem = {
   state?: string | null; stateCode?: string | null; status: string; progress: number;
   clientName?: string | null; clientColor?: string | null;
   tipoObra?: string | null; extensaoKm?: number | null; areaHa?: number | null; perimetroUrbano?: number | null;
+  derivedStartDate?: Date | null; derivedEndDate?: Date | null;
 };
 type Client = { id: number; name: string; color?: string | null };
 
@@ -237,6 +238,19 @@ export default function Projects() {
                     </div>
                   </div>
                   {crs.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{crs.description}</p>}
+                  {/* Datas derivadas do checklist */}
+                  {(crs.derivedStartDate || crs.derivedEndDate) && (
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 bg-muted/50 rounded-md px-2 py-1.5">
+                      <Calendar className="w-3 h-3 shrink-0" />
+                      {crs.derivedStartDate && (
+                        <span><span className="font-medium text-foreground/70">Início:</span> {new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</span>
+                      )}
+                      {crs.derivedStartDate && crs.derivedEndDate && <span className="text-muted-foreground/40">•</span>}
+                      {crs.derivedEndDate && (
+                        <span><span className="font-medium text-foreground/70">Entrega:</span> {new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-2">
                     {crs.status !== "archived" && (
                       <Link href={`/kanban?crs=${crs.id}`} className="flex-1">

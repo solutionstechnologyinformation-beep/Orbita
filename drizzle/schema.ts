@@ -126,6 +126,8 @@ export const checklistItems = mysqlTable("checklist_items", {
   status: mysqlEnum("status", ["pending", "in_progress", "shared", "published", "archived", "blocked"]).default("pending").notNull(),
   position: int("position").default(0).notNull(),
   createdById: int("createdById").notNull(),
+  startDate: timestamp("startDate"),   // data de início do item
+  endDate: timestamp("endDate"),         // data de entrega do item
   completedAt: timestamp("completedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

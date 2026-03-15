@@ -526,3 +526,16 @@
 - [x] Bug: Calendário corrigido — schema e db.ts atualizados (crsId renomeado para projectId, alinhado com banco real)
 - [x] Quadro Branco: reescrito com canvas de desenho funcional (caneta, formas, texto, borracha, cores, espessura)
 - [x] Removida logo LS Solutions de todos os relatórios: AppLayout sidebar, Dashboard PDF, Gantt PDF, AIChat PDF (pesquisa + relatório visual), Sprints PDF, Reports PDF (todas as funções)
+
+## Melhorias v4.8 — CRS Datas + Checklist + Gantt Refatorado
+- [x] Schema: campos startDate e endDate nos itens de checklist
+- [x] Backend: migrar banco com novos campos do checklist (ALTER TABLE checklist_items)
+- [x] Backend: função getCrsDateRange deriva datas do CRS (startDate = menor data de início do checklist, endDate = maior data de entrega)
+- [x] Backend: router crs.getById retorna datas derivadas do checklist (startDate, endDate, deliveryDate)
+- [x] Backend: router tasks.listForGantt com filtros de clientId, crsId, setor, assigneeId
+- [x] Frontend CRS (Projects.tsx): exibir datas derivadas (início/término/entrega) calculadas do checklist nos cards de CRS
+- [x] Frontend Checklist (TaskDetail.tsx): campos de data de início e data de entrega em cada item de checklist
+- [x] Gantt: filtros de Cliente, CRS, Disciplina e Usuário na toolbar
+- [x] Gantt: visualização padrão por disciplina → usuário → tarefa (grupos colapsáveis)
+- [x] Gantt: 3 modos de agrupamento: Por Disciplina, Por CRS, Por Usuário
+- [x] Gantt: filtros dinâmicos (disciplinas e usuários disponíveis mudam conforme as tarefas filtradas)

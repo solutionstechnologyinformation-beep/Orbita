@@ -8,7 +8,7 @@ import {
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
   getTasksByCrs, getTaskById, createTask, updateTask, deleteTask, recalcTaskProgress,
   getTaskComments, createTaskComment, deleteTaskComment,
-  getChecklistItems, createChecklistItem, updateChecklistItem, deleteChecklistItem,
+  getChecklistItems, createChecklistItem, updateChecklistItem, deleteChecklistItem, getCrsDateRange,
   getChecklistItemComments, createChecklistItemComment,
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
@@ -114,7 +114,8 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const c = await getCrsById(input.id);
         if (!c) throw new TRPCError({ code: "NOT_FOUND" });
-        return c;
+        const dateRange = await getCrsDateRange(input.id);
+        return { ...c, derivedStartDate: dateRange.startDate, derivedEndDate: dateRange.endDate };
       }),
     create: adminProcedure
       .input(z.object({
@@ -233,6 +234,43 @@ export const appRouter = router({
 
   // ─── Tasks ─────────────────────────────────────────────────────────────────
   tasks: router({
+    listForGantt: protectedProcedure
+      .input(z.object({
+        clientId: z.number().optional(),
+        crsId: z.number().optional(),
+        setor: z.string().optional(),
+        assigneeId: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        const { getDb: db2 } = await import('./db');
+        const { tasks: t, crs: c, users: u, kanbanPhases: kp, clients: cl } = await import('../drizzle/schema');
+        const { eq: eq2, and: and2, like: like2 } = await import('drizzle-orm');
+        const db = await db2();
+        const conditions: any[] = [];
+        if (input.crsId) conditions.push(eq2(t.crsId, input.crsId));
+        if (input.assigneeId) conditions.push(eq2(t.assigneeId, input.assigneeId));
+        if (input.setor) conditions.push(eq2(t.setor, input.setor));
+        const rows = await db.select({
+          id: t.id, crsId: t.crsId, phaseId: t.phaseId,
+          title: t.title, priority: t.priority,
+          assigneeId: t.assigneeId, dueDate: t.dueDate,
+          startDate: t.startDate, endDate: t.endDate,
+          setor: t.setor, progress: t.progress,
+          assigneeName: u.name,
+          projectName: c.name,
+          clientId: c.clientId,
+          phaseName: kp.name, phaseColor: kp.color, phaseIsTerminal: kp.isTerminal,
+          clientName: cl.name,
+        }).from(t)
+          .leftJoin(u, eq2(t.assigneeId, u.id))
+          .leftJoin(c, eq2(t.crsId, c.id))
+          .leftJoin(kp, eq2(t.phaseId, kp.id))
+          .leftJoin(cl, eq2(c.clientId, cl.id))
+          .where(conditions.length > 0 ? and2(...conditions) : undefined)
+          .orderBy(t.setor, u.name, t.startDate);
+        // filter by clientId after join
+        return input.clientId ? rows.filter((r: any) => r.clientId === input.clientId) : rows;
+      }),
     listByCrs: protectedProcedure
       .input(z.object({
         crsId: z.number(),
@@ -386,9 +424,13 @@ export const appRouter = router({
         description: z.string().optional(),
         assigneeId: z.number().optional(),
         position: z.number().optional(),
+        startDate: z.string().optional(),  // ISO date string
+        endDate: z.string().optional(),    // ISO date string
       }))
       .mutation(async ({ ctx, input }) => {
-        const id = await createChecklistItem({ ...input, createdById: ctx.user.id });
+        const startDate = input.startDate ? new Date(input.startDate) : null;
+        const endDate = input.endDate ? new Date(input.endDate) : null;
+        const id = await createChecklistItem({ ...input, startDate, endDate, createdById: ctx.user.id });
         await recalcTaskProgress(input.taskId);
         return { id };
       }),
@@ -399,9 +441,14 @@ export const appRouter = router({
         description: z.string().optional(),
         assigneeId: z.number().nullable().optional(),
         position: z.number().optional(),
+        startDate: z.string().nullable().optional(),  // ISO date string
+        endDate: z.string().nullable().optional(),    // ISO date string
       }))
       .mutation(async ({ input }) => {
-        const { id, ...data } = input;
+        const { id, startDate, endDate, ...rest } = input;
+        const data: any = { ...rest };
+        if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null;
+        if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null;
         await updateChecklistItem(id, data);
         return { success: true };
       }),

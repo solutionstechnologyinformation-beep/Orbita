@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft, Edit2, Save, X, Plus, Trash2, MessageSquare,
-  CheckSquare, History, Loader2, User
+  CheckSquare, History, Loader2, User, Calendar, ChevronDown
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,6 +49,9 @@ export default function TaskDetail() {
 
   const [editMode, setEditMode] = useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = useState("");
+  const [newChecklistStartDate, setNewChecklistStartDate] = useState("");
+  const [newChecklistEndDate, setNewChecklistEndDate] = useState("");
+  const [showChecklistDates, setShowChecklistDates] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -74,8 +77,20 @@ export default function TaskDetail() {
     onError: (e) => toast.error("Erro: " + e.message),
   });
 
+  const updateChecklistM = trpc.checklist.update.useMutation({
+    onSuccess: () => { invalidateTask(); toast.success("Item atualizado!"); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const addChecklistM = trpc.checklist.create.useMutation({
-    onSuccess: () => { invalidateTask(); setNewChecklistTitle(""); toast.success("Item adicionado!"); },
+    onSuccess: () => {
+      invalidateTask();
+      setNewChecklistTitle("");
+      setNewChecklistStartDate("");
+      setNewChecklistEndDate("");
+      setShowChecklistDates(false);
+      toast.success("Item adicionado!");
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -317,6 +332,7 @@ export default function TaskDetail() {
                 {checklist.map((item: any) => {
                   const isDone = item.status === "published" || item.status === "archived";
                   const canEdit = user?.role === "admin" || user?.role === "leader" || item.assigneeId === user?.id;
+                  const isAdmin = user?.role === "admin" || user?.role === "leader";
                   return (
                     <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
                       <Checkbox
@@ -337,7 +353,16 @@ export default function TaskDetail() {
                         {item.description && (
                           <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
                         )}
-                        <div className="flex items-center gap-2 mt-1">
+                        {/* Datas do item de checklist */}
+                        {(item.startDate || item.endDate) && (
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {item.startDate && <span>Início: <strong>{new Date(item.startDate).toLocaleDateString("pt-BR")}</strong></span>}
+                            {item.startDate && item.endDate && <span>•</span>}
+                            {item.endDate && <span>Entrega: <strong>{new Date(item.endDate).toLocaleDateString("pt-BR")}</strong></span>}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
                           <Badge className={"text-xs " + (STATUS_COLORS[item.status] ?? "")} variant="outline">
                             {STATUS_LABELS[item.status] ?? item.status}
                           </Badge>
@@ -364,6 +389,32 @@ export default function TaskDetail() {
                               </SelectContent>
                             </Select>
                           )}
+                          {/* Editar datas inline */}
+                          {isAdmin && (
+                            <div className="flex items-center gap-1 ml-auto">
+                              <input
+                                type="date"
+                                className="h-6 text-xs border border-border rounded px-1 bg-background"
+                                title="Data de início"
+                                defaultValue={item.startDate ? format(new Date(item.startDate), "yyyy-MM-dd") : ""}
+                                onBlur={(e) => {
+                                  const val = e.target.value;
+                                  updateChecklistM.mutate({ id: item.id, startDate: val || null });
+                                }}
+                              />
+                              <span className="text-muted-foreground/40 text-xs">→</span>
+                              <input
+                                type="date"
+                                className="h-6 text-xs border border-border rounded px-1 bg-background"
+                                title="Data de entrega"
+                                defaultValue={item.endDate ? format(new Date(item.endDate), "yyyy-MM-dd") : ""}
+                                onBlur={(e) => {
+                                  const val = e.target.value;
+                                  updateChecklistM.mutate({ id: item.id, endDate: val || null });
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                       {(user?.role === "admin" || user?.role === "leader") && (
@@ -380,24 +431,67 @@ export default function TaskDetail() {
                   );
                 })}
                 {(user?.role === "admin" || user?.role === "leader") && (
-                  <div className="flex gap-2 pt-2">
-                    <Input
-                      placeholder="Novo item do checklist..."
-                      value={newChecklistTitle}
-                      onChange={e => setNewChecklistTitle(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" && newChecklistTitle.trim()) {
-                          addChecklistM.mutate({ taskId, title: newChecklistTitle.trim() });
-                        }
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      disabled={!newChecklistTitle.trim() || addChecklistM.isPending}
-                      onClick={() => addChecklistM.mutate({ taskId, title: newChecklistTitle.trim() })}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                  <div className="space-y-2 pt-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Novo item do checklist..."
+                        value={newChecklistTitle}
+                        onChange={e => setNewChecklistTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && newChecklistTitle.trim()) {
+                            addChecklistM.mutate({
+                              taskId, title: newChecklistTitle.trim(),
+                              startDate: newChecklistStartDate || undefined,
+                              endDate: newChecklistEndDate || undefined,
+                            });
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground"
+                        onClick={() => setShowChecklistDates(v => !v)}
+                        title="Definir datas"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        <ChevronDown className={"h-3 w-3 ml-0.5 transition-transform " + (showChecklistDates ? "rotate-180" : "")} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!newChecklistTitle.trim() || addChecklistM.isPending}
+                        onClick={() => addChecklistM.mutate({
+                          taskId, title: newChecklistTitle.trim(),
+                          startDate: newChecklistStartDate || undefined,
+                          endDate: newChecklistEndDate || undefined,
+                        })}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {showChecklistDates && (
+                      <div className="flex items-center gap-2 pl-1">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span>Início:</span>
+                          <input
+                            type="date"
+                            className="h-7 text-xs border border-border rounded px-2 bg-background"
+                            value={newChecklistStartDate}
+                            onChange={e => setNewChecklistStartDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span>Entrega:</span>
+                          <input
+                            type="date"
+                            className="h-7 text-xs border border-border rounded px-2 bg-background"
+                            value={newChecklistEndDate}
+                            onChange={e => setNewChecklistEndDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
