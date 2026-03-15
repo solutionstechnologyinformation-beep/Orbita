@@ -319,20 +319,12 @@ export default function AIChat() {
     },
   });
 
-  const reportMutation = trpc.chat.generateReport.useMutation({
+  const reportMutation = trpc.aiChat.generateReport.useMutation({
     onError: (e: any) => toast.error(e.message),
   });
 
-  const checkDueDatesMutation = trpc.notifications.checkDueDates.useMutation({
-    onSuccess: (data: any) => {
-      if (data.sent > 0) {
-        toast.success(`${data.sent} notificação(ões) de vencimento enviada(s).`);
-      } else {
-        toast.info("Nenhuma tarefa vence nas próximas 24 horas.");
-      }
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+  // checkDueDates removed - not available in current backend
+  const checkDueDatesMutation = { mutate: () => toast.info("Verificação de vencimentos não disponível."), isPending: false };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
