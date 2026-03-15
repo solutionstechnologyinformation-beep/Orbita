@@ -18,7 +18,6 @@ function pdfHeader(title: string, subtitle?: string) {
   return `
     <div style="background:${YELLOW};color:${BLACK};padding:28px 36px 20px;border-radius:10px 10px 0 0;border-bottom:3px solid rgba(0,0,0,0.1);">
       <div style="display:flex;align-items:center;gap:16px;">
-        <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
         <div>
           <div style="font-size:20px;font-weight:800;color:${BLACK};">${title}</div>
           ${subtitle ? `<div style="font-size:12px;color:rgba(0,0,0,0.6);margin-top:2px;">${subtitle}</div>` : ""}
@@ -33,8 +32,7 @@ function pdfHeader(title: string, subtitle?: string) {
 function pdfFooter() {
   return `
     <div style="margin-top:40px;padding:14px 36px;background:${YELLOW};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
-      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
-      <span style="font-size:13px;font-weight:700;color:${BLACK};">by LS Solutions</span>
+      <span style="font-size:13px;font-weight:700;color:${BLACK};">Orbita</span>
       <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Relatório gerado automaticamente</span>
     </div>`;
 }
@@ -211,7 +209,7 @@ function exportBlockedReport(blockedTasks: any[]) {
     </tr>`).join("");
 
   const html = `
-    ${pdfHeader("Relatório de Tarefas Bloqueadas", "LS Solutions — Orbita")}
+    ${pdfHeader("Relatório de Tarefas Bloqueadas", "Orbita — Plataforma de Gestão de Projetos")}
     <div style="padding:28px 36px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
         <div style="background:#fee2e2;color:#ef4444;border-radius:8px;padding:12px 20px;font-size:24px;font-weight:800;">${blockedTasks.length}</div>

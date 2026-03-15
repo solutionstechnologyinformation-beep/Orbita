@@ -194,10 +194,9 @@ export default function Sprints() {
 <body>
   <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
-      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
       <div>
         <div class="logo">Orbita</div>
-        <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+        <div class="subtitle">Sistema de Gerenciamento de Projetos</div>
       </div>
     </div>
     <div style="text-align:right">
@@ -265,9 +264,8 @@ export default function Sprints() {
     </table>
   </section>` : ""}
 
-  <div style="margin-top:32px;padding:14px 0;background:#1561ad;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;padding:12px 24px;">
-    <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
-    <span style="font-size:13px;font-weight:700;color:#ffffff;">by LS Solutions</span>
+  <div style="margin-top:32px;padding:12px 24px;background:#1561ad;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:13px;font-weight:700;color:#ffffff;">Orbita</span>
     <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>

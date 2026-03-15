@@ -1,0 +1,46 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'agenda_events' ORDER BY ORDINAL_POSITION;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'agenda_events' ORDER BY ORDINAL_POSITION;",
+  "rows": [
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "createdById"
+    },
+    {
+      "COLUMN_NAME": "title"
+    },
+    {
+      "COLUMN_NAME": "type"
+    },
+    {
+      "COLUMN_NAME": "startDate"
+    },
+    {
+      "COLUMN_NAME": "endDate"
+    },
+    {
+      "COLUMN_NAME": "description"
+    },
+    {
+      "COLUMN_NAME": "meetingUrl"
+    },
+    {
+      "COLUMN_NAME": "attendeeIds"
+    },
+    {
+      "COLUMN_NAME": "projectId"
+    },
+    {
+      "COLUMN_NAME": "isPublic"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nid\ncreatedById\ntitle\ntype\nstartDate\nendDate\ndescription\nmeetingUrl\nattendeeIds\nprojectId\nisPublic\ncreatedAt\n",
+  "stderr": "",
+  "execution_time_ms": 356
+}

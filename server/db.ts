@@ -213,8 +213,14 @@ export async function getTasksByCrs(crsId: number, filters?: { phaseId?: number;
     completedAt: tasks.completedAt, statusChangedAt: tasks.statusChangedAt,
     createdAt: tasks.createdAt, updatedAt: tasks.updatedAt,
     assigneeName: users.name, assigneeAvatarUrl: users.avatarUrl,
+    projectName: crs.name,
+    phaseName: kanbanPhases.name,
+    phaseColor: kanbanPhases.color,
+    phaseIsTerminal: kanbanPhases.isTerminal,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .leftJoin(crs, eq(tasks.crsId, crs.id))
+    .leftJoin(kanbanPhases, eq(tasks.phaseId, kanbanPhases.id))
     .where(and(...conditions))
     .orderBy(tasks.position, tasks.createdAt);
 }
@@ -519,7 +525,7 @@ export async function getWeekDeliveries() {
 export async function getAgendaEvents(filters?: { userId?: number; crsId?: number }) {
   const db = await getDb();
   const conditions: any[] = [];
-  if (filters?.crsId) conditions.push(eq(agendaEvents.crsId, filters.crsId));
+  if (filters?.crsId) conditions.push(eq(agendaEvents.projectId, filters.crsId));
   return db.select().from(agendaEvents)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(asc(agendaEvents.startDate));
@@ -527,7 +533,7 @@ export async function getAgendaEvents(filters?: { userId?: number; crsId?: numbe
 export async function createAgendaEvent(data: any) {
   const db = await getDb();
   const [result] = await db.execute(
-    sql`INSERT INTO agenda_events (createdById, title, type, startDate, endDate, description, meetingUrl, attendeeIds, crsId, isPublic, createdAt)
+    sql`INSERT INTO agenda_events (createdById, title, type, startDate, endDate, description, meetingUrl, attendeeIds, projectId, isPublic, createdAt)
         VALUES (${data.createdById}, ${data.title}, ${data.type ?? 'other'}, ${data.startDate}, ${data.endDate}, ${data.description ?? null}, ${data.meetingUrl ?? null}, ${data.attendeeIds ?? null}, ${data.crsId ?? null}, ${data.isPublic ? 1 : 0}, NOW())`
   );
   return (result as any).insertId as number;

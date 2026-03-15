@@ -161,8 +161,8 @@ export default function Gantt() {
 
     const rows = tasks.map((t: any) => {
       const hasConflict = conflictSet.has(t.id);
-      const statusLabel = STATUS_LABELS[t.status] ?? t.status;
-      const statusColor = STATUS_COLORS[t.status] ?? "#94a3b8";
+      const statusLabel = t.phaseName ?? "Sem fase";
+      const statusColor = t.phaseColor ?? "#94a3b8";
       return `<tr>
         <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-weight:500;max-width:200px">${t.title}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.projectName ?? "—"}</td>
@@ -186,9 +186,8 @@ export default function Gantt() {
     <div style="background:${YELLOW};padding:18px 28px;display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font-size:20px;font-weight:800;color:${BLACK}">Relatório de Gantt</div>
-        <div style="font-size:12px;color:${BLACK};opacity:0.7;margin-top:2px">Orbita — LS Solutions</div>
+        <div style="font-size:12px;color:${BLACK};opacity:0.7;margin-top:2px">Orbita — Plataforma de Gestão de Projetos</div>
       </div>
-      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
     </div>
     <div style="padding:20px 28px">
       <div style="font-size:11px;color:#64748b;margin-bottom:16px">Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })} • ${tasks.length} tarefa(s)</div>
@@ -213,9 +212,8 @@ export default function Gantt() {
       </div>` : ""}
     </div>
     <div style="background:${YELLOW};padding:10px 28px;display:flex;align-items:center;gap:10px;position:fixed;bottom:0;left:0;right:0">
-      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
-      <span style="font-size:11px;font-weight:600;color:${BLACK}">by LS Solutions</span>
-      <span style="margin-left:auto;font-size:10px;color:${BLACK};opacity:0.6">© ${new Date().getFullYear()} LS Solutions. Todos os direitos reservados.</span>
+      <span style="font-size:11px;font-weight:600;color:${BLACK}">Orbita</span>
+      <span style="margin-left:auto;font-size:10px;color:${BLACK};opacity:0.6">© ${new Date().getFullYear()} Orbita. Todos os direitos reservados.</span>
     </div>
     </body></html>`;
     const w = window.open("", "_blank");
@@ -428,8 +426,8 @@ export default function Gantt() {
                   const { task } = row;
                   const { left, width, valid } = barProps(task);
                   const isConflict = conflictIds.has(task.id);
-                  const isOverdue = task.dueDate && new Date(task.dueDate) < today && task.status !== "published" && task.status !== "archived";
-                  const color = isConflict ? "#ef4444" : (STATUS_COLORS[task.status] ?? "#6366f1");
+                  const isOverdue = task.dueDate && new Date(task.dueDate) < today && !task.phaseIsTerminal;
+                  const color = isConflict ? "#ef4444" : (task.phaseColor ?? "#6366f1");
 
                   return (
                     <div
@@ -489,7 +487,7 @@ export default function Gantt() {
                             {task.dueDate && <p className={`text-xs ${isOverdue ? "text-red-500 font-semibold" : ""}`}>Vencimento: {new Date(task.dueDate).toLocaleDateString("pt-BR")}</p>}
                             {isConflict && <p className="text-xs text-red-500 font-semibold">⚠️ Conflito de agenda detectado</p>}
                             <Badge className="text-[10px] text-white border-0" style={{ backgroundColor: color }}>
-                              {STATUS_LABELS[task.status] ?? task.status}
+                              {task.phaseName ?? "Sem fase"}
                             </Badge>
                           </TooltipContent>
                         </Tooltip>
@@ -524,19 +522,17 @@ export default function Gantt() {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-4 text-xs text-gray-500">
-        {Object.entries(STATUS_LABELS).map(([key, label]) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: STATUS_COLORS[key] }} />
-            <span>{label}</span>
-          </div>
-        ))}
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-gray-400" />
+          <span>Cor da barra = cor da fase no Kanban</span>
+        </div>
         <div className="flex items-center gap-1.5">
           <div className="w-0.5 h-4 bg-red-400" />
           <span>Hoje</span>
         </div>
         <div className="flex items-center gap-1.5">
           <AlertTriangle className="h-3 w-3 text-red-500" />
-          <span>Conflito de agenda</span>
+          <span>Tarefa em atraso</span>
         </div>
       </div>
     </AppLayout>

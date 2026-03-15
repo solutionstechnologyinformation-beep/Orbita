@@ -280,7 +280,7 @@ export const agendaEvents = mysqlTable("agenda_events", {
   description: text("description"),
   meetingUrl: varchar("meetingUrl", { length: 1024 }),
   attendeeIds: text("attendeeIds"),
-  crsId: int("crsId"),
+  projectId: int("projectId"),
   isPublic: boolean("isPublic").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

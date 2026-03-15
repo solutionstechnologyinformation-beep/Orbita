@@ -45,13 +45,11 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   // Header bar (brand blue)
   doc.setFillColor(21, 97, 173); // #1561ad
   doc.rect(0, 0, pageW, 20, "F");
-  // LS official logo
-  try { doc.addImage("https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png", "PNG", margin, 3, 14, 14); } catch(e) {}
   // Orbita name
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita", margin + 17, 11.5);
+  doc.text("Orbita", margin, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(200, 225, 255);
@@ -96,7 +94,7 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
     doc.setTextColor(200, 225, 255);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.text("LS Solutions — Orbita Plataforma de Gestão de Projetos", margin, doc.internal.pageSize.getHeight() - 3.5);
+    doc.text("Orbita — Plataforma de Gestão de Projetos", margin, doc.internal.pageSize.getHeight() - 3.5);
     doc.setTextColor(29, 186, 180); // #1dbab4 teal
     doc.text(`Pág. ${pg}/${totalPages}`, pageW - margin, doc.internal.pageSize.getHeight() - 3.5, { align: "right" });
   }
@@ -113,17 +111,15 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
   // ── Cover ——
   doc.setFillColor(21, 97, 173); // #1561ad brand blue
   doc.rect(0, 0, pageW, 62, "F");
-  // LS official logo
-  try { doc.addImage("https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png", "PNG", margin, 11, 14, 14); } catch(e) {}
   // Title
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("ORBITA", margin + 20, 16);
+  doc.text("ORBITA", margin, 16);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(200, 225, 255);
-  doc.text("Plataforma de Gestão de Projetos — LS Solutions", margin + 20, 21);
+  doc.text("Plataforma de Gestão de Projetos", margin, 21);
   // Divider line
   doc.setDrawColor(255, 255, 255);
   doc.setLineWidth(0.3);
@@ -276,12 +272,10 @@ async function generateVisualReportPDF(chartData: any, reportText: string) {
     const pageH = doc.internal.pageSize.getHeight();
     doc.setFillColor(21, 97, 173); // #1561ad
     doc.rect(0, pageH - 10, pageW, 10, "F");
-    // LS official logo in footer
-    try { doc.addImage("https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png", "PNG", margin, pageH - 9, 7, 7); } catch(e) {}
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("by LS Solutions", margin + 9, pageH - 3.5);
+    doc.text("Orbita", margin, pageH - 3.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(200, 225, 255);
     doc.text(`Pág. ${pg}/${totalPgs}`, pageW - margin, pageH - 3.5, { align: "right" });

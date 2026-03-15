@@ -331,21 +331,6 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {/* LS Logo Footer */}
-      <div
-        className="flex items-center justify-center gap-2 px-4 py-3 border-t"
-        style={{ backgroundColor: SIDEBAR_BG, borderColor: "rgba(0,0,0,0.15)" }}
-      >
-        <img
-          src="/ls-logo.png"
-          alt="LS Solutions"
-          className="w-6 h-6 rounded-full object-cover"
-        />
-        <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>
-          by LS Solutions
-        </span>
-      </div>
     </div>
   );
 

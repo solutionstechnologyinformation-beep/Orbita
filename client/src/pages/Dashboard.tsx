@@ -199,10 +199,9 @@ function exportDashboardPDF(data: {
 <body>
   <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
-      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="LS Solutions">
       <div>
         <div class="logo">Orbita</div>
-        <div class="subtitle">Sistema de Gerenciamento de Projetos — LS Solutions</div>
+        <div class="subtitle">Sistema de Gerenciamento de Projetos</div>
       </div>
     </div>
     <div style="text-align:right">
@@ -254,10 +253,7 @@ function exportDashboardPDF(data: {
   </div>
 
   <div class="footer">
-    <div class="ls-badge">
-      <img src="https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/ls-logo-oficial_dc9dd153.png" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" alt="LS Solutions">
-      <span style="font-size:13px;font-weight:700;color:#ffffff;">by LS Solutions</span>
-    </div>
+    <span style="font-size:13px;font-weight:700;color:#ffffff;">Orbita</span>
     <span style="color:rgba(0,0,0,0.55);">Gerado em ${now}</span>
   </div>
 </body>

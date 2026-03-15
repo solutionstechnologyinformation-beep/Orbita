@@ -520,3 +520,9 @@
 - [x] Dashboard: legenda de tipos de obra no canto inferior esquerdo do mapa
 - [x] Kanban: filtro de fase na toolbar (dropdown com fases do CRS selecionado)
 - [x] Kanban: badge de tipo de obra do CRS selecionado exibido na toolbar
+
+## Bugs + Melhorias v4.7
+- [x] Bug: Gantt corrigido — campo status inexistente substituído por phaseName/phaseColor da fase do Kanban
+- [x] Bug: Calendário corrigido — schema e db.ts atualizados (crsId renomeado para projectId, alinhado com banco real)
+- [x] Quadro Branco: reescrito com canvas de desenho funcional (caneta, formas, texto, borracha, cores, espessura)
+- [x] Removida logo LS Solutions de todos os relatórios: AppLayout sidebar, Dashboard PDF, Gantt PDF, AIChat PDF (pesquisa + relatório visual), Sprints PDF, Reports PDF (todas as funções)
