@@ -480,3 +480,11 @@
 ## Bugs v4.1 — Corrigidos
 - [x] Bug: INSERT de clientes falha — colunas description/color/status faltavam na tabela (migração incompleta) — corrigido via ALTER TABLE
 - [x] Bug: Página de Projetos/CRS não abria (estava redirecionando para dashboard) — reescrita como página de listagem de CRS completa com filtros, cards e CRUD
+
+## Melhorias v4.2 — Mapa, Kanban por Disciplinas, Lista de Países/Estados
+- [x] Dashboard: mapa mundial interativo com pins de CRS por país/estado
+- [x] Dashboard: painel lateral do mapa com lista de CRS por localização
+- [x] Kanban: reestruturar para colunas = disciplinas do CRS selecionado
+- [x] Kanban: itens = tarefas com checklist sequencial, campo disciplina preenchido automaticamente pela coluna
+- [x] CRS/Projetos: substituir input livre de país por select com lista completa (195 países)
+- [x] CRS/Projetos: substituir input livre de estado por select dinâmico com estados do país selecionado (Brasil: 27 estados + todos os países com regiões)

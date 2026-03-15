@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { useLocation } from "wouter";
@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { MapView } from "@/components/Map";
+import { getCountryByCode } from "@/lib/geoData";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function pct(n: number, total: number) {
@@ -252,6 +254,9 @@ export default function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [filterClient, setFilterClient] = useState("all");
+  const [selectedMapCrs, setSelectedMapCrs] = useState<any>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<any[]>([]);
 
   const statsQ = trpc.dashboard.stats.useQuery();
   // conflictsQ removed - dashboard.conflicts not available
@@ -318,6 +323,25 @@ export default function Dashboard() {
   ].filter(d => d.value > 0);
 
   const isLoading = statsQ.isLoading;
+
+  // Build CRS map markers when map is ready
+  function initMapMarkers(map: google.maps.Map) {
+    mapRef.current = map;
+    markersRef.current.forEach((m: any) => { m.map = null; });
+    markersRef.current = [];
+    const crsWithLocation = allCrs.filter((c: any) => c.country);
+    crsWithLocation.forEach((crs: any) => {
+      const country = getCountryByCode(crs.country);
+      if (!country) return;
+      const lat = country.lat + (Math.random() - 0.5) * 1.5;
+      const lng = country.lng + (Math.random() - 0.5) * 1.5;
+      const pin = document.createElement("div");
+      pin.style.cssText = `width:22px;height:22px;border-radius:50% 50% 50% 0;background:${crs.color ?? "#1561ad"};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;transform:rotate(-45deg);`;
+      const marker = new google.maps.marker.AdvancedMarkerElement({ map, position: { lat, lng }, title: crs.name, content: pin });
+      marker.addListener("click", () => { setSelectedMapCrs(crs); map.panTo({ lat, lng }); map.setZoom(5); });
+      markersRef.current.push(marker);
+    });
+  }
 
   return (
     <AppLayout title="Dashboard">
@@ -548,6 +572,51 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── World Map ── */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <span className="text-base">🌍</span>
+            Mapa de CRS por Localização
+          </h3>
+          <div className="relative">
+            <div className="rounded-xl overflow-hidden" style={{ height: 340 }}>
+              <MapView initialCenter={{ lat: 10, lng: 0 }} initialZoom={2} onMapReady={initMapMarkers} />
+            </div>
+            {selectedMapCrs && (
+              <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-52 z-10">
+                <button className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedMapCrs(null)}>✕</button>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.color ?? "#1561ad" }} />
+                  <p className="text-sm font-semibold truncate pr-4">{selectedMapCrs.name}</p>
+                </div>
+                {selectedMapCrs.clientName && <p className="text-xs text-muted-foreground">Cliente: {selectedMapCrs.clientName}</p>}
+                {selectedMapCrs.country && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {getCountryByCode(selectedMapCrs.country)?.flag ?? ""} {getCountryByCode(selectedMapCrs.country)?.name ?? selectedMapCrs.country}
+                    {selectedMapCrs.state ? ` — ${selectedMapCrs.state}` : ""}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1 pt-1 border-t border-border">{selectedMapCrs.taskCount ?? 0} tarefas</p>
+              </div>
+            )}
+          </div>
+          {allCrs.filter((c: any) => c.country).length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {allCrs.filter((c: any) => c.country).slice(0, 10).map((crs: any) => (
+                <button key={crs.id} onClick={() => {
+                  const country = getCountryByCode(crs.country);
+                  if (country && mapRef.current) { mapRef.current.panTo({ lat: country.lat, lng: country.lng }); mapRef.current.setZoom(5); setSelectedMapCrs(crs); }
+                }} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-border hover:bg-secondary/60 transition-colors">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: crs.color ?? "#1561ad" }} />
+                  {getCountryByCode(crs.country)?.flag ?? ""} {crs.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos CRS para visualizá-los no mapa</p>
+          )}
         </div>
 
         {/* ── Bottom Row: Recent Tasks + Projects ── */}

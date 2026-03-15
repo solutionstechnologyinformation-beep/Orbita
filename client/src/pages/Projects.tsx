@@ -17,6 +17,7 @@ import {
   Plus, Search, Layers, Globe, MapPin, ArchiveRestore,
   Archive, Trash2, ExternalLink, FolderOpen, Filter,
 } from "lucide-react";
+import { COUNTRIES, getStatesForCountry } from "@/lib/geoData";
 
 type CrsItem = {
   id: number; clientId: number; name: string; code?: string | null;
@@ -26,18 +27,7 @@ type CrsItem = {
 };
 type Client = { id: number; name: string; color?: string | null };
 
-const COUNTRIES = [
-  { code: "BR", name: "Brasil" }, { code: "US", name: "Estados Unidos" },
-  { code: "AR", name: "Argentina" }, { code: "CL", name: "Chile" },
-  { code: "CO", name: "Colômbia" }, { code: "PE", name: "Peru" },
-  { code: "UY", name: "Uruguai" }, { code: "PY", name: "Paraguai" },
-  { code: "BO", name: "Bolívia" }, { code: "EC", name: "Equador" },
-  { code: "VE", name: "Venezuela" }, { code: "MX", name: "México" },
-  { code: "PT", name: "Portugal" }, { code: "ES", name: "Espanha" },
-  { code: "FR", name: "França" }, { code: "DE", name: "Alemanha" },
-  { code: "GB", name: "Reino Unido" }, { code: "IT", name: "Itália" },
-  { code: "CA", name: "Canadá" }, { code: "AU", name: "Austrália" },
-];
+
 
 const emptyForm = { clientId: "", name: "", code: "", description: "", country: "", countryCode: "", state: "", stateCode: "" };
 
@@ -105,7 +95,7 @@ export default function Projects() {
 
   function handleCountryChange(code: string) {
     const country = COUNTRIES.find((c) => c.code === code);
-    setForm((f) => ({ ...f, countryCode: code, country: country?.name ?? "" }));
+    setForm((f) => ({ ...f, countryCode: code, country: country?.name ?? "", state: "", stateCode: "" }));
   }
 
   const allCrs: CrsItem[] = filterStatus === "archived" ? (archivedQ.data ?? []) : (crsQ.data ?? []);
@@ -290,7 +280,20 @@ export default function Projects() {
                   <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Estado / Região</Label><Input className="mt-1" placeholder="Ex: Santa Catarina" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} /></div>
+              <div>
+                <Label>Estado / Região</Label>
+                {getStatesForCountry(form.countryCode).length > 0 ? (
+                  <Select value={form.stateCode} onValueChange={(v) => {
+                    const st = getStatesForCountry(form.countryCode).find(s => s.code === v);
+                    setForm((f) => ({ ...f, stateCode: v, state: st?.name ?? v }));
+                  }}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{getStatesForCountry(form.countryCode).map((s) => <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                ) : (
+                  <Input className="mt-1" placeholder="Ex: Santa Catarina" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -318,7 +321,20 @@ export default function Projects() {
                   <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Estado / Região</Label><Input className="mt-1" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} /></div>
+              <div>
+                <Label>Estado / Região</Label>
+                {getStatesForCountry(form.countryCode).length > 0 ? (
+                  <Select value={form.stateCode} onValueChange={(v) => {
+                    const st = getStatesForCountry(form.countryCode).find(s => s.code === v);
+                    setForm((f) => ({ ...f, stateCode: v, state: st?.name ?? v }));
+                  }}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{getStatesForCountry(form.countryCode).map((s) => <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                ) : (
+                  <Input className="mt-1" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
