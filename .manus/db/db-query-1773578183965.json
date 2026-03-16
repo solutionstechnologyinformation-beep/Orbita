@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, name, color FROM disciplines ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute SELECT id, name, color FROM disciplines ORDER BY id;",
+  "rows": [
+    {
+      "id": "5",
+      "name": "Mecânica",
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "8",
+      "name": "TI",
+      "color": "#6366f1"
+    },
+    {
+      "id": "30001",
+      "name": "Estudos e Projetos",
+      "color": "#1561ad"
+    },
+    {
+      "id": "30002",
+      "name": "Topografia e Levantamentos",
+      "color": "#0ea5e9"
+    },
+    {
+      "id": "30003",
+      "name": "Geologia e Geotecnia",
+      "color": "#92400e"
+    },
+    {
+      "id": "30004",
+      "name": "Terraplenagem",
+      "color": "#d97706"
+    },
+    {
+      "id": "30005",
+      "name": "Pavimentação",
+      "color": "#374151"
+    },
+    {
+      "id": "30006",
+      "name": "Drenagem",
+      "color": "#0891b2"
+    },
+    {
+      "id": "30007",
+      "name": "Obras de Arte Especiais",
+      "color": "#7c3aed"
+    },
+    {
+      "id": "30008",
+      "name": "Sinalizacao e Seguranca",
+      "color": "#dc2626"
+    },
+    {
+      "id": "30009",
+      "name": "Obras Complementares",
+      "color": "#059669"
+    },
+    {
+      "id": "30010",
+      "name": "Meio Ambiente e Licenciamento",
+      "color": "#16a34a"
+    },
+    {
+      "id": "30011",
+      "name": "Desapropriacao e Faixa de Dominio",
+      "color": "#9333ea"
+    },
+    {
+      "id": "30012",
+      "name": "Supervisao e Controle Tecnologico",
+      "color": "#f59e0b"
+    },
+    {
+      "id": "30013",
+      "name": "Gestao e Coordenacao",
+      "color": "#6366f1"
+    },
+    {
+      "id": "30014",
+      "name": "Utilidades e Interferencias",
+      "color": "#ef4444"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcolor\n5\tMecânica\t#8b5cf6\n8\tTI\t#6366f1\n30001\tEstudos e Projetos\t#1561ad\n30002\tTopografia e Levantamentos\t#0ea5e9\n30003\tGeologia e Geotecnia\t#92400e\n30004\tTerraplenagem\t#d97706\n30005\tPavimentação\t#374151\n30006\tDrenagem\t#0891b2\n30007\tObras de Arte Especiais\t#7c3aed\n30008\tSinalizacao e Seguranca\t#dc2626\n30009\tObras Complementares\t#059669\n30010\tMeio Ambiente e Licenciamento\t#16a34a\n30011\tDesapropriacao e Faixa de Dominio\t#9333ea\n30012\tSupervisao e Controle Tecnologico\t#f59e0b\n30013\tGestao e Coordenacao\t#6366f1\n30014\tUtilidades e Interferencias\t#ef4444\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}

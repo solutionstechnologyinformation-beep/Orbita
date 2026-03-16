@@ -126,11 +126,16 @@ async function exportDashboardPDF(data: {
   conflicts: any[]; clientCount: number;
   overdueP: number; completedP: number; revisionP: number; onTimeP: number;
   mapContainerEl?: HTMLElement | null;
+  clientName?: string;
+  clientColor?: string;
 }) {
-  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl } = data;
+  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl, clientName, clientColor } = data;
   const total = stats?.totalTasks ?? 0;
   const now = new Date().toLocaleString("pt-BR");
   const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  const clientBadge = clientName
+    ? `<span style="background:${clientColor ?? "#1561ad"}22;color:${clientColor ?? "#1561ad"};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid ${clientColor ?? "#1561ad"}44">${clientName}</span>`
+    : "";
 
   const projectRows = projects.slice(0, 10).map(p => {
     const tc = p.taskCounts ?? {};
@@ -212,13 +217,13 @@ async function exportDashboardPDF(data: {
       </div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:13px;font-weight:700;color:#ffffff">Relatório do Dashboard</div>
+      <div style="font-size:13px;font-weight:700;color:#ffffff">Relatório do Dashboard${clientName ? ` — ${clientName}` : ""}</div>
       <div style="font-size:11px;color:rgba(0,0,0,0.55)">Gerado em ${now}</div>
     </div>
   </div>
   <div class="content">
     <h2>Acompanhamento dos Projetos</h2>
-    <div class="meta">${date}</div>
+    <div class="meta" style="display:flex;align-items:center;gap:8px">${date} ${clientBadge}</div>
 
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-value">${projects.length}</div><div class="kpi-label">Total de Projetos</div></div>
@@ -470,7 +475,8 @@ export default function Dashboard() {
               onClick={async () => {
                 setExportingPdf(true);
                 try {
-                  await exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP, mapContainerEl: mapContainerRef.current });
+                  const activeClient = filterClient !== "all" ? clients.find((c: any) => String(c.id) === filterClient) : null;
+                  await exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP, mapContainerEl: mapContainerRef.current, clientName: activeClient?.name, clientColor: activeClient?.color });
                 } finally {
                   setExportingPdf(false);
                 }
@@ -833,26 +839,42 @@ export default function Dashboard() {
               <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(clientProgressQ.data ?? []).map((c: any) => (
-                  <div key={c.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }} />
-                        <span className="text-sm font-medium truncate">{c.name}</span>
+                {(clientProgressQ.data ?? []).map((c: any) => {
+                  const isActive = filterClient === String(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setFilterClient(isActive ? "all" : String(c.id))}
+                      className={`space-y-1.5 text-left rounded-xl p-2 -m-2 transition-all border-2 ${
+                        isActive ? "bg-muted/60" : "border-transparent hover:bg-muted/40"
+                      }`}
+                      style={isActive ? { borderColor: c.color ?? "#1561ad" } : { borderColor: "transparent" }}
+                      title={isActive ? "Clique para remover filtro" : `Filtrar por ${c.name}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }} />
+                          <span className="text-sm font-medium truncate">{c.name}</span>
+                          {isActive && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold text-white shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }}>
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground">{c.crsCount} CRS</span>
+                          <span className="text-sm font-bold" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-muted-foreground">{c.crsCount} CRS</span>
-                        <span className="text-sm font-bold" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#1561ad" }}
+                        />
                       </div>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#1561ad" }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -65,6 +65,153 @@ const emptyForm = {
   extensaoKm: "", areaHa: "", perimetroUrbano: "",
 };
 
+// ── CrsCard Component ─────────────────────────────────────────────────────────
+type CrsCardProps = {
+  crs: CrsItem;
+  tipos: TipoObraKey[];
+  isAdmin: boolean;
+  onEdit: (crs: CrsItem) => void;
+  onArchive: (id: number) => void;
+  onRestore: (id: number) => void;
+  onDelete: (id: number, name: string) => void;
+};
+
+function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }: CrsCardProps) {
+  const [showDisciplines, setShowDisciplines] = useState(false);
+  const discQ = trpc.crs_discipline.progress.useQuery(
+    { crsId: crs.id },
+    { enabled: showDisciplines }
+  );
+  const disciplines = discQ.data ?? [];
+
+  return (
+    <Card className="border-border hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2 pt-4 px-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            {crs.clientName && (
+              <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 font-medium"
+                style={{ backgroundColor: (crs.clientColor ?? "#1561ad") + "20", color: crs.clientColor ?? "#1561ad" }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
+                {crs.clientName}
+              </div>
+            )}
+            <h3 className="font-semibold text-foreground truncate">{crs.name}</h3>
+            {crs.code && <p className="text-xs text-muted-foreground mt-0.5">#{crs.code}</p>}
+          </div>
+          {crs.status === "archived" && <Badge variant="secondary" className="text-xs shrink-0">Arquivado</Badge>}
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {(crs.country || crs.state) && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+            <MapPin className="w-3 h-3" />
+            <span>{[crs.state, crs.country].filter(Boolean).join(", ")}</span>
+          </div>
+        )}
+        {tipos.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {tipos.map(k => (
+              <span key={k} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k}
+              </span>
+            ))}
+          </div>
+        )}
+        {(crs.extensaoKm != null || crs.areaHa != null || crs.perimetroUrbano != null) && (
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
+            {crs.extensaoKm != null && <span><span className="font-medium text-foreground/70">Ext:</span> {crs.extensaoKm} km</span>}
+            {crs.areaHa != null && <span><span className="font-medium text-foreground/70">Área:</span> {crs.areaHa} ha</span>}
+            {crs.perimetroUrbano != null && <span><span className="font-medium text-foreground/70">Perím.:</span> {crs.perimetroUrbano}</span>}
+          </div>
+        )}
+        {/* Progresso geral */}
+        <div className="mb-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+            <span>Progresso Geral</span><span className="font-medium">{crs.progress}%</span>
+          </div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all"
+              style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#1561ad" }} />
+          </div>
+        </div>
+        {/* Progresso por Disciplina */}
+        <div className="mb-2">
+          <button
+            onClick={() => setShowDisciplines(v => !v)}
+            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+          >
+            <span>{showDisciplines ? "▾" : "▸"}</span>
+            <span>Disciplinas {disciplines.length > 0 ? `(${disciplines.length})` : ""}</span>
+            {discQ.isLoading && <span className="text-muted-foreground ml-1">…</span>}
+          </button>
+          {showDisciplines && disciplines.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {disciplines.map(d => (
+                <div key={d.name}>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-0.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="truncate">{d.name}</span>
+                    </div>
+                    <span className="font-medium shrink-0 ml-2">{d.done}/{d.total} ({d.progress}%)</span>
+                  </div>
+                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${d.progress}%`, backgroundColor: d.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {showDisciplines && disciplines.length === 0 && !discQ.isLoading && (
+            <p className="text-[11px] text-muted-foreground mt-1 ml-3">Nenhum item de checklist cadastrado.</p>
+          )}
+        </div>
+        {crs.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{crs.description}</p>}
+        {(crs.derivedStartDate || crs.derivedEndDate) && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2 bg-muted/50 rounded-md px-2 py-1.5">
+            <Calendar className="w-3 h-3 shrink-0" />
+            {crs.derivedStartDate && (
+              <span><span className="font-medium text-foreground/70">Início:</span> {new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</span>
+            )}
+            {crs.derivedStartDate && crs.derivedEndDate && <span className="text-muted-foreground/40">•</span>}
+            {crs.derivedEndDate && (
+              <span><span className="font-medium text-foreground/70">Entrega:</span> {new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-2 mt-2">
+          {crs.status !== "archived" && (
+            <Link href={`/kanban?crs=${crs.id}`} className="flex-1">
+              <Button variant="default" size="sm" className="w-full gap-1.5 text-xs">
+                <ExternalLink className="w-3.5 h-3.5" /> Abrir Kanban
+              </Button>
+            </Link>
+          )}
+          {isAdmin && (
+            <>
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => onEdit(crs)}>Editar</Button>
+              {crs.status !== "archived" ? (
+                <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => onArchive(crs.id)}>
+                  <Archive className="w-3.5 h-3.5" />
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => onRestore(crs.id)}>
+                  <ArchiveRestore className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10"
+                onClick={() => onDelete(crs.id, crs.name)}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Projects() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "master_admin";
@@ -284,102 +431,12 @@ export default function Projects() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((crs) => {
               const tipos = parseTipoObra(crs.tipoObra);
-              return (
-                <Card key={crs.id} className="border-border hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        {crs.clientName && (
-                          <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 font-medium"
-                            style={{ backgroundColor: (crs.clientColor ?? "#1561ad") + "20", color: crs.clientColor ?? "#1561ad" }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
-                            {crs.clientName}
-                          </div>
-                        )}
-                        <h3 className="font-semibold text-foreground truncate">{crs.name}</h3>
-                        {crs.code && <p className="text-xs text-muted-foreground mt-0.5">#{crs.code}</p>}
-                      </div>
-                      {crs.status === "archived" && <Badge variant="secondary" className="text-xs shrink-0">Arquivado</Badge>}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4">
-                    {(crs.country || crs.state) && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                        <MapPin className="w-3 h-3" />
-                        <span>{[crs.state, crs.country].filter(Boolean).join(", ")}</span>
-                      </div>
-                    )}
-                    {/* Tipos de obra */}
-                    {tipos.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {tipos.map(k => (
-                          <span key={k} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                            {TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Dados técnicos inline */}
-                    {(crs.extensaoKm != null || crs.areaHa != null || crs.perimetroUrbano != null) && (
-                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
-                        {crs.extensaoKm != null && <span><span className="font-medium text-foreground/70">Ext:</span> {crs.extensaoKm} km</span>}
-                        {crs.areaHa != null && <span><span className="font-medium text-foreground/70">Área:</span> {crs.areaHa} ha</span>}
-                        {crs.perimetroUrbano != null && <span><span className="font-medium text-foreground/70">Perím.:</span> {crs.perimetroUrbano}</span>}
-                      </div>
-                    )}
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                        <span>Progresso</span><span className="font-medium">{crs.progress}%</span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all"
-                          style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#1561ad" }} />
-                      </div>
-                    </div>
-                    {crs.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{crs.description}</p>}
-                    {/* Datas derivadas do checklist */}
-                    {(crs.derivedStartDate || crs.derivedEndDate) && (
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2 bg-muted/50 rounded-md px-2 py-1.5">
-                        <Calendar className="w-3 h-3 shrink-0" />
-                        {crs.derivedStartDate && (
-                          <span><span className="font-medium text-foreground/70">Início:</span> {new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</span>
-                        )}
-                        {crs.derivedStartDate && crs.derivedEndDate && <span className="text-muted-foreground/40">•</span>}
-                        {crs.derivedEndDate && (
-                          <span><span className="font-medium text-foreground/70">Entrega:</span> {new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</span>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      {crs.status !== "archived" && (
-                        <Link href={`/kanban?crs=${crs.id}`} className="flex-1">
-                          <Button variant="default" size="sm" className="w-full gap-1.5 text-xs">
-                            <ExternalLink className="w-3.5 h-3.5" /> Abrir Kanban
-                          </Button>
-                        </Link>
-                      )}
-                      {isAdmin && (
-                        <>
-                          <Button variant="outline" size="sm" className="text-xs" onClick={() => openEdit(crs)}>Editar</Button>
-                          {crs.status !== "archived" ? (
-                            <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => archiveMut.mutate({ id: crs.id })}>
-                              <Archive className="w-3.5 h-3.5" />
-                            </Button>
-                          ) : (
-                            <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => restoreMut.mutate({ id: crs.id })}>
-                              <ArchiveRestore className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10"
-                            onClick={() => { if (confirm(`Excluir "${crs.name}"? Esta ação não pode ser desfeita.`)) deleteMut.mutate({ id: crs.id }); }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
+              return (<CrsCard key={crs.id} crs={crs} tipos={tipos} isAdmin={isAdmin}
+                onEdit={openEdit}
+                onArchive={(id: number) => archiveMut.mutate({ id })}
+                onRestore={(id: number) => restoreMut.mutate({ id })}
+                onDelete={(id: number, name: string) => { if (confirm(`Excluir "${name}"? Esta ação não pode ser desfeita.`)) deleteMut.mutate({ id }); }}
+              />);
             })}
           </div>
         )}

@@ -1,0 +1,20 @@
+{
+  "query": "SELECT id, name, color FROM disciplines ORDER BY name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute SELECT id, name, color FROM disciplines ORDER BY name;",
+  "rows": [
+    {
+      "id": "5",
+      "name": "Mecânica",
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "8",
+      "name": "TI",
+      "color": "#6366f1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcolor\n5\tMecânica\t#8b5cf6\n8\tTI\t#6366f1\n",
+  "stderr": "",
+  "execution_time_ms": 74
+}

@@ -19,7 +19,7 @@ import {
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
-  getClientProgress,
+  getClientProgress, getCrsDisciplineProgress,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -559,6 +559,12 @@ export const appRouter = router({
       }),
   }),
 
+  // ─── CRS Discipline Progress ─────────────────────────────────────────────────────────
+  crs_discipline: router({
+    progress: protectedProcedure
+      .input(z.object({ crsId: z.number() }))
+      .query(async ({ input }) => getCrsDisciplineProgress(input.crsId)),
+  }),
   // ─── Dashboard ────────────────────────────────────────────────────────────────────────
   dashboard: router({
     stats: protectedProcedure

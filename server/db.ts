@@ -798,3 +798,41 @@ export async function removeChecklistItemFromSprint(sprintId: number, checklistI
   await db.delete(sprintChecklistItems)
     .where(and(eq(sprintChecklistItems.sprintId, sprintId), eq(sprintChecklistItems.checklistItemId, checklistItemId)));
 }
+
+// ─── CRS Discipline Progress ─────────────────────────────────────────────────
+/** Returns progress per discipline for a given CRS, based on checklist items grouped by task.setor */
+export async function getCrsDisciplineProgress(crsId: number) {
+  const db = await getDb();
+  // Get all checklist items for this CRS, joining tasks to get setor (discipline)
+  const rows = await db.select({
+    setor: tasks.setor,
+    status: checklistItems.status,
+  })
+    .from(checklistItems)
+    .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
+    .where(eq(tasks.crsId, crsId));
+
+  // Group by setor
+  const map: Record<string, { total: number; done: number }> = {};
+  for (const r of rows) {
+    const key = r.setor ?? "Sem Disciplina";
+    if (!map[key]) map[key] = { total: 0, done: 0 };
+    map[key].total++;
+    if (r.status === "published" || r.status === "archived") map[key].done++;
+  }
+
+  // Also get discipline colors from disciplines table
+  const disciplineRows = await db.select({ name: disciplines.name, color: disciplines.color })
+    .from(disciplines)
+    .where(eq(disciplines.isActive, true));
+  const colorMap: Record<string, string> = {};
+  for (const d of disciplineRows) colorMap[d.name] = d.color;
+
+  return Object.entries(map).map(([name, { total, done }]) => ({
+    name,
+    total,
+    done,
+    progress: total > 0 ? Math.round((done / total) * 100) : 0,
+    color: colorMap[name] ?? "#6366f1",
+  })).sort((a, b) => a.name.localeCompare(b.name));
+}

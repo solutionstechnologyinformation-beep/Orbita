@@ -580,3 +580,11 @@
 - [x] Dashboard: nova procedure clientProgress retorna progresso médio por cliente (com contagem de CRS)
 - [x] Dashboard: seção "Progresso por Cliente" com barras coloridas (cor do cliente), % e contagem de CRS
 - [x] Reports.tsx: corrigido para passar input obrigatório na query de stats
+
+## Melhorias v5.3 — Disciplinas Rodoviárias + Gantt Hoje + Drill-down Cliente + PDF Filtrado
+- [x] Banco: 16 disciplinas padrão de infraestrutura rodoviária cadastradas (Estudos Ambientais, Topografia, Geotecnia, Pavimentação, Drenagem, Obras de Arte, Sinalização, Terraplenagem, Estruturas, Hidráulica, Elétrica/Iluminação, Desapropriação, Projeto Geométrico, Paisagismo, Segurança Viária, Gestão de Projetos)
+- [x] CRS (Projects.tsx): componente CrsCard com seção expansível "Disciplinas" mostrando barra de progresso por disciplina (lazy load ao expandir)
+- [x] Backend: procedure crs_discipline.progress retorna progresso por disciplina de um CRS (done/total/%)
+- [x] Gantt interativo: linha vertical de "hoje" já existia e foi mantida/verificada na visualização em tela
+- [x] Dashboard: drill-down no Progresso por Cliente — clicar na barra de um cliente filtra todos os KPIs; badge "Ativo" indica o filtro; clicar novamente remove o filtro
+- [x] Dashboard PDF: exportação inclui nome do cliente no cabeçalho e badge colorido na data quando um cliente está filtrado
