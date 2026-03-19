@@ -836,3 +836,91 @@ export async function getCrsDisciplineProgress(crsId: number) {
     color: colorMap[name] ?? "#6366f1",
   })).sort((a, b) => a.name.localeCompare(b.name));
 }
+
+// ─── Yearly Stats ─────────────────────────────────────────────────────────────
+/** Returns task and checklist stats grouped by year, based on task.startDate or task.createdAt */
+export async function getYearlyStats(clientId?: number) {
+  const db = await getDb();
+  // Get tasks with their year
+  const taskQuery = db.select({
+    id: tasks.id,
+    progress: tasks.progress,
+    dueDate: tasks.dueDate,
+    startDate: tasks.startDate,
+    createdAt: tasks.createdAt,
+    crsId: tasks.crsId,
+  }).from(tasks);
+  const allTasksRaw = clientId
+    ? await taskQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+    : await taskQuery;
+  // Get checklist items with their year
+  const checklistQuery = db.select({
+    status: checklistItems.status,
+    startDate: checklistItems.startDate,
+    endDate: checklistItems.endDate,
+    completedAt: checklistItems.completedAt,
+    createdAt: checklistItems.createdAt,
+  }).from(checklistItems);
+  const allChecklistRaw = clientId
+    ? await checklistQuery
+        .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
+        .innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+    : await checklistQuery;
+  // Get CRS with their year (createdAt)
+  const crsConditions = clientId
+    ? and(eq(crs.status, "active"), eq(crs.clientId, clientId))
+    : eq(crs.status, "active");
+  const allCrsRaw = await db.select({ id: crs.id, createdAt: crs.createdAt, progress: crs.progress }).from(crs).where(crsConditions);
+  // Build year sets
+  const yearSet = new Set<number>();
+  const now = new Date();
+  yearSet.add(now.getFullYear());
+  allTasksRaw.forEach((t: any) => {
+    const d = t.startDate ?? t.createdAt;
+    if (d) yearSet.add(new Date(d).getFullYear());
+    if (t.dueDate) yearSet.add(new Date(t.dueDate).getFullYear());
+  });
+  allCrsRaw.forEach((c: any) => {
+    if (c.createdAt) yearSet.add(new Date(c.createdAt).getFullYear());
+  });
+  const years = Array.from(yearSet).sort();
+  const result = years.map(year => {
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+    // Tasks active in this year (startDate within year OR dueDate within year)
+    const yearTasks = allTasksRaw.filter((t: any) => {
+      const start = t.startDate ? new Date(t.startDate) : t.createdAt ? new Date(t.createdAt) : null;
+      const due = t.dueDate ? new Date(t.dueDate) : null;
+      if (start && start >= yearStart && start <= yearEnd) return true;
+      if (due && due >= yearStart && due <= yearEnd) return true;
+      return false;
+    });
+    const totalTasks = yearTasks.length;
+    const completedTasks = yearTasks.filter((t: any) => t.progress >= 100).length;
+    const inProgressTasks = yearTasks.filter((t: any) => t.progress > 0 && t.progress < 100).length;
+    const overdueTasks = yearTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < now && t.progress < 100 && new Date(t.dueDate).getFullYear() === year).length;
+    // Checklist items active in this year
+    const yearChecklist = allChecklistRaw.filter((c: any) => {
+      const start = c.startDate ? new Date(c.startDate) : c.createdAt ? new Date(c.createdAt) : null;
+      const end = c.endDate ? new Date(c.endDate) : null;
+      if (start && start >= yearStart && start <= yearEnd) return true;
+      if (end && end >= yearStart && end <= yearEnd) return true;
+      return false;
+    });
+    const totalChecklist = yearChecklist.length;
+    const completedChecklist = yearChecklist.filter((c: any) => c.status === 'published' || c.status === 'archived' || c.completedAt != null).length;
+    // CRS created in this year
+    const yearCrs = allCrsRaw.filter((c: any) => c.createdAt && new Date(c.createdAt).getFullYear() === year);
+    return {
+      year,
+      totalTasks,
+      completedTasks,
+      inProgressTasks,
+      overdueTasks,
+      totalChecklist,
+      completedChecklist,
+      totalCrs: yearCrs.length,
+    };
+  });
+  return result;
+}

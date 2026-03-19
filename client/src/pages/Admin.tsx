@@ -157,7 +157,7 @@ export default function Admin() {
         <Tabs defaultValue="clients">
           <TabsList className="mb-6">
             <TabsTrigger value="clients"><Building2 className="w-4 h-4 mr-1.5" />Clientes</TabsTrigger>
-            <TabsTrigger value="crs"><Globe className="w-4 h-4 mr-1.5" />CRS</TabsTrigger>
+            <TabsTrigger value="crs"><Globe className="w-4 h-4 mr-1.5" />Contrato</TabsTrigger>
             <TabsTrigger value="disciplines"><Tag className="w-4 h-4 mr-1.5" />Disciplinas</TabsTrigger>
             <TabsTrigger value="users"><Users className="w-4 h-4 mr-1.5" />Usuarios</TabsTrigger>
           </TabsList>
@@ -198,7 +198,7 @@ export default function Admin() {
                   <Archive className="w-4 h-4 mr-1" />{showArchivedCrs ? "Ocultar Arquivados" : "Ver Arquivados"}
                 </Button>
                 <Button size="sm" onClick={() => { setEditingCrs(null); setCrsForm({ clientId: "", name: "", code: "", country: "Brasil", state: "", description: "" }); setShowCrsDialog(true); }}>
-                  <Plus className="w-4 h-4 mr-1" />Novo CRS
+                  <Plus className="w-4 h-4 mr-1" />Novo Contrato
                 </Button>
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function Admin() {
                   </Button>
                 </div>
               ))}
-              {crsList.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum CRS ativo</p>}
+              {crsList.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum Contrato ativo</p>}
             </div>
             {showArchivedCrs && (
               <div className="mt-6">
@@ -243,7 +243,7 @@ export default function Admin() {
                       </Button>
                     </div>
                   ))}
-                  {archivedCrsList.length === 0 && <p className="text-center text-muted-foreground py-4 text-sm">Nenhum CRS arquivado</p>}
+                  {archivedCrsList.length === 0 && <p className="text-center text-muted-foreground py-4 text-sm">Nenhum Contrato arquivado</p>}
                 </div>
               </div>
             )}
@@ -348,7 +348,7 @@ export default function Admin() {
       {/* CRS Dialog */}
       <Dialog open={showCrsDialog} onOpenChange={(o) => { setShowCrsDialog(o); if (!o) setEditingCrs(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editingCrs ? "Editar CRS" : "Novo CRS"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingCrs ? "Editar Contrato" : "Novo Contrato"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Cliente *</Label>
@@ -358,7 +358,7 @@ export default function Admin() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Nome *</Label><Input value={crsForm.name} onChange={(e) => setCrsForm({ ...crsForm, name: e.target.value })} placeholder="Nome do CRS" /></div>
+              <div><Label>Nome *</Label><Input value={crsForm.name} onChange={(e) => setCrsForm({ ...crsForm, name: e.target.value })} placeholder="Nome do Contrato" /></div>
               <div><Label>Codigo</Label><Input value={crsForm.code} onChange={(e) => setCrsForm({ ...crsForm, code: e.target.value })} placeholder="Ex: CRS-001" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">

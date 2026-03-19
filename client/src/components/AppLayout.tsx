@@ -127,7 +127,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = location === href || (href !== "/dashboard" && location.startsWith(href));
 
-          // Item especial: Projetos com submenu de CRS
+          // Item especial: Projetos com submenu de Contrato
           if (href === "/projects") {
             return (
               <div key={href}>
@@ -164,7 +164,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
                       : <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
                   )}
                 </div>
-                {/* Submenu de CRS */}
+                {/* Submenu de Contrato */}
                 {crsExpanded && crsList.length > 0 && (
                   <div className="ml-4 mt-0.5 space-y-0.5">
                     {(crsList as any[]).slice(0, 8).map((c: any) => {

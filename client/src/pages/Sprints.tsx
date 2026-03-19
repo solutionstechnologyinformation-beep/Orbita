@@ -47,6 +47,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Sprints() {
+  const [filterClientId, setFilterClientId] = useState<number | undefined>(undefined);
   const [crsId, setCrsId] = useState<number | undefined>(undefined);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -61,7 +62,12 @@ export default function Sprints() {
 
   const burndownChartRef = useRef<HTMLDivElement>(null);
 
+  const clientsQ = trpc.clients.list.useQuery();
   const crsQ = trpc.crs.list.useQuery();
+  // Filter contracts by selected client
+  const filteredCrs = (crsQ.data ?? []).filter((c: any) =>
+    filterClientId ? c.clientId === filterClientId : true
+  );
   const sprintsQ = trpc.sprints.listByCrs.useQuery(
     { crsId: crsId! },
     { enabled: !!crsId }
@@ -244,7 +250,7 @@ export default function Sprints() {
 
   <h2>${selectedSprint.name}</h2>
   <div class="meta">
-    CRS: <strong>${crsName}</strong> &nbsp;|&nbsp;
+    Contrato: <strong>${crsName}</strong> &nbsp;|&nbsp;
     Período: <strong>${startDate} – ${endDate}</strong> &nbsp;|&nbsp;
     Status: <strong>${STATUS_LABELS[selectedSprint.status] ?? selectedSprint.status}</strong>
   </div>
@@ -364,18 +370,43 @@ export default function Sprints() {
           <h1 className="text-2xl font-bold text-gray-900">Sprints</h1>
           <p className="text-gray-500 text-sm mt-1">Gerencie ciclos semanais de trabalho com metas e tarefas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Filtro: Cliente */}
+          <Select
+            value={filterClientId?.toString() ?? ""}
+            onValueChange={v => {
+              const id = v ? Number(v) : undefined;
+              setFilterClientId(id);
+              setCrsId(undefined);
+              setSelectedSprintId(null);
+            }}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Todos os clientes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos os clientes</SelectItem>
+              {(clientsQ.data ?? []).map((c: any) => (
+                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Filtro: Contrato */}
           <Select
             value={crsId?.toString() ?? ""}
             onValueChange={v => { setCrsId(Number(v)); setSelectedSprintId(null); }}
           >
             <SelectTrigger className="w-52">
-              <SelectValue placeholder="Selecione um CRS" />
+              <SelectValue placeholder="Selecione um Contrato" />
             </SelectTrigger>
             <SelectContent>
-              {(crsQ.data ?? []).map((p: any) => (
-                <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-              ))}
+              {filteredCrs.length === 0 ? (
+                <SelectItem value="" disabled>Nenhum Contrato encontrado</SelectItem>
+              ) : (
+                filteredCrs.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
           {crsId && (
@@ -390,7 +421,7 @@ export default function Sprints() {
         <Card>
           <CardContent className="py-16 text-center text-gray-400">
             <Target className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Selecione um projeto para ver as sprints.</p>
+            <p>Selecione um Contrato para ver as sprints.</p>
           </CardContent>
         </Card>
       ) : (
@@ -618,7 +649,7 @@ export default function Sprints() {
                               </div>
                               {availableItems.length === 0 ? (
                                 <p className="text-xs text-gray-400 text-center py-2">
-                                  {allChecklistItems.length === 0 ? "Nenhum item de checklist neste CRS." : "Todos os itens já estão na sprint."}
+                                  {allChecklistItems.length === 0 ? "Nenhum item de checklist neste Contrato." : "Todos os itens já estão na sprint."}
                                 </p>
                               ) : (
                                 <div className="space-y-1 max-h-48 overflow-y-auto">

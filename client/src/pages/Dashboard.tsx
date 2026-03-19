@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import {
   AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp,
-  Layers, Briefcase, FolderKanban, CalendarDays, Zap, FileDown, Ruler, Building2, MapPin,
+  Layers, Briefcase, FolderKanban, CalendarDays, Calendar, Zap, FileDown, Ruler, Building2, MapPin,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -272,18 +272,39 @@ async function exportDashboardPDF(data: {
 </html>`;
 
   // Capture map image if container is available
+  // Build state summary table
+  const stateGroups: Record<string, { state: string; stateCode: string; countryCode: string; count: number }> = {};
+  projects.forEach((p: any) => {
+    if (!p.countryCode) return;
+    const key = p.stateCode ? `${p.countryCode}-${p.stateCode}` : p.countryCode;
+    if (!stateGroups[key]) stateGroups[key] = { state: p.state ?? p.stateCode ?? p.countryCode, stateCode: p.stateCode ?? "", countryCode: p.countryCode, count: 0 };
+    stateGroups[key].count++;
+  });
+  const stateRows = Object.values(stateGroups)
+    .sort((a, b) => b.count - a.count)
+    .map(s => `<tr><td>${s.state || s.stateCode || s.countryCode}</td><td style="text-align:center;font-weight:700">${s.count}</td></tr>`)
+    .join("");
+  const stateTableHtml = stateRows ? `
+    <section style="margin-top:16px">
+      <h3>Contratos por Estado/Região</h3>
+      <table><thead><tr><th>Estado / Região</th><th style="text-align:center">Nº de Contratos</th></tr></thead>
+      <tbody>${stateRows}</tbody></table>
+    </section>` : "";
   let mapImageHtml = "";
   if (mapContainerEl) {
     try {
       const canvas = await html2canvas(mapContainerEl, { useCORS: true, allowTaint: true, scale: 1.5, logging: false });
       const mapDataUrl = canvas.toDataURL("image/png");
       mapImageHtml = `<section>
-        <h3>Mapa de CRS por Localização</h3>
-        <img src="${mapDataUrl}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px" alt="Mapa de CRS" />
+        <h3>Mapa de Contratos por Localização</h3>
+        <img src="${mapDataUrl}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px" alt="Mapa de Contratos" />
+        ${stateTableHtml}
       </section>`;
     } catch (e) {
-      mapImageHtml = `<section><h3>Mapa de CRS por Localização</h3><p style="color:#64748b;font-size:12px">Mapa não disponível na exportação.</p></section>`;
+      mapImageHtml = `<section><h3>Mapa de Contratos por Localização</h3><p style="color:#64748b;font-size:12px">Mapa não disponível na exportação.</p>${stateTableHtml}</section>`;
     }
+  } else if (stateRows) {
+    mapImageHtml = `<section>${stateTableHtml}</section>`;
   }
 
   const finalHtml = html.replace("</div>\n\n  <div class=\"footer\"", `${mapImageHtml}\n  </div>\n\n  <div class=\"footer\"`);
@@ -309,6 +330,8 @@ export default function Dashboard() {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<any[]>([]);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const dataLayerRef = useRef<google.maps.Data | null>(null);
+  const BRAZIL_GEOJSON_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310419663029542753/78V7RJAjjEpxvD9o6SGFEZ/brazil-states_ea4aab25.geojson";
 
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
   // conflictsQ removed - dashboard.conflicts not available
@@ -319,7 +342,7 @@ export default function Dashboard() {
   const recentQ = trpc.dashboard.weekDeliveries.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
   const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
-
+  const yearlyStatsQ = trpc.dashboard.yearlyStats.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
   const clientCount = statsQ.data?.totalClients ?? 0;
@@ -431,13 +454,65 @@ export default function Dashboard() {
       markersRef.current.push(marker);
     });
   }
+  function buildStateColors(map: google.maps.Map, crsData: any[]) {
+    // Only color Brazilian states
+    const brCrs = crsData.filter((c: any) => c.countryCode === "BR" && c.stateCode);
+    // Count contracts per state
+    const stateCount: Record<string, number> = {};
+    brCrs.forEach((c: any) => {
+      stateCount[c.stateCode] = (stateCount[c.stateCode] ?? 0) + 1;
+    });
+    const maxCount = Math.max(...Object.values(stateCount), 1);
+    // Remove previous data layer
+    if (dataLayerRef.current) {
+      dataLayerRef.current.setMap(null);
+      dataLayerRef.current = null;
+    }
+    if (brCrs.length === 0) return;
+    // Load GeoJSON and apply colors
+    const dataLayer = new google.maps.Data({ map });
+    dataLayerRef.current = dataLayer;
+    dataLayer.loadGeoJson(BRAZIL_GEOJSON_URL, undefined, () => {
+      dataLayer.setStyle((feature) => {
+        const sigla = feature.getProperty("sigla") as string;
+        const count = stateCount[sigla] ?? 0;
+        if (count === 0) {
+          return { fillColor: "#1e293b", fillOpacity: 0.15, strokeColor: "#334155", strokeWeight: 0.8 };
+        }
+        // Gradient: light blue → deep blue based on count
+        const intensity = Math.min(count / maxCount, 1);
+        const r = Math.round(59 + (29 - 59) * intensity);
+        const g = Math.round(130 + (78 - 130) * intensity);
+        const b = Math.round(246 + (216 - 246) * intensity);
+        return {
+          fillColor: `rgb(${r},${g},${b})`,
+          fillOpacity: 0.35 + intensity * 0.45,
+          strokeColor: "#60a5fa",
+          strokeWeight: 1,
+        };
+      });
+      dataLayer.addListener("click", (event: any) => {
+        const sigla = event.feature.getProperty("sigla") as string;
+        const name = event.feature.getProperty("name") as string;
+        const crsList = brCrs.filter((c: any) => c.stateCode === sigla);
+        if (crsList.length > 0) {
+          setSelectedStateGroup({ state: name, stateCode: sigla, countryCode: "BR", crsList });
+          setSelectedMapCrs(null);
+        }
+      });
+    });
+  }
   function initMapMarkers(map: google.maps.Map) {
     mapRef.current = map;
     buildMapMarkers(map, allCrs, mapFilterCountry, mapFilterState);
+    buildStateColors(map, allCrs);
   }
-  // Rebuild markers when filters change
+  // Rebuild markers and state colors when filters or data change
   useEffect(() => {
-    if (mapRef.current) buildMapMarkers(mapRef.current, allCrs, mapFilterCountry, mapFilterState);
+    if (mapRef.current) {
+      buildMapMarkers(mapRef.current, allCrs, mapFilterCountry, mapFilterState);
+      buildStateColors(mapRef.current, allCrs);
+    }
   }, [mapFilterCountry, mapFilterState, allCrs]);
 
   return (
@@ -491,7 +566,7 @@ export default function Dashboard() {
         {/* ── Top KPI Row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Total de Projetos", value: projects.length,    icon: FolderKanban, color: "text-blue-400",    bg: "bg-blue-500/10" },
+            { label: "Nº de Contratos", value: projects.length,    icon: FolderKanban, color: "text-blue-400",    bg: "bg-blue-500/10" },
             { label: "Total de Tarefas",  value: total,              icon: Layers,       color: "text-violet-400", bg: "bg-violet-500/10" },
             { label: "Clientes",          value: clientCount,        icon: Briefcase,    color: "text-orange-400", bg: "bg-orange-500/10" },
             { label: "Sprints da Semana", value: weekSprints.length, icon: Zap,          color: "text-emerald-400",bg: "bg-emerald-500/10" },
@@ -538,7 +613,7 @@ export default function Dashboard() {
                 bg: "bg-orange-500/10",
               },
               {
-                label: "CRS com Dados Técnicos",
+                label: "Contratos com Dados Técnicos",
                 value: allCrs.filter((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano).length + "/" + allCrs.length,
                 icon: FolderKanban,
                 color: "text-emerald-400",
@@ -724,7 +799,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="text-base">🌍</span>
-              Mapa de CRS por Localização
+              Mapa de Contratos por Localização
             </h3>
             {/* Filtros de país e estado */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -771,7 +846,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            {/* Popup de CRS individual */}
+            {/* Popup de Contrato individual */}
             {selectedMapCrs && (
               <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-56 z-10">
                 <button className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedMapCrs(null)}>✕</button>
@@ -824,7 +899,7 @@ export default function Dashboard() {
             )}
           </div>
           {allCrs.filter((c: any) => c.countryCode).length === 0 && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos CRS para visualizá-los no mapa</p>
+            <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos Contratos para visualizá-los no mapa</p>
           )}
         </div>
 
@@ -862,7 +937,7 @@ export default function Dashboard() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs text-muted-foreground">{c.crsCount} CRS</span>
+                          <span className="text-xs text-muted-foreground">{c.crsCount} Contrato{c.crsCount !== 1 ? 's' : ''}</span>
                           <span className="text-sm font-bold" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
                         </div>
                       </div>
@@ -880,6 +955,66 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── Separação Anual ── */}
+        {(yearlyStatsQ.data ?? []).length > 0 && (
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-400" />
+              Visão Anual
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 pr-4 text-muted-foreground font-medium">Ano</th>
+                    <th className="text-right py-2 px-3 text-muted-foreground font-medium">Contratos</th>
+                    <th className="text-right py-2 px-3 text-muted-foreground font-medium">Tarefas</th>
+                    <th className="text-right py-2 px-3 text-muted-foreground font-medium">Concluídas</th>
+                    <th className="text-right py-2 px-3 text-muted-foreground font-medium">Em Andamento</th>
+                    <th className="text-right py-2 px-3 text-muted-foreground font-medium">Em Atraso</th>
+                    <th className="text-right py-2 px-3 text-muted-foreground font-medium">Checklist</th>
+                    <th className="py-2 pl-3 text-muted-foreground font-medium">Progresso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(yearlyStatsQ.data ?? []).map((y: any) => {
+                    const pct = y.totalTasks > 0 ? Math.round((y.completedTasks / y.totalTasks) * 100) : 0;
+                    const isCurrentYear = y.year === new Date().getFullYear();
+                    return (
+                      <tr key={y.year} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${isCurrentYear ? 'bg-blue-500/5' : ''}`}>
+                        <td className="py-3 pr-4">
+                          <span className={`font-bold text-base ${isCurrentYear ? 'text-blue-400' : 'text-foreground'}`}>
+                            {y.year}
+                          </span>
+                          {isCurrentYear && (
+                            <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">Atual</span>
+                          )}
+                        </td>
+                        <td className="text-right py-3 px-3 text-foreground font-medium">{y.totalCrs}</td>
+                        <td className="text-right py-3 px-3 text-foreground">{y.totalTasks}</td>
+                        <td className="text-right py-3 px-3 text-emerald-400 font-medium">{y.completedTasks}</td>
+                        <td className="text-right py-3 px-3 text-blue-400">{y.inProgressTasks}</td>
+                        <td className="text-right py-3 px-3 text-red-400">{y.overdueTasks}</td>
+                        <td className="text-right py-3 px-3 text-violet-400">{y.totalChecklist}</td>
+                        <td className="py-3 pl-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-muted rounded-full h-2 min-w-[80px]">
+                              <div
+                                className="h-2 rounded-full transition-all"
+                                style={{ width: `${pct}%`, backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#3b82f6' : '#f59e0b' }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-muted-foreground w-8 text-right">{pct}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         {/* ── Bottom Row: Recent Tasks + Projects ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 

@@ -245,7 +245,7 @@ export default function Projects() {
     onError: (e) => toast.error(e.message),
   });
   const deleteMut = trpc.crs.delete.useMutation({
-    onSuccess: () => { toast.success("CRS excluído."); utils.crs.list.invalidate(); utils.crs.listArchived.invalidate(); },
+    onSuccess: () => { toast.success("Contrato excluído."); utils.crs.list.invalidate(); utils.crs.listArchived.invalidate(); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -360,7 +360,7 @@ export default function Projects() {
           </div>
           {isAdmin && (
             <Button onClick={() => { setForm(emptyForm); setShowCreate(true); }} className="gap-2">
-              <Plus className="w-4 h-4" /> Novo CRS
+              <Plus className="w-4 h-4" /> Novo Contrato
             </Button>
           )}
         </div>
@@ -394,7 +394,7 @@ export default function Projects() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[
-            { label: "Total de CRS", value: (crsQ.data?.length ?? 0) + (archivedQ.data?.length ?? 0), icon: Layers, color: "text-primary" },
+            { label: "Total de Contratos", value: (crsQ.data?.length ?? 0) + (archivedQ.data?.length ?? 0), icon: Layers, color: "text-primary" },
             { label: "Ativos", value: crsQ.data?.length ?? 0, icon: FolderOpen, color: "text-emerald-500" },
             { label: "Arquivados", value: archivedQ.data?.length ?? 0, icon: Archive, color: "text-orange-500" },
             { label: "Clientes", value: clients.length, icon: Globe, color: "text-teal-500" },
@@ -419,8 +419,8 @@ export default function Projects() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Layers className="w-12 h-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhum CRS encontrado</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">{filterStatus === "archived" ? "Nenhum CRS arquivado." : "Crie o primeiro CRS para começar."}</p>
+            <p className="text-muted-foreground font-medium">Nenhum Contrato encontrado</p>
+            <p className="text-sm text-muted-foreground/60 mt-1">{filterStatus === "archived" ? "Nenhum Contrato arquivado." : "Crie o primeiro Contrato para começar."}</p>
             {isAdmin && filterStatus === "active" && (
               <Button onClick={() => { setForm(emptyForm); setShowCreate(true); }} className="mt-4 gap-2">
                 <Plus className="w-4 h-4" /> Criar CRS
@@ -445,7 +445,7 @@ export default function Projects() {
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Novo CRS</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Novo Contrato</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <Label>Cliente *</Label>
@@ -494,7 +494,7 @@ export default function Projects() {
       {/* Edit Dialog */}
       <Dialog open={!!editingCrs} onOpenChange={(o) => !o && setEditingCrs(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Editar CRS</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar Contrato</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Nome *</Label><Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>

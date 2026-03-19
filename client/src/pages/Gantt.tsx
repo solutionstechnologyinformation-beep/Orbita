@@ -141,7 +141,7 @@ export default function Gantt() {
     } else if (groupMode === "crs") {
       const map = new Map<string, any[]>();
       allTasks.forEach((t: any) => {
-        const key = t.projectName ?? "Sem CRS";
+        const key = t.projectName ?? "Sem Contrato";
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(t);
       });
@@ -418,10 +418,10 @@ export default function Gantt() {
           {/* CRS */}
           <Select value={filterCrsId?.toString() ?? "_all"} onValueChange={v => setFilterCrsId(v === "_all" ? undefined : Number(v))}>
             <SelectTrigger className="w-52 h-9 text-sm">
-              <SelectValue placeholder="Todos os CRS" />
+              <SelectValue placeholder="Todos os Contratos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_all">Todos os CRS</SelectItem>
+              <SelectItem value="_all">Todos os Contratos</SelectItem>
               {availableCrs.map((c: any) => (
                 <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
               ))}
@@ -465,7 +465,7 @@ export default function Gantt() {
                 onClick={() => setGroupMode(m)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${groupMode === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
               >
-                {m === "discipline" ? "Por Disciplina" : m === "crs" ? "Por CRS" : "Por Usuário"}
+                {m === "discipline" ? "Por Disciplina" : m === "crs" ? "Por Contrato" : "Por Usuário"}
               </button>
             ))}
           </div>
@@ -519,7 +519,7 @@ export default function Gantt() {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Nenhuma tarefa encontrada com os filtros selecionados. Selecione um CRS ou ajuste os filtros.
+            Nenhuma tarefa encontrada com os filtros selecionados. Selecione um Contrato ou ajuste os filtros.
           </AlertDescription>
         </Alert>
       )}

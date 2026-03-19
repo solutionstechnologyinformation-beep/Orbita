@@ -588,3 +588,13 @@
 - [x] Gantt interativo: linha vertical de "hoje" já existia e foi mantida/verificada na visualização em tela
 - [x] Dashboard: drill-down no Progresso por Cliente — clicar na barra de um cliente filtra todos os KPIs; badge "Ativo" indica o filtro; clicar novamente remove o filtro
 - [x] Dashboard PDF: exportação inclui nome do cliente no cabeçalho e badge colorido na data quando um cliente está filtrado
+
+## Melhorias v5.4 — Renomear CRS→Contrato, Sprint corrigida, Dashboard por Ano, Mapa Colorido
+- [x] Renomear CRS → Contrato em toda a UI (labels, títulos, mensagens, PDF, sidebar)
+- [x] KPI do Dashboard: "Nº de Contratos" em vez de "Total de Projetos"
+- [x] Sprint: filtro em cascata Cliente → Contrato (selecionar cliente filtra a lista de contratos)
+- [x] Dashboard: procedure yearlyStats retorna dados agrupados por ano (tarefas, contratos, checklist, progresso)
+- [x] Dashboard: seção "Visão Anual" com tabela por ano (2026, 2027...) com badge "Atual" no ano corrente e barra de progresso colorida
+- [x] Mapa: colorir estados brasileiros com gradiente azul (claro→escuro) proporcional ao nº de contratos por estado
+- [x] Mapa: clicar em um estado colorido abre o painel lateral com a lista de contratos daquele estado
+- [x] Dashboard PDF: screenshot do mapa + tabela "Contratos por Estado/Região" com contagem

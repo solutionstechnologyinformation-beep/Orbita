@@ -239,7 +239,7 @@ export default function Whiteboard() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <Select value={selectedCrsId} onValueChange={v => { setSelectedCrsId(v); }}>
           <SelectTrigger className="w-64 h-9 bg-white border-gray-200 text-sm">
-            <SelectValue placeholder="Selecione um CRS..." />
+            <SelectValue placeholder="Selecione um Contrato..." />
           </SelectTrigger>
           <SelectContent>
             {crsList?.map((c: any) => (
@@ -352,8 +352,8 @@ export default function Whiteboard() {
       {!selectedCrsId ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50" style={{ height: "70vh" }}>
           <Layout className="h-16 w-16 mb-4 text-gray-300" />
-          <p className="text-lg font-medium text-gray-500">Selecione um CRS</p>
-          <p className="text-sm mt-1 text-gray-400">Escolha um CRS para abrir o quadro branco</p>
+          <p className="text-lg font-medium text-gray-500">Selecione um Contrato</p>
+          <p className="text-sm mt-1 text-gray-400">Escolha um Contrato para abrir o quadro branco</p>
         </div>
       ) : (
         <div className="rounded-xl border border-gray-200 bg-gray-100 overflow-hidden relative" style={{ height: "70vh" }}>

@@ -404,7 +404,7 @@ export default function Kanban() {
   }
 
   function handleCreateTask() {
-    if (!effectiveCrsId) return toast.error("Selecione um CRS.");
+    if (!effectiveCrsId) return toast.error("Selecione um Contrato.");
     if (!taskForm.title.trim()) return toast.error("Título é obrigatório.");
     if (!taskForm.phaseId) return toast.error("Selecione uma fase.");
     createTaskMut.mutate({
@@ -459,7 +459,7 @@ export default function Kanban() {
                 onValueChange={(v) => setSelectedCrsId(parseInt(v))}
               >
                 <SelectTrigger className="w-52 h-8 text-sm">
-                  <SelectValue placeholder="Selecione um CRS" />
+                  <SelectValue placeholder="Selecione um Contrato" />
                 </SelectTrigger>
                 <SelectContent>
                   {crsItems.map((c: any) => (
@@ -583,8 +583,8 @@ export default function Kanban() {
         {!effectiveCrsId ? (
           <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
             <FolderKanban className="w-12 h-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhum CRS disponível</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">Crie um CRS na página de Projetos para começar.</p>
+            <p className="text-muted-foreground font-medium">Nenhum Contrato disponível</p>
+            <p className="text-sm text-muted-foreground/60 mt-1">Crie um Contrato na página de Projetos para começar.</p>
           </div>
         ) : isLoading ? (
           <div className="flex gap-4 p-4 overflow-x-auto">
