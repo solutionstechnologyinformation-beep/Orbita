@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar, User, AlertTriangle, LayoutGrid, Rows } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, User, AlertTriangle, LayoutGrid, Rows, Package } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#94a3b8",
@@ -40,14 +40,28 @@ export default function Scheduling() {
   }, []);
 
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+  const [filterClientId, setFilterClientId] = useState<number | undefined>(undefined);
   const [projectId, setProjectId] = useState<number | undefined>(undefined);
   const [viewDate, setViewDate] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-  const projectsQ = trpc.crs.list.useQuery();
-  const schedulingQ = trpc.agenda.list.useQuery({});
+  // Clients for cascade filter
+  const clientsQ = trpc.clients.list.useQuery();
+  const allClients = (clientsQ.data ?? []) as any[];
 
+  // All contracts (filtered by client if selected)
+  const projectsQ = trpc.crs.list.useQuery();
+  const allProjects = (projectsQ.data ?? []) as any[];
+  const filteredProjects = filterClientId
+    ? allProjects.filter((p: any) => p.clientId === filterClientId)
+    : allProjects;
+
+  // Tasks via listForGantt (supports clientId + crsId filters)
+  const schedulingQ = trpc.tasks.listForGantt.useQuery({
+    clientId: filterClientId,
+    crsId: projectId,
+  });
   const tasks = (schedulingQ.data ?? []) as any[];
 
   // ── Calendar mode helpers ──────────────────────────────────────────────────
@@ -120,6 +134,30 @@ export default function Scheduling() {
     return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }));
   }, [tasks]);
 
+  // ── Weekly summary: tasks per user within the current week ─────────────────
+  const weekSummary = useMemo(() => {
+    const weekEnd = new Date(weekDays[6]);
+    weekEnd.setHours(23, 59, 59, 999);
+    const wStart = new Date(weekDays[0]);
+    wStart.setHours(0, 0, 0, 0);
+
+    const map = new Map<number | null, { name: string; items: typeof tasks }>();
+    tasks.forEach((t: any) => {
+      const start = t.startDate ? new Date(t.startDate) : null;
+      const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+      if (!start && !end) return;
+      const inWeek = (start && start <= weekEnd && (!end || end >= wStart)) ||
+                     (end && end >= wStart && end <= weekEnd);
+      if (!inWeek) return;
+      const key = t.assigneeId ?? null;
+      if (!map.has(key)) map.set(key, { name: t.assigneeName ?? "Sem responsável", items: [] });
+      map.get(key)!.items.push(t);
+    });
+    return Array.from(map.entries())
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  }, [tasks, weekDays]);
+
   function getTasksForDayAndAssignee(date: Date, assigneeId: number | null) {
     return tasks.filter((t: any) => {
       if ((t.assigneeId ?? null) !== assigneeId) return false;
@@ -151,16 +189,32 @@ export default function Scheduling() {
             <p className="text-gray-500 text-sm mt-1">Visualize tarefas por data e responsável</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Client filter */}
+            <Select
+              value={filterClientId?.toString() ?? "all"}
+              onValueChange={v => { setFilterClientId(v === "all" ? undefined : Number(v)); setProjectId(undefined); }}
+            >
+              <SelectTrigger className="w-44 h-9 text-sm">
+                <SelectValue placeholder="Todos os clientes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {allClients.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Contract filter (cascaded from client) */}
             <Select
               value={projectId?.toString() ?? "all"}
               onValueChange={v => setProjectId(v === "all" ? undefined : Number(v))}
             >
-              <SelectTrigger className="w-48 h-9 text-sm">
-                <SelectValue placeholder="Todos os projetos" />
+              <SelectTrigger className="w-52 h-9 text-sm">
+                <SelectValue placeholder="Todos os contratos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os projetos</SelectItem>
-                {(projectsQ.data ?? []).map((p: any) => (
+                <SelectItem value="all">Todos os contratos</SelectItem>
+                {filteredProjects.map((p: any) => (
                   <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -247,48 +301,42 @@ export default function Scheduling() {
                           <div
                             key={idx}
                             className={`
-                              border-b border-r cursor-pointer transition-colors
-                              ${!isCurrentMonth ? "bg-gray-50/70" : "bg-white hover:bg-indigo-50/20"}
-                              ${isSelected ? "ring-2 ring-inset ring-indigo-500 bg-indigo-50/40" : ""}
-                              ${idx % 7 === 6 ? "border-r-0" : ""}
+                              border-b border-r cursor-pointer transition-colors min-h-[90px] p-1.5
+                              ${!isCurrentMonth ? "bg-gray-50/60 text-gray-400" : "bg-white hover:bg-indigo-50/30"}
+                              ${isToday ? "bg-indigo-50/50" : ""}
+                              ${isSelected ? "ring-2 ring-inset ring-indigo-400" : ""}
                             `}
-                            style={{ minHeight: 130 }}
                             onClick={() => setSelectedDay(isSelected ? null : date)}
                           >
-                            <div className="p-2">
-                              {/* Day number */}
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className={`
-                                  text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
-                                  ${isToday ? "bg-indigo-600 text-white" : isCurrentMonth ? "text-gray-800" : "text-gray-300"}
-                                `}>
-                                  {date.getDate()}
-                                </span>
-                                {hasOverdue && <AlertTriangle className="h-3 w-3 text-red-400" />}
-                              </div>
-
-                              {/* Task pills */}
-                              <div className="space-y-0.5">
-                                {dayTasks.slice(0, 4).map((t: any, i: number) => {
-                                  const isOverdue = (() => {
-                                    const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
-                                    return end && end < todayRef && t.status !== "published" && t.status !== "archived";
-                                  })();
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="text-xs rounded px-1.5 py-0.5 truncate text-white font-medium leading-4"
-                                      style={{ backgroundColor: isOverdue ? "#ef4444" : (STATUS_COLORS[t.status] ?? "#6366f1") }}
-                                      title={`${t.title} — ${t.assigneeName ?? "Sem responsável"} (${STATUS_LABELS[t.status] ?? t.status})`}
-                                    >
-                                      {t.title}
-                                    </div>
-                                  );
-                                })}
-                                {dayTasks.length > 4 && (
-                                  <div className="text-xs text-gray-400 pl-1">+{dayTasks.length - 4} mais</div>
-                                )}
-                              </div>
+                            <div className={`
+                              text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full
+                              ${isToday ? "bg-indigo-600 text-white" : isCurrentMonth ? "text-gray-800" : "text-gray-400"}
+                            `}>
+                              {date.getDate()}
+                            </div>
+                            <div className="space-y-0.5">
+                              {dayTasks.slice(0, 3).map((t: any, i: number) => {
+                                const isOverdue = (() => {
+                                  const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+                                  return end && end < todayRef && t.status !== "published" && t.status !== "archived";
+                                })();
+                                return (
+                                  <div
+                                    key={i}
+                                    className="text-xs px-1.5 py-0.5 rounded text-white truncate"
+                                    style={{ backgroundColor: isOverdue ? "#ef4444" : STATUS_COLORS[t.status] ?? "#6366f1" }}
+                                    title={t.title}
+                                  >
+                                    {t.title}
+                                  </div>
+                                );
+                              })}
+                              {dayTasks.length > 3 && (
+                                <div className="text-xs text-gray-400 pl-1">+{dayTasks.length - 3} mais</div>
+                              )}
+                              {hasOverdue && dayTasks.length === 0 && (
+                                <div className="w-2 h-2 rounded-full bg-red-400 mx-auto" />
+                              )}
                             </div>
                           </div>
                         );
@@ -297,7 +345,6 @@ export default function Scheduling() {
                   </CardContent>
                 </Card>
               </div>
-
               {/* Side panel */}
               <div className="w-64 flex-shrink-0 space-y-3">
                 {selectedDay ? (
@@ -322,6 +369,12 @@ export default function Scheduling() {
                               <User className="h-3 w-3 text-gray-400" />
                               <span className="text-xs text-gray-500 truncate">{t.assigneeName ?? "Sem responsável"}</span>
                             </div>
+                            {t.projectName && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Package className="h-3 w-3 text-gray-400" />
+                                <span className="text-xs text-gray-400 truncate">{t.projectName}</span>
+                              </div>
+                            )}
                             <Badge variant="outline" className="text-xs mt-1" style={{ borderColor: STATUS_COLORS[t.status], color: STATUS_COLORS[t.status] }}>
                               {STATUS_LABELS[t.status] ?? t.status}
                             </Badge>
@@ -338,7 +391,6 @@ export default function Scheduling() {
                     </CardContent>
                   </Card>
                 )}
-
                 {/* Legend */}
                 <Card>
                   <CardHeader className="pb-1 pt-3">
@@ -382,6 +434,7 @@ export default function Scheduling() {
               </p>
             </div>
 
+            {/* Swimlane grid */}
             <Card>
               <CardContent className="p-0 overflow-x-auto">
                 {schedulingQ.isLoading ? (
@@ -455,6 +508,68 @@ export default function Scheduling() {
                 )}
               </CardContent>
             </Card>
+
+            {/* ── Weekly summary per user ──────────────────────────────────── */}
+            {weekSummary.length > 0 && (
+              <div>
+                <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4 text-indigo-500" />
+                  Entregas da Semana por Responsável
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {weekSummary.map(user => {
+                    const overdue = user.items.filter((t: any) => {
+                      const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+                      return end && end < todayRef && t.status !== "published" && t.status !== "archived";
+                    });
+                    return (
+                      <Card key={user.id ?? "none"} className="border">
+                        <CardHeader className="pb-2 pt-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {(user.name ?? "?").charAt(0).toUpperCase()}
+                            </div>
+                            <span className="truncate">{user.name ?? "Sem responsável"}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">{user.items.length} item(s)</Badge>
+                            {overdue.length > 0 && (
+                              <Badge className="text-xs bg-red-100 text-red-700 border-red-200">{overdue.length} atrasado(s)</Badge>
+                            )}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pb-3 space-y-1.5">
+                          {user.items.map((t: any, i: number) => {
+                            const end = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
+                            const isOverdue = end && end < todayRef && t.status !== "published" && t.status !== "archived";
+                            return (
+                              <div key={i} className={`flex items-start gap-2 p-2 rounded-md text-sm ${isOverdue ? "bg-red-50 border border-red-100" : "bg-gray-50"}`}>
+                                <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: isOverdue ? "#ef4444" : STATUS_COLORS[t.status] ?? "#6366f1" }} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-800 truncate">{t.title}</p>
+                                  {t.projectName && (
+                                    <p className="text-xs text-gray-400 truncate flex items-center gap-1">
+                                      <Package className="h-2.5 w-2.5" /> {t.projectName}
+                                    </p>
+                                  )}
+                                  {end && (
+                                    <p className={`text-xs mt-0.5 ${isOverdue ? "text-red-600 font-medium" : "text-gray-400"}`}>
+                                      {isOverdue ? "⚠ Venceu em " : "Até "}
+                                      {end.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="text-xs flex-shrink-0" style={{ borderColor: STATUS_COLORS[t.status], color: STATUS_COLORS[t.status] }}>
+                                  {STATUS_LABELS[t.status] ?? t.status}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

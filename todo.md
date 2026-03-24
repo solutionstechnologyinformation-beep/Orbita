@@ -598,3 +598,16 @@
 - [x] Mapa: colorir estados brasileiros com gradiente azul (claro→escuro) proporcional ao nº de contratos por estado
 - [x] Mapa: clicar em um estado colorido abre o painel lateral com a lista de contratos daquele estado
 - [x] Dashboard PDF: screenshot do mapa + tabela "Contratos por Estado/Região" com contagem
+
+## Melhorias v5.5 — Calendário, Programação, Quadro Branco, Dashboard e Correções
+- [x] Calendário: compromissos são do usuário (não da tarefa); mostrar nome do criador em cada evento
+- [x] Calendário: detectar conflito com tarefas do usuário ao criar compromisso
+- [x] Calendário: todos os usuários veem os compromissos de todos (visibilidade compartilhada)
+- [x] Programação: filtro em cascata Cliente → Contrato na barra de filtros
+- [x] Programação: lista semanal por usuário com itens de responsabilidade (tarefas do contrato filtrado)
+- [x] Quadro Branco: tabela whiteboards criada no banco; cada usuário vê somente seus próprios quadros
+- [x] Quadro Branco: suporte a múltiplas páginas por quadro (pageIndex); filtro de contrato removido
+- [x] Dashboard: Projetos Ativos usa campo progress real do CRS (recalculado automaticamente pelas tarefas)
+- [x] Dashboard: Minhas Tarefas mostra TODAS as tarefas atribuídas ao usuário (procedure dashboard.myTasks)
+- [x] Dashboard PDF: tabela de contratos usa progress real e exibe código do contrato
+- [x] Usuários duplicados: verificado e corrigido no banco (tarefas migradas para ID OAuth)

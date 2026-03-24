@@ -1,6 +1,7 @@
 import AppLayout from "@/components/AppLayout";
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Plane, Users, Package } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, AlertTriangle, User } from "lucide-react";
 import { toast } from "sonner";
 
 const EVENT_COLORS: Record<string, string> = {
@@ -21,11 +22,7 @@ const EVENT_LABELS: Record<string, string> = {
   vacation: "Férias/Ausência",
   other: "Outro",
 };
-const EVENT_ICONS: Record<string, React.ReactNode> = {
-  meeting: <Users className="h-3 w-3" />,
-  vacation: <Plane className="h-3 w-3" />,
-  other: <Package className="h-3 w-3" />,
-};
+
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS = [
@@ -34,11 +31,12 @@ const MONTHS = [
 ];
 
 export default function CalendarPage() {
+  const { user } = useAuth();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [showCreate, setShowCreate] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [form, setForm] = useState({
     title: "",
     type: "other" as "meeting" | "vacation" | "other",
@@ -48,7 +46,11 @@ export default function CalendarPage() {
     isPublic: true,
   });
 
+  // All events — shared calendar, all users see all events
   const agendaQ = trpc.agenda.list.useQuery({});
+  // My tasks for conflict detection
+  const myTasksQ = trpc.tasks.listForGantt.useQuery({ assigneeId: user?.id }, { enabled: !!user?.id });
+
   const utils = trpc.useUtils();
 
   const createMut = trpc.agenda.create.useMutation({
@@ -56,25 +58,25 @@ export default function CalendarPage() {
       utils.agenda.list.invalidate();
       setShowCreate(false);
       setForm({ title: "", type: "other", startDate: "", endDate: "", description: "", isPublic: true });
-      toast.success("Evento criado!");
+      toast.success("Compromisso criado!");
     },
     onError: (e) => toast.error(e.message),
   });
   const deleteMut = trpc.agenda.delete.useMutation({
     onSuccess: () => {
       utils.agenda.list.invalidate();
-      toast.success("Evento removido.");
+      toast.success("Compromisso removido.");
     },
   });
 
-  const events = agendaQ.data ?? [];
+  const events = (agendaQ.data ?? []) as any[];
+  const myTasks = (myTasksQ.data ?? []) as any[];
 
   // Build calendar grid
   const calendarDays = useMemo(() => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const days: (Date | null)[] = [];
-    // Padding before first day
     for (let i = 0; i < firstDay.getDay(); i++) days.push(null);
     for (let d = 1; d <= lastDay.getDate(); d++) days.push(new Date(year, month, d));
     return days;
@@ -84,11 +86,50 @@ export default function CalendarPage() {
     return events.filter((e: any) => {
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
-      const d = date;
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       return d >= new Date(start.getFullYear(), start.getMonth(), start.getDate()) &&
              d <= new Date(end.getFullYear(), end.getMonth(), end.getDate());
     });
   }
+
+  function getTasksForDay(date: Date) {
+    return myTasks.filter((t: any) => {
+      const due = t.dueDate ? new Date(t.dueDate) : null;
+      const tStart = t.startDate ? new Date(t.startDate) : due;
+      const tEnd = t.endDate ? new Date(t.endDate) : due;
+      if (!tStart) return false;
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const s = new Date(tStart.getFullYear(), tStart.getMonth(), tStart.getDate());
+      const e2 = new Date(tEnd!.getFullYear(), tEnd!.getMonth(), tEnd!.getDate());
+      return d >= s && d <= e2;
+    });
+  }
+
+  // Detect conflicts between new event dates and existing tasks
+  function detectConflicts(startStr: string, endStr: string) {
+    if (!startStr || !endStr) return [];
+    const newStart = new Date(startStr + "T00:00:00");
+    const newEnd = new Date(endStr + "T23:59:59");
+    return myTasks.filter((t: any) => {
+      const due = t.dueDate ? new Date(t.dueDate) : null;
+      const tStart = t.startDate ? new Date(t.startDate) : due;
+      const tEnd = t.endDate ? new Date(t.endDate) : due;
+      if (!tStart) return false;
+      return tStart <= newEnd && (tEnd ?? tStart) >= newStart;
+    });
+  }
+
+  const conflicts = detectConflicts(form.startDate, form.endDate);
+
+  // Upcoming events (next 30 days)
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    const limit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return events
+      .filter((e: any) => new Date(e.endDate) >= now && new Date(e.startDate) <= limit)
+      .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+      .slice(0, 10);
+  }, [events]);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -100,7 +141,7 @@ export default function CalendarPage() {
   }
 
   function handleDayClick(date: Date) {
-    setSelectedDate(date);
+    setSelectedDayDate(date);
     const iso = date.toISOString().split("T")[0];
     setForm(f => ({ ...f, startDate: iso, endDate: iso }));
     setShowCreate(true);
@@ -121,18 +162,19 @@ export default function CalendarPage() {
     });
   }
 
-  const selectedDayEvents = selectedDate ? getEventsForDay(selectedDate) : [];
+  const selectedDayEvents = selectedDayDate ? getEventsForDay(selectedDayDate) : [];
+  const selectedDayTasks = selectedDayDate ? getTasksForDay(selectedDayDate) : [];
 
   return (
     <AppLayout title="Calendário">
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendário</h1>
-          <p className="text-gray-500 text-sm mt-1">Visualize entregas, reuniões e ausências da equipe</p>
+          <h1 className="text-2xl font-bold text-gray-900">Calendário de Compromissos</h1>
+          <p className="text-gray-500 text-sm mt-1">Compromissos de toda a equipe — visível para todos os usuários</p>
         </div>
-        <Button onClick={() => { setSelectedDate(null); setShowCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Novo Evento
+        <Button onClick={() => { setSelectedDayDate(null); setShowCreate(true); }}>
+          <Plus className="h-4 w-4 mr-1" /> Novo Compromisso
         </Button>
       </div>
 
@@ -170,11 +212,13 @@ export default function CalendarPage() {
                 {calendarDays.map((date, i) => {
                   if (!date) return <div key={i} className="bg-gray-50 h-24" />;
                   const dayEvents = getEventsForDay(date);
+                  const dayTasks = getTasksForDay(date);
                   const isToday = date.toDateString() === today.toDateString();
+                  const hasConflict = dayEvents.length > 0 && dayTasks.length > 0;
                   return (
                     <div
                       key={i}
-                      className="bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors"
+                      className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${hasConflict ? "ring-1 ring-inset ring-orange-300" : ""}`}
                       onClick={() => handleDayClick(date)}
                     >
                       <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${
@@ -183,18 +227,23 @@ export default function CalendarPage() {
                         {date.getDate()}
                       </div>
                       <div className="space-y-0.5">
-                        {dayEvents.slice(0, 3).map((e: any) => (
+                        {dayEvents.slice(0, 2).map((e: any) => (
                           <div
                             key={e.id}
                             className="text-xs px-1 py-0.5 rounded truncate text-white"
                             style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }}
-                            title={e.title}
+                            title={`${e.title} (${e.creatorName ?? "?"})`}
                           >
                             {e.title}
                           </div>
                         ))}
-                        {dayEvents.length > 3 && (
-                          <div className="text-xs text-gray-400 px-1">+{dayEvents.length - 3} mais</div>
+                        {dayTasks.slice(0, 1).map((t: any) => (
+                          <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate bg-slate-200 text-slate-700" title={`Tarefa: ${t.title}`}>
+                            📋 {t.title}
+                          </div>
+                        ))}
+                        {(dayEvents.length + dayTasks.length) > 3 && (
+                          <div className="text-xs text-gray-400 px-1">+{dayEvents.length + dayTasks.length - 3} mais</div>
                         )}
                       </div>
                     </div>
@@ -203,6 +252,56 @@ export default function CalendarPage() {
               </div>
             </CardContent>
           </Card>
+          {/* Day detail panel */}
+          {selectedDayDate && (
+            <Card className="mt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">
+                  {selectedDayDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && (
+                  <p className="text-xs text-gray-400">Nenhum compromisso ou tarefa neste dia.</p>
+                )}
+                {selectedDayEvents.map((e: any) => (
+                  <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
+                    <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{e.title}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <User className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-500">{e.creatorName ?? "Desconhecido"}</span>
+                        <Badge variant="outline" className="text-xs ml-1" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>
+                          {EVENT_LABELS[e.type]}
+                        </Badge>
+                      </div>
+                      {e.description && <p className="text-xs text-gray-400 mt-0.5">{e.description}</p>}
+                    </div>
+                    {e.createdById === user?.id && (
+                      <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
+                    )}
+                  </div>
+                ))}
+                {selectedDayTasks.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-orange-600 mb-1 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" /> Suas tarefas neste dia
+                    </p>
+                    {selectedDayTasks.map((t: any) => (
+                      <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 border border-orange-100">
+                        <div className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{t.title}</p>
+                          <p className="text-xs text-gray-400">{t.projectName ?? "Contrato"}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar: upcoming events */}
@@ -211,47 +310,37 @@ export default function CalendarPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <CalendarDays className="h-4 w-4" />
-                Próximos Eventos
+                Próximos Compromissos
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {agendaQ.isLoading ? (
                 <p className="text-xs text-gray-400">Carregando...</p>
-              ) : events.length === 0 ? (
-                <p className="text-xs text-gray-400">Nenhum evento cadastrado.</p>
+              ) : upcomingEvents.length === 0 ? (
+                <p className="text-xs text-gray-400">Nenhum compromisso nos próximos 30 dias.</p>
               ) : (
-                events
-                  .filter((e: any) => new Date(e.endDate) >= today)
-                  .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-                  .slice(0, 8)
-                  .map((e: any) => (
-                    <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
-                      <div
-                        className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                        style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{e.title}</p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(e.startDate).toLocaleDateString("pt-BR")}
-                          {e.startDate !== e.endDate && ` – ${new Date(e.endDate).toLocaleDateString("pt-BR")}`}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className="text-xs mt-0.5"
-                          style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}
-                        >
-                          {EVENT_LABELS[e.type]}
-                        </Badge>
+                upcomingEvents.map((e: any) => (
+                  <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
+                    <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{e.title}</p>
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-500 truncate">{e.creatorName ?? "?"}</span>
                       </div>
-                      <button
-                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs"
-                        onClick={() => deleteMut.mutate({ id: e.id })}
-                      >
-                        ✕
-                      </button>
+                      <p className="text-xs text-gray-400">
+                        {new Date(e.startDate).toLocaleDateString("pt-BR")}
+                        {e.startDate !== e.endDate && ` – ${new Date(e.endDate).toLocaleDateString("pt-BR")}`}
+                      </p>
+                      <Badge variant="outline" className="text-xs mt-0.5" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>
+                        {EVENT_LABELS[e.type]}
+                      </Badge>
                     </div>
-                  ))
+                    {e.createdById === user?.id && (
+                      <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
+                    )}
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>
@@ -259,12 +348,21 @@ export default function CalendarPage() {
           {/* Legend */}
           <Card>
             <CardContent className="pt-4 space-y-2">
+              <p className="text-xs font-semibold text-gray-500 mb-1">Legenda</p>
               {Object.entries(EVENT_LABELS).map(([key, label]) => (
                 <div key={key} className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_COLORS[key] }} />
                   <span className="text-xs text-gray-600">{label}</span>
                 </div>
               ))}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-slate-200" />
+                <span className="text-xs text-gray-600">Tarefa (sua)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm ring-1 ring-orange-300 bg-white" />
+                <span className="text-xs text-gray-600">Conflito evento/tarefa</span>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -274,7 +372,7 @@ export default function CalendarPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Evento</DialogTitle>
+            <DialogTitle>Novo Compromisso</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -319,6 +417,18 @@ export default function CalendarPage() {
                 />
               </div>
             </div>
+            {conflicts.length > 0 && (
+              <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-orange-700">Conflito com suas tarefas</p>
+                  <p className="text-xs text-orange-600 mt-0.5">
+                    {conflicts.slice(0, 3).map((t: any) => t.title).join(", ")}
+                    {conflicts.length > 3 && ` e mais ${conflicts.length - 3}...`}
+                  </p>
+                </div>
+              </div>
+            )}
             <div>
               <Label>Descrição</Label>
               <Input
@@ -331,7 +441,7 @@ export default function CalendarPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
             <Button onClick={handleCreate} disabled={createMut.isPending}>
-              {createMut.isPending ? "Salvando..." : "Criar Evento"}
+              {createMut.isPending ? "Salvando..." : "Criar Compromisso"}
             </Button>
           </DialogFooter>
         </DialogContent>

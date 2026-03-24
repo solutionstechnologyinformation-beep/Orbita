@@ -137,15 +137,12 @@ async function exportDashboardPDF(data: {
     ? `<span style="background:${clientColor ?? "#1561ad"}22;color:${clientColor ?? "#1561ad"};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid ${clientColor ?? "#1561ad"}44">${clientName}</span>`
     : "";
 
-  const projectRows = projects.slice(0, 10).map(p => {
-    const tc = p.taskCounts ?? {};
-    const ptotal = (tc.pending ?? 0) + (tc.in_progress ?? 0) + (tc.shared ?? 0) + (tc.published ?? 0) + (tc.archived ?? 0);
-    const pdone = (tc.published ?? 0) + (tc.archived ?? 0);
-    const ppct = ptotal > 0 ? Math.round((pdone / ptotal) * 100) : 0;
+  const projectRows = projects.slice(0, 10).map((p: any) => {
+    const ppct = Math.round(p.progress ?? 0);
+    const clientLabel = p.clientName ? `<span style="font-size:10px;color:#64748b">${p.clientName}</span>` : "";
     return `<tr>
-      <td style="padding:5px 8px;border:1px solid #e2e8f0">${p.name}</td>
-      <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">${ptotal}</td>
-      <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">${pdone}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${p.name}${clientLabel ? " &mdash; " + clientLabel : ""}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${p.code ?? "&mdash;"}</td>
       <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">
           <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden">
           <div style="background:#1561ad;height:8px;border-radius:99px;width:${ppct}%"></div>
@@ -340,6 +337,7 @@ export default function Dashboard() {
   const projectsQ = trpc.crs.list.useQuery();
   const sprintsQ = trpc.sprints.listByCrs.useQuery({ crsId: 0 }, { enabled: false });
   const recentQ = trpc.dashboard.weekDeliveries.useQuery();
+  const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
   const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
   const yearlyStatsQ = trpc.dashboard.yearlyStats.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
@@ -367,6 +365,7 @@ export default function Dashboard() {
     : allCrs.filter((p: any) => String(p.clientId ?? "") === filterClient);
   const sprints = (sprintsQ.data ?? []) as any[];
   const recentTasks = (recentQ.data ?? []) as any[];
+  const myTasksList = (myTasksQ.data ?? []) as any[];
 
   // Current week sprints
   const now = new Date();
@@ -1022,18 +1021,18 @@ export default function Dashboard() {
           <div className="bg-card border border-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <Clock className="w-4 h-4 text-blue-400" />
-              Minhas Tarefas Recentes
+              Minhas Tarefas
             </h3>
-            {recentQ.isLoading ? (
+            {myTasksQ.isLoading ? (
               <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-            ) : !recentTasks.length ? (
+            ) : !myTasksList.length ? (
               <div className="flex flex-col items-center py-8 text-center">
                 <CheckCircle2 className="w-8 h-8 text-muted-foreground/20 mb-2" />
                 <p className="text-sm text-muted-foreground">Nenhuma tarefa atribuída</p>
               </div>
             ) : (
               <div className="space-y-1.5 overflow-y-auto max-h-64">
-                {recentTasks.slice(0, 10).map((t: any) => {
+                {myTasksList.map((t: any) => {
                   const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "published" && t.status !== "archived";
                   const statusColor = STATUS_COLORS[t.status] ?? STATUS_COLORS.pending;
                   return (
@@ -1074,10 +1073,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-2 overflow-y-auto max-h-64">
                 {projects.slice(0, 8).map((p: any) => {
-                  const tc = p.taskCounts ?? {};
-                  const ptotal = (tc.pending ?? 0) + (tc.in_progress ?? 0) + (tc.shared ?? 0) + (tc.published ?? 0) + (tc.archived ?? 0);
-                  const pdone = (tc.published ?? 0) + (tc.archived ?? 0);
-                  const ppct = pct(pdone, ptotal);
+                  const ppct = Math.round(p.progress ?? 0);
                   return (
                     <div
                       key={p.id}
@@ -1096,7 +1092,7 @@ export default function Dashboard() {
                           <span className="text-xs text-muted-foreground">{ppct}%</span>
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">{ptotal} tarefas</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{ppct}% concluído</span>
                     </div>
                   );
                 })}

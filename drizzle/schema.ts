@@ -361,3 +361,16 @@ export const sprintChecklistItems = mysqlTable("sprint_checklist_items", {
   addedAt: timestamp("addedAt").defaultNow().notNull(),
 });
 export type SprintChecklistItem = typeof sprintChecklistItems.$inferSelect;
+
+// ─── Whiteboards ──────────────────────────────────────────────────────────────
+export const whiteboards = mysqlTable("whiteboards", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 256 }).notNull().default("Sem título"),
+  pageIndex: int("pageIndex").notNull().default(0),
+  dataUrl: text("dataUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+export type Whiteboard = typeof whiteboards.$inferSelect;
+export type InsertWhiteboard = typeof whiteboards.$inferInsert;

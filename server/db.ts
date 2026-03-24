@@ -5,7 +5,7 @@ import {
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
   conversations, conversationParticipants, directMessages,
-  sprintChecklistItems,
+  sprintChecklistItems, whiteboards,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -633,7 +633,24 @@ export async function getAgendaEvents(filters?: { userId?: number; crsId?: numbe
   const db = await getDb();
   const conditions: any[] = [];
   if (filters?.crsId) conditions.push(eq(agendaEvents.projectId, filters.crsId));
-  return db.select().from(agendaEvents)
+  // All events are visible to all users (shared calendar)
+  return db.select({
+    id: agendaEvents.id,
+    createdById: agendaEvents.createdById,
+    title: agendaEvents.title,
+    type: agendaEvents.type,
+    startDate: agendaEvents.startDate,
+    endDate: agendaEvents.endDate,
+    description: agendaEvents.description,
+    meetingUrl: agendaEvents.meetingUrl,
+    attendeeIds: agendaEvents.attendeeIds,
+    projectId: agendaEvents.projectId,
+    isPublic: agendaEvents.isPublic,
+    createdAt: agendaEvents.createdAt,
+    creatorName: users.name,
+    creatorAvatar: users.avatarUrl,
+  }).from(agendaEvents)
+    .leftJoin(users, eq(agendaEvents.createdById, users.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(asc(agendaEvents.startDate));
 }
@@ -923,4 +940,55 @@ export async function getYearlyStats(clientId?: number) {
     };
   });
   return result;
+}
+
+// ─── Whiteboards ──────────────────────────────────────────────────────────────
+export async function getWhiteboardsByUser(userId: number) {
+  const db = await getDb();
+  return db.select().from(whiteboards).where(eq(whiteboards.userId, userId)).orderBy(asc(whiteboards.pageIndex));
+}
+
+export async function saveWhiteboard(userId: number, pageIndex: number, title: string, dataUrl: string) {
+  const db = await getDb();
+  const existing = await db.select({ id: whiteboards.id })
+    .from(whiteboards)
+    .where(and(eq(whiteboards.userId, userId), eq(whiteboards.pageIndex, pageIndex)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db.update(whiteboards)
+      .set({ dataUrl, title, updatedAt: new Date() })
+      .where(eq(whiteboards.id, existing[0].id));
+    return existing[0].id;
+  } else {
+    const [res] = await db.insert(whiteboards).values({ userId, pageIndex, title, dataUrl });
+    return (res as any).insertId as number;
+  }
+}
+
+export async function deleteWhiteboard(id: number, userId: number) {
+  const db = await getDb();
+  await db.delete(whiteboards).where(and(eq(whiteboards.id, id), eq(whiteboards.userId, userId)));
+}
+
+export async function renameWhiteboard(id: number, userId: number, title: string) {
+  const db = await getDb();
+  await db.update(whiteboards).set({ title }).where(and(eq(whiteboards.id, id), eq(whiteboards.userId, userId)));
+}
+
+// ─── My Tasks (all tasks assigned to a user) ──────────────────────────────────
+export async function getMyTasks(userId: number) {
+  const db = await getDb();
+  return db.select({
+    id: tasks.id,
+    title: tasks.title,
+    dueDate: tasks.dueDate,
+    progress: tasks.progress,
+    phaseId: tasks.phaseId,
+    crsId: tasks.crsId,
+    crsName: crs.name,
+  })
+    .from(tasks)
+    .leftJoin(crs, eq(tasks.crsId, crs.id))
+    .where(eq(tasks.assigneeId, userId))
+    .orderBy(asc(tasks.dueDate));
 }

@@ -13,13 +13,14 @@ import {
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead,
-  logActivity, getDisciplines, getDashboardStats, getWorldMapData, getWeekDeliveries,
+  logActivity, getDisciplines, getDashboardStats, getWorldMapData, getWeekDeliveries, getMyTasks,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
   getClientProgress, getCrsDisciplineProgress, getYearlyStats,
+  getWhiteboardsByUser, saveWhiteboard, deleteWhiteboard, renameWhiteboard,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -572,6 +573,7 @@ export const appRouter = router({
       .query(async ({ input }) => getDashboardStats(input.clientId)),
     worldMap: protectedProcedure.query(async () => getWorldMapData()),
     weekDeliveries: protectedProcedure.query(async () => getWeekDeliveries()),
+    myTasks: protectedProcedure.query(async ({ ctx }) => getMyTasks(ctx.user.id)),
     clientProgress: protectedProcedure.query(async () => getClientProgress()),
     yearlyStats: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))
@@ -829,6 +831,30 @@ export const appRouter = router({
       }),
   }),
 
+  // ─── Whiteboard ──────────────────────────────────────────────────────────────
+  whiteboard: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return getWhiteboardsByUser(ctx.user.id);
+    }),
+    save: protectedProcedure
+      .input(z.object({ pageIndex: z.number(), title: z.string(), dataUrl: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await saveWhiteboard(ctx.user.id, input.pageIndex, input.title, input.dataUrl);
+        return { id };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteWhiteboard(input.id, ctx.user.id);
+        return { success: true };
+      }),
+    rename: protectedProcedure
+      .input(z.object({ id: z.number(), title: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await renameWhiteboard(input.id, ctx.user.id, input.title);
+        return { success: true };
+      }),
+  }),
   // ─── System ─────────────────────────────────────────────────────────────────
   system: router({
     notifyOwner: protectedProcedure

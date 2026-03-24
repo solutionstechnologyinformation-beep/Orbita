@@ -1,25 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  Layout, Pencil, Square, Circle, Minus, Type, Eraser,
+  Pencil, Square, Circle, Minus, Type, Eraser,
   Trash2, Download, Undo2, Redo2, ZoomIn, ZoomOut, Move,
+  Plus, X, Check, Edit2, Save,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 
 type Tool = "pen" | "line" | "rect" | "ellipse" | "text" | "eraser" | "move";
-
-interface DrawAction {
-  type: Tool;
-  color: string;
-  lineWidth: number;
-  points?: { x: number; y: number }[];
-  x?: number; y?: number; w?: number; h?: number;
-  text?: string;
-}
 
 const COLORS = [
   "#1e293b", "#ef4444", "#f97316", "#eab308",
@@ -38,9 +30,32 @@ const TOOLS: { id: Tool; icon: React.ElementType; label: string }[] = [
 ];
 
 export default function Whiteboard() {
-  const [selectedCrsId, setSelectedCrsId] = useState<string>("");
-  const { data: crsList } = trpc.crs.list.useQuery();
-  const selectedCrs = crsList?.find((c: any) => c.id === Number(selectedCrsId));
+  // ── Pages ──────────────────────────────────────────────────────────────────
+  const utils = trpc.useUtils();
+  const boardsQ = trpc.whiteboard.list.useQuery();
+  const boards = useMemo(() => (boardsQ.data ?? []) as any[], [boardsQ.data]);
+  const sortedBoards = useMemo(() => [...boards].sort((a: any, b: any) => a.pageIndex - b.pageIndex), [boards]);
+
+  const [activePage, setActivePage] = useState(0);
+  const [editingTitle, setEditingTitle] = useState<number | null>(null);
+  const [editTitleVal, setEditTitleVal] = useState("");
+  const [pendingNewPage, setPendingNewPage] = useState(false);
+  const [newPageTitle, setNewPageTitle] = useState("");
+
+  const saveMut = trpc.whiteboard.save.useMutation({ onSuccess: () => utils.whiteboard.list.invalidate() });
+  const deleteMut = trpc.whiteboard.delete.useMutation({ onSuccess: () => utils.whiteboard.list.invalidate() });
+  const renameMut = trpc.whiteboard.rename.useMutation({ onSuccess: () => utils.whiteboard.list.invalidate() });
+
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleAutoSave = useCallback((dataUrl: string) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const board = boards.find((b: any) => b.pageIndex === activePage);
+      const title = board?.title ?? `Página ${activePage + 1}`;
+      saveMut.mutate({ pageIndex: activePage, title, dataUrl });
+    }, 1500);
+  }, [activePage, boards, saveMut]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tool, setTool] = useState<Tool>("pen");
@@ -80,6 +95,23 @@ export default function Whiteboard() {
     setRedoStack([]);
   }, [getCtx]);
 
+  // Load board data when page changes
+  useEffect(() => {
+    const ctx = getCtx();
+    const canvas = canvasRef.current;
+    if (!ctx || !canvas) return;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHistory([]);
+    setRedoStack([]);
+    const board = boards.find((b: any) => b.pageIndex === activePage);
+    if (board?.dataUrl) {
+      const img = new Image();
+      img.onload = () => { ctx.drawImage(img, 0, 0); };
+      img.src = board.dataUrl;
+    }
+  }, [activePage, boards, getCtx]);
+
   const undo = useCallback(() => {
     const ctx = getCtx();
     const canvas = canvasRef.current;
@@ -108,25 +140,20 @@ export default function Whiteboard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, [getCtx, saveSnapshot]);
+    scheduleAutoSave(canvas.toDataURL("image/png"));
+  }, [getCtx, saveSnapshot, scheduleAutoSave]);
 
   const exportPNG = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const board = boards.find((b: any) => b.pageIndex === activePage);
     const link = document.createElement("a");
-    link.download = `quadro-${selectedCrs?.name ?? "branco"}.png`;
+    link.download = `quadro-${board?.title ?? activePage + 1}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-  }, [selectedCrs]);
+  }, [boards, activePage]);
 
-  // Init canvas with white background
-  useEffect(() => {
-    const ctx = getCtx();
-    const canvas = canvasRef.current;
-    if (!ctx || !canvas) return;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, [selectedCrsId, getCtx]);
+
 
   const onMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const ctx = getCtx();
@@ -148,6 +175,8 @@ export default function Whiteboard() {
       ctx.fillStyle = color;
       ctx.fillText(text, pos.x, pos.y);
       ctx.restore();
+      const canvas2 = canvasRef.current;
+      if (canvas2) scheduleAutoSave(canvas2.toDataURL("image/png"));
       return;
     }
 
@@ -226,40 +255,56 @@ export default function Whiteboard() {
   }, [isDrawing, tool, color, lineWidth, startPos, getPos, getCtx, panStart]);
 
   const onMouseUp = useCallback(() => {
+    if (!isDrawing) return;
     setIsDrawing(false);
     snapshotRef.current = null;
     currentPathRef.current = [];
-  }, []);
+    const canvas = canvasRef.current;
+    if (canvas) scheduleAutoSave(canvas.toDataURL("image/png"));
+  }, [isDrawing, scheduleAutoSave]);
 
-  const cursor = tool === "eraser" ? "cell" : tool === "move" ? (isDrawing ? "grabbing" : "grab") : tool === "text" ? "text" : "crosshair";
+  const cursor = tool === "move" ? "grab" : tool === "eraser" ? "cell" : "crosshair";
+
+  // ── Page management ────────────────────────────────────────────────────────
+  const maxPage = boards.length > 0 ? Math.max(...boards.map((b: any) => b.pageIndex)) : -1;
+
+  function addPage() { setPendingNewPage(true); setNewPageTitle(`Página ${maxPage + 2}`); }
+
+  function confirmAddPage() {
+    const newIndex = maxPage + 1;
+    saveMut.mutate(
+      { pageIndex: newIndex, title: newPageTitle || `Página ${newIndex + 1}`, dataUrl: "" },
+      { onSuccess: () => { setActivePage(newIndex); setPendingNewPage(false); setNewPageTitle(""); } }
+    );
+  }
+
+  function deletePage(board: any) {
+    if (boards.length <= 1) { toast.error("Não é possível excluir a única página."); return; }
+    deleteMut.mutate({ id: board.id }, {
+      onSuccess: () => {
+        if (activePage === board.pageIndex)
+          setActivePage(boards.find((b: any) => b.pageIndex !== board.pageIndex)?.pageIndex ?? 0);
+      }
+    });
+  }
+
+  function startRename(board: any) { setEditingTitle(board.id); setEditTitleVal(board.title); }
+  function confirmRename(board: any) { renameMut.mutate({ id: board.id, title: editTitleVal || board.title }); setEditingTitle(null); }
 
   return (
     <AppLayout title="Quadro Branco">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <Select value={selectedCrsId} onValueChange={v => { setSelectedCrsId(v); }}>
-          <SelectTrigger className="w-64 h-9 bg-white border-gray-200 text-sm">
-            <SelectValue placeholder="Selecione um Contrato..." />
-          </SelectTrigger>
-          <SelectContent>
-            {crsList?.map((c: any) => (
-              <SelectItem key={c.id} value={String(c.id)}>
-                {c.code ? `[${c.code}] ` : ""}{c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {selectedCrsId && (
+      <div className="flex flex-col h-[calc(100vh-64px)]">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-gray-50 border-b">
           <>
             {/* Tools */}
-            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+            <div className="flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg p-1">
               {TOOLS.map(t => (
                 <Tooltip key={t.id}>
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => setTool(t.id)}
-                      className={`p-1.5 rounded-md transition-colors ${tool === t.id ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"}`}
+                      className={`p-1.5 rounded-md transition-colors ${tool === t.id ? "bg-indigo-100 text-indigo-700" : "text-gray-600 hover:bg-gray-100"}`}
                     >
                       <t.icon className="h-4 w-4" />
                     </button>
@@ -270,12 +315,12 @@ export default function Whiteboard() {
             </div>
 
             {/* Colors */}
-            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1">
               {COLORS.map(c => (
                 <button
                   key={c}
                   onClick={() => setColor(c)}
-                  className={`w-6 h-6 rounded-full border-2 transition-transform ${color === c ? "border-blue-500 scale-110" : "border-transparent"}`}
+                  className={`w-5 h-5 rounded-full border-2 transition-transform ${color === c ? "scale-125 border-indigo-500" : "border-transparent hover:scale-110"}`}
                   style={{ backgroundColor: c, boxShadow: c === "#ffffff" ? "inset 0 0 0 1px #e2e8f0" : undefined }}
                 />
               ))}
@@ -312,78 +357,112 @@ export default function Whiteboard() {
 
             {/* Actions */}
             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={undo} disabled={history.length === 0} className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40">
-                    <Undo2 className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Desfazer</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={redo} disabled={redoStack.length === 0} className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40">
-                    <Redo2 className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Refazer</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={clearCanvas} className="p-1.5 rounded-md text-red-500 hover:bg-red-50">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Limpar tudo</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={exportPNG} className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100">
-                    <Download className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Exportar PNG</TooltipContent>
-              </Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={undo} disabled={history.length === 0} className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40"><Undo2 className="h-4 w-4" /></button>
+              </TooltipTrigger><TooltipContent>Desfazer</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={redo} disabled={redoStack.length === 0} className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40"><Redo2 className="h-4 w-4" /></button>
+              </TooltipTrigger><TooltipContent>Refazer</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={clearCanvas} className="p-1.5 rounded-md text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+              </TooltipTrigger><TooltipContent>Limpar página</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={exportPNG} className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100"><Download className="h-4 w-4" /></button>
+              </TooltipTrigger><TooltipContent>Exportar PNG</TooltipContent></Tooltip>
             </div>
           </>
-        )}
-      </div>
+          {saveMut.isPending && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-400 ml-auto">
+              <Save className="h-3.5 w-3.5 animate-pulse" /> Salvando...
+            </div>
+          )}
+        </div>
 
-      {!selectedCrsId ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50" style={{ height: "70vh" }}>
-          <Layout className="h-16 w-16 mb-4 text-gray-300" />
-          <p className="text-lg font-medium text-gray-500">Selecione um Contrato</p>
-          <p className="text-sm mt-1 text-gray-400">Escolha um Contrato para abrir o quadro branco</p>
+        {/* Canvas area */}
+        <div className="flex-1 relative overflow-hidden bg-gray-100" style={{ cursor }}>
+          <canvas
+            ref={canvasRef}
+            width={2400}
+            height={1600}
+            style={{
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              transformOrigin: "0 0",
+              touchAction: "none",
+              display: "block",
+              background: "#ffffff",
+              boxShadow: "0 2px 16px rgba(0,0,0,0.10)",
+            }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+          />
+          {sortedBoards.length > 0 && (
+            <div className="absolute top-3 right-3 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 pointer-events-none">
+              {sortedBoards.find(b => b.pageIndex === activePage)?.title ?? `Página ${activePage + 1}`}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="rounded-xl border border-gray-200 bg-gray-100 overflow-hidden relative" style={{ height: "70vh" }}>
-          <div
-            className="absolute inset-0 overflow-hidden"
-            style={{ cursor }}
-          >
-            <canvas
-              ref={canvasRef}
-              width={2400}
-              height={1600}
-              style={{
-                transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-                transformOrigin: "0 0",
-                touchAction: "none",
-                display: "block",
-                background: "#ffffff",
-              }}
-              onMouseDown={onMouseDown}
-              onMouseMove={onMouseMove}
-              onMouseUp={onMouseUp}
-              onMouseLeave={onMouseUp}
-            />
-          </div>
-          {/* CRS label */}
-          <div className="absolute top-3 right-3 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 pointer-events-none">
-            {selectedCrs?.name}
-          </div>
+
+        {/* Page tabs */}
+        <div className="flex items-center gap-1 px-4 py-2 bg-white border-t overflow-x-auto">
+          {sortedBoards.map((board: any) => (
+            <div
+              key={board.id}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-t-md text-sm cursor-pointer border-b-2 transition-colors flex-shrink-0 ${
+                activePage === board.pageIndex
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 font-medium"
+                  : "border-transparent text-gray-600 hover:bg-gray-100"
+              }`}
+              onClick={() => setActivePage(board.pageIndex)}
+            >
+              {editingTitle === board.id ? (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <Input
+                    value={editTitleVal}
+                    onChange={e => setEditTitleVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") confirmRename(board); if (e.key === "Escape") setEditingTitle(null); }}
+                    className="h-6 text-xs w-28 px-1"
+                    autoFocus
+                  />
+                  <button onClick={() => confirmRename(board)} className="text-green-600 hover:text-green-700"><Check className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => setEditingTitle(null)} className="text-gray-400 hover:text-gray-600"><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ) : (
+                <>
+                  <span className="max-w-[120px] truncate">{board.title}</span>
+                  {activePage === board.pageIndex && (
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <button onClick={e => { e.stopPropagation(); startRename(board); }} className="text-gray-400 hover:text-indigo-600 p-0.5 rounded"><Edit2 className="h-3 w-3" /></button>
+                      {sortedBoards.length > 1 && (
+                        <button onClick={e => { e.stopPropagation(); deletePage(board); }} className="text-gray-400 hover:text-red-500 p-0.5 rounded"><X className="h-3 w-3" /></button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+          {pendingNewPage ? (
+            <div className="flex items-center gap-1 px-2 py-1 border border-indigo-300 rounded-md bg-indigo-50 flex-shrink-0">
+              <Input
+                value={newPageTitle}
+                onChange={e => setNewPageTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") confirmAddPage(); if (e.key === "Escape") setPendingNewPage(false); }}
+                placeholder="Nome da página"
+                className="h-6 text-xs w-28 px-1"
+                autoFocus
+              />
+              <button onClick={confirmAddPage} className="text-green-600 hover:text-green-700"><Check className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setPendingNewPage(false)} className="text-gray-400 hover:text-gray-600"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          ) : (
+            <button onClick={addPage} className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors flex-shrink-0">
+              <Plus className="h-3.5 w-3.5" /> Nova página
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </AppLayout>
   );
 }
