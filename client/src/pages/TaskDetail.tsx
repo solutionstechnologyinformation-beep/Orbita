@@ -125,6 +125,7 @@ export default function TaskDetail() {
   const checklist = (task?.checklist ?? []) as any[];
   const comments = (task?.comments ?? []) as any[];
   const phaseHistory = (task?.phaseHistory ?? []) as any[];
+  const checklistHistory = (task?.checklistHistory ?? []) as any[];
   const phases = (phasesQ.data ?? []) as any[];
   const doneCount = checklist.filter((i: any) => i.status === "published" || i.status === "archived").length;
   const progress = checklist.length > 0 ? Math.round((doneCount / checklist.length) * 100) : task?.progress ?? 0;
@@ -318,7 +319,7 @@ export default function TaskDetail() {
             </TabsTrigger>
             <TabsTrigger value="history">
               <History className="h-4 w-4 mr-1" />
-              Historico ({phaseHistory.length})
+              Histórico ({phaseHistory.length + checklistHistory.length})
             </TabsTrigger>
           </TabsList>
 
@@ -594,38 +595,90 @@ export default function TaskDetail() {
           </TabsContent>
 
           <TabsContent value="history">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Historico de Movimentacoes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {phaseHistory.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhuma movimentacao registrada</p>
-                ) : (
-                  <div className="space-y-3">
-                    {phaseHistory.map((h: any, idx: number) => (
-                      <div key={h.id ?? idx} className="flex gap-3 items-start">
-                        <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                        <div>
-                          <p className="text-sm">
-                            <span className="font-medium">{h.changedByName ?? "Sistema"}</span>
-                            {" moveu de "}
-                            <Badge variant="outline" className="text-xs">{h.fromPhaseName ?? "inicio"}</Badge>
-                            {" para "}
-                            <Badge variant="outline" className="text-xs">{h.toPhaseName ?? "desconhecida"}</Badge>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {h.changedAt
-                              ? formatDistanceToNow(new Date(h.changedAt), { addSuffix: true, locale: ptBR })
-                              : ""}
-                          </p>
+            <div className="space-y-4">
+              {/* Phase history */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Movimentações de Fase
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {phaseHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma movimentação registrada</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {phaseHistory.map((h: any, idx: number) => (
+                        <div key={h.id ?? idx} className="flex gap-3 items-start">
+                          <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
+                          <div>
+                            <p className="text-sm">
+                              <span className="font-medium">{h.changedByName ?? "Sistema"}</span>
+                              {" moveu de "}
+                              <Badge variant="outline" className="text-xs">{h.fromPhaseName ?? "início"}</Badge>
+                              {" para "}
+                              <Badge variant="outline" className="text-xs">{h.toPhaseName ?? "desconhecida"}</Badge>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {h.changedAt
+                                ? formatDistanceToNow(new Date(h.changedAt), { addSuffix: true, locale: ptBR })
+                                : ""}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              {/* Checklist history */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4" />
+                    Histórico de Checklist
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {checklistHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma alteração de checklist registrada</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {checklistHistory.map((h: any, idx: number) => {
+                        const STATUS_LABEL: Record<string, string> = {
+                          pending: "Para Iniciar",
+                          in_progress: "Em Andamento",
+                          shared: "Em Revisão",
+                          published: "Aprovado",
+                          archived: "Arquivado",
+                          blocked: "Bloqueado",
+                        };
+                        return (
+                          <div key={h.id ?? idx} className="flex gap-3 items-start">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
+                            <div>
+                              <p className="text-sm">
+                                <span className="font-medium">{h.changedByName ?? "Sistema"}</span>
+                                {" alterou status de "}
+                                <Badge variant="outline" className="text-xs">{STATUS_LABEL[h.fromStatus] ?? h.fromStatus ?? "—"}</Badge>
+                                {" para "}
+                                <Badge variant="outline" className="text-xs">{STATUS_LABEL[h.toStatus] ?? h.toStatus}</Badge>
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {h.changedAt
+                                  ? formatDistanceToNow(new Date(h.changedAt), { addSuffix: true, locale: ptBR })
+                                  : ""}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

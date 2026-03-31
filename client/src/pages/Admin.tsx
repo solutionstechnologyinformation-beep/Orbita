@@ -9,8 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, Users, Building2, Layers, Tag, Globe, Archive, RotateCcw } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  Plus, Trash2, Edit2, Users, Building2, Tag, Globe, Archive, RotateCcw,
+  ClipboardList, User, Layers, Loader2,
+} from "lucide-react";
 
 const COUNTRIES = [
   "Brasil","Argentina","Chile","Colombia","Peru","Uruguai","Paraguai","Bolivia","Venezuela","Ecuador",
@@ -26,9 +32,108 @@ const ROLES = [
   { value: "admin", label: "Admin" },
 ];
 
+const ACTION_LABELS: Record<string, string> = {
+  created_task: "Criou tarefa",
+  updated_task: "Atualizou tarefa",
+  deleted_task: "Excluiu tarefa",
+  moved_task: "Moveu tarefa",
+  created_client: "Criou cliente",
+  updated_client: "Atualizou cliente",
+  deleted_client: "Excluiu cliente",
+  created_crs: "Criou contrato",
+  updated_crs: "Atualizou contrato",
+  archived_crs: "Arquivou contrato",
+  restored_crs: "Restaurou contrato",
+  created_checklist_item: "Criou item de checklist",
+  updated_checklist_item: "Atualizou checklist",
+  deleted_checklist_item: "Excluiu checklist",
+  updated_checklist_status: "Alterou status de checklist",
+  login: "Login",
+  logout: "Logout",
+};
+
+// ── UserDisciplinesDialog ────────────────────────────────────────────────────
+function UserDisciplinesDialog({
+  user: targetUser,
+  disciplines,
+  onClose,
+}: {
+  user: any;
+  disciplines: any[];
+  onClose: () => void;
+}) {
+  const utils = trpc.useUtils();
+  const discQ = trpc.users.getDisciplines.useQuery({ userId: targetUser.id });
+  const setDiscM = trpc.users.setDisciplines.useMutation({
+    onSuccess: () => {
+      utils.users.getDisciplines.invalidate({ userId: targetUser.id });
+      toast.success("Disciplinas atualizadas!");
+      onClose();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const assigned: string[] = (discQ.data ?? []).map((d: any) => d.disciplineName);
+  const [selected, setSelected] = useState<string[]>(assigned);
+
+  // Sync when data loads
+  const [synced, setSynced] = useState(false);
+  if (!synced && discQ.data) {
+    setSelected((discQ.data ?? []).map((d: any) => d.disciplineName));
+    setSynced(true);
+  }
+
+  function toggle(name: string) {
+    setSelected((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Layers className="w-4 h-4" />
+            Disciplinas de {targetUser.name ?? targetUser.email}
+          </DialogTitle>
+        </DialogHeader>
+        {discQ.isLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {disciplines.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma disciplina cadastrada</p>
+            )}
+            {disciplines.map((d: any) => (
+              <label key={d.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer">
+                <Checkbox
+                  checked={selected.includes(d.name)}
+                  onCheckedChange={() => toggle(d.name)}
+                />
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color ?? "#6366f1" }} />
+                <span className="text-sm font-medium text-foreground">{d.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            onClick={() => setDiscM.mutate({ userId: targetUser.id, disciplines: selected })}
+            disabled={setDiscM.isPending}
+          >
+            {setDiscM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
-  
   const isAdmin = user?.role === "admin" || user?.role === "master_admin";
 
   // Clients state
@@ -48,12 +153,20 @@ export default function Admin() {
 
   // Users state
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
+  const [editingUserDisc, setEditingUserDisc] = useState<any>(null);
+
+  // Registros state
+  const [registrosFilter, setRegistrosFilter] = useState("all");
 
   const clientsQ = trpc.clients.list.useQuery();
   const crsQ = trpc.crs.list.useQuery();
   const archivedCrsQ = trpc.crs.listArchived.useQuery(undefined, { enabled: showArchivedCrs });
   const disciplinesQ = trpc.disciplines.list.useQuery();
   const usersQ = trpc.users.list.useQuery();
+  const registrosQ = trpc.registros.list.useQuery({
+    limit: 300,
+    entityType: registrosFilter !== "all" ? registrosFilter : undefined,
+  });
   const utils = trpc.useUtils();
 
   // Client mutations
@@ -106,6 +219,7 @@ export default function Admin() {
   const archivedCrsList = (archivedCrsQ.data ?? []) as any[];
   const disciplines = (disciplinesQ.data ?? []) as any[];
   const users = (usersQ.data ?? []) as any[];
+  const registros = (registrosQ.data ?? []) as any[];
 
   if (!isAdmin) {
     return (
@@ -151,15 +265,16 @@ export default function Admin() {
     <AppLayout>
       <div className="max-w-5xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Administracao</h1>
+          <h1 className="text-2xl font-bold text-foreground">Administração</h1>
         </div>
 
         <Tabs defaultValue="clients">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap h-auto gap-1">
             <TabsTrigger value="clients"><Building2 className="w-4 h-4 mr-1.5" />Clientes</TabsTrigger>
             <TabsTrigger value="crs"><Globe className="w-4 h-4 mr-1.5" />Contrato</TabsTrigger>
             <TabsTrigger value="disciplines"><Tag className="w-4 h-4 mr-1.5" />Disciplinas</TabsTrigger>
-            <TabsTrigger value="users"><Users className="w-4 h-4 mr-1.5" />Usuarios</TabsTrigger>
+            <TabsTrigger value="users"><Users className="w-4 h-4 mr-1.5" />Usuários</TabsTrigger>
+            <TabsTrigger value="registros"><ClipboardList className="w-4 h-4 mr-1.5" />Registros</TabsTrigger>
           </TabsList>
 
           {/* CLIENTS TAB */}
@@ -214,7 +329,7 @@ export default function Admin() {
                     <p className="text-xs text-muted-foreground">{crs.clientName} · {crs.country ?? "---"}{crs.state ? ", " + crs.state : ""}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-bold text-primary">{crs.progress ?? 0}%</p>
+                    <p className="text-xs font-bold text-primary">{Math.round(crs.progress ?? 0)}%</p>
                     <p className="text-xs text-muted-foreground">progresso</p>
                   </div>
                   <Button size="sm" variant="ghost" onClick={() => openEditCrs(crs)}><Edit2 className="w-4 h-4" /></Button>
@@ -277,7 +392,7 @@ export default function Admin() {
           {/* USERS TAB */}
           <TabsContent value="users">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Usuarios ({users.length})</h2>
+              <h2 className="text-lg font-semibold text-foreground">Usuários ({users.length})</h2>
             </div>
             <div className="grid gap-3">
               {users.map((u: any) => (
@@ -301,16 +416,95 @@ export default function Admin() {
                   ) : (
                     <div className="flex items-center gap-2">
                       <Badge variant={u.role === "admin" || u.role === "master_admin" ? "default" : "outline"} className="text-xs capitalize">{u.role}</Badge>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingUserRole({ id: u.id, role: u.role })}><Edit2 className="w-4 h-4" /></Button>
+                      <Button size="sm" variant="ghost" title="Gerenciar disciplinas" onClick={() => setEditingUserDisc(u)}>
+                        <Layers className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingUserRole({ id: u.id, role: u.role })}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   )}
                 </div>
               ))}
-              {users.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum usuario encontrado</p>}
+              {users.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum usuário encontrado</p>}
             </div>
+          </TabsContent>
+
+          {/* REGISTROS TAB */}
+          <TabsContent value="registros">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                Registros de Auditoria
+                {registros.length > 0 && <span className="ml-2 text-sm font-normal text-muted-foreground">({registros.length})</span>}
+              </h2>
+              <Select value={registrosFilter} onValueChange={setRegistrosFilter}>
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="task">Tarefas</SelectItem>
+                  <SelectItem value="checklist_item">Checklist</SelectItem>
+                  <SelectItem value="client">Clientes</SelectItem>
+                  <SelectItem value="crs">Contratos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {registrosQ.isLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            ) : registros.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>Nenhum registro encontrado</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {registros.map((r: any) => (
+                  <div key={r.id} className="flex items-start gap-3 p-3 bg-card border border-border rounded-xl text-sm">
+                    <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <User className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-foreground">{r.userName ?? "Sistema"}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {ACTION_LABELS[r.action] ?? r.action}
+                        </Badge>
+                        {r.entityType && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                            {r.entityType}
+                          </Badge>
+                        )}
+                      </div>
+                      {r.metadata && (() => {
+                        try {
+                          const meta = typeof r.metadata === "string" ? JSON.parse(r.metadata) : r.metadata;
+                          const label = meta.title ?? meta.name ?? meta.taskTitle ?? meta.checklistTitle ?? "";
+                          return label ? <p className="text-xs text-muted-foreground mt-0.5 truncate">"{label}"</p> : null;
+                        } catch { return null; }
+                      })()}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 mt-0.5">
+                      {r.createdAt
+                        ? formatDistanceToNow(new Date(r.createdAt), { addSuffix: true, locale: ptBR })
+                        : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* User Disciplines Dialog */}
+      {editingUserDisc && (
+        <UserDisciplinesDialog
+          user={editingUserDisc}
+          disciplines={disciplines}
+          onClose={() => setEditingUserDisc(null)}
+        />
+      )}
 
       {/* Client Dialog */}
       <Dialog open={showClientDialog} onOpenChange={(o) => { setShowClientDialog(o); if (!o) setEditingClient(null); }}>
@@ -327,14 +521,14 @@ export default function Admin() {
                 </div>
               </div>
               <div>
-                <Label>Pais</Label>
+                <Label>País</Label>
                 <Select value={clientForm.country} onValueChange={(v) => setClientForm({ ...clientForm, country: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-            <div><Label>Observacoes</Label><Input value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} placeholder="Observacoes opcionais" /></div>
+            <div><Label>Observações</Label><Input value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} placeholder="Observações opcionais" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowClientDialog(false)}>Cancelar</Button>
@@ -359,19 +553,19 @@ export default function Admin() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Nome *</Label><Input value={crsForm.name} onChange={(e) => setCrsForm({ ...crsForm, name: e.target.value })} placeholder="Nome do Contrato" /></div>
-              <div><Label>Codigo</Label><Input value={crsForm.code} onChange={(e) => setCrsForm({ ...crsForm, code: e.target.value })} placeholder="Ex: CRS-001" /></div>
+              <div><Label>Código</Label><Input value={crsForm.code} onChange={(e) => setCrsForm({ ...crsForm, code: e.target.value })} placeholder="Ex: CRS-001" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Pais</Label>
+                <Label>País</Label>
                 <Select value={crsForm.country} onValueChange={(v) => setCrsForm({ ...crsForm, country: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Estado / Regiao</Label><Input value={crsForm.state} onChange={(e) => setCrsForm({ ...crsForm, state: e.target.value })} placeholder="Ex: Sao Paulo" /></div>
+              <div><Label>Estado / Região</Label><Input value={crsForm.state} onChange={(e) => setCrsForm({ ...crsForm, state: e.target.value })} placeholder="Ex: São Paulo" /></div>
             </div>
-            <div><Label>Descricao</Label><Input value={crsForm.description} onChange={(e) => setCrsForm({ ...crsForm, description: e.target.value })} placeholder="Descricao opcional" /></div>
+            <div><Label>Descrição</Label><Input value={crsForm.description} onChange={(e) => setCrsForm({ ...crsForm, description: e.target.value })} placeholder="Descrição opcional" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCrsDialog(false)}>Cancelar</Button>
@@ -395,7 +589,7 @@ export default function Admin() {
                 <Input value={disciplineForm.color} onChange={(e) => setDisciplineForm({ ...disciplineForm, color: e.target.value })} className="flex-1 text-xs" />
               </div>
             </div>
-            <div><Label>Descricao</Label><Input value={disciplineForm.description} onChange={(e) => setDisciplineForm({ ...disciplineForm, description: e.target.value })} placeholder="Descricao opcional" /></div>
+            <div><Label>Descrição</Label><Input value={disciplineForm.description} onChange={(e) => setDisciplineForm({ ...disciplineForm, description: e.target.value })} placeholder="Descrição opcional" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDisciplineDialog(false)}>Cancelar</Button>

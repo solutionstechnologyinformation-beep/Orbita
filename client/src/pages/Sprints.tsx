@@ -53,6 +53,8 @@ export default function Sprints() {
   const [showCreate, setShowCreate] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [checklistSearch, setChecklistSearch] = useState("");
+  const [checklistFilterClientId, setChecklistFilterClientId] = useState<number | undefined>(undefined);
+  const [checklistFilterCrsId, setChecklistFilterCrsId] = useState<number | undefined>(undefined);
   const [form, setForm] = useState({
     name: "",
     goal: "",
@@ -85,10 +87,14 @@ export default function Sprints() {
     { sprintId: selectedSprintId! },
     { enabled: !!selectedSprintId }
   );
-  // All checklist items for the selected CRS (to pick from)
+  // All checklist items (filterable by client/contract for adding to sprint)
   const allChecklistQ = trpc.sprints.listAvailableChecklistItems.useQuery(
-    { crsId: crsId! },
-    { enabled: !!crsId }
+    { crsId: checklistFilterCrsId, clientId: checklistFilterClientId },
+    { enabled: !!selectedSprintId }
+  );
+  // Filtered contracts for checklist filter
+  const checklistFilteredCrs = (crsQ.data ?? []).filter((c: any) =>
+    checklistFilterClientId ? c.clientId === checklistFilterClientId : true
   );
 
   const utils = trpc.useUtils();
@@ -140,7 +146,13 @@ export default function Sprints() {
     if (inSprintIds.has(i.id)) return false;
     if (!checklistSearch.trim()) return true;
     const q = checklistSearch.toLowerCase();
-    return i.title?.toLowerCase().includes(q) || i.taskTitle?.toLowerCase().includes(q) || i.taskSetor?.toLowerCase().includes(q);
+    return (
+      i.title?.toLowerCase().includes(q) ||
+      i.taskTitle?.toLowerCase().includes(q) ||
+      i.taskSetor?.toLowerCase().includes(q) ||
+      i.crsName?.toLowerCase().includes(q) ||
+      i.clientName?.toLowerCase().includes(q)
+    );
   });
 
   function handleCreate() {
@@ -610,25 +622,43 @@ export default function Sprints() {
                             ) : (
                               <div className="space-y-1.5">
                                 {sprintChecklistItems.map((item: any) => (
-                                  <div key={item.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                  <div key={item.id} className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100">
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium truncate">{item.title}</p>
-                                      <p className="text-xs text-gray-500 truncate">{item.taskSetor ?? "—"} • {item.taskTitle ?? "—"}</p>
+                                      <p className="text-sm font-semibold truncate">{item.title}</p>
+                                      {/* Origin info: client > contract > discipline > task */}
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {item.clientName && (
+                                          <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{item.clientName}</span>
+                                        )}
+                                        {item.crsName && (
+                                          <span className="text-xs bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">
+                                            {item.crsCode ? `${item.crsCode} — ` : ""}{item.crsName}
+                                          </span>
+                                        )}
+                                        {item.taskSetor && (
+                                          <span className="text-xs bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">{item.taskSetor}</span>
+                                        )}
+                                        {item.taskTitle && (
+                                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded truncate max-w-[160px]">{item.taskTitle}</span>
+                                        )}
+                                      </div>
                                       {item.assigneeName && (
-                                        <span className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                        <span className="text-xs text-gray-400 flex items-center gap-1 mt-1">
                                           <User className="h-3 w-3" />{item.assigneeName}
                                         </span>
                                       )}
                                     </div>
-                                    <Badge variant="outline" className="text-xs shrink-0">{TASK_STATUS_LABELS[item.status] ?? item.status}</Badge>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-red-400 hover:text-red-600 shrink-0"
-                                      onClick={() => removeChecklistItemMut.mutate({ sprintId: selectedSprint.id, checklistItemId: item.checklistItemId })}
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </Button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Badge variant="outline" className="text-xs">{TASK_STATUS_LABELS[item.status] ?? item.status}</Badge>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-red-400 hover:text-red-600"
+                                        onClick={() => removeChecklistItemMut.mutate({ sprintId: selectedSprint.id, checklistItemId: item.checklistItemId })}
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -637,27 +667,77 @@ export default function Sprints() {
                             {/* Add items section */}
                             <div className="border-t pt-3">
                               <p className="text-xs font-medium text-gray-600 mb-2">Adicionar itens de checklist</p>
+                              {/* Cascade filters: Client → Contract */}
+                              <div className="grid grid-cols-2 gap-2 mb-2">
+                                <Select
+                                  value={checklistFilterClientId?.toString() ?? "all"}
+                                  onValueChange={v => {
+                                    const id = v === "all" ? undefined : Number(v);
+                                    setChecklistFilterClientId(id);
+                                    setChecklistFilterCrsId(undefined);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue placeholder="Todos os clientes" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Todos os clientes</SelectItem>
+                                    {(clientsQ.data ?? []).map((c: any) => (
+                                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Select
+                                  value={checklistFilterCrsId?.toString() ?? "all"}
+                                  onValueChange={v => setChecklistFilterCrsId(v === "all" ? undefined : Number(v))}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue placeholder="Todos os contratos" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Todos os contratos</SelectItem>
+                                    {checklistFilteredCrs.map((c: any) => (
+                                      <SelectItem key={c.id} value={c.id.toString()}>
+                                        {c.code ? `${c.code} — ` : ""}{c.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               <div className="relative mb-2">
                                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                                 <input
                                   type="text"
-                                  placeholder="Buscar por título, tarefa ou disciplina..."
+                                  placeholder="Buscar por título, disciplina, contrato..."
                                   className="w-full pl-7 pr-3 h-8 text-xs border border-border rounded-md bg-background"
                                   value={checklistSearch}
                                   onChange={e => setChecklistSearch(e.target.value)}
                                 />
                               </div>
-                              {availableItems.length === 0 ? (
+                              {allChecklistQ.isLoading ? (
+                                <p className="text-xs text-gray-400 text-center py-2">Carregando itens...</p>
+                              ) : availableItems.length === 0 ? (
                                 <p className="text-xs text-gray-400 text-center py-2">
-                                  {allChecklistItems.length === 0 ? "Nenhum item de checklist neste Contrato." : "Todos os itens já estão na sprint."}
+                                  {allChecklistItems.length === 0 ? "Nenhum item de checklist encontrado." : "Todos os itens já estão na sprint."}
                                 </p>
                               ) : (
-                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                <div className="space-y-1 max-h-52 overflow-y-auto">
                                   {availableItems.map((item: any) => (
-                                    <div key={item.id} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer group">
+                                    <div key={item.id} className="flex items-start gap-2 p-1.5 hover:bg-gray-50 rounded group">
                                       <div className="flex-1 min-w-0">
                                         <p className="text-xs font-medium truncate">{item.title}</p>
-                                        <p className="text-xs text-gray-400 truncate">{item.taskSetor ?? "—"} • {item.taskTitle ?? "—"}</p>
+                                        <div className="flex flex-wrap gap-1 mt-0.5">
+                                          {item.clientName && (
+                                            <span className="text-xs text-blue-600">{item.clientName}</span>
+                                          )}
+                                          {item.crsName && (
+                                            <span className="text-xs text-gray-400">• {item.crsCode ? `${item.crsCode} ` : ""}{item.crsName}</span>
+                                          )}
+                                          {item.taskSetor && (
+                                            <span className="text-xs text-purple-500">• {item.taskSetor}</span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-gray-400 truncate">{item.taskTitle}</p>
                                       </div>
                                       <Button
                                         size="sm"

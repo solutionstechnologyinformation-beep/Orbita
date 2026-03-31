@@ -5,6 +5,7 @@ import { useLocation } from "wouter";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import {
   AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp,
@@ -599,7 +600,7 @@ export default function Dashboard() {
               },
               {
                 label: "Área Total",
-                value: allCrs.reduce((s: number, c: any) => s + (Number(c.areaHa) || 0), 0).toFixed(1) + " ha",
+                value: allCrs.reduce((s: number, c: any) => s + (Number(c.areaHa) || 0), 0).toFixed(0) + " m²",
                 icon: MapPin,
                 color: "text-violet-400",
                 bg: "bg-violet-500/10",
@@ -793,6 +794,70 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ── Tipo de Obra Chart ── */}
+        {!isLoading && allCrs.length > 0 && (() => {
+          // Build data: count CRS per tipoObra
+          const countMap: Record<string, number> = {};
+          for (const c of allCrs) {
+            const types = parseTipoObra(c.tipoObra);
+            if (types.length === 0) { countMap["outro"] = (countMap["outro"] ?? 0) + 1; }
+            else { for (const t of types) { countMap[t] = (countMap[t] ?? 0) + 1; } }
+          }
+          const chartData = Object.entries(countMap)
+            .map(([key, count]) => ({
+              name: TIPO_OBRA_MAP[key] ?? key,
+              count,
+              color: TIPO_OBRA_COLOR[key] ?? "#94a3b8",
+            }))
+            .sort((a, b) => b.count - a.count);
+          if (chartData.length === 0) return null;
+          return (
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-blue-400" />
+                Contratos por Tipo de Obra
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                {/* Bar chart */}
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                    <RechartsTooltip
+                      formatter={(value: number) => [`${value} contrato${value !== 1 ? "s" : ""}`, "Total"]}
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 8,
+                        color: "hsl(var(--foreground))",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {chartData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                {/* Legend cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  {chartData.map((d) => (
+                    <div key={d.name} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{d.name}</p>
+                        <p className="text-lg font-bold text-foreground">{d.count}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── World Map ── */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -865,7 +930,7 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground mt-0.5">Tipo: {parseTipoObra(selectedMapCrs.tipoObra).map((t: string) => TIPO_OBRA_MAP[t] ?? t).join(", ")}</p>
                 )}
                 {selectedMapCrs.extensaoKm != null && <p className="text-xs text-muted-foreground">Extensão: {selectedMapCrs.extensaoKm} km</p>}
-                {selectedMapCrs.areaHa != null && <p className="text-xs text-muted-foreground">Área: {selectedMapCrs.areaHa} ha</p>}
+                {selectedMapCrs.areaHa != null && <p className="text-xs text-muted-foreground">Área: {selectedMapCrs.areaHa} m²</p>}
                 {selectedMapCrs.perimetroUrbano != null && <p className="text-xs text-muted-foreground">Perím. urbanos: {selectedMapCrs.perimetroUrbano}</p>}
                 <div className="mt-1.5 pt-1.5 border-t border-border flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{Math.round(selectedMapCrs.progress ?? 0)}% concluído</span>

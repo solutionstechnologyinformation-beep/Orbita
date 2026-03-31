@@ -611,3 +611,18 @@
 - [x] Dashboard: Minhas Tarefas mostra TODAS as tarefas atribuídas ao usuário (procedure dashboard.myTasks)
 - [x] Dashboard PDF: tabela de contratos usa progress real e exibe código do contrato
 - [x] Usuários duplicados: verificado e corrigido no banco (tarefas migradas para ID OAuth)
+
+## Melhorias v5.6 — Sprint, m², Kanban por Disciplina, Tipos de Obra, Registros, Notificações
+- [ ] Sprint: corrigir inclusão de checklist com info de cliente, contrato, disciplina e item de origem
+- [x] Sprint: unidade de área corrigida para m²
+- [x] Kanban: definir disciplinas de responsabilidade do usuário (perfil/admin)
+- [x] Kanban: mostrar somente colunas das disciplinas de responsabilidade do usuário logado
+- [ ] Tipos de obra: campo extensão e área distintos por tipo de obra
+- [ ] Dashboard: extensões e áreas separadas por tipo de obra
+- [x] Checklist: histórico de modificações (quem fez, o quê, quando)
+- [x] Aba Registros: log global de todas as modificações do sistema (usuário, data, hora, ação)
+- [x] Notificações: nova mensagem no chat
+- [x] Notificações: nova tarefa atribuída ao usuário
+- [x] Notificações: @menção em comentário
+- [x] Notificações: entrega do usuário dentro de 5 dias
+- [x] Notificações: tarefas em atraso

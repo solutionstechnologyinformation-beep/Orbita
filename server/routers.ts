@@ -21,6 +21,7 @@ import {
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
   getClientProgress, getCrsDisciplineProgress, getYearlyStats,
   getWhiteboardsByUser, saveWhiteboard, deleteWhiteboard, renameWhiteboard,
+  getUserDisciplines, setUserDisciplines, getActivityLogs,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -61,8 +62,7 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
-
-  // ─── Users ─────────────────────────────────────────────────────────────────
+  // ─── Users ────────────────────────────────────────────────────────────────────────
   users: router({
     list: protectedProcedure.query(async () => {
       return getAllUsers();
@@ -72,6 +72,33 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await updateUser(input.userId, { role: input.role as any });
         return { success: true };
+      }),
+    // Disciplinas de responsabilidade do usuário
+    getDisciplines: protectedProcedure
+      .input(z.object({ userId: z.number().optional() }))
+      .query(async ({ ctx, input }) => {
+        const uid = input.userId ?? ctx.user.id;
+        return getUserDisciplines(uid);
+      }),
+    setDisciplines: adminProcedure
+      .input(z.object({ userId: z.number(), disciplines: z.array(z.string()) }))
+      .mutation(async ({ input }) => {
+        await setUserDisciplines(input.userId, input.disciplines);
+        return { success: true };
+      }),
+    setMyDisciplines: protectedProcedure
+      .input(z.object({ disciplines: z.array(z.string()) }))
+      .mutation(async ({ ctx, input }) => {
+        await setUserDisciplines(ctx.user.id, input.disciplines);
+        return { success: true };
+      }),
+  }),
+  // ─── Registros (Activity Logs) ───────────────────────────────────────────────────────────
+  registros: router({
+    list: adminProcedure
+      .input(z.object({ limit: z.number().optional(), userId: z.number().optional(), entityType: z.string().optional() }))
+      .query(async ({ input }) => {
+        return getActivityLogs({ limit: input.limit ?? 200, userId: input.userId, entityType: input.entityType });
       }),
   }),
 
@@ -370,6 +397,26 @@ export const appRouter = router({
             toPhaseName: toPhase?.name ?? "Desconhecida",
           });
         }
+        // Notify new assignee if changed
+        if (data.assigneeId !== undefined && data.assigneeId !== null && data.assigneeId !== task.assigneeId && data.assigneeId !== ctx.user.id) {
+          await notifyUser({
+            userId: data.assigneeId,
+            title: "Tarefa reatribuída a você",
+            message: `A tarefa "${task.title}" foi atribuída a você.`,
+            notificationType: "task_assigned",
+            relatedTaskId: id,
+          });
+        }
+        // Notify assignee if dueDate is set and already overdue
+        if (data.dueDate && task.assigneeId && new Date(data.dueDate) < new Date()) {
+          await notifyUser({
+            userId: task.assigneeId,
+            title: "Tarefa com prazo vencido",
+            message: `A tarefa "${task.title}" tem prazo vencido.`,
+            notificationType: "task_overdue",
+            relatedTaskId: id,
+          });
+        }
         await updateTask(id, data);
         return { success: true };
       }),
@@ -405,6 +452,42 @@ export const appRouter = router({
       .input(z.object({ taskId: z.number(), content: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
         const id = await createTaskComment({ taskId: input.taskId, userId: ctx.user.id, content: input.content });
+        // Detect @mentions in comment content (e.g., @Nome)
+        try {
+          const task = await getTaskById(input.taskId);
+          const commenterName = ctx.user.name ?? ctx.user.email ?? "Alguém";
+          // Notify task assignee about new comment (if not the commenter)
+          if (task?.assigneeId && task.assigneeId !== ctx.user.id) {
+            await notifyUser({
+              userId: task.assigneeId,
+              title: `Novo comentário em "${task.title}"`,
+              message: `${commenterName}: ${input.content.slice(0, 80)}${input.content.length > 80 ? "..." : ""}`,
+              notificationType: "task_comment",
+              relatedTaskId: input.taskId,
+            });
+          }
+          // Detect @mentions: find @word patterns and match to user names
+          const mentions = input.content.match(/@(\w+)/g);
+          if (mentions && mentions.length > 0) {
+            const allUsers = await getAllUsers();
+            for (const mention of mentions) {
+              const mentionName = mention.slice(1).toLowerCase();
+              const mentionedUser = allUsers.find((u: any) =>
+                (u.name ?? "").toLowerCase().replace(/\s+/g, "").includes(mentionName) ||
+                (u.email ?? "").toLowerCase().split("@")[0].includes(mentionName)
+              );
+              if (mentionedUser && mentionedUser.id !== ctx.user.id) {
+                await notifyUser({
+                  userId: mentionedUser.id,
+                  title: `${commenterName} mencionou você`,
+                  message: `Em "${task?.title ?? "tarefa"}": ${input.content.slice(0, 80)}`,
+                  notificationType: "mention",
+                  relatedTaskId: input.taskId,
+                });
+              }
+            }
+          }
+        } catch {}
         return { id };
       }),
     deleteComment: protectedProcedure
@@ -729,6 +812,21 @@ export const appRouter = router({
       .input(z.object({ conversationId: z.number(), content: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
         const id = await sendDirectMessage({ conversationId: input.conversationId, senderId: ctx.user.id, content: input.content });
+        // Notify other members of the conversation
+        try {
+          const members = await getConversationMembers(input.conversationId);
+          const senderName = ctx.user.name ?? ctx.user.email ?? "Alguém";
+          for (const m of members) {
+            if (m.userId !== ctx.user.id) {
+              await notifyUser({
+                userId: m.userId,
+                title: `Nova mensagem de ${senderName}`,
+                message: input.content.length > 80 ? input.content.slice(0, 80) + "..." : input.content,
+                notificationType: "chat_message" as any,
+              });
+            }
+          }
+        } catch {}
         return { id };
       }),
   }),
@@ -791,15 +889,22 @@ export const appRouter = router({
       .query(async ({ input }) => getSprintChecklistItems(input.sprintId)),
     // All checklist items for a CRS (to pick from when adding to sprint)
     listAvailableChecklistItems: protectedProcedure
-      .input(z.object({ crsId: z.number() }))
+      .input(z.object({ crsId: z.number().optional(), clientId: z.number().optional() }))
       .query(async ({ input }) => {
         const db = await getDb();
-        const { checklistItems: ci, tasks: t, users: u } = await import("../drizzle/schema");
-        const { eq: eq2, inArray } = await import("drizzle-orm");
-        // Get all tasks for this CRS
-        const crsTaskIds = await db.select({ id: t.id }).from(t).where(eq2(t.crsId, input.crsId));
-        if (crsTaskIds.length === 0) return [];
-        const taskIds = crsTaskIds.map((r: any) => r.id);
+        const { checklistItems: ci, tasks: t, users: u, crs: crsTable, clients: clientsTable } = await import("../drizzle/schema");
+        const { eq: eq2, inArray, and: and2 } = await import("drizzle-orm");
+        // Build filter: by crsId, or by clientId, or all
+        let taskQuery = db.select({ id: t.id, crsId: t.crsId }).from(t)
+          .innerJoin(crsTable, eq2(t.crsId, crsTable.id));
+        if (input.crsId) {
+          taskQuery = taskQuery.where(eq2(t.crsId, input.crsId)) as any;
+        } else if (input.clientId) {
+          taskQuery = taskQuery.where(eq2(crsTable.clientId, input.clientId)) as any;
+        }
+        const crsTaskRows = await taskQuery;
+        if (crsTaskRows.length === 0) return [];
+        const taskIds = crsTaskRows.map((r: any) => r.id);
         return db.select({
           id: ci.id,
           title: ci.title,
@@ -811,11 +916,18 @@ export const appRouter = router({
           taskId: ci.taskId,
           taskTitle: t.title,
           taskSetor: t.setor,
+          taskCrsId: t.crsId,
+          crsName: crsTable.name,
+          crsCode: crsTable.code,
+          clientId: clientsTable.id,
+          clientName: clientsTable.name,
         }).from(ci)
           .leftJoin(u, eq2(ci.assigneeId, u.id))
           .innerJoin(t, eq2(ci.taskId, t.id))
+          .innerJoin(crsTable, eq2(t.crsId, crsTable.id))
+          .leftJoin(clientsTable, eq2(crsTable.clientId, clientsTable.id))
           .where(inArray(ci.taskId, taskIds))
-          .orderBy(t.setor, t.title, ci.title);
+          .orderBy(clientsTable.name, crsTable.name, t.setor, t.title, ci.title);
       }),
     addChecklistItem: adminProcedure
       .input(z.object({ sprintId: z.number(), checklistItemId: z.number() }))
@@ -862,6 +974,45 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const success = await notifyOwner(input);
         return { success };
+      }),
+    checkDueSoon: protectedProcedure
+      .mutation(async () => {
+        // Find tasks due within 5 days that haven't been notified yet
+        const db = await getDb();
+        const { tasks: tasksTable } = await import("../drizzle/schema");
+        const { and: and2, isNotNull, lte, gte, ne } = await import("drizzle-orm");
+        const now = new Date();
+        const in5Days = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+        const dueSoonTasks = await db.select({
+          id: tasksTable.id,
+          title: tasksTable.title,
+          assigneeId: tasksTable.assigneeId,
+          dueDate: tasksTable.dueDate,
+        })
+          .from(tasksTable)
+          .where(
+            and2(
+              isNotNull(tasksTable.assigneeId),
+              isNotNull(tasksTable.dueDate),
+              gte(tasksTable.dueDate, now),
+              lte(tasksTable.dueDate, in5Days),
+            )
+          )
+          .limit(100);
+        let notified = 0;
+        for (const t of dueSoonTasks) {
+          if (!t.assigneeId) continue;
+          const daysLeft = Math.ceil((new Date(t.dueDate!).getTime() - now.getTime()) / 86400000);
+          await notifyUser({
+            userId: t.assigneeId,
+            title: `Prazo se aproximando: "${t.title}"`,
+            message: `Esta tarefa vence em ${daysLeft} dia${daysLeft !== 1 ? "s" : ""}.`,
+            notificationType: "task_due",
+            relatedTaskId: t.id,
+          });
+          notified++;
+        }
+        return { notified };
       }),
   }),
 });

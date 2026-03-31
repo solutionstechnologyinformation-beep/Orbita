@@ -207,6 +207,9 @@ export const NOTIFICATION_TYPES = [
   "project_invite",
   "project_update",
   "vacation_conflict",
+  "chat_message",
+  "mention",
+  "task_overdue",
   "system",
 ] as const;
 export type NotificationType = typeof NOTIFICATION_TYPES[number];
@@ -226,6 +229,9 @@ export const notifications = mysqlTable("notifications", {
     "project_invite",
     "project_update",
     "vacation_conflict",
+    "chat_message",
+    "mention",
+    "task_overdue",
     "system",
   ]).default("system").notNull(),
   isRead: boolean("isRead").default(false).notNull(),
@@ -362,6 +368,15 @@ export const sprintChecklistItems = mysqlTable("sprint_checklist_items", {
 });
 export type SprintChecklistItem = typeof sprintChecklistItems.$inferSelect;
 
+// ─── User Disciplines (disciplinas de responsabilidade por usuário) ─────────────
+export const userDisciplines = mysqlTable("user_disciplines", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  disciplineName: varchar("disciplineName", { length: 128 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type UserDiscipline = typeof userDisciplines.$inferSelect;
+export type InsertUserDiscipline = typeof userDisciplines.$inferInsert;
 // ─── Whiteboards ──────────────────────────────────────────────────────────────
 export const whiteboards = mysqlTable("whiteboards", {
   id: int("id").autoincrement().primaryKey(),

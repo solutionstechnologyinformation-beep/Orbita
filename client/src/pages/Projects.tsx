@@ -121,7 +121,7 @@ function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }
         {(crs.extensaoKm != null || crs.areaHa != null || crs.perimetroUrbano != null) && (
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
             {crs.extensaoKm != null && <span><span className="font-medium text-foreground/70">Ext:</span> {crs.extensaoKm} km</span>}
-            {crs.areaHa != null && <span><span className="font-medium text-foreground/70">Área:</span> {crs.areaHa} ha</span>}
+            {crs.areaHa != null && <span><span className="font-medium text-foreground/70">Área:</span> {crs.areaHa} m²</span>}
             {crs.perimetroUrbano != null && <span><span className="font-medium text-foreground/70">Perím.:</span> {crs.perimetroUrbano}</span>}
           </div>
         )}
@@ -341,7 +341,7 @@ export default function Projects() {
           <TipoObraCheckboxes />
           <div className="grid grid-cols-3 gap-3">
             <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
-            <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.01" placeholder="Ex: 120.0" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
+            <div><Label>Área (m²)</Label><Input className="mt-1" type="number" min="0" step="1" placeholder="Ex: 12000" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
             <div><Label>Perím. Urbanos</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
           </div>
         </div>

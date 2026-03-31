@@ -326,11 +326,27 @@ export default function Kanban() {
   );
   const disciplinesQ = trpc.disciplines.list.useQuery();
   const membersQ = trpc.users.list.useQuery();
+  const myDisciplinesQ = trpc.users.getDisciplines.useQuery({ userId: user?.id }, { enabled: !!user?.id });
 
   const phases = phasesQ.data ?? [];
   const allTasks: any[] = tasksQ.data ?? [];
   const disciplines: any[] = disciplinesQ.data ?? [];
   const members: any[] = membersQ.data ?? [];
+  const myDisciplineNames: string[] = (myDisciplinesQ.data ?? []).map((d: any) => d.disciplineName);
+
+  // Auto-hide disciplines not assigned to the current user (only if user has disciplines configured)
+  const [autoFilterApplied, setAutoFilterApplied] = useState(false);
+  useEffect(() => {
+    if (!autoFilterApplied && myDisciplineNames.length > 0 && disciplines.length > 0) {
+      const toHide = disciplines
+        .filter((d: any) => !myDisciplineNames.includes(d.name))
+        .map((d: any) => d.name);
+      if (toHide.length > 0) {
+        setHiddenDisciplines(new Set(toHide));
+      }
+      setAutoFilterApplied(true);
+    }
+  }, [myDisciplineNames.join(","), disciplines.length]);
 
   // Mutations
   const createTaskMut = trpc.tasks.create.useMutation({

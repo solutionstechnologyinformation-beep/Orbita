@@ -1,11 +1,11 @@
-import { eq, and, desc, like, inArray, sql, asc } from "drizzle-orm";
+import { eq, and, desc, like, inArray, sql, asc, aliasedTable } from "drizzle-orm";
 import {
   users, clients, crs, kanbanPhases, tasks, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
   conversations, conversationParticipants, directMessages,
-  sprintChecklistItems, whiteboards,
+  sprintChecklistItems, whiteboards, userDisciplines,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -775,6 +775,7 @@ export async function getSprintsByCrs(crsId: number) {
 // ─── Sprint Checklist Items ────────────────────────────────────────────────────
 export async function getSprintChecklistItems(sprintId: number) {
   const db = await getDb();
+  const assigneeAlias = aliasedTable(users, "assignee");
   return db.select({
     id: sprintChecklistItems.id,
     sprintId: sprintChecklistItems.sprintId,
@@ -790,15 +791,24 @@ export async function getSprintChecklistItems(sprintId: number) {
     assigneeId: checklistItems.assigneeId,
     taskId: checklistItems.taskId,
     // Assignee info
-    assigneeName: users.name,
-    assigneeAvatar: users.avatarUrl,
+    assigneeName: assigneeAlias.name,
+    assigneeAvatar: assigneeAlias.avatarUrl,
     // Task info
     taskTitle: tasks.title,
     taskSetor: tasks.setor,
+    taskCrsId: tasks.crsId,
+    // CRS info
+    crsName: crs.name,
+    crsCode: crs.code,
+    // Client info
+    clientId: clients.id,
+    clientName: clients.name,
   }).from(sprintChecklistItems)
     .innerJoin(checklistItems, eq(sprintChecklistItems.checklistItemId, checklistItems.id))
-    .leftJoin(users, eq(checklistItems.assigneeId, users.id))
+    .leftJoin(assigneeAlias, eq(checklistItems.assigneeId, assigneeAlias.id))
     .leftJoin(tasks, eq(checklistItems.taskId, tasks.id))
+    .leftJoin(crs, eq(tasks.crsId, crs.id))
+    .leftJoin(clients, eq(crs.clientId, clients.id))
     .where(eq(sprintChecklistItems.sprintId, sprintId))
     .orderBy(asc(sprintChecklistItems.addedAt));
 }
@@ -991,4 +1001,44 @@ export async function getMyTasks(userId: number) {
     .leftJoin(crs, eq(tasks.crsId, crs.id))
     .where(eq(tasks.assigneeId, userId))
     .orderBy(asc(tasks.dueDate));
+}
+
+// ─── User Disciplines ─────────────────────────────────────────────────────────
+export async function getUserDisciplines(userId: number) {
+  const db = await getDb();
+  return db.select().from(userDisciplines).where(eq(userDisciplines.userId, userId));
+}
+export async function setUserDisciplines(userId: number, disciplineNames: string[]) {
+  const db = await getDb();
+  await db.delete(userDisciplines).where(eq(userDisciplines.userId, userId));
+  if (disciplineNames.length > 0) {
+    for (const name of disciplineNames) {
+      await db.execute(
+        sql`INSERT INTO user_disciplines (userId, disciplineName, createdAt) VALUES (${userId}, ${name}, NOW())`
+      );
+    }
+  }
+}
+// ─── Activity Logs (Registros) ────────────────────────────────────────────────
+export async function getActivityLogs(filters?: { limit?: number; userId?: number; entityType?: string }) {
+  const db = await getDb();
+  const conditions = [];
+  if (filters?.userId) conditions.push(eq(activityLogs.userId, filters.userId));
+  if (filters?.entityType) conditions.push(eq(activityLogs.entityType, filters.entityType));
+  const query = db.select({
+    id: activityLogs.id,
+    userId: activityLogs.userId,
+    action: activityLogs.action,
+    entityType: activityLogs.entityType,
+    entityId: activityLogs.entityId,
+    metadata: activityLogs.metadata,
+    createdAt: activityLogs.createdAt,
+    userName: users.name,
+    userAvatar: users.avatarUrl,
+  }).from(activityLogs)
+    .leftJoin(users, eq(activityLogs.userId, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(filters?.limit ?? 200);
+  return query;
 }
