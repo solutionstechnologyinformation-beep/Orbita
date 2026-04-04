@@ -48,12 +48,15 @@ function formatTipoObra(keys: TipoObraKey[]): string {
   return keys.map(k => TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k).join(", ");
 }
 
+type TechDataEntry = { extensaoKm?: number | null; areaHa?: number | null };
+type TechDataByType = Record<string, TechDataEntry>;
 type CrsItem = {
   id: number; clientId: number; name: string; code?: string | null;
   description?: string | null; country?: string | null; countryCode?: string | null;
   state?: string | null; stateCode?: string | null; status: string; progress: number;
   clientName?: string | null; clientColor?: string | null;
   tipoObra?: string | null; extensaoKm?: number | null; areaHa?: number | null; perimetroUrbano?: number | null;
+  techDataByType?: string | null;
   derivedStartDate?: Date | null; derivedEndDate?: Date | null;
 };
 type Client = { id: number; name: string; color?: string | null };
@@ -63,6 +66,7 @@ const emptyForm = {
   country: "", countryCode: "", state: "", stateCode: "",
   tiposObra: [] as TipoObraKey[],
   extensaoKm: "", areaHa: "", perimetroUrbano: "",
+  techDataByType: {} as TechDataByType,
 };
 
 // ── CrsCard Component ─────────────────────────────────────────────────────────
@@ -260,6 +264,7 @@ export default function Projects() {
       extensaoKm: form.extensaoKm ? parseFloat(form.extensaoKm) : undefined,
       areaHa: form.areaHa ? parseFloat(form.areaHa) : undefined,
       perimetroUrbano: form.perimetroUrbano ? parseInt(form.perimetroUrbano) : undefined,
+      techDataByType: Object.keys(form.techDataByType).length > 0 ? form.techDataByType : undefined,
     });
   }
 
@@ -274,11 +279,14 @@ export default function Projects() {
       extensaoKm: form.extensaoKm ? parseFloat(form.extensaoKm) : null,
       areaHa: form.areaHa ? parseFloat(form.areaHa) : null,
       perimetroUrbano: form.perimetroUrbano ? parseInt(form.perimetroUrbano) : null,
+      techDataByType: Object.keys(form.techDataByType).length > 0 ? form.techDataByType : null,
     });
   }
 
   function openEdit(crs: CrsItem) {
     setEditingCrs(crs);
+    let techData: TechDataByType = {};
+    try { if (crs.techDataByType) techData = JSON.parse(crs.techDataByType); } catch {}
     setForm({
       clientId: String(crs.clientId), name: crs.name, code: crs.code ?? "",
       description: crs.description ?? "", country: crs.country ?? "",
@@ -287,6 +295,7 @@ export default function Projects() {
       extensaoKm: crs.extensaoKm != null ? String(crs.extensaoKm) : "",
       areaHa: crs.areaHa != null ? String(crs.areaHa) : "",
       perimetroUrbano: crs.perimetroUrbano != null ? String(crs.perimetroUrbano) : "",
+      techDataByType: techData,
     });
   }
 
@@ -337,13 +346,61 @@ export default function Projects() {
     return (
       <div className="border-t border-border pt-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <TipoObraCheckboxes />
-          <div className="grid grid-cols-3 gap-3">
-            <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
-            <div><Label>Área (m²)</Label><Input className="mt-1" type="number" min="0" step="1" placeholder="Ex: 12000" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
+          {/* Perím. Urbanos — campo global */}
+          <div className="grid grid-cols-2 gap-3">
             <div><Label>Perím. Urbanos</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
           </div>
+          {/* Extensão e Área por tipo de obra selecionado */}
+          {form.tiposObra.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground">Medidas por tipo de obra:</p>
+              {form.tiposObra.map((tipoKey) => {
+                const label = TIPO_OBRA_OPTIONS.find(o => o.key === tipoKey)?.label ?? tipoKey;
+                const entry = form.techDataByType[tipoKey] ?? {};
+                return (
+                  <div key={tipoKey} className="bg-muted/40 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-foreground mb-2">{label}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Extensão (km)</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm"
+                          type="number" min="0" step="0.1"
+                          placeholder="Ex: 42.5"
+                          value={entry.extensaoKm != null ? String(entry.extensaoKm) : ""}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : null;
+                            setForm((f) => ({
+                              ...f,
+                              techDataByType: { ...f.techDataByType, [tipoKey]: { ...f.techDataByType[tipoKey], extensaoKm: val } },
+                            }));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Área (m²)</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm"
+                          type="number" min="0" step="1"
+                          placeholder="Ex: 12000"
+                          value={entry.areaHa != null ? String(entry.areaHa) : ""}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : null;
+                            setForm((f) => ({
+                              ...f,
+                              techDataByType: { ...f.techDataByType, [tipoKey]: { ...f.techDataByType[tipoKey], areaHa: val } },
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );

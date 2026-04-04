@@ -60,6 +60,7 @@ export const crs = mysqlTable("crs", {
   extensaoKm: float("extensaoKm"),          // extensão em km (para rodovias/ferrovias)
   areaHa: float("areaHa"),                  // área em hectares
   perimetroUrbano: int("perimetroUrbano"),   // quantidade de perímetros urbanos
+  techDataByType: text("techDataByType"),     // JSON: {"restauracao":{"extensaoKm":55,"areaHa":null},...}
   createdById: int("createdById").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

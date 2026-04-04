@@ -118,7 +118,7 @@ export async function getCrsById(id: number) {
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.id, id)).limit(1);
   return r[0];
 }
-export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; tipoObra?: string; extensaoKm?: number; areaHa?: number; perimetroUrbano?: number; createdById: number }) {
+export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; tipoObra?: string; extensaoKm?: number; areaHa?: number; perimetroUrbano?: number; techDataByType?: string; createdById: number }) {
   const db = await getDb();
   const [result] = await db.execute(
     sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, tipoObra, extensaoKm, areaHa, perimetroUrbano, status, progress, createdById, createdAt, updatedAt)
@@ -1041,4 +1041,29 @@ export async function getActivityLogs(filters?: { limit?: number; userId?: numbe
     .orderBy(desc(activityLogs.createdAt))
     .limit(filters?.limit ?? 200);
   return query;
+}
+// ─── Task Trend (últimos 30 dias) ─────────────────────────────────────────────
+export async function getTaskTrend(clientId?: number) {
+  const db = await getDb();
+  const now = new Date();
+  const days: { date: string; completed: number; overdue: number; created: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const dEnd = new Date(d);
+    dEnd.setHours(23, 59, 59, 999);
+    const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    // tasks created on that day
+    const baseQ = db.select({ id: tasks.id, progress: tasks.progress, dueDate: tasks.dueDate, createdAt: tasks.createdAt })
+      .from(tasks);
+    const allTasks = clientId
+      ? await baseQ.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+      : await baseQ;
+    const created = allTasks.filter((t: any) => t.createdAt && new Date(t.createdAt) >= d && new Date(t.createdAt) <= dEnd).length;
+    const completed = allTasks.filter((t: any) => t.progress >= 100 && t.dueDate && new Date(t.dueDate) >= d && new Date(t.dueDate) <= dEnd).length;
+    const overdue = allTasks.filter((t: any) => t.progress < 100 && t.dueDate && new Date(t.dueDate) >= d && new Date(t.dueDate) <= dEnd).length;
+    days.push({ date: label, completed, overdue, created });
+  }
+  return days;
 }

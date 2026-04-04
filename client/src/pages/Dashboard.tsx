@@ -6,6 +6,7 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, Area, AreaChart,
 } from "recharts";
 import {
   AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp,
@@ -342,6 +343,8 @@ export default function Dashboard() {
   const clientsQ = trpc.clients.list.useQuery();
   const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
   const yearlyStatsQ = trpc.dashboard.yearlyStats.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
+  const taskTrendQ = trpc.dashboard.taskTrend.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
+  const activityLogsQ = trpc.dashboard.recentActivity.useQuery({ limit: 15 });
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
   const clientCount = statsQ.data?.totalClients ?? 0;
@@ -515,17 +518,43 @@ export default function Dashboard() {
     }
   }, [mapFilterCountry, mapFilterState, allCrs]);
 
+  // ── Activity log helpers ─────────────────────────────────────────────────────
+  const activityLogs = (activityLogsQ.data ?? []) as any[];
+  const taskTrendData = (taskTrendQ.data ?? []) as any[];
+  // Show only last 7 days of trend for mini chart (less clutter)
+  const trendLast7 = taskTrendData.slice(-7);
+
+  // ── Mini-calendar: week tasks (from recentQ — tasks due this week) ────────────
+  const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const todayDow = now.getDay();
+  const calDays = weekDays.map((label, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const dStr = d.toDateString();
+    const tasksOnDay = recentTasks.filter((t: any) => t.dueDate && new Date(t.dueDate).toDateString() === dStr);
+    return { label, date: d, tasks: tasksOnDay, isToday: i === todayDow };
+  });
+
+  // ── Action labels for activity log ───────────────────────────────────────────
+  const ACTION_LABELS: Record<string, string> = {
+    created_task: "Criou tarefa", updated_task: "Atualizou tarefa", deleted_task: "Excluiu tarefa",
+    created_crs: "Criou contrato", updated_crs: "Atualizou contrato", deleted_crs: "Excluiu contrato",
+    created_client: "Criou cliente", updated_client: "Atualizou cliente",
+    created_checklist: "Adicionou checklist", updated_checklist: "Atualizou checklist",
+    user_login: "Fez login", user_logout: "Saiu",
+  };
+
   return (
     <AppLayout title="Dashboard">
       <OnboardingWizard open={showOnboarding} onClose={handleCloseOnboarding} />
-      <div className="space-y-6">
+      <div className="space-y-5">
 
         {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Acompanhamento dos Projetos</h2>
+            <h2 className="text-xl font-bold text-foreground">Acompanhamento dos Projetos</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+              {now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -542,120 +571,178 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={exportingPdf || isLoading}
+            <Button variant="outline" size="sm" className="gap-2" disabled={exportingPdf || isLoading}
               onClick={async () => {
                 setExportingPdf(true);
                 try {
                   const activeClient = filterClient !== "all" ? clients.find((c: any) => String(c.id) === filterClient) : null;
                   await exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP, mapContainerEl: mapContainerRef.current, clientName: activeClient?.name, clientColor: activeClient?.color });
-                } finally {
-                  setExportingPdf(false);
-                }
-              }}
-            >
+                } finally { setExportingPdf(false); }
+              }}>
               <FileDown className="w-4 h-4" />
               Exportar PDF
             </Button>
           </div>
         </div>
 
-        {/* ── Top KPI Row ── */}
+        {/* ── KPI Cards Row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Nº de Contratos", value: projects.length,    icon: FolderKanban, color: "text-blue-400",    bg: "bg-blue-500/10" },
-            { label: "Total de Tarefas",  value: total,              icon: Layers,       color: "text-violet-400", bg: "bg-violet-500/10" },
-            { label: "Clientes",          value: clientCount,        icon: Briefcase,    color: "text-orange-400", bg: "bg-orange-500/10" },
-            { label: "Sprints da Semana", value: weekSprints.length, icon: Zap,          color: "text-emerald-400",bg: "bg-emerald-500/10" },
-          ].map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className="bg-card border border-border rounded-2xl p-5">
+            { label: "Contratos Ativos",  value: projects.length,              icon: FolderKanban, gradient: "from-[#1561ad] to-[#2176d2]",   text: "text-white" },
+            { label: "Total de Tarefas",  value: total,                        icon: Layers,       gradient: "from-[#1a7a4a] to-[#22c55e]",   text: "text-white" },
+            { label: "Tarefas em Atraso", value: stats?.overdueTasks ?? 0,     icon: AlertTriangle, gradient: "from-[#b91c1c] to-[#ef4444]",  text: "text-white" },
+            { label: "Clientes",          value: clientCount,                  icon: Briefcase,    gradient: "from-[#c2410c] to-[#f97316]",   text: "text-white" },
+          ].map(({ label, value, icon: Icon, gradient, text }) => (
+            <div key={label} className={`bg-gradient-to-br ${gradient} rounded-2xl p-5 shadow-md`}>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                  {isLoading ? <Skeleton className="h-8 w-16" /> : (
-                    <p className="text-3xl font-bold text-foreground">{value}</p>
+                  <p className={`text-xs font-medium ${text} opacity-80 mb-1`}>{label}</p>
+                  {isLoading ? <Skeleton className="h-8 w-16 bg-white/20" /> : (
+                    <p className={`text-3xl font-bold ${text}`}>{value}</p>
                   )}
                 </div>
-                <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
-                  <Icon className={`w-5 h-5 ${color}`} />
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Icon className={`w-5 h-5 ${text}`} />
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* ── Dados Técnicos KPIs ── */}
-        {!isLoading && allCrs.some((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano) && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              {
-                label: "Extensão Total",
-                value: allCrs.reduce((s: number, c: any) => s + (Number(c.extensaoKm) || 0), 0).toFixed(1) + " km",
-                icon: Ruler,
-                color: "text-blue-400",
-                bg: "bg-blue-500/10",
-              },
-              {
-                label: "Área Total",
-                value: allCrs.reduce((s: number, c: any) => s + (Number(c.areaHa) || 0), 0).toFixed(0) + " m²",
-                icon: MapPin,
-                color: "text-violet-400",
-                bg: "bg-violet-500/10",
-              },
-              {
-                label: "Perímetros Urbanos",
-                value: allCrs.reduce((s: number, c: any) => s + (Number(c.perimetroUrbano) || 0), 0),
-                icon: Building2,
-                color: "text-orange-400",
-                bg: "bg-orange-500/10",
-              },
-              {
-                label: "Contratos com Dados Técnicos",
-                value: allCrs.filter((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano).length + "/" + allCrs.length,
-                icon: FolderKanban,
-                color: "text-emerald-400",
-                bg: "bg-emerald-500/10",
-              },
-            ].map(({ label, value, icon: Icon, color, bg }) => (
-              <div key={label} className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                    <p className="text-2xl font-bold text-foreground">{value}</p>
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${color}`} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* ── Gauge KPIs ── */}
+        {/* ── Gauge KPIs (progress rings) ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)
           ) : (
             <>
-              <GaugeCard label="Tarefas em Atraso"  value={overdueP}   color="#ef4444" icon={TrendingDown}
-                description={`${stats?.overdueTasks ?? 0} de ${total} tarefas`} />
-              <GaugeCard label="Tarefas Concluídas" value={completedP} color="#22c55e" icon={CheckCircle2}
-                description={`${stats?.completedTasks ?? 0} de ${total} tarefas`} />
-              <GaugeCard label="Checklist Concluído" value={checklistCompletedP} color="#f59e0b" icon={Clock}
-                description={`${stats?.completedChecklist ?? 0} de ${checklistTotal} itens`} />
-              <GaugeCard label="Dentro do Prazo"    value={onTimeP}    color="#3b82f6" icon={TrendingUp}
-                description={`${total - (stats?.overdueTasks ?? 0)} de ${total} tarefas`} />
+              <GaugeCard label="Tarefas em Atraso"   value={overdueP}            color="#ef4444" icon={TrendingDown}  description={`${stats?.overdueTasks ?? 0} de ${total} tarefas`} />
+              <GaugeCard label="Tarefas Concluídas"  value={completedP}          color="#22c55e" icon={CheckCircle2}  description={`${stats?.completedTasks ?? 0} de ${total} tarefas`} />
+              <GaugeCard label="Checklist Concluído" value={checklistCompletedP} color="#f59e0b" icon={Clock}         description={`${stats?.completedChecklist ?? 0} de ${checklistTotal} itens`} />
+              <GaugeCard label="Dentro do Prazo"     value={onTimeP}             color="#3b82f6" icon={TrendingUp}    description={`${total - (stats?.overdueTasks ?? 0)} de ${total} tarefas`} />
             </>
           )}
         </div>
 
-        {/* ── Middle Row: Donut + Conflicts + Sprint ── */}
+        {/* ── Dados Técnicos KPIs (conditional) ── */}
+        {!isLoading && allCrs.some((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano) && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: "Extensão Total", value: allCrs.reduce((s: number, c: any) => s + (Number(c.extensaoKm) || 0), 0).toFixed(1) + " km", icon: Ruler, color: "text-blue-400", bg: "bg-blue-500/10" },
+              { label: "Área Total", value: allCrs.reduce((s: number, c: any) => s + (Number(c.areaHa) || 0), 0).toFixed(0) + " m²", icon: MapPin, color: "text-violet-400", bg: "bg-violet-500/10" },
+              { label: "Perímetros Urbanos", value: allCrs.reduce((s: number, c: any) => s + (Number(c.perimetroUrbano) || 0), 0), icon: Building2, color: "text-orange-400", bg: "bg-orange-500/10" },
+              { label: "Com Dados Técnicos", value: `${allCrs.filter((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano).length}/${allCrs.length}`, icon: FolderKanban, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+            ].map(({ label, value, icon: Icon, color, bg }) => (
+              <div key={label} className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-start justify-between">
+                  <div><p className="text-xs text-muted-foreground mb-1">{label}</p><p className="text-2xl font-bold text-foreground">{value}</p></div>
+                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}><Icon className={`w-5 h-5 ${color}`} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Main Content Row: Line Chart + Mini Calendar ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Donut Chart */}
+          {/* Line Chart — últimos 30 dias */}
+          <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-400" />
+                Histórico de Tarefas — Últimos 30 Dias
+              </h3>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" />Concluídas</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-red-400 inline-block rounded" />Em Atraso</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-400 inline-block rounded" />Criadas</span>
+              </div>
+            </div>
+            {taskTrendQ.isLoading ? (
+              <Skeleton className="h-52 w-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height={210}>
+                <AreaChart data={taskTrendData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradOverdue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradCreated" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                    interval={Math.floor(taskTrendData.length / 6)} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <RechartsTooltip
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))", fontSize: 12 }}
+                    formatter={(value: number, name: string) => {
+                      const labels: Record<string, string> = { completed: "Concluídas", overdue: "Em Atraso", created: "Criadas" };
+                      return [value, labels[name] ?? name];
+                    }}
+                  />
+                  <Area type="monotone" dataKey="completed" stroke="#22c55e" strokeWidth={2} fill="url(#gradCompleted)" dot={false} />
+                  <Area type="monotone" dataKey="overdue" stroke="#ef4444" strokeWidth={2} fill="url(#gradOverdue)" dot={false} />
+                  <Area type="monotone" dataKey="created" stroke="#3b82f6" strokeWidth={2} fill="url(#gradCreated)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Mini Calendar — programação da semana */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-blue-400" />
+              Programação da Semana
+            </h3>
+            <div className="space-y-1.5">
+              {calDays.map(({ label, date, tasks: dayTasks, isToday }) => (
+                <div key={label}
+                  className={`flex items-start gap-3 p-2 rounded-xl transition-colors ${
+                    isToday ? "bg-blue-500/10 border border-blue-500/20" : "hover:bg-muted/40"
+                  }`}>
+                  <div className={`w-8 text-center flex-shrink-0 ${
+                    isToday ? "text-blue-400" : "text-muted-foreground"
+                  }`}>
+                    <p className="text-[10px] font-medium">{label}</p>
+                    <p className={`text-lg font-bold leading-tight ${
+                      isToday ? "text-blue-400" : "text-foreground"
+                    }`}>{date.getDate()}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {dayTasks.length === 0 ? (
+                      <p className="text-xs text-muted-foreground/50 mt-1">Sem entregas</p>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {dayTasks.slice(0, 2).map((t: any) => (
+                          <div key={t.id} className="flex items-center gap-1.5 cursor-pointer" onClick={() => navigate(`/tasks/${t.id}`)}>
+                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[t.status] ?? "#94a3b8" }} />
+                            <p className="text-xs text-foreground truncate">{t.title}</p>
+                          </div>
+                        ))}
+                        {dayTasks.length > 2 && (
+                          <p className="text-[10px] text-muted-foreground">+{dayTasks.length - 2} mais</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Donut + Tipo de Obra + Progresso por Cliente ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Donut */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <Layers className="w-4 h-4 text-violet-400" />
@@ -667,39 +754,14 @@ export default function Dashboard() {
               <div className="relative">
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie
-                      data={donutData}
-                      cx="50%"
-                      cy="45%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      labelLine={false}
-                      label={CustomLabel}
-                    >
-                      {donutData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
+                    <Pie data={donutData} cx="50%" cy="45%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value" labelLine={false} label={CustomLabel}>
+                      {donutData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                     </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number, name: string) => [`${value} tarefas`, name]}
-                      contentStyle={{
-                        background: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: 8,
-                        color: "hsl(var(--foreground))",
-                        fontSize: 12,
-                      }}
-                    />
-                    <Legend
-                      iconType="circle"
-                      iconSize={8}
-                      wrapperStyle={{ fontSize: 11 }}
-                    />
+                    <RechartsTooltip formatter={(value: number, name: string) => [`${value} tarefas`, name]}
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))", fontSize: 12 }} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* Center label */}
                 <div className="absolute pointer-events-none" style={{ top: "38%", left: "50%", transform: "translate(-50%, -50%)" }}>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-foreground">{total}</p>
@@ -710,316 +772,307 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Conflict Alerts */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              Alertas de Conflito
-              {conflicts.length > 0 && (
-                <Badge className="ml-auto bg-red-500/15 text-red-400 border border-red-500/30 text-xs">
-                  {conflicts.length}
-                </Badge>
-              )}
-            </h3>
-            {conflictsQ.isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
-            ) : conflicts.length === 0 ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400/40 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhum conflito detectado</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Todas as atividades estão sem sobreposição</p>
-              </div>
-            ) : (
-              <div className="space-y-2 overflow-y-auto max-h-52">
-                {conflicts.map((c: any, i: number) => (
-                  <div key={i} className="bg-red-500/5 border border-red-500/20 rounded-xl p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                      <span className="text-xs font-medium text-red-400">{c.projectName ?? "Projeto"}</span>
-                    </div>
-                    <p className="text-xs text-foreground">
-                      <span className="font-medium">{c.task1?.assigneeName ?? "Membro"}</span>
-                      {": "}
-                      <span className="text-muted-foreground">"{c.task1?.title}"</span>
-                      {" e "}
-                      <span className="text-muted-foreground">"{c.task2?.title}"</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Sprint da Semana */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-emerald-400" />
-              Sprints da Semana
-            </h3>
-            {sprintsQ.isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
-            ) : weekSprints.length === 0 ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <Zap className="w-8 h-8 text-muted-foreground/20 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhuma sprint ativa esta semana</p>
-              </div>
-            ) : (
-              <div className="space-y-3 overflow-y-auto max-h-52">
-                {weekSprints.map((s: any) => {
-                  const sprintPct = s.taskCount > 0 ? Math.round((s.completedCount / s.taskCount) * 100) : 0;
-                  const endDate = s.endDate ? new Date(s.endDate) : null;
-                  const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / 86400000) : null;
-                  return (
-                    <div key={s.id} className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-foreground truncate">{s.name}</span>
-                        {daysLeft !== null && (
-                          <span className={`text-xs flex-shrink-0 ml-2 ${daysLeft < 2 ? "text-red-400" : "text-muted-foreground"}`}>
-                            {daysLeft > 0 ? `${daysLeft}d restantes` : "Encerrada"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-1.5 mb-1">
-                        <div
-                          className="bg-emerald-400 h-1.5 rounded-full transition-all"
-                          style={{ width: `${sprintPct}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">{sprintPct}% concluído · {s.completedCount}/{s.taskCount} tarefas</p>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Tipo de Obra Chart ── */}
-        {!isLoading && allCrs.length > 0 && (() => {
-          // Build data: count CRS per tipoObra
-          const countMap: Record<string, number> = {};
-          for (const c of allCrs) {
-            const types = parseTipoObra(c.tipoObra);
-            if (types.length === 0) { countMap["outro"] = (countMap["outro"] ?? 0) + 1; }
-            else { for (const t of types) { countMap[t] = (countMap[t] ?? 0) + 1; } }
-          }
-          const chartData = Object.entries(countMap)
-            .map(([key, count]) => ({
-              name: TIPO_OBRA_MAP[key] ?? key,
-              count,
-              color: TIPO_OBRA_COLOR[key] ?? "#94a3b8",
-            }))
-            .sort((a, b) => b.count - a.count);
-          if (chartData.length === 0) return null;
-          return (
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-blue-400" />
-                Contratos por Tipo de Obra
-              </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-                {/* Bar chart */}
-                <ResponsiveContainer width="100%" height={220}>
+          {/* Tipo de Obra Bar Chart */}
+          {!isLoading && allCrs.length > 0 && (() => {
+            const countMap: Record<string, number> = {};
+            for (const c of allCrs) {
+              const types = parseTipoObra(c.tipoObra);
+              if (types.length === 0) { countMap["outro"] = (countMap["outro"] ?? 0) + 1; }
+              else { for (const t of types) { countMap[t] = (countMap[t] ?? 0) + 1; } }
+            }
+            const chartData = Object.entries(countMap)
+              .map(([key, count]) => ({ name: TIPO_OBRA_MAP[key] ?? key, count, color: TIPO_OBRA_COLOR[key] ?? "#94a3b8" }))
+              .sort((a, b) => b.count - a.count);
+            if (chartData.length === 0) return null;
+            return (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-blue-400" />
+                  Contratos por Tipo de Obra
+                </h3>
+                <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                    <RechartsTooltip
-                      formatter={(value: number) => [`${value} contrato${value !== 1 ? "s" : ""}`, "Total"]}
-                      contentStyle={{
-                        background: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: 8,
-                        color: "hsl(var(--foreground))",
-                        fontSize: 12,
-                      }}
-                    />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                    <RechartsTooltip formatter={(value: number) => [`${value} contrato${value !== 1 ? "s" : ""}`, "Total"]}
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))", fontSize: 12 }} />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                      {chartData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
+                      {chartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-                {/* Legend cards */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 mt-3">
                   {chartData.map((d) => (
-                    <div key={d.name} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border">
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                    <div key={d.name} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{d.name}</p>
-                        <p className="text-lg font-bold text-foreground">{d.count}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{d.name}</p>
+                        <p className="text-sm font-bold text-foreground">{d.count}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
-        {/* ── World Map ── */}
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <span className="text-base">🌍</span>
-              Mapa de Contratos por Localização
-            </h3>
-            {/* Filtros de país e estado */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Select value={mapFilterCountry} onValueChange={(v) => { setMapFilterCountry(v); setMapFilterState("all"); }}>
-                <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="Todos os países" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os países</SelectItem>
-                  {Array.from(new Set(allCrs.filter((c: any) => c.countryCode).map((c: any) => c.countryCode))).map((code: any) => {
-                    const country = getCountryByCode(code);
-                    return <SelectItem key={code} value={code}>{country?.flag ?? ""} {country?.name ?? code}</SelectItem>;
-                  })}
-                </SelectContent>
-              </Select>
-              {mapFilterCountry !== "all" && getStatesForCountry(mapFilterCountry).length > 0 && (
-                <Select value={mapFilterState} onValueChange={setMapFilterState}>
-                  <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="Todos os estados" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os estados</SelectItem>
-                    {getStatesForCountry(mapFilterCountry)
-                      .filter(st => allCrs.some((c: any) => c.countryCode === mapFilterCountry && c.stateCode === st.code))
-                      .map((st) => <SelectItem key={st.code} value={st.code}>{st.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-          <div className="relative" ref={mapContainerRef}>
-            <div className="rounded-xl overflow-hidden" style={{ height: 380 }}>
-              <MapView initialCenter={{ lat: 10, lng: 0 }} initialZoom={2} onMapReady={initMapMarkers} />
-            </div>
-            {/* Legenda de tipos de obra */}
-            <div className="absolute bottom-3 left-3 bg-card/90 backdrop-blur-sm border border-border rounded-xl p-2 shadow-md z-10">
-              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Tipo de Obra</p>
-              <div className="space-y-1">
-                {Object.entries(TIPO_OBRA_MAP).map(([key, label]) => (
-                  <div key={key} className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: TIPO_OBRA_COLOR[key] }} />
-                    <span className="text-[10px] text-foreground/80">{label}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0 bg-[#1561ad]" />
-                  <span className="text-[10px] text-foreground/80">Misto / Sem tipo</span>
-                </div>
-              </div>
-            </div>
-            {/* Popup de Contrato individual */}
-            {selectedMapCrs && (
-              <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-56 z-10">
-                <button className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedMapCrs(null)}>✕</button>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.clientColor ?? "#1561ad" }} />
-                  <p className="text-sm font-semibold truncate pr-4">{selectedMapCrs.name}</p>
-                </div>
-                {selectedMapCrs.code && <p className="text-xs font-mono text-blue-500 mb-1">{selectedMapCrs.code}</p>}
-                {selectedMapCrs.clientName && <p className="text-xs text-muted-foreground">Cliente: {selectedMapCrs.clientName}</p>}
-                {selectedMapCrs.countryCode && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {getCountryByCode(selectedMapCrs.countryCode)?.flag ?? ""} {getCountryByCode(selectedMapCrs.countryCode)?.name ?? selectedMapCrs.countryCode}
-                    {selectedMapCrs.state ? ` — ${selectedMapCrs.state}` : ""}
-                  </p>
-                )}
-                {parseTipoObra(selectedMapCrs.tipoObra).length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-0.5">Tipo: {parseTipoObra(selectedMapCrs.tipoObra).map((t: string) => TIPO_OBRA_MAP[t] ?? t).join(", ")}</p>
-                )}
-                {selectedMapCrs.extensaoKm != null && <p className="text-xs text-muted-foreground">Extensão: {selectedMapCrs.extensaoKm} km</p>}
-                {selectedMapCrs.areaHa != null && <p className="text-xs text-muted-foreground">Área: {selectedMapCrs.areaHa} m²</p>}
-                {selectedMapCrs.perimetroUrbano != null && <p className="text-xs text-muted-foreground">Perím. urbanos: {selectedMapCrs.perimetroUrbano}</p>}
-                <div className="mt-1.5 pt-1.5 border-t border-border flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{Math.round(selectedMapCrs.progress ?? 0)}% concluído</span>
-                  <button className="text-xs text-blue-500 hover:underline" onClick={() => navigate(`/kanban?crs=${selectedMapCrs.id}`)}>Ver Kanban →</button>
-                </div>
-              </div>
-            )}
-            {/* Popup de grupo de estado */}
-            {selectedStateGroup && (
-              <div className="absolute top-3 right-3 bg-card border border-border rounded-xl p-3 shadow-lg max-w-64 z-10">
-                <button className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedStateGroup(null)}>✕</button>
-                <p className="text-sm font-semibold mb-2 pr-4">
-                  {getCountryByCode(selectedStateGroup.countryCode)?.flag ?? ""} {selectedStateGroup.state}
-                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">({selectedStateGroup.crsList.length} contratos)</span>
-                </p>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto">
-                  {selectedStateGroup.crsList.map((crs: any) => (
-                    <button key={crs.id} onClick={() => { setSelectedMapCrs(crs); setSelectedStateGroup(null); }}
-                      className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary/60 transition-colors">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{crs.name}</p>
-                        {crs.code && <p className="text-xs text-muted-foreground font-mono">{crs.code}</p>}
-                      </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">{Math.round(crs.progress ?? 0)}%</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          {allCrs.filter((c: any) => c.countryCode).length === 0 && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos Contratos para visualizá-los no mapa</p>
-          )}
-        </div>
-
-        {/* ── Client Progress Bars ── */}
-        {(clientProgressQ.data ?? []).length > 0 && (
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-orange-400" />
-              Progresso por Cliente
-            </h3>
-            {clientProgressQ.isLoading ? (
-              <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(clientProgressQ.data ?? []).map((c: any) => {
+          {/* Progresso por Cliente */}
+          {(clientProgressQ.data ?? []).length > 0 && (
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-orange-400" />
+                Progresso por Cliente
+              </h3>
+              <div className="space-y-3">
+                {(clientProgressQ.data ?? []).slice(0, 5).map((c: any) => {
                   const isActive = filterClient === String(c.id);
                   return (
-                    <button
-                      key={c.id}
-                      onClick={() => setFilterClient(isActive ? "all" : String(c.id))}
-                      className={`space-y-1.5 text-left rounded-xl p-2 -m-2 transition-all border-2 ${
+                    <button key={c.id} onClick={() => setFilterClient(isActive ? "all" : String(c.id))}
+                      className={`w-full space-y-1 text-left rounded-xl p-2 -m-2 transition-all border-2 ${
                         isActive ? "bg-muted/60" : "border-transparent hover:bg-muted/40"
                       }`}
-                      style={isActive ? { borderColor: c.color ?? "#1561ad" } : { borderColor: "transparent" }}
-                      title={isActive ? "Clique para remover filtro" : `Filtrar por ${c.name}`}
-                    >
+                      style={isActive ? { borderColor: c.color ?? "#1561ad" } : { borderColor: "transparent" }}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }} />
-                          <span className="text-sm font-medium truncate">{c.name}</span>
-                          {isActive && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold text-white shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }}>
-                              Ativo
-                            </span>
-                          )}
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }} />
+                          <span className="text-xs font-medium truncate">{c.name}</span>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs text-muted-foreground">{c.crsCount} Contrato{c.crsCount !== 1 ? 's' : ''}</span>
-                          <span className="text-sm font-bold" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
-                        </div>
+                        <span className="text-xs font-bold flex-shrink-0" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#1561ad" }}
-                        />
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#1561ad" }} />
                       </div>
                     </button>
                   );
                 })}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Map + Recent Activity ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* World Map — metade da tela */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="text-base">🌍</span>
+                Mapa de Contratos
+              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={mapFilterCountry} onValueChange={(v) => { setMapFilterCountry(v); setMapFilterState("all"); }}>
+                  <SelectTrigger className="h-7 text-xs w-36"><SelectValue placeholder="Todos os países" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os países</SelectItem>
+                    {Array.from(new Set(allCrs.filter((c: any) => c.countryCode).map((c: any) => c.countryCode))).map((code: any) => {
+                      const country = getCountryByCode(code);
+                      return <SelectItem key={code} value={code}>{country?.flag ?? ""} {country?.name ?? code}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+                {mapFilterCountry !== "all" && getStatesForCountry(mapFilterCountry).length > 0 && (
+                  <Select value={mapFilterState} onValueChange={setMapFilterState}>
+                    <SelectTrigger className="h-7 text-xs w-36"><SelectValue placeholder="Todos os estados" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os estados</SelectItem>
+                      {getStatesForCountry(mapFilterCountry)
+                        .filter(st => allCrs.some((c: any) => c.countryCode === mapFilterCountry && c.stateCode === st.code))
+                        .map((st) => <SelectItem key={st.code} value={st.code}>{st.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+            <div className="relative" ref={mapContainerRef}>
+              <div className="rounded-xl overflow-hidden" style={{ height: 300 }}>
+                <MapView initialCenter={{ lat: 10, lng: 0 }} initialZoom={2} onMapReady={initMapMarkers} />
+              </div>
+              {/* Legenda */}
+              <div className="absolute bottom-2 left-2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1.5 shadow-md z-10">
+                <div className="space-y-0.5">
+                  {Object.entries(TIPO_OBRA_MAP).map(([key, label]) => (
+                    <div key={key} className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: TIPO_OBRA_COLOR[key] }} />
+                      <span className="text-[9px] text-foreground/80">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Popup individual */}
+              {selectedMapCrs && (
+                <div className="absolute top-2 right-2 bg-card border border-border rounded-xl p-3 shadow-lg max-w-52 z-10">
+                  <button className="absolute top-1 right-1.5 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedMapCrs(null)}>✕</button>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.clientColor ?? "#1561ad" }} />
+                    <p className="text-sm font-semibold truncate pr-4">{selectedMapCrs.name}</p>
+                  </div>
+                  {selectedMapCrs.code && <p className="text-xs font-mono text-blue-500 mb-1">{selectedMapCrs.code}</p>}
+                  {selectedMapCrs.clientName && <p className="text-xs text-muted-foreground">Cliente: {selectedMapCrs.clientName}</p>}
+                  {selectedMapCrs.countryCode && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {getCountryByCode(selectedMapCrs.countryCode)?.flag ?? ""} {getCountryByCode(selectedMapCrs.countryCode)?.name ?? selectedMapCrs.countryCode}
+                      {selectedMapCrs.state ? ` — ${selectedMapCrs.state}` : ""}
+                    </p>
+                  )}
+                  {parseTipoObra(selectedMapCrs.tipoObra).length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">Tipo: {parseTipoObra(selectedMapCrs.tipoObra).map((t: string) => TIPO_OBRA_MAP[t] ?? t).join(", ")}</p>
+                  )}
+                  <div className="mt-1.5 pt-1.5 border-t border-border flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{Math.round(selectedMapCrs.progress ?? 0)}% concluído</span>
+                    <button className="text-xs text-blue-500 hover:underline" onClick={() => navigate(`/kanban?crs=${selectedMapCrs.id}`)}>Ver Kanban →</button>
+                  </div>
+                </div>
+              )}
+              {/* Popup grupo de estado */}
+              {selectedStateGroup && (
+                <div className="absolute top-2 right-2 bg-card border border-border rounded-xl p-3 shadow-lg max-w-60 z-10">
+                  <button className="absolute top-1 right-1.5 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedStateGroup(null)}>✕</button>
+                  <p className="text-sm font-semibold mb-2 pr-4">
+                    {getCountryByCode(selectedStateGroup.countryCode)?.flag ?? ""} {selectedStateGroup.state}
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">({selectedStateGroup.crsList.length} contratos)</span>
+                  </p>
+                  <div className="space-y-1 max-h-44 overflow-y-auto">
+                    {selectedStateGroup.crsList.map((crs: any) => (
+                      <button key={crs.id} onClick={() => { setSelectedMapCrs(crs); setSelectedStateGroup(null); }}
+                        className="w-full text-left flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-secondary/60 transition-colors">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{crs.name}</p>
+                          {crs.code && <p className="text-xs text-muted-foreground font-mono">{crs.code}</p>}
+                        </div>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">{Math.round(crs.progress ?? 0)}%</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {allCrs.filter((c: any) => c.countryCode).length === 0 && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">Adicione país/estado aos Contratos para visualizá-los no mapa</p>
             )}
           </div>
-        )}
 
-        {/* ── Separação Anual ── */}
+          {/* Últimas Atualizações */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-400" />
+              Últimas Atualizações
+            </h3>
+            {activityLogsQ.isLoading ? (
+              <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+            ) : activityLogs.length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <Clock className="w-8 h-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhuma atividade registrada</p>
+              </div>
+            ) : (
+              <div className="space-y-1 overflow-y-auto max-h-72">
+                {activityLogs.map((log: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 p-2 rounded-xl hover:bg-muted/40 transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[10px] font-bold text-blue-400">
+                        {(log.userName ?? "?").charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-foreground">
+                        <span className="font-medium">{log.userName ?? "Usuário"}</span>
+                        {" "}
+                        <span className="text-muted-foreground">{ACTION_LABELS[log.action] ?? log.action}</span>
+                        {log.entityName ? <span className="font-medium"> "{log.entityName}"</span> : null}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Bottom Row: My Tasks + Active Projects ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* Minhas Tarefas */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              Minhas Tarefas
+            </h3>
+            {myTasksQ.isLoading ? (
+              <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+            ) : !myTasksList.length ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <CheckCircle2 className="w-8 h-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhuma tarefa atribuída</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 overflow-y-auto max-h-64">
+                {myTasksList.map((t: any) => {
+                  const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "published" && t.status !== "archived";
+                  const statusColor = STATUS_COLORS[t.status] ?? STATUS_COLORS.pending;
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/40 cursor-pointer transition-colors" onClick={() => navigate(`/tasks/${t.id}`)}>
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColor }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{t.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{t.projectName ?? "Projeto"}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {isOverdue && <AlertTriangle className="w-3.5 h-3.5 text-red-400" />}
+                        <span className="text-xs text-muted-foreground">{STATUS_LABELS[t.status] ?? t.status}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Projetos Ativos */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <FolderKanban className="w-4 h-4 text-violet-400" />
+              Projetos Ativos
+            </h3>
+            {projectsQ.isLoading ? (
+              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+            ) : !projects.length ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <FolderKanban className="w-8 h-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum projeto ainda</p>
+              </div>
+            ) : (
+              <div className="space-y-2 overflow-y-auto max-h-64">
+                {projects.slice(0, 8).map((p: any) => {
+                  const ppct = Math.round(p.progress ?? 0);
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/40 cursor-pointer transition-colors" onClick={() => navigate(`/projects/${p.id}`)}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${p.color ?? "#3b82f6"}20` }}>
+                        <FolderKanban className="w-4 h-4" style={{ color: p.color ?? "#3b82f6" }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex-1 bg-muted rounded-full h-1.5">
+                            <div className="bg-blue-400 h-1.5 rounded-full" style={{ width: `${ppct}%` }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground">{ppct}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Visão Anual (collapsible) ── */}
         {(yearlyStatsQ.data ?? []).length > 0 && (
           <div className="bg-card border border-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -1042,17 +1095,13 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {(yearlyStatsQ.data ?? []).map((y: any) => {
-                    const pct = y.totalTasks > 0 ? Math.round((y.completedTasks / y.totalTasks) * 100) : 0;
+                    const yPct = y.totalTasks > 0 ? Math.round((y.completedTasks / y.totalTasks) * 100) : 0;
                     const isCurrentYear = y.year === new Date().getFullYear();
                     return (
                       <tr key={y.year} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${isCurrentYear ? 'bg-blue-500/5' : ''}`}>
                         <td className="py-3 pr-4">
-                          <span className={`font-bold text-base ${isCurrentYear ? 'text-blue-400' : 'text-foreground'}`}>
-                            {y.year}
-                          </span>
-                          {isCurrentYear && (
-                            <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">Atual</span>
-                          )}
+                          <span className={`font-bold text-base ${isCurrentYear ? 'text-blue-400' : 'text-foreground'}`}>{y.year}</span>
+                          {isCurrentYear && <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">Atual</span>}
                         </td>
                         <td className="text-right py-3 px-3 text-foreground font-medium">{y.totalCrs}</td>
                         <td className="text-right py-3 px-3 text-foreground">{y.totalTasks}</td>
@@ -1063,12 +1112,9 @@ export default function Dashboard() {
                         <td className="py-3 pl-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-muted rounded-full h-2 min-w-[80px]">
-                              <div
-                                className="h-2 rounded-full transition-all"
-                                style={{ width: `${pct}%`, backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#3b82f6' : '#f59e0b' }}
-                              />
+                              <div className="h-2 rounded-full transition-all" style={{ width: `${yPct}%`, backgroundColor: yPct >= 80 ? '#10b981' : yPct >= 50 ? '#3b82f6' : '#f59e0b' }} />
                             </div>
-                            <span className="text-xs font-medium text-muted-foreground w-8 text-right">{pct}%</span>
+                            <span className="text-xs font-medium text-muted-foreground w-8 text-right">{yPct}%</span>
                           </div>
                         </td>
                       </tr>
@@ -1079,92 +1125,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {/* ── Bottom Row: Recent Tasks + Projects ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* Recent Tasks */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400" />
-              Minhas Tarefas
-            </h3>
-            {myTasksQ.isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-            ) : !myTasksList.length ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <CheckCircle2 className="w-8 h-8 text-muted-foreground/20 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhuma tarefa atribuída</p>
-              </div>
-            ) : (
-              <div className="space-y-1.5 overflow-y-auto max-h-64">
-                {myTasksList.map((t: any) => {
-                  const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "published" && t.status !== "archived";
-                  const statusColor = STATUS_COLORS[t.status] ?? STATUS_COLORS.pending;
-                  return (
-                    <div
-                      key={t.id}
-                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/40 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/tasks/${t.id}`)}
-                    >
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColor }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{t.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{t.projectName ?? "Projeto"}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {isOverdue && <AlertTriangle className="w-3.5 h-3.5 text-red-400" />}
-                        <span className="text-xs text-muted-foreground">{STATUS_LABELS[t.status] ?? t.status}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Projects */}
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <FolderKanban className="w-4 h-4 text-violet-400" />
-              Projetos Ativos
-            </h3>
-            {projectsQ.isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
-            ) : !projects.length ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <FolderKanban className="w-8 h-8 text-muted-foreground/20 mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhum projeto ainda</p>
-              </div>
-            ) : (
-              <div className="space-y-2 overflow-y-auto max-h-64">
-                {projects.slice(0, 8).map((p: any) => {
-                  const ppct = Math.round(p.progress ?? 0);
-                  return (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/40 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/projects/${p.id}`)}
-                    >
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${p.color ?? "#3b82f6"}20` }}>
-                        <FolderKanban className="w-4 h-4" style={{ color: p.color ?? "#3b82f6" }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{p.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <div className="flex-1 bg-muted rounded-full h-1">
-                            <div className="bg-blue-400 h-1 rounded-full" style={{ width: `${ppct}%` }} />
-                          </div>
-                          <span className="text-xs text-muted-foreground">{ppct}%</span>
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">{ppct}% concluído</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
 
       </div>
     </AppLayout>

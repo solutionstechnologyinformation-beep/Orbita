@@ -21,7 +21,7 @@ import {
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
   getClientProgress, getCrsDisciplineProgress, getYearlyStats,
   getWhiteboardsByUser, saveWhiteboard, deleteWhiteboard, renameWhiteboard,
-  getUserDisciplines, setUserDisciplines, getActivityLogs,
+  getUserDisciplines, setUserDisciplines, getActivityLogs, getTaskTrend,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -161,9 +161,11 @@ export const appRouter = router({
         extensaoKm: z.number().optional(),
         areaHa: z.number().optional(),
         perimetroUrbano: z.number().int().optional(),
+        techDataByType: z.record(z.string(), z.object({ extensaoKm: z.number().nullable().optional(), areaHa: z.number().nullable().optional() })).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        const id = await createCrs({ ...input, tipoObra: input.tipoObra ? JSON.stringify(input.tipoObra) : undefined, createdById: ctx.user.id });
+        const techDataByTypeStr = input.techDataByType ? JSON.stringify(input.techDataByType) : undefined;
+        const id = await createCrs({ ...input, tipoObra: input.tipoObra ? JSON.stringify(input.tipoObra) : undefined, techDataByType: techDataByTypeStr, createdById: ctx.user.id });
         await logActivity({ userId: ctx.user.id, action: "created_crs", entityType: "crs", entityId: id });
         return { id };
       }),
@@ -182,10 +184,12 @@ export const appRouter = router({
         extensaoKm: z.number().nullable().optional(),
         areaHa: z.number().nullable().optional(),
         perimetroUrbano: z.number().int().nullable().optional(),
+        techDataByType: z.record(z.string(), z.object({ extensaoKm: z.number().nullable().optional(), areaHa: z.number().nullable().optional() })).nullable().optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
-        await updateCrs(id, { ...data, tipoObra: data.tipoObra != null ? JSON.stringify(data.tipoObra) : data.tipoObra });
+        const techDataByTypeStr = data.techDataByType != null ? JSON.stringify(data.techDataByType) : data.techDataByType;
+        await updateCrs(id, { ...data, tipoObra: data.tipoObra != null ? JSON.stringify(data.tipoObra) : data.tipoObra, techDataByType: techDataByTypeStr });
         return { success: true };
       }),
     delete: adminProcedure
@@ -661,6 +665,12 @@ export const appRouter = router({
     yearlyStats: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))
       .query(async ({ input }) => getYearlyStats(input.clientId)),
+    taskTrend: protectedProcedure
+      .input(z.object({ clientId: z.number().optional() }))
+      .query(async ({ input }) => getTaskTrend(input.clientId)),
+    recentActivity: protectedProcedure
+      .input(z.object({ limit: z.number().optional() }))
+      .query(async ({ input }) => getActivityLogs({ limit: input.limit ?? 15 })),
   }),
 
   // ─── Notifications ──────────────────────────────────────────────────────────
