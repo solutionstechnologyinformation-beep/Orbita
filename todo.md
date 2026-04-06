@@ -636,3 +636,10 @@
 - [x] Dashboard: gráfico de linhas com tarefas entregues, atrasadas e em andamento por semana
 - [x] Dashboard: mini-calendário semanal com programação do usuário
 - [x] Dashboard: seção de últimas atualizações/modificações do sistema
+
+## Bug v5.8 — Sprint Runtime Error
+- [x] Sprint: corrigir erro de runtime na aba Checklist (TypeError em linha 644 do bundle)
+
+## Bugs v5.8
+- [x] Sprint: corrigir erro de runtime na aba Checklist (TypeError no bundle linha 644)
+- [x] Relatório de desempenho dos membros: exibir dados reais dos usuários (tarefas concluídas, em andamento, atrasadas)

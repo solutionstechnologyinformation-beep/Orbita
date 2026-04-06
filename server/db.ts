@@ -1067,3 +1067,42 @@ export async function getTaskTrend(clientId?: number) {
   }
   return days;
 }
+
+// ─── Member Performance ───────────────────────────────────────────────────────
+export async function getMemberPerformance(crsId?: number) {
+  const db = await getDb();
+  // Use raw SQL for aggregation with conditional crsId filter
+  const crsFilter = crsId ? `AND t.crsId = ${Number(crsId)}` : "";
+  const [rows] = await (db as any).$client.query(`
+    SELECT
+      u.id as userId,
+      u.name as userName,
+      u.avatarUrl,
+      u.role,
+      COUNT(t.id) as total,
+      SUM(CASE WHEN t.status IN ('published','archived') THEN 1 ELSE 0 END) as completed,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as inProgress,
+      SUM(CASE WHEN t.status = 'shared' THEN 1 ELSE 0 END) as shared,
+      SUM(CASE WHEN t.status = 'blocked' THEN 1 ELSE 0 END) as blocked,
+      SUM(CASE WHEN t.status = 'pending' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN t.dueDate < NOW() AND t.status NOT IN ('published','archived') THEN 1 ELSE 0 END) as overdue
+    FROM users u
+    LEFT JOIN tasks t ON t.assigneeId = u.id ${crsFilter}
+    GROUP BY u.id, u.name, u.avatarUrl, u.role
+    ORDER BY total DESC, u.name ASC
+  `);
+  return (rows as any[]).map(r => ({
+    userId: r.userId,
+    userName: r.userName,
+    avatarUrl: r.avatarUrl,
+    role: r.role,
+    total: Number(r.total),
+    completed: Number(r.completed),
+    inProgress: Number(r.inProgress),
+    shared: Number(r.shared),
+    blocked: Number(r.blocked),
+    pending: Number(r.pending),
+    overdue: Number(r.overdue),
+    completionRate: r.total > 0 ? Math.round((Number(r.completed) / Number(r.total)) * 100) : 0,
+  }));
+}

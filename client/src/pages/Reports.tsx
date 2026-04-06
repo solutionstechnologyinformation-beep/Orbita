@@ -320,7 +320,8 @@ export default function Reports() {
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
   const clientsQ = trpc.clients.list.useQuery();
   const blockedTasksQ = trpc.tasks.listByCrs.useQuery({ crsId: 0 }, { enabled: false });
-  const memberPerfQ = trpc.users.list.useQuery();
+  const memberPerfCrsId = selectedProjectForMembers !== "none" ? Number(selectedProjectForMembers) : undefined;
+  const memberPerfQ = trpc.users.memberPerformance.useQuery({ crsId: memberPerfCrsId });
 
   const projects = (projectsQ.data ?? []) as any[];
   const sprints = (sprintsQ.data ?? []) as any[];

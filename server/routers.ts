@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import {
-  getUserByOpenId, createUser, updateUser, getAllUsers,
+  getUserByOpenId, createUser, updateUser, getAllUsers, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
   getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs, recalcCrsProgress,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
@@ -91,6 +91,11 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await setUserDisciplines(ctx.user.id, input.disciplines);
         return { success: true };
+      }),
+    memberPerformance: protectedProcedure
+      .input(z.object({ crsId: z.number().optional() }))
+      .query(async ({ input }) => {
+        return getMemberPerformance(input.crsId);
       }),
   }),
   // ─── Registros (Activity Logs) ───────────────────────────────────────────────────────────
@@ -939,13 +944,13 @@ export const appRouter = router({
           .where(inArray(ci.taskId, taskIds))
           .orderBy(clientsTable.name, crsTable.name, t.setor, t.title, ci.title);
       }),
-    addChecklistItem: adminProcedure
+    addChecklistItem: protectedProcedure
       .input(z.object({ sprintId: z.number(), checklistItemId: z.number() }))
       .mutation(async ({ input }) => {
         await addChecklistItemToSprint(input.sprintId, input.checklistItemId);
         return { success: true };
       }),
-    removeChecklistItem: adminProcedure
+    removeChecklistItem: protectedProcedure
       .input(z.object({ sprintId: z.number(), checklistItemId: z.number() }))
       .mutation(async ({ input }) => {
         await removeChecklistItemFromSprint(input.sprintId, input.checklistItemId);
