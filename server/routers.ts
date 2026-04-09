@@ -18,10 +18,12 @@ import {
   getChatMessages, createChatMessage,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
-  getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint, getDb,
+  getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint,
+  getSprintWithTasks, addTaskToSprint, removeTaskFromSprint,
   getClientProgress, getCrsDisciplineProgress, getYearlyStats,
   getWhiteboardsByUser, saveWhiteboard, deleteWhiteboard, renameWhiteboard,
   getUserDisciplines, setUserDisciplines, getActivityLogs, getTaskTrend,
+  getDb,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -851,12 +853,21 @@ export const appRouter = router({
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
-        const db = await getDb();
-        const { sprints: sp, tasks } = await import("../drizzle/schema");
-        const { eq: eq2 } = await import("drizzle-orm");
-        const [sprint] = await db.select().from(sp).where(eq2(sp.id, input.id));
-        if (!sprint) throw new TRPCError({ code: "NOT_FOUND" });
-        return { ...sprint, tasks: [] };
+        const result = await getSprintWithTasks(input.id);
+        if (!result) throw new TRPCError({ code: "NOT_FOUND" });
+        return result;
+      }),
+    addTask: protectedProcedure
+      .input(z.object({ sprintId: z.number(), taskId: z.number() }))
+      .mutation(async ({ input }) => {
+        await addTaskToSprint(input.sprintId, input.taskId);
+        return { success: true };
+      }),
+    removeTask: protectedProcedure
+      .input(z.object({ sprintId: z.number(), taskId: z.number() }))
+      .mutation(async ({ input }) => {
+        await removeTaskFromSprint(input.sprintId, input.taskId);
+        return { success: true };
       }),
     listByCrs: protectedProcedure
       .input(z.object({ crsId: z.number() }))

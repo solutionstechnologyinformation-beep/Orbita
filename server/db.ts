@@ -1106,3 +1106,58 @@ export async function getMemberPerformance(crsId?: number) {
     completionRate: r.total > 0 ? Math.round((Number(r.completed) / Number(r.total)) * 100) : 0,
   }));
 }
+
+// ─── Sprint with Tasks ────────────────────────────────────────────────────────
+export async function getSprintWithTasks(sprintId: number) {
+  const db = await getDb();
+  const [sprint] = await db.select().from(sprints).where(eq(sprints.id, sprintId));
+  if (!sprint) return null;
+  // Fetch tasks linked to this sprint with phase info
+  const sprintTaskRows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      phaseId: tasks.phaseId,
+      phaseName: kanbanPhases.name,
+      phaseColor: kanbanPhases.color,
+      phaseIsTerminal: kanbanPhases.isTerminal,
+      setor: tasks.setor,
+      assigneeId: tasks.assigneeId,
+      dueDate: tasks.dueDate,
+      crsId: tasks.crsId,
+      priority: tasks.priority,
+      progress: tasks.progress,
+    })
+    .from(sprintTasks)
+    .innerJoin(tasks, eq(sprintTasks.taskId, tasks.id))
+    .leftJoin(kanbanPhases, eq(tasks.phaseId, kanbanPhases.id))
+    .where(eq(sprintTasks.sprintId, sprintId))
+    .orderBy(asc(sprintTasks.addedAt));
+  // Compute burndown data points
+  const start = new Date(sprint.startDate);
+  const end = new Date(sprint.endDate);
+  const totalTasks = sprintTaskRows.length;
+  const dataPoints: { date: string; remaining: number; ideal: number }[] = [];
+  const msPerDay = 86400000;
+  const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay));
+  for (let d = 0; d <= totalDays; d++) {
+    const day = new Date(start.getTime() + d * msPerDay);
+    const dateStr = day.toISOString().split("T")[0];
+    const remaining = sprintTaskRows.filter((t: typeof sprintTaskRows[0]) => !t.phaseIsTerminal).length;
+    const ideal = totalTasks - (totalTasks / totalDays) * d;
+    dataPoints.push({ date: dateStr, remaining, ideal: Math.max(0, ideal) });
+  }
+  return { ...sprint, tasks: sprintTaskRows, dataPoints };
+}
+
+export async function addTaskToSprint(sprintId: number, taskId: number) {
+  const db = await getDb();
+  await db.execute(
+    sql`INSERT IGNORE INTO sprint_tasks (sprintId, taskId, addedAt) VALUES (${sprintId}, ${taskId}, NOW())`
+  );
+}
+
+export async function removeTaskFromSprint(sprintId: number, taskId: number) {
+  const db = await getDb();
+  await db.delete(sprintTasks).where(and(eq(sprintTasks.sprintId, sprintId), eq(sprintTasks.taskId, taskId)));
+}

@@ -55,6 +55,7 @@ export default function Sprints() {
   const [checklistSearch, setChecklistSearch] = useState("");
   const [checklistFilterClientId, setChecklistFilterClientId] = useState<number | undefined>(undefined);
   const [checklistFilterCrsId, setChecklistFilterCrsId] = useState<number | undefined>(undefined);
+  const [taskSearch, setTaskSearch] = useState("");
   const [form, setForm] = useState({
     name: "",
     goal: "",
@@ -133,6 +134,25 @@ export default function Sprints() {
     },
     onError: (e) => toast.error(e.message),
   });
+  const addTaskMut = trpc.sprints.addTask.useMutation({
+    onSuccess: () => {
+      utils.sprints.get.invalidate();
+      toast.success("Tarefa adicionada à sprint!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const removeTaskMut = trpc.sprints.removeTask.useMutation({
+    onSuccess: () => {
+      utils.sprints.get.invalidate();
+      toast.success("Tarefa removida da sprint.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  // Tasks from the selected CRS for adding to sprint
+  const crsTasksQ = trpc.tasks.listByCrs.useQuery(
+    { crsId: crsId! },
+    { enabled: !!crsId && !!selectedSprintId }
+  );
 
   const sprints = sprintsQ.data ?? [];
   const selectedSprint = sprintDetailQ.data;
@@ -181,9 +201,9 @@ export default function Sprints() {
     try {
       const tasks = selectedSprint.tasks ?? [];
       const total = tasks.length;
-      const completed = tasks.filter((t: any) => t.status === "published" || t.status === "archived").length;
-      const inProgress = tasks.filter((t: any) => t.status === "in_progress").length;
-      const blocked = tasks.filter((t: any) => t.status === "blocked").length;
+      const completed = tasks.filter((t: any) => t.phaseIsTerminal).length;
+      const inProgress = tasks.filter((t: any) => !t.phaseIsTerminal && t.phaseName !== "Para Iniciar" && t.phaseName !== "Bloqueado").length;
+      const blocked = tasks.filter((t: any) => t.phaseName === "Bloqueado").length;
       const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
       const crsName = crsQ.data?.find((p: any) => p.id === crsId)?.name ?? "—";
@@ -203,8 +223,8 @@ export default function Sprints() {
 
       // Build task rows grouped by status
       const taskRows = tasks.map((t: any) => {
-        const color = TASK_STATUS_COLORS[t.status] ?? "#94a3b8";
-        const label = TASK_STATUS_LABELS[t.status] ?? t.status;
+        const color = t.phaseColor ?? "#94a3b8";
+        const label = t.phaseName ?? "—";
         return `<tr>
           <td style="padding:5px 8px;border:1px solid #e2e8f0">${t.title}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0">
@@ -551,7 +571,7 @@ export default function Sprints() {
                         </div>
                         <div className="bg-green-50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-green-700">
-                            {selectedSprint.tasks?.filter((t: any) => t.status === "published" || t.status === "archived").length ?? 0}
+                            {selectedSprint.tasks?.filter((t: any) => t.phaseIsTerminal).length ?? 0}
                           </p>
                           <p className="text-xs text-gray-500">Concluídas</p>
                         </div>
@@ -565,7 +585,7 @@ export default function Sprints() {
                           <p className="text-2xl font-bold text-amber-600">
                             {(() => {
                               const total = selectedSprint.tasks?.length ?? 0;
-                              const done = selectedSprint.tasks?.filter((t: any) => t.status === "published" || t.status === "archived").length ?? 0;
+                              const done = selectedSprint.tasks?.filter((t: any) => t.phaseIsTerminal).length ?? 0;
                               return total > 0 ? `${Math.round((done / total) * 100)}%` : "0%";
                             })()}
                           </p>
@@ -585,32 +605,87 @@ export default function Sprints() {
 
                         {/* Tab: Tarefas */}
                         <TabsContent value="tasks">
-                          {(selectedSprint.tasks ?? []).length === 0 ? (
-                            <p className="text-sm text-gray-400 text-center py-4">Nenhuma tarefa nesta sprint.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {(selectedSprint.tasks ?? []).map((task: any) => (
-                                <div key={task.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                                  <div
-                                    className="w-2 h-2 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: TASK_STATUS_COLORS[task.status] ?? "#94a3b8" }}
-                                  />
-                                  <span className="text-sm flex-1 truncate">{task.title}</span>
-                                  <Badge variant="outline" className="text-xs">{task.setor ?? "—"}</Badge>
-                                  <Badge
-                                    className="text-xs"
-                                    style={{
-                                      backgroundColor: `${TASK_STATUS_COLORS[task.status]}22`,
-                                      color: TASK_STATUS_COLORS[task.status],
-                                      border: `1px solid ${TASK_STATUS_COLORS[task.status]}44`,
-                                    }}
-                                  >
-                                    {TASK_STATUS_LABELS[task.status] ?? task.status}
-                                  </Badge>
-                                </div>
-                              ))}
+                          <div className="space-y-3">
+                            {/* Tasks already in sprint */}
+                            {(selectedSprint.tasks ?? []).length === 0 ? (
+                              <p className="text-sm text-gray-400 text-center py-4">Nenhuma tarefa nesta sprint.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {(selectedSprint.tasks ?? []).map((task: any) => (
+                                  <div key={task.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                                    <div
+                                      className="w-2 h-2 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: task.phaseColor ?? "#94a3b8" }}
+                                    />
+                                    <span className="text-sm flex-1 truncate">{task.title}</span>
+                                    <Badge variant="outline" className="text-xs">{task.setor ?? "—"}</Badge>
+                                    <Badge
+                                      className="text-xs"
+                                      style={{
+                                        backgroundColor: `${task.phaseColor ?? "#94a3b8"}22`,
+                                        color: task.phaseColor ?? "#94a3b8",
+                                        border: `1px solid ${task.phaseColor ?? "#94a3b8"}44`,
+                                      }}
+                                    >
+                                      {task.phaseName ?? "—"}
+                                    </Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6 text-red-400 hover:text-red-600 shrink-0"
+                                      onClick={() => removeTaskMut.mutate({ sprintId: selectedSprint.id, taskId: task.id })}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Add tasks section */}
+                            <div className="border-t pt-3">
+                              <p className="text-xs font-medium text-gray-600 mb-2">Adicionar tarefas do contrato</p>
+                              <div className="relative mb-2">
+                                <Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                  className="w-full pl-7 pr-2 py-1 text-xs border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                  placeholder="Buscar tarefa..."
+                                  value={taskSearch}
+                                  onChange={e => setTaskSearch(e.target.value)}
+                                />
+                              </div>
+                              {crsTasksQ.isLoading ? (
+                                <p className="text-xs text-gray-400 text-center py-2">Carregando...</p>
+                              ) : (() => {
+                                const inSprintTaskIds = new Set((selectedSprint.tasks ?? []).map((t: any) => t.id));
+                                const available = (crsTasksQ.data ?? []).filter((t: any) => {
+                                  if (inSprintTaskIds.has(t.id)) return false;
+                                  if (!taskSearch.trim()) return true;
+                                  const q = taskSearch.toLowerCase();
+                                  return t.title?.toLowerCase().includes(q) || t.setor?.toLowerCase().includes(q);
+                                });
+                                if (available.length === 0) return <p className="text-xs text-gray-400 text-center py-2">Todas as tarefas já estão na sprint.</p>;
+                                return (
+                                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                                    {available.map((t: any) => (
+                                      <div key={t.id} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer group">
+                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: t.phaseColor ?? "#94a3b8" }} />
+                                        <span className="text-xs flex-1 truncate">{t.title}</span>
+                                        <Badge variant="outline" className="text-xs shrink-0">{t.setor ?? "—"}</Badge>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-6 w-6 text-green-500 hover:text-green-700 shrink-0 opacity-0 group-hover:opacity-100"
+                                          onClick={() => addTaskMut.mutate({ sprintId: selectedSprint.id, taskId: t.id })}
+                                        >
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </div>
-                          )}
+                          </div>
                         </TabsContent>
 
                         {/* Tab: Checklist Items */}

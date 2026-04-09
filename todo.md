@@ -643,3 +643,9 @@
 ## Bugs v5.8
 - [x] Sprint: corrigir erro de runtime na aba Checklist (TypeError no bundle linha 644)
 - [x] Relatório de desempenho dos membros: exibir dados reais dos usuários (tarefas concluídas, em andamento, atrasadas)
+
+## Bug v5.9 — Varredura Completa Sprints
+- [x] Sprint: varredura completa e correção de todos os problemas (banco, backend, frontend)
+- [x] Sprint: aba Tarefas com botão remover e seção de adicionar tarefas do contrato
+- [x] Sprint: phaseName/phaseColor em vez de status inexistente (bug de runtime corrigido)
+- [x] Sprint: banco corrigido (crsId vs projectId) e getSprintWithTasks com JOIN em kanban_phases
