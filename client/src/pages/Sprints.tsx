@@ -213,7 +213,8 @@ export default function Sprints() {
 
       // Build burndown table rows
       const burndownRows = burndown?.dataPoints?.map((pt: any) => {
-        const [y, m, d] = pt.date.split("-");
+        const dateStr = typeof pt.date === 'string' ? pt.date : new Date(pt.date).toISOString().slice(0, 10);
+        const [y, m, d] = dateStr.split("-");
         return `<tr>
           <td style="padding:4px 8px;border:1px solid #e2e8f0">${d}/${m}/${y}</td>
           <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:center">${pt.remaining}</td>
@@ -341,7 +342,8 @@ export default function Sprints() {
         const idealPath = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${padL + i * xStep},${padT + yScale(p.ideal ?? 0)}`).join(' ');
         const xLabels = pts.filter((_: any, i: number) => n <= 14 || i % Math.ceil(n / 10) === 0).map((p: any, _: number, arr: any[]) => {
           const origIdx = pts.indexOf(p);
-          const [y2, m2, d2] = p.date.split('-');
+          const dateStr2 = typeof p.date === 'string' ? p.date : new Date(p.date).toISOString().slice(0, 10);
+          const [y2, m2, d2] = dateStr2.split('-');
           return `<text x="${padL + origIdx * xStep}" y="${svgH - 8}" text-anchor="middle" font-size="9" fill="#64748b">${d2}/${m2}</text>`;
         }).join('');
         const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => {
@@ -405,9 +407,9 @@ export default function Sprints() {
         <div className="flex flex-wrap gap-2">
           {/* Filtro: Cliente */}
           <Select
-            value={filterClientId?.toString() ?? ""}
+            value={filterClientId?.toString() ?? "all"}
             onValueChange={v => {
-              const id = v ? Number(v) : undefined;
+              const id = (v && v !== "all") ? Number(v) : undefined;
               setFilterClientId(id);
               setCrsId(undefined);
               setSelectedSprintId(null);
@@ -417,7 +419,7 @@ export default function Sprints() {
               <SelectValue placeholder="Todos os clientes" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos os clientes</SelectItem>
+              <SelectItem value="all">Todos os clientes</SelectItem>
               {(clientsQ.data ?? []).map((c: any) => (
                 <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
               ))}
@@ -433,7 +435,7 @@ export default function Sprints() {
             </SelectTrigger>
             <SelectContent>
               {filteredCrs.length === 0 ? (
-                <SelectItem value="" disabled>Nenhum Contrato encontrado</SelectItem>
+                <SelectItem value="none" disabled>Nenhum Contrato encontrado</SelectItem>
               ) : (
                 filteredCrs.map((p: any) => (
                   <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
@@ -846,7 +848,8 @@ export default function Sprints() {
                         <LineChart data={burndown.dataPoints}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                           <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={d => {
-                            const parts = d.split("-");
+                            const dStr = typeof d === 'string' ? d : new Date(d).toISOString().slice(0, 10);
+        const parts = dStr.split("-");
                             return `${parts[2]}/${parts[1]}`;
                           }} />
                           <YAxis tick={{ fontSize: 11 }} />

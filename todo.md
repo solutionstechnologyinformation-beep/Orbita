@@ -649,3 +649,8 @@
 - [x] Sprint: aba Tarefas com botão remover e seção de adicionar tarefas do contrato
 - [x] Sprint: phaseName/phaseColor em vez de status inexistente (bug de runtime corrigido)
 - [x] Sprint: banco corrigido (crsId vs projectId) e getSprintWithTasks com JOIN em kanban_phases
+
+## v5.10 — Correções e Publicação GitHub
+- [x] Sprint: bug de runtime confirmado resolvido (SelectItem value='' corrigido na v5.9, @import CSS duplicado removido)
+- [x] Varredura completa do código: 0 erros TypeScript, sem setState-in-render, sem SelectItem value vazio
+- [ ] Publicar no GitHub (push para repositório do usuário)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -73,15 +73,16 @@ function UserDisciplinesDialog({
     onError: (e) => toast.error(e.message),
   });
 
-  const assigned: string[] = (discQ.data ?? []).map((d: any) => d.disciplineName);
-  const [selected, setSelected] = useState<string[]>(assigned);
+  const [selected, setSelected] = useState<string[]>([]);
 
-  // Sync when data loads
-  const [synced, setSynced] = useState(false);
-  if (!synced && discQ.data) {
-    setSelected((discQ.data ?? []).map((d: any) => d.disciplineName));
-    setSynced(true);
-  }
+  // Sync when data loads — use useEffect to avoid setState-in-render (React 19 error)
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (!syncedRef.current && discQ.data) {
+      setSelected((discQ.data ?? []).map((d: any) => d.disciplineName));
+      syncedRef.current = true;
+    }
+  }, [discQ.data]);
 
   function toggle(name: string) {
     setSelected((prev) =>
