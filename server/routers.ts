@@ -766,15 +766,78 @@ export const appRouter = router({
     getHistory: protectedProcedure
       .input(z.object({ crsId: z.number().optional() }))
       .query(async ({ ctx, input }) => getChatMessages(ctx.user.id, input.crsId)),
+
+    // Coleta dados reais do sistema para usar como contexto da IA
+    getContext: protectedProcedure
+      .input(z.object({ crsId: z.number().optional() }))
+      .query(async ({ input }) => {
+        const stats = await getDashboardStats();
+        const members = await getMemberPerformance(input.crsId);
+        const clientProgress = await getClientProgress();
+        let disciplineProgress: any[] = [];
+        let crsInfo: any = null;
+        let tasks: any[] = [];
+        if (input.crsId) {
+          disciplineProgress = await getCrsDisciplineProgress(input.crsId);
+          const allCrs = await getAllCrs();
+          crsInfo = allCrs.find((c: any) => c.id === input.crsId) ?? null;
+          tasks = await getTasksByCrs(input.crsId);
+        }
+        return { stats, members, clientProgress, disciplineProgress, crsInfo, tasks };
+      }),
+
     send: protectedProcedure
-      .input(z.object({ message: z.string().min(1), crsId: z.number().optional() }))
+      .input(z.object({
+        message: z.string().min(1),
+        crsId: z.number().optional(),
+        contextData: z.any().optional(), // dados reais passados pelo frontend
+      }))
       .mutation(async ({ ctx, input }) => {
         await createChatMessage({ userId: ctx.user.id, crsId: input.crsId, role: "user", content: input.message });
         const history = await getChatMessages(ctx.user.id, input.crsId);
         const messages = history.map((m: any) => ({ role: m.role, content: m.content }));
+
+        // Montar contexto do sistema com dados reais
+        let systemContext = `Você é um assistente analítico especializado em gestão de projetos de engenharia e contratos. Responda em português, de forma objetiva, estruturada e com insights práticos. Use dados reais fornecidos abaixo para embasar suas respostas.`;
+
+        if (input.contextData) {
+          const ctx2 = input.contextData;
+          if (ctx2.stats) {
+            systemContext += `\n\n=== DADOS GERAIS DO SISTEMA ===\nContratos ativos: ${ctx2.stats.totalCrs}\nTotal de tarefas: ${ctx2.stats.totalTasks}\nTarefas concluídas: ${ctx2.stats.completedTasks}\nTarefas em andamento: ${ctx2.stats.inProgressTasks}\nTarefas pendentes: ${ctx2.stats.pendingTasks}\nTarefas em atraso: ${ctx2.stats.overdueTasks}\nProgresso médio dos contratos: ${ctx2.stats.avgProgress}%\nChecklist total: ${ctx2.stats.totalChecklist} (${ctx2.stats.completedChecklist} concluídos, ${ctx2.stats.overdueChecklist} em atraso)`;
+          }
+          if (ctx2.crsInfo) {
+            systemContext += `\n\n=== CONTRATO SELECIONADO ===\nNome: ${ctx2.crsInfo.name}\nCódigo: ${ctx2.crsInfo.code ?? 'N/A'}\nProgresso: ${ctx2.crsInfo.progress ?? 0}%\nStatus: ${ctx2.crsInfo.status}`;
+          }
+          if (ctx2.members && ctx2.members.length > 0) {
+            systemContext += `\n\n=== DESEMPENHO DOS MEMBROS ===`;
+            for (const m of ctx2.members.slice(0, 10)) {
+              systemContext += `\n- ${m.userName}: ${m.total} tarefas (${m.completed} concluídas, ${m.inProgress} em andamento, ${m.overdue} em atraso, taxa: ${m.completionRate}%)`;
+            }
+          }
+          if (ctx2.disciplineProgress && ctx2.disciplineProgress.length > 0) {
+            systemContext += `\n\n=== PROGRESSO POR DISCIPLINA ===`;
+            for (const d of ctx2.disciplineProgress) {
+              systemContext += `\n- ${d.name}: ${d.done}/${d.total} itens (${d.progress}%)`;
+            }
+          }
+          if (ctx2.tasks && ctx2.tasks.length > 0) {
+            const overdue = ctx2.tasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && !t.phaseIsTerminal);
+            const byPhase: Record<string, number> = {};
+            for (const t of ctx2.tasks) { const k = t.phaseName ?? 'Sem fase'; byPhase[k] = (byPhase[k] ?? 0) + 1; }
+            systemContext += `\n\n=== TAREFAS DO CONTRATO ===\nTotal: ${ctx2.tasks.length} | Em atraso: ${overdue.length}`;
+            systemContext += `\nDistribuição por fase: ${Object.entries(byPhase).map(([k,v]) => k+': '+v).join(', ')}`;
+          }
+          if (ctx2.clientProgress && ctx2.clientProgress.length > 0) {
+            systemContext += `\n\n=== PROGRESSO POR CLIENTE ===`;
+            for (const c of ctx2.clientProgress.slice(0, 8)) {
+              systemContext += `\n- ${c.clientName}: ${c.crsCount} contratos, progresso médio ${c.avgProgress ?? 0}%`;
+            }
+          }
+        }
+
         const response = await invokeLLM({
           messages: [
-            { role: "system", content: "Você é um assistente de gestão de projetos e contratos CRS. Responda de forma objetiva e útil." },
+            { role: "system", content: systemContext },
             ...messages,
           ],
         });
@@ -782,6 +845,7 @@ export const appRouter = router({
         await createChatMessage({ userId: ctx.user.id, crsId: input.crsId, role: "assistant", content: reply });
         return { reply };
       }),
+
     clearHistory: protectedProcedure
       .input(z.object({ crsId: z.number().optional() }))
       .mutation(async ({ ctx, input }) => {

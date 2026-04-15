@@ -653,4 +653,12 @@
 ## v5.10 — Correções e Publicação GitHub
 - [x] Sprint: bug de runtime confirmado resolvido (SelectItem value='' corrigido na v5.9, @import CSS duplicado removido)
 - [x] Varredura completa do código: 0 erros TypeScript, sem setState-in-render, sem SelectItem value vazio
-- [ ] Publicar no GitHub (push para repositório do usuário)
+- [x] Publicar no GitHub (push para repositório do usuário)
+
+## v5.11 — Chat IA: Correção SQL e Ferramenta Analítica
+- [x] Corrigir erro SQL: coluna crsId não existe no banco (banco usa projectId)
+- [x] Migrar coluna projectId → crsId no banco (ALTER TABLE)
+- [x] Reformular Chat IA como ferramenta analítica: painel de relatórios automáticos + chat contextual
+- [x] Relatórios pré-definidos: Carga de Trabalho, Tarefas em Atraso, Desempenho por Membro, Progresso por Contrato
+- [x] Chat contextual: IA recebe dados reais do sistema como contexto antes de responder
+- [x] Exportar PDF de qualquer relatório gerado (jsPDF instalado)
