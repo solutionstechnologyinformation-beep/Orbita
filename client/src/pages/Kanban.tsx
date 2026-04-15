@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -292,7 +292,11 @@ export default function Kanban() {
   const [filterPhase, setFilterPhase] = useState("all");
   // Discipline visibility filter: set of discipline names to HIDE (empty = show all)
   const [hiddenDisciplines, setHiddenDisciplines] = useState<Set<string>>(new Set());
+  // hasRestrictedDisciplines é calculado abaixo após queries, mas usamos ref para toggleDiscipline
+  const restrictedRef = useRef(false);
   function toggleDiscipline(name: string) {
+    // Usuários com disciplinas restritas não podem alterar o filtro
+    if (restrictedRef.current) return;
     setHiddenDisciplines((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -333,6 +337,10 @@ export default function Kanban() {
   const disciplines: any[] = disciplinesQ.data ?? [];
   const members: any[] = membersQ.data ?? [];
   const myDisciplineNames: string[] = (myDisciplinesQ.data ?? []).map((d: any) => d.disciplineName);
+  // Se o usuário não é admin e tem disciplinas configuradas, o filtro é obrigatório (não pode ser removido)
+  const hasRestrictedDisciplines = !isAdmin && myDisciplineNames.length > 0;
+  // Manter ref sincronizada para uso em toggleDiscipline
+  restrictedRef.current = hasRestrictedDisciplines;
 
   // Auto-hide disciplines not assigned to the current user (only if user has disciplines configured)
   const [autoFilterApplied, setAutoFilterApplied] = useState(false);
@@ -347,6 +355,16 @@ export default function Kanban() {
       setAutoFilterApplied(true);
     }
   }, [myDisciplineNames.join(","), disciplines.length]);
+
+  // For restricted users: always re-apply mandatory filter (prevent manual override)
+  useEffect(() => {
+    if (hasRestrictedDisciplines && disciplines.length > 0) {
+      const toHide = disciplines
+        .filter((d: any) => !myDisciplineNames.includes(d.name))
+        .map((d: any) => d.name);
+      setHiddenDisciplines(new Set(toHide));
+    }
+  }, [hasRestrictedDisciplines, myDisciplineNames.join(","), disciplines.length]);
 
   // Mutations
   const createTaskMut = trpc.tasks.create.useMutation({
@@ -563,26 +581,38 @@ export default function Kanban() {
         {allColumns.length > 1 && (
           <div className="px-4 py-2 border-b border-border bg-background/60 flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground font-medium flex-shrink-0">Disciplinas:</span>
-            <button
-              onClick={() => setHiddenDisciplines(new Set())}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
-                hiddenDisciplines.size === 0
-                  ? "bg-primary text-white border-primary"
-                  : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-              }`}
-            >
-              Todas
-            </button>
+            {hasRestrictedDisciplines ? (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/30">
+                <Layers className="w-3 h-3" />
+                Filtrado pelo seu setor
+              </span>
+            ) : (
+              <button
+                onClick={() => setHiddenDisciplines(new Set())}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
+                  hiddenDisciplines.size === 0
+                    ? "bg-primary text-white border-primary"
+                    : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                Todas
+              </button>
+            )}
             {allColumns.map((disc) => {
               const isHidden = hiddenDisciplines.has(disc.name);
+              const isRestricted = hasRestrictedDisciplines;
               return (
                 <button
                   key={disc.id}
                   onClick={() => toggleDiscipline(disc.name)}
+                  disabled={isRestricted}
+                  title={isRestricted && !isHidden ? `Disciplina do seu setor` : isRestricted && isHidden ? `Você não tem acesso a esta disciplina` : undefined}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
                     isHidden
-                      ? "bg-transparent text-muted-foreground/50 border-border/50 line-through"
-                      : "border-transparent text-white"
+                      ? "bg-transparent text-muted-foreground/30 border-border/30 line-through opacity-50"
+                      : isRestricted
+                        ? "border-transparent text-white cursor-default"
+                        : "border-transparent text-white"
                   }`}
                   style={!isHidden ? { backgroundColor: disc.color, borderColor: disc.color } : {}}
                 >

@@ -713,3 +713,18 @@
 - [x] PDF de Sprint com burndown chart SVG (linha ideal vs real, escala e legenda)
 - [x] Seletor de sprint filtra por cliente quando cliente está selecionado
 - [x] Tarefas Bloqueadas filtra por projetos do cliente selecionado
+
+## v5.18 — PDF Dashboard + Kanban por Setor
+- [ ] PDF Dashboard: mapa com manchas azuis por estado + número de contratos no centro
+- [ ] PDF Dashboard: detalhamento de cada contrato (tipos de obra, extensões, tarefas e checklist em cascata por disciplina)
+- [ ] Kanban: filtrar colunas para mostrar apenas a disciplina do setor do usuário logado
+- [ ] Kanban: usuários sem setor definido veem todas as colunas (admin/fallback)
+
+## v5.18 — PDF Dashboard com Detalhamento + Kanban Filtro Obrigatório
+- [x] Dashboard PDF: query contractsForPdf integrada (tarefas por disciplina + checklist em cascata)
+- [x] Dashboard PDF: seção "Detalhamento dos Contratos" com tipos de obra, extensão, tarefas e checklist por disciplina
+- [x] Dashboard PDF: mapa + tabela de contratos por estado + detalhamento completo em cascata
+- [x] Kanban: filtro por disciplina do usuário agora é OBRIGATÓRIO para não-admins com disciplinas configuradas
+- [x] Kanban: badge "Filtrado pelo seu setor" exibido para usuários com filtro obrigatório
+- [x] Kanban: botão "Todas" e toggles de disciplina desabilitados para usuários restritos
+- [x] TypeScript: 0 erros confirmados

@@ -1332,3 +1332,77 @@ export async function getAnnualReport(year: number, clientId?: number) {
     monthlyTrend,
   };
 }
+
+// ── getContractsForPdf ────────────────────────────────────────────────────────
+export async function getContractsForPdf(clientId?: number) {
+  const db = await getDb();
+  const { sql: sqlExpr } = await import("drizzle-orm");
+
+  // Buscar contratos com dados técnicos
+  const clientFilter = clientId ? `AND c.clientId = ${clientId}` : "";
+  const [crsRows] = await db.execute(sqlExpr.raw(`
+    SELECT c.id, c.name, c.code, c.state, c.country, c.tipoObra, c.extensaoKm, c.areaHa,
+           cl.name as clientName
+    FROM crs c
+    LEFT JOIN clients cl ON cl.id = c.clientId
+    WHERE c.status = 'active' ${clientFilter}
+    ORDER BY c.name
+  `)) as any;
+
+  const contracts = (crsRows as any[]).map(async (c: any) => {
+    // Buscar tarefas agrupadas por disciplina (setor)
+    const [taskRows] = await db.execute(sqlExpr.raw(`
+      SELECT t.id, t.title, t.setor, t.status, t.dueDate, t.progress,
+             u.name as assigneeName
+      FROM tasks t
+      LEFT JOIN users u ON u.id = t.assigneeId
+      WHERE t.projectId = ${c.id}
+      ORDER BY t.setor, t.title
+    `)) as any;
+
+    // Agrupar tarefas por disciplina
+    const tasksByDiscipline: Record<string, any[]> = {};
+    (taskRows as any[]).forEach((t: any) => {
+      const key = t.setor || "Sem Disciplina";
+      if (!tasksByDiscipline[key]) tasksByDiscipline[key] = [];
+      tasksByDiscipline[key].push(t);
+    });
+
+    // Para cada tarefa, buscar checklist
+    const taskIds = (taskRows as any[]).map((t: any) => t.id);
+    let checklistByTask: Record<number, any[]> = {};
+    if (taskIds.length > 0) {
+      const [clRows] = await db.execute(sqlExpr.raw(`
+        SELECT id, taskId, title, status
+        FROM checklist_items
+        WHERE taskId IN (${taskIds.join(",")})
+        ORDER BY taskId, id
+      `)) as any;
+      (clRows as any[]).forEach((cl: any) => {
+        if (!checklistByTask[cl.taskId]) checklistByTask[cl.taskId] = [];
+        checklistByTask[cl.taskId].push(cl);
+      });
+    }
+
+    // Tipos de obra
+    let tiposObra: string[] = [];
+    try { tiposObra = JSON.parse(c.tipoObra ?? "[]"); } catch { tiposObra = c.tipoObra ? [c.tipoObra] : []; }
+
+    return {
+      id: c.id,
+      name: c.name,
+      code: c.code,
+      state: c.state,
+      country: c.country,
+      clientName: c.clientName,
+      tiposObra,
+      extensaoKm: c.extensaoKm,
+      areaHa: c.areaHa,
+      tasksByDiscipline,
+      checklistByTask,
+      totalTasks: (taskRows as any[]).length,
+    };
+  });
+
+  return Promise.all(contracts);
+}

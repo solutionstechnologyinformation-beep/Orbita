@@ -173,11 +173,12 @@ async function exportDashboardPDF(data: {
   conflicts: any[]; clientCount: number;
   overdueP: number; completedP: number; revisionP: number; onTimeP: number;
   mapContainerEl?: HTMLElement | null;
-  staticMapData?: { url: string | null; contracts: any[] } | null;
+  staticMapData?: { url: string | null; contracts: any[]; stateCount?: Record<string, number> } | null;
+  contractsDetail?: any[] | null;
   clientName?: string;
   clientColor?: string;
 }) {
-  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl, staticMapData, clientName, clientColor } = data;
+  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl, staticMapData, contractsDetail, clientName, clientColor } = data;
   const total = stats?.totalTasks ?? 0;
   const now = new Date().toLocaleString("pt-BR");
   const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
@@ -336,22 +337,67 @@ async function exportDashboardPDF(data: {
       <tbody>${stateRows}</tbody></table>
     </section>` : "";
 
-  // Build contract detail table
-  const contractDetailRows = contractsForMap.slice(0, 20).map((c: any, i: number) => {
+  // Build detailed contract sections with tasks + checklist cascade by discipline
+  const TIPO_LABELS: Record<string, string> = {
+    implementacao: "Implementação", restauracao: "Restauração", levantamento: "Levantamento",
+    aumento_capacidade: "Aumento de Capacidade", pavimentacao: "Pavimentação",
+    sinalizacao: "Sinalização", drenagem: "Drenagem",
+  };
+  const STATUS_BADGE: Record<string, string> = {
+    to_start: "Para Iniciar", in_progress: "Em Andamento", shared: "Compartilhado",
+    published: "Publicado", archived: "Arquivado",
+  };
+  const detailContracts = contractsDetail ?? contractsForMap;
+  const contractDetailTable = detailContracts.length > 0 ? detailContracts.map((c: any, i: number) => {
     const label = String.fromCharCode(65 + (i % 26));
-    const tipos = (() => { try { return (JSON.parse(c.tipoObra ?? "[]") as string[]).join(", "); } catch { return c.tipoObra ?? "—"; } })();
-    return `<tr>
-      <td style="padding:5px 8px;border:1px solid #e2e8f0"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#1561ad;color:#fff;border-radius:50%;font-size:10px;font-weight:700;margin-right:6px">${label}</span>${c.name}</td>
-      <td style="padding:5px 8px;border:1px solid #e2e8f0">${c.state ?? "—"}, ${c.country ?? "—"}</td>
-      <td style="padding:5px 8px;border:1px solid #e2e8f0">${tipos || "—"}</td>
-    </tr>`;
-  }).join("");
-  const contractDetailTable = contractDetailRows ? `
-    <section style="margin-top:16px">
-      <h3>Detalhes dos Contratos</h3>
-      <table><thead><tr><th>Contrato</th><th>Localização</th><th>Tipo de Obra</th></tr></thead>
-      <tbody>${contractDetailRows}</tbody></table>
-    </section>` : "";
+    const tipos = Array.isArray(c.tiposObra)
+      ? c.tiposObra.map((t: string) => TIPO_LABELS[t] ?? t).join(", ")
+      : (() => { try { return (JSON.parse(c.tipoObra ?? "[]") as string[]).map((t: string) => TIPO_LABELS[t] ?? t).join(", "); } catch { return c.tipoObra ?? "—"; } })();
+    const ext = c.extensaoKm ? `${c.extensaoKm} km` : (c.areaHa ? `${c.areaHa} m²` : "—");
+    // Tarefas por disciplina em cascata
+    const tasksByDisc = c.tasksByDiscipline ?? {};
+    const checklistByTask = c.checklistByTask ?? {};
+    const disciplineBlocks = Object.entries(tasksByDisc).map(([disc, tasks]: [string, any]) => {
+      if (!tasks || tasks.length === 0) return "";
+      const taskRows = tasks.map((t: any) => {
+        const badge = STATUS_BADGE[t.status] ?? t.status ?? "—";
+        const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "published" && t.status !== "archived";
+        const clItems = (checklistByTask[t.id] ?? []) as any[];
+        const clHtml = clItems.length > 0 ? `<div style="margin-left:20px;margin-top:4px">${clItems.map((cl: any) =>
+          `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:10px;color:#64748b">
+            <span style="color:${cl.status === 'published' || cl.status === 'archived' ? '#22c55e' : '#94a3b8'};font-size:12px">${cl.status === 'published' || cl.status === 'archived' ? '✓' : '○'}</span>
+            <span style="${cl.status === 'published' || cl.status === 'archived' ? 'text-decoration:line-through;color:#94a3b8' : ''}">${cl.title}</span>
+          </div>`
+        ).join("")}</div>` : "";
+        return `<div style="padding:4px 8px;border-left:2px solid #e2e8f0;margin:3px 0;margin-left:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;font-weight:600">${t.title}</span>
+            <span style="background:${t.status === 'published' || t.status === 'archived' ? '#22c55e22' : t.status === 'in_progress' ? '#3b82f622' : '#f59e0b22'};color:${t.status === 'published' || t.status === 'archived' ? '#16a34a' : t.status === 'in_progress' ? '#2563eb' : '#d97706'};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:600">${badge}</span>
+            ${isOverdue ? '<span style="color:#ef4444;font-size:9px">⚠ Atrasada</span>' : ''}
+            ${t.assigneeName ? `<span style="font-size:9px;color:#64748b">→ ${t.assigneeName}</span>` : ''}
+          </div>
+          ${clHtml}
+        </div>`;
+      }).join("");
+      return `<div style="margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:#1561ad;background:#eff6ff;padding:3px 8px;border-radius:4px;margin-bottom:4px">${disc} (${tasks.length} tarefa${tasks.length !== 1 ? 's' : ''})</div>
+        ${taskRows}
+      </div>`;
+    }).filter(Boolean).join("");
+    return `<section style="margin-bottom:20px;page-break-inside:avoid">
+      <h3 style="display:flex;align-items:center;gap:8px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#1561ad;color:#fff;border-radius:50%;font-size:11px;font-weight:700;flex-shrink:0">${label}</span>
+        ${c.name} <span style="font-size:11px;font-weight:400;color:#64748b">${c.code ?? ""}</span>
+      </h3>
+      <div style="display:flex;gap:16px;margin:8px 0;flex-wrap:wrap">
+        <span style="font-size:11px;color:#64748b">📍 ${c.state ?? "—"}, ${c.country ?? "—"}</span>
+        <span style="font-size:11px;color:#64748b">📍 Extensão: ${ext}</span>
+        ${tipos ? `<span style="font-size:11px;color:#64748b">🛠 ${tipos}</span>` : ""}
+        ${c.clientName ? `<span style="font-size:11px;color:#64748b">🏢 ${c.clientName}</span>` : ""}
+      </div>
+      ${disciplineBlocks || '<p style="font-size:11px;color:#94a3b8">Nenhuma tarefa cadastrada.</p>'}
+    </section>`;
+  }).join("") : "";
 
   // Build map section using staticMapData (server-side Static Maps API)
   let mapImageHtml = "";
@@ -360,7 +406,10 @@ async function exportDashboardPDF(data: {
       <h3>Mapa de Contratos por Localização</h3>
       <img src="${staticMapData.url}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px;max-height:400px;object-fit:cover" alt="Mapa de Contratos" />
       ${stateTableHtml}
-      ${contractDetailTable}
+    </section>
+    <section style="margin-top:24px">
+      <h3>Detalhamento dos Contratos</h3>
+      ${contractDetailTable || '<p style="font-size:12px;color:#94a3b8">Nenhum contrato encontrado.</p>'}
     </section>`;
   } else if (mapContainerEl) {
     try {
@@ -537,6 +586,10 @@ export default function Dashboard() {
     { clientId: filterClient === "all" ? undefined : Number(filterClient) },
     { enabled: exportingWithMap, staleTime: 60000 }
   );
+  const contractsForPdfQ = trpc.dashboard.contractsForPdf.useQuery(
+    { clientId: filterClient === "all" ? undefined : Number(filterClient) },
+    { enabled: exportingWithMap, staleTime: 60000 }
+  );
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
   const clientCount = statsQ.data?.totalClients ?? 0;
@@ -564,9 +617,9 @@ export default function Dashboard() {
     }
   }, [annualReportQ.data, annualReportYear, exportingAnnualYear, filterClient, clientsQ.data]);
 
-  // Trigger Dashboard PDF with map when staticMapQ loads
+  // Trigger Dashboard PDF with map when staticMapQ and contractsForPdfQ load
   useEffect(() => {
-    if (exportingWithMap && staticMapQ.data && !staticMapQ.isLoading) {
+    if (exportingWithMap && staticMapQ.data && !staticMapQ.isLoading && contractsForPdfQ.data && !contractsForPdfQ.isLoading) {
       const activeClient = filterClient !== "all" ? (clientsQ.data ?? []).find((c: any) => String(c.id) === filterClient) : null;
       exportDashboardPDF({
         stats,
@@ -580,13 +633,14 @@ export default function Dashboard() {
         revisionP: 0,
         onTimeP,
         staticMapData: staticMapQ.data,
+        contractsDetail: contractsForPdfQ.data,
         clientName: activeClient?.name,
         clientColor: activeClient?.color,
       });
       setExportingWithMap(false);
       setExportingPdf(false);
     }
-  }, [exportingWithMap, staticMapQ.data, staticMapQ.isLoading]);
+  }, [exportingWithMap, staticMapQ.data, staticMapQ.isLoading, contractsForPdfQ.data, contractsForPdfQ.isLoading]);
   const clients = (clientsQ.data ?? []) as any[];
   // Filter projects by selected client
   const projects = filterClient === "all"
