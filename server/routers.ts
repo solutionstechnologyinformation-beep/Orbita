@@ -864,12 +864,10 @@ export const appRouter = router({
   // ─── Direct Messages ────────────────────────────────────────────────────────
   messages: router({
     getConversations: protectedProcedure.query(async ({ ctx }) => {
-      const result = await getUserConversations(ctx.user.id);
-      return (result[0] as any[]) ?? [];
+      return getUserConversations(ctx.user.id);
     }),
     getGroupConversations: protectedProcedure.query(async ({ ctx }) => {
-      const result = await getGroupConversations(ctx.user.id);
-      return (result[0] as any[]) ?? [];
+      return getGroupConversations(ctx.user.id);
     }),
     getOrCreate: protectedProcedure
       .input(z.object({ otherUserId: z.number() }))

@@ -721,16 +721,38 @@ export async function sendDirectMessage(data: { conversationId: number; senderId
 }
 export async function getUserConversations(userId: number) {
   const db = await getDb();
-  return db.execute(
-    sql`SELECT c.id, c.type, c.name, c.updatedAt,
-        u.id as otherUserId, u.name as otherUserName, u.avatarUrl as otherUserAvatar
-        FROM conversations c
-        JOIN conversation_participants cp ON cp.conversationId = c.id AND cp.userId = ${userId}
-        LEFT JOIN conversation_participants cp2 ON cp2.conversationId = c.id AND cp2.userId != ${userId}
-        LEFT JOIN users u ON u.id = cp2.userId
-        WHERE c.type = 'direct'
-        ORDER BY c.updatedAt DESC LIMIT 50`
+  const cp2 = aliasedTable(conversationParticipants, "cp2");
+  const otherUser = aliasedTable(users, "otherUser");
+  const rows = await db
+    .select({
+      id: conversations.id,
+      type: conversations.type,
+      name: conversations.name,
+      updatedAt: conversations.updatedAt,
+      otherUserId: otherUser.id,
+      otherUserName: otherUser.name,
+      otherUserAvatar: otherUser.avatarUrl,
+    })
+    .from(conversations)
+    .innerJoin(conversationParticipants, and(eq(conversationParticipants.conversationId, conversations.id), eq(conversationParticipants.userId, userId)))
+    .leftJoin(cp2, and(eq(cp2.conversationId, conversations.id), sql`${cp2.userId} != ${userId}`))
+    .leftJoin(otherUser, eq(otherUser.id, cp2.userId))
+    .where(eq(conversations.type, "direct"))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(50);
+  // Also fetch last message for each conversation
+  const result = await Promise.all(
+    rows.map(async (row: typeof rows[number]) => {
+      const lastMsgs = await db
+        .select({ content: directMessages.content })
+        .from(directMessages)
+        .where(eq(directMessages.conversationId, row.id))
+        .orderBy(desc(directMessages.createdAt))
+        .limit(1);
+      return { ...row, lastMessage: lastMsgs[0]?.content ?? null };
+    })
   );
+  return result;
 }
 
 export async function createGroupConversation(createdById: number, name: string, memberIds: number[]) {
@@ -748,15 +770,38 @@ export async function createGroupConversation(createdById: number, name: string,
 }
 export async function getGroupConversations(userId: number) {
   const db = await getDb();
-  return db.execute(
-    sql`SELECT c.id, c.type, c.name, c.updatedAt,
-        (SELECT dm.content FROM direct_messages dm WHERE dm.conversationId = c.id ORDER BY dm.createdAt DESC LIMIT 1) as lastMessage,
-        (SELECT COUNT(*) FROM conversation_participants cp3 WHERE cp3.conversationId = c.id) as memberCount
-        FROM conversations c
-        JOIN conversation_participants cp ON cp.conversationId = c.id AND cp.userId = ${userId}
-        WHERE c.type = 'group'
-        ORDER BY c.updatedAt DESC LIMIT 50`
+  const rows = await db
+    .select({
+      id: conversations.id,
+      type: conversations.type,
+      name: conversations.name,
+      updatedAt: conversations.updatedAt,
+    })
+    .from(conversations)
+    .innerJoin(conversationParticipants, and(eq(conversationParticipants.conversationId, conversations.id), eq(conversationParticipants.userId, userId)))
+    .where(eq(conversations.type, "group"))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(50);
+  const result = await Promise.all(
+    rows.map(async (row: typeof rows[number]) => {
+      const lastMsgs = await db
+        .select({ content: directMessages.content })
+        .from(directMessages)
+        .where(eq(directMessages.conversationId, row.id))
+        .orderBy(desc(directMessages.createdAt))
+        .limit(1);
+      const memberCountRows = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(conversationParticipants)
+        .where(eq(conversationParticipants.conversationId, row.id));
+      return {
+        ...row,
+        lastMessage: lastMsgs[0]?.content ?? null,
+        memberCount: Number(memberCountRows[0]?.count ?? 0),
+      };
+    })
   );
+  return result;
 }
 export async function getConversationMembers(conversationId: number) {
   const db = await getDb();

@@ -662,3 +662,11 @@
 - [x] Relatórios pré-definidos: Carga de Trabalho, Tarefas em Atraso, Desempenho por Membro, Progresso por Contrato
 - [x] Chat contextual: IA recebe dados reais do sistema como contexto antes de responder
 - [x] Exportar PDF de qualquer relatório gerado (jsPDF instalado)
+
+## v5.12 — Chat de Tarefas: Correção de Funcionamento e Limpeza de Dados
+- [x] Diagnosticar problema: conversas com participantes fantasma (IDs 690013, 720001, 810138 inexistentes)
+- [x] Limpar banco: remover conversas órfãs e mensagens associadas
+- [x] Corrigir getUserConversations: reescrito com Drizzle ORM (era SQL raw com resultado aninhado [Max Depth])
+- [x] Corrigir getGroupConversations: reescrito com Drizzle ORM + lastMessage + memberCount
+- [x] Corrigir procedure getConversations no router (remover result[0] desnecessário)
+- [x] Testar fluxo completo: conversa abre, mensagem enviada, prévia atualizada na lista
