@@ -173,10 +173,11 @@ async function exportDashboardPDF(data: {
   conflicts: any[]; clientCount: number;
   overdueP: number; completedP: number; revisionP: number; onTimeP: number;
   mapContainerEl?: HTMLElement | null;
+  staticMapData?: { url: string | null; contracts: any[] } | null;
   clientName?: string;
   clientColor?: string;
 }) {
-  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl, clientName, clientColor } = data;
+  const { stats, projects, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP, onTimeP, mapContainerEl, staticMapData, clientName, clientColor } = data;
   const total = stats?.totalTasks ?? 0;
   const now = new Date().toLocaleString("pt-BR");
   const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
@@ -315,13 +316,13 @@ async function exportDashboardPDF(data: {
 </body>
 </html>`;
 
-  // Capture map image if container is available
-  // Build state summary table
+  // Build state summary table from staticMapData or projects
+  const contractsForMap = staticMapData?.contracts ?? projects;
   const stateGroups: Record<string, { state: string; stateCode: string; countryCode: string; count: number }> = {};
-  projects.forEach((p: any) => {
-    if (!p.countryCode) return;
-    const key = p.stateCode ? `${p.countryCode}-${p.stateCode}` : p.countryCode;
-    if (!stateGroups[key]) stateGroups[key] = { state: p.state ?? p.stateCode ?? p.countryCode, stateCode: p.stateCode ?? "", countryCode: p.countryCode, count: 0 };
+  contractsForMap.forEach((p: any) => {
+    if (!p.countryCode && !p.state) return;
+    const key = p.stateCode ? `${p.countryCode ?? ""}-${p.stateCode}` : (p.countryCode ?? p.state ?? "?");
+    if (!stateGroups[key]) stateGroups[key] = { state: p.state ?? p.stateCode ?? p.countryCode, stateCode: p.stateCode ?? "", countryCode: p.countryCode ?? "", count: 0 };
     stateGroups[key].count++;
   });
   const stateRows = Object.values(stateGroups)
@@ -334,21 +335,47 @@ async function exportDashboardPDF(data: {
       <table><thead><tr><th>Estado / Região</th><th style="text-align:center">Nº de Contratos</th></tr></thead>
       <tbody>${stateRows}</tbody></table>
     </section>` : "";
+
+  // Build contract detail table
+  const contractDetailRows = contractsForMap.slice(0, 20).map((c: any, i: number) => {
+    const label = String.fromCharCode(65 + (i % 26));
+    const tipos = (() => { try { return (JSON.parse(c.tipoObra ?? "[]") as string[]).join(", "); } catch { return c.tipoObra ?? "—"; } })();
+    return `<tr>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#1561ad;color:#fff;border-radius:50%;font-size:10px;font-weight:700;margin-right:6px">${label}</span>${c.name}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${c.state ?? "—"}, ${c.country ?? "—"}</td>
+      <td style="padding:5px 8px;border:1px solid #e2e8f0">${tipos || "—"}</td>
+    </tr>`;
+  }).join("");
+  const contractDetailTable = contractDetailRows ? `
+    <section style="margin-top:16px">
+      <h3>Detalhes dos Contratos</h3>
+      <table><thead><tr><th>Contrato</th><th>Localização</th><th>Tipo de Obra</th></tr></thead>
+      <tbody>${contractDetailRows}</tbody></table>
+    </section>` : "";
+
+  // Build map section using staticMapData (server-side Static Maps API)
   let mapImageHtml = "";
-  if (mapContainerEl) {
+  if (staticMapData?.url) {
+    mapImageHtml = `<section>
+      <h3>Mapa de Contratos por Localização</h3>
+      <img src="${staticMapData.url}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px;max-height:400px;object-fit:cover" alt="Mapa de Contratos" />
+      ${stateTableHtml}
+      ${contractDetailTable}
+    </section>`;
+  } else if (mapContainerEl) {
     try {
       const canvas = await html2canvas(mapContainerEl, { useCORS: true, allowTaint: true, scale: 1.5, logging: false });
       const mapDataUrl = canvas.toDataURL("image/png");
       mapImageHtml = `<section>
         <h3>Mapa de Contratos por Localização</h3>
         <img src="${mapDataUrl}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px" alt="Mapa de Contratos" />
-        ${stateTableHtml}
+        ${stateTableHtml}${contractDetailTable}
       </section>`;
-    } catch (e) {
-      mapImageHtml = `<section><h3>Mapa de Contratos por Localização</h3><p style="color:#64748b;font-size:12px">Mapa não disponível na exportação.</p>${stateTableHtml}</section>`;
+    } catch {
+      mapImageHtml = `<section><h3>Mapa de Contratos por Localização</h3><p style="color:#64748b;font-size:12px">Mapa não disponível na exportação.</p>${stateTableHtml}${contractDetailTable}</section>`;
     }
-  } else if (stateRows) {
-    mapImageHtml = `<section>${stateTableHtml}</section>`;
+  } else {
+    mapImageHtml = stateRows ? `<section>${stateTableHtml}${contractDetailTable}</section>` : "";
   }
 
   const finalHtml = html.replace("</div>\n\n  <div class=\"footer\"", `${mapImageHtml}\n  </div>\n\n  <div class=\"footer\"`);
@@ -475,6 +502,7 @@ export default function Dashboard() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingAnnualYear, setExportingAnnualYear] = useState<number | null>(null);
   const [annualReportYear, setAnnualReportYear] = useState<number | null>(null);
+  const [exportingWithMap, setExportingWithMap] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [filterClient, setFilterClient] = useState("all");
@@ -505,6 +533,10 @@ export default function Dashboard() {
     { year: annualReportYear ?? 0, clientId: filterClient === "all" ? undefined : Number(filterClient) },
     { enabled: annualReportYear !== null }
   );
+  const staticMapQ = trpc.dashboard.staticMapUrl.useQuery(
+    { clientId: filterClient === "all" ? undefined : Number(filterClient) },
+    { enabled: exportingWithMap, staleTime: 60000 }
+  );
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
   const clientCount = statsQ.data?.totalClients ?? 0;
@@ -531,6 +563,30 @@ export default function Dashboard() {
       setAnnualReportYear(null);
     }
   }, [annualReportQ.data, annualReportYear, exportingAnnualYear, filterClient, clientsQ.data]);
+
+  // Trigger Dashboard PDF with map when staticMapQ loads
+  useEffect(() => {
+    if (exportingWithMap && staticMapQ.data && !staticMapQ.isLoading) {
+      const activeClient = filterClient !== "all" ? (clientsQ.data ?? []).find((c: any) => String(c.id) === filterClient) : null;
+      exportDashboardPDF({
+        stats,
+        projects,
+        sprints,
+        recentTasks,
+        conflicts,
+        clientCount,
+        overdueP,
+        completedP,
+        revisionP: 0,
+        onTimeP,
+        staticMapData: staticMapQ.data,
+        clientName: activeClient?.name,
+        clientColor: activeClient?.color,
+      });
+      setExportingWithMap(false);
+      setExportingPdf(false);
+    }
+  }, [exportingWithMap, staticMapQ.data, staticMapQ.isLoading]);
   const clients = (clientsQ.data ?? []) as any[];
   // Filter projects by selected client
   const projects = filterClient === "all"
@@ -740,16 +796,13 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             )}
-            <Button variant="outline" size="sm" className="gap-2" disabled={exportingPdf || isLoading}
-              onClick={async () => {
+            <Button variant="outline" size="sm" className="gap-2" disabled={exportingPdf || exportingWithMap || isLoading}
+              onClick={() => {
                 setExportingPdf(true);
-                try {
-                  const activeClient = filterClient !== "all" ? clients.find((c: any) => String(c.id) === filterClient) : null;
-                  await exportDashboardPDF({ stats, projects, sprints, recentTasks, conflicts, clientCount, overdueP, completedP, revisionP: 0, onTimeP, mapContainerEl: mapContainerRef.current, clientName: activeClient?.name, clientColor: activeClient?.color });
-                } finally { setExportingPdf(false); }
+                setExportingWithMap(true);
               }}>
               <FileDown className="w-4 h-4" />
-              Exportar PDF
+              {(exportingPdf || exportingWithMap) ? "Gerando..." : "Exportar PDF"}
             </Button>
           </div>
         </div>

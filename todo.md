@@ -686,3 +686,17 @@
 - [x] Substituir card "Checklist Concluído" (donut) pelo GaugeChart
 - [x] Substituir card "Dentro do Prazo" → renomeado para "Entregues no Prazo" com GaugeChart
 - [x] Ponteiro com animação spring e cor do valor dinâmica (verde/amarelo/vermelho)
+
+## v5.15 — Dashboard PDF: Incluir Mapa e Dados Completos
+- [x] Criar procedure dashboard.staticMapUrl: busca contratos ativos, gera URL da Static Maps API com marcadores por estado, converte para base64
+- [x] Incluir imagem do mapa no PDF (via Static Maps API — sem problema de CORS)
+- [x] Incluir tabela de contratos com localização e tipo de obra (com marcadores A-Z correspondendo ao mapa)
+- [x] Incluir tabela de contratos por estado/região
+- [x] Botão Exportar PDF atualizado: mostra "Gerando..." enquanto busca o mapa do servidor
+- [x] Fallback: se Static Maps falhar, tenta html2canvas; se ambos falharem, exibe tabela de estados
+
+## v5.16 — Relatórios: Corrigir Dados Zerados e Não Rastreados
+- [ ] Inspecionar todas as seções da aba Relatórios no browser
+- [ ] Identificar e corrigir queries com dados zerados (desempenho de membros, progresso de disciplinas, etc.)
+- [ ] Verificar se os campos rastreados no banco correspondem ao que o relatório exibe
+- [ ] Corrigir procedures reports.* que retornam dados vazios ou incorretos

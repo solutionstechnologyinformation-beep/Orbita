@@ -682,6 +682,54 @@ export const appRouter = router({
     annualReport: protectedProcedure
       .input(z.object({ year: z.number(), clientId: z.number().optional() }))
       .query(async ({ input }) => getAnnualReport(input.year, input.clientId)),
+    staticMapUrl: protectedProcedure
+      .input(z.object({ clientId: z.number().optional() }))
+      .query(async ({ input }) => {
+        // Buscar contratos ativos com localização
+        const db = await getDb();
+        const { crs: crsTable, clients } = await import("../drizzle/schema");
+        const { eq, and, isNotNull } = await import("drizzle-orm");
+        const conditions: any[] = [eq(crsTable.status, "active")];
+        if (input.clientId) conditions.push(eq(crsTable.clientId, input.clientId));
+        const contracts = await db
+          .select({ id: crsTable.id, name: crsTable.name, state: crsTable.state, stateCode: crsTable.stateCode, country: crsTable.country, countryCode: crsTable.countryCode, tipoObra: crsTable.tipoObra })
+          .from(crsTable)
+          .where(and(...conditions));
+        // Construir URL da Static Maps API
+        const { ENV } = await import("./_core/env");
+        const baseUrl = (ENV.forgeApiUrl ?? "").replace(/\/+$/, "");
+        const apiKey = ENV.forgeApiKey ?? "";
+        const url = new URL(`${baseUrl}/v1/maps/proxy/maps/api/staticmap`);
+        url.searchParams.set("key", apiKey);
+        url.searchParams.set("size", "800x400");
+        url.searchParams.set("maptype", "roadmap");
+        url.searchParams.set("scale", "2");
+        // Adicionar marcadores por estado
+        const TIPO_COLORS: Record<string, string> = { implementacao: "0x1561ad", restauracao: "0xe64a19", levantamento: "0x22c55e", aumento_capacidade: "0xf59e0b" };
+        const markers: string[] = [];
+        contracts.forEach((c: typeof contracts[0], i: number) => {
+          const location = c.state && c.country ? `${c.state},${c.country}` : c.country ?? "Brasil";
+          const label = String.fromCharCode(65 + (i % 26)); // A-Z
+          markers.push(`color:red|label:${label}|${encodeURIComponent(location)}`);
+        });
+        if (markers.length === 0) {
+          // Mapa do Brasil sem marcadores
+          url.searchParams.set("center", "-14.235,-51.9253");
+          url.searchParams.set("zoom", "4");
+        } else {
+          markers.forEach(m => url.searchParams.append("markers", m));
+        }
+        // Buscar a imagem e converter para base64 para evitar CORS no PDF
+        try {
+          const response = await fetch(url.toString());
+          if (!response.ok) return { url: null, contracts };
+          const buffer = await response.arrayBuffer();
+          const base64 = Buffer.from(buffer).toString("base64");
+          return { url: `data:image/png;base64,${base64}`, contracts };
+        } catch {
+          return { url: null, contracts };
+        }
+      }),
   }),
 
   // ─── Notifications ──────────────────────────────────────────────────────────
