@@ -670,3 +670,11 @@
 - [x] Corrigir getGroupConversations: reescrito com Drizzle ORM + lastMessage + memberCount
 - [x] Corrigir procedure getConversations no router (remover result[0] desnecessário)
 - [x] Testar fluxo completo: conversa abre, mensagem enviada, prévia atualizada na lista
+
+## v5.13 — Dashboard: Exportar Relatório Geral por Ano
+- [x] Criar função getAnnualReport no db.ts (KPIs, contratos, membros, disciplinas, tendência mensal)
+- [x] Criar procedure dashboard.annualReport no routers.ts
+- [x] Adicionar coluna "Exportar" na tabela de Visão Anual do Dashboard
+- [x] Botão PDF por linha (ano) com estado de loading
+- [x] Função exportAnnualReportPDF: HTML formatado com KPIs, barras mensais, tabelas de contratos/membros/disciplinas
+- [x] Cabeçalho Orbita, rodapé, cores dinâmicas por taxa de conclusão

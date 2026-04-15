@@ -316,9 +316,120 @@ async function exportDashboardPDF(data: {
   setTimeout(() => win.print(), 800);
 }
 
+// ── Annual Report PDF Export ──────────────────────────────────────────────────
+function exportAnnualReportPDF(report: any, clientName?: string) {
+  const now = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  const { year, summary, tasksByCrs, memberStats, disciplineStats, monthlyTrend } = report;
+  const completionColor = summary.completionRate >= 80 ? '#10b981' : summary.completionRate >= 50 ? '#3b82f6' : '#f59e0b';
+
+  const contractRows = (tasksByCrs ?? []).map((c: any) => {
+    const pct = c.progress;
+    const bar = `<div style="display:inline-block;width:${Math.max(pct, 2)}%;height:6px;background:${pct >= 80 ? '#10b981' : pct >= 50 ? '#3b82f6' : '#f59e0b'};border-radius:3px;max-width:80px"></div>`;
+    return `<tr><td>${c.crsCode ? `<span style="font-size:10px;color:#64748b">[${c.crsCode}]</span> ` : ''}${c.crsName}</td><td style="text-align:center">${c.clientName}</td><td style="text-align:center">${c.totalTasks}</td><td style="text-align:center;color:#10b981">${c.completedTasks}</td><td style="text-align:center;color:#ef4444">${c.overdueTasks}</td><td>${bar} <span style="font-size:11px;color:#64748b">${pct}%</span></td></tr>`;
+  }).join("");
+
+  const memberRows = (memberStats ?? []).map((m: any) => {
+    return `<tr><td>${m.userName}</td><td style="text-align:center">${m.totalTasks}</td><td style="text-align:center;color:#10b981">${m.completedTasks}</td><td style="text-align:center;color:#ef4444">${m.overdueTasks}</td><td style="text-align:right">${m.completionRate}%</td></tr>`;
+  }).join("");
+
+  const disciplineRows = (disciplineStats ?? []).map((d: any) => {
+    return `<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${d.color ?? '#6366f1'};margin-right:6px;vertical-align:middle"></span>${d.disciplineName}</td><td style="text-align:center">${d.totalTasks}</td><td style="text-align:center;color:#10b981">${d.completedTasks}</td><td style="text-align:right">${d.completionRate}%</td></tr>`;
+  }).join("");
+
+  const maxMonthVal = Math.max(...(monthlyTrend ?? []).map((m: any) => m.created), 1);
+  const monthBars = (monthlyTrend ?? []).map((m: any) => {
+    const h = Math.round((m.created / maxMonthVal) * 60);
+    const hc = Math.round((m.completed / maxMonthVal) * 60);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1">
+      <div style="font-size:9px;color:#64748b;min-height:12px">${m.created > 0 ? m.created : ''}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:center;height:64px;gap:1px;width:100%">
+        <div style="width:45%;background:#3b82f6;border-radius:2px 2px 0 0;height:${h}px"></div>
+        <div style="width:45%;background:#10b981;border-radius:2px 2px 0 0;height:${hc}px"></div>
+      </div>
+      <div style="font-size:9px;color:#94a3b8">${m.monthName}</div>
+    </div>`;
+  }).join("");
+
+  const hasTrend = (monthlyTrend ?? []).some((m: any) => m.created > 0);
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Anual ${year}</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',Arial,sans-serif; color:#1e293b; background:#fff; }
+.header { background:linear-gradient(135deg,#1e3a5f 0%,#0f2744 100%); color:#fff; padding:24px 32px; display:flex; justify-content:space-between; align-items:center; }
+.brand { font-size:22px; font-weight:800; color:#fff; }
+.brand-sub { font-size:11px; color:rgba(255,255,255,0.55); margin-top:2px; }
+.content { padding:28px 32px; }
+h2 { font-size:18px; font-weight:700; color:#0f2744; margin-bottom:4px; }
+.sub { font-size:12px; color:#64748b; margin-bottom:20px; }
+h3 { font-size:12px; font-weight:700; color:#1e3a5f; margin:22px 0 8px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; padding-bottom:5px; }
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:16px 0; }
+.kpi { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; text-align:center; }
+.kpi-v { font-size:26px; font-weight:800; color:#0f2744; }
+.kpi-l { font-size:11px; color:#64748b; margin-top:3px; }
+.kpi-s { font-size:10px; color:#94a3b8; margin-top:1px; }
+.bar-wrap { background:#e2e8f0; border-radius:6px; height:10px; overflow:hidden; margin:4px 0; }
+.bar-fill { height:10px; border-radius:6px; background:${completionColor}; width:${summary.completionRate}%; }
+table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+th { background:#f1f5f9; color:#475569; font-weight:600; padding:7px 10px; text-align:left; font-size:11px; }
+td { padding:6px 10px; border-bottom:1px solid #f1f5f9; color:#334155; }
+tr:last-child td { border-bottom:none; }
+.footer { background:#0f2744; color:rgba(255,255,255,0.6); padding:12px 32px; display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:32px; }
+.footer-brand { font-weight:700; color:#fff; font-size:13px; }
+@media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style></head><body>
+<div class="header">
+  <div><div class="brand">Orbita</div><div class="brand-sub">Gerenciamento de Projetos</div></div>
+  <div style="text-align:right">
+    <div style="font-size:14px;font-weight:700;color:#fff">Relatório Anual ${year}${clientName ? ` — ${clientName}` : ''}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">Gerado em ${now}</div>
+  </div>
+</div>
+<div class="content">
+  <h2>Relatório Geral — ${year}</h2>
+  <p class="sub">Resumo executivo de desempenho e progresso dos projetos${clientName ? ` para ${clientName}` : ' em todos os clientes'}.</p>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-v">${summary.totalContracts}</div><div class="kpi-l">Contratos</div><div class="kpi-s">${summary.activeContracts} ativos</div></div>
+    <div class="kpi"><div class="kpi-v">${summary.totalTasks}</div><div class="kpi-l">Total de Tarefas</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:#10b981">${summary.completedTasks}</div><div class="kpi-l">Concluídas</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:#ef4444">${summary.overdueTasks}</div><div class="kpi-l">Em Atraso</div></div>
+  </div>
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:12px;font-weight:600;color:#1e3a5f">Taxa de Conclusão Geral</span>
+      <span style="font-size:18px;font-weight:800;color:${completionColor}">${summary.completionRate}%</span>
+    </div>
+    <div class="bar-wrap"><div class="bar-fill"></div></div>
+    <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:#64748b">
+      <span>✓ ${summary.completedTasks} concluídas</span>
+      <span>⟳ ${summary.inProgressTasks} em andamento</span>
+      <span>□ ${summary.pendingTasks} pendentes</span>
+    </div>
+  </div>
+  ${hasTrend ? `<h3>Evolução Mensal</h3><div style="display:flex;gap:4px;align-items:flex-end;padding:8px 0">${monthBars}</div><div style="display:flex;gap:16px;font-size:10px;color:#64748b;margin-top:4px"><span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px"></span>Criadas</span><span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:2px"></span>Concluídas</span></div>` : ''}
+  ${contractRows ? `<h3>Desempenho por Contrato</h3><table><thead><tr><th>Contrato</th><th style="text-align:center">Cliente</th><th style="text-align:center">Tarefas</th><th style="text-align:center">Concluídas</th><th style="text-align:center">Em Atraso</th><th>Progresso</th></tr></thead><tbody>${contractRows}</tbody></table>` : ''}
+  ${memberRows ? `<h3>Desempenho da Equipe</h3><table><thead><tr><th>Membro</th><th style="text-align:center">Tarefas</th><th style="text-align:center">Concluídas</th><th style="text-align:center">Em Atraso</th><th style="text-align:right">Taxa</th></tr></thead><tbody>${memberRows}</tbody></table>` : ''}
+  ${disciplineRows ? `<h3>Tarefas por Disciplina / Setor</h3><table><thead><tr><th>Disciplina</th><th style="text-align:center">Tarefas</th><th style="text-align:center">Concluídas</th><th style="text-align:right">Taxa</th></tr></thead><tbody>${disciplineRows}</tbody></table>` : ''}
+</div>
+<div class="footer">
+  <span class="footer-brand">Orbita</span>
+  <span>Relatório Anual ${year} — Gerado em ${now}</span>
+</div>
+</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) { alert("Popup bloqueado. Permita popups para exportar o PDF."); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 800);
+}
+
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingAnnualYear, setExportingAnnualYear] = useState<number | null>(null);
+  const [annualReportYear, setAnnualReportYear] = useState<number | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [filterClient, setFilterClient] = useState("all");
@@ -345,6 +456,10 @@ export default function Dashboard() {
   const yearlyStatsQ = trpc.dashboard.yearlyStats.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
   const taskTrendQ = trpc.dashboard.taskTrend.useQuery({ clientId: filterClient === "all" ? undefined : Number(filterClient) });
   const activityLogsQ = trpc.dashboard.recentActivity.useQuery({ limit: 15 });
+  const annualReportQ = trpc.dashboard.annualReport.useQuery(
+    { year: annualReportYear ?? 0, clientId: filterClient === "all" ? undefined : Number(filterClient) },
+    { enabled: annualReportYear !== null }
+  );
   const stats = statsQ.data;
   const conflicts = conflictsQ.data ?? [];
   const clientCount = statsQ.data?.totalClients ?? 0;
@@ -362,6 +477,15 @@ export default function Dashboard() {
     setShowOnboarding(false);
     localStorage.setItem("onboarding_dismissed", "1");
   }
+  // Trigger PDF export when annual report data loads
+  useEffect(() => {
+    if (annualReportYear !== null && annualReportQ.data && exportingAnnualYear === annualReportYear) {
+      const activeClient = filterClient !== "all" ? (clientsQ.data ?? []).find((c: any) => String(c.id) === filterClient) : null;
+      exportAnnualReportPDF(annualReportQ.data, activeClient?.name);
+      setExportingAnnualYear(null);
+      setAnnualReportYear(null);
+    }
+  }, [annualReportQ.data, annualReportYear, exportingAnnualYear, filterClient, clientsQ.data]);
   const clients = (clientsQ.data ?? []) as any[];
   // Filter projects by selected client
   const projects = filterClient === "all"
@@ -1091,12 +1215,14 @@ export default function Dashboard() {
                     <th className="text-right py-2 px-3 text-muted-foreground font-medium">Em Atraso</th>
                     <th className="text-right py-2 px-3 text-muted-foreground font-medium">Checklist</th>
                     <th className="py-2 pl-3 text-muted-foreground font-medium">Progresso</th>
+                    <th className="py-2 pl-3 text-muted-foreground font-medium text-center">Exportar</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(yearlyStatsQ.data ?? []).map((y: any) => {
                     const yPct = y.totalTasks > 0 ? Math.round((y.completedTasks / y.totalTasks) * 100) : 0;
                     const isCurrentYear = y.year === new Date().getFullYear();
+                    const isExporting = exportingAnnualYear === y.year;
                     return (
                       <tr key={y.year} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${isCurrentYear ? 'bg-blue-500/5' : ''}`}>
                         <td className="py-3 pr-4">
@@ -1116,6 +1242,26 @@ export default function Dashboard() {
                             </div>
                             <span className="text-xs font-medium text-muted-foreground w-8 text-right">{yPct}%</span>
                           </div>
+                        </td>
+                        <td className="py-3 pl-3 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                            disabled={isExporting}
+                            onClick={() => {
+                              setExportingAnnualYear(y.year);
+                              setAnnualReportYear(y.year);
+                              toast.info(`Carregando relatório de ${y.year}...`);
+                            }}
+                          >
+                            {isExporting ? (
+                              <span className="animate-spin">&#8635;</span>
+                            ) : (
+                              <FileDown className="w-3.5 h-3.5" />
+                            )}
+                            PDF
+                          </Button>
                         </td>
                       </tr>
                     );

@@ -1206,3 +1206,129 @@ export async function removeTaskFromSprint(sprintId: number, taskId: number) {
   const db = await getDb();
   await db.delete(sprintTasks).where(and(eq(sprintTasks.sprintId, sprintId), eq(sprintTasks.taskId, taskId)));
 }
+
+// ─── Annual Report ────────────────────────────────────────────────────────────
+export async function getAnnualReport(year: number, clientId?: number) {
+  const db = await getDb();
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+
+  // 1. Clients summary
+  const allClients = await db.select({ id: clients.id, name: clients.name, color: clients.color }).from(clients);
+
+  // 2. CRS (contracts) active in the year
+  const allCrsRaw = clientId
+    ? await db.select().from(crs).where(and(eq(crs.clientId, clientId)))
+    : await db.select().from(crs);
+  const yearCrs = allCrsRaw.filter((c: any) => {
+    const created = c.createdAt ? new Date(c.createdAt) : null;
+    return !created || created <= yearEnd;
+  });
+
+  // 3. Tasks active in the year
+  const allTasksRaw = clientId
+    ? await db.select({ id: tasks.id, title: tasks.title, setor: tasks.setor, progress: tasks.progress, dueDate: tasks.dueDate, startDate: tasks.startDate, createdAt: tasks.createdAt, crsId: tasks.crsId, assigneeId: tasks.assigneeId })
+        .from(tasks).innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+    : await db.select({ id: tasks.id, title: tasks.title, setor: tasks.setor, progress: tasks.progress, dueDate: tasks.dueDate, startDate: tasks.startDate, createdAt: tasks.createdAt, crsId: tasks.crsId, assigneeId: tasks.assigneeId }).from(tasks);
+
+  const yearTasks = allTasksRaw.filter((t: any) => {
+    const start = t.startDate ? new Date(t.startDate) : t.createdAt ? new Date(t.createdAt) : null;
+    const due = t.dueDate ? new Date(t.dueDate) : null;
+    if (start && start >= yearStart && start <= yearEnd) return true;
+    if (due && due >= yearStart && due <= yearEnd) return true;
+    return false;
+  });
+
+  const totalTasks = yearTasks.length;
+  const completedTasks = yearTasks.filter((t: any) => t.status === "published" || t.status === "archived" || t.progress >= 100).length;
+  const inProgressTasks = yearTasks.filter((t: any) => t.status === "in_progress" || (t.progress > 0 && t.progress < 100)).length;
+  const overdueTasks = yearTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.progress < 100).length;
+  const pendingTasks = yearTasks.filter((t: any) => t.status === "pending" || t.progress === 0).length;
+
+  // 4. Tasks by contract
+  const tasksByCrs = yearCrs.map((c: any) => {
+    const cTasks = yearTasks.filter((t: any) => t.crsId === c.id);
+    const cCompleted = cTasks.filter((t: any) => t.status === "published" || t.status === "archived" || t.progress >= 100).length;
+    const cOverdue = cTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.progress < 100).length;
+    const client = allClients.find((cl: any) => cl.id === c.clientId);
+    return {
+      crsId: c.id,
+      crsName: c.name,
+      crsCode: c.code,
+      clientName: client?.name ?? "—",
+      totalTasks: cTasks.length,
+      completedTasks: cCompleted,
+      overdueTasks: cOverdue,
+      progress: cTasks.length > 0 ? Math.round((cCompleted / cTasks.length) * 100) : 0,
+    };
+  }).filter((c: any) => c.totalTasks > 0).sort((a: any, b: any) => b.totalTasks - a.totalTasks);
+
+  // 5. Member performance for the year
+  const memberRows = await getMemberPerformance(clientId ? undefined : undefined);
+  // Filter tasks by year to get year-specific member stats
+  const memberStats = memberRows.map((m: any) => {
+    const mTasks = yearTasks.filter((t: any) => t.assigneeId === m.userId);
+    const mCompleted = mTasks.filter((t: any) => t.status === "published" || t.status === "archived" || t.progress >= 100).length;
+    const mOverdue = mTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.progress < 100).length;
+    return {
+      userId: m.userId,
+      userName: m.userName,
+      totalTasks: mTasks.length,
+      completedTasks: mCompleted,
+      overdueTasks: mOverdue,
+      completionRate: mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0,
+    };
+  }).filter((m: any) => m.totalTasks > 0).sort((a: any, b: any) => b.totalTasks - a.totalTasks);
+
+  // 6. Disciplines breakdown
+  const allDisciplines = await db.select().from(disciplines).where(eq(disciplines.isActive, true));
+  const disciplineStats = allDisciplines.map((d: any) => {
+    const dTasks = yearTasks.filter((t: any) => t.disciplineId === d.id);
+    const dCompleted = dTasks.filter((t: any) => t.status === "published" || t.status === "archived" || t.progress >= 100).length;
+    return {
+      disciplineId: d.id,
+      disciplineName: d.name,
+      color: d.color,
+      totalTasks: dTasks.length,
+      completedTasks: dCompleted,
+      completionRate: dTasks.length > 0 ? Math.round((dCompleted / dTasks.length) * 100) : 0,
+    };
+  }).filter((d: any) => d.totalTasks > 0).sort((a: any, b: any) => b.totalTasks - a.totalTasks);
+
+  // 7. Monthly task creation trend
+  const monthlyTrend = Array.from({ length: 12 }, (_, i) => {
+    const monthStart = new Date(year, i, 1);
+    const monthEnd = new Date(year, i + 1, 0, 23, 59, 59);
+    const mTasks = allTasksRaw.filter((t: any) => {
+      const d = t.createdAt ? new Date(t.createdAt) : null;
+      return d && d >= monthStart && d <= monthEnd;
+    });
+    const mCompleted = mTasks.filter((t: any) => t.status === "published" || t.status === "archived" || t.progress >= 100).length;
+    return {
+      month: i + 1,
+      monthName: new Date(year, i, 1).toLocaleString("pt-BR", { month: "short" }),
+      created: mTasks.length,
+      completed: mCompleted,
+    };
+  });
+
+  return {
+    year,
+    generatedAt: new Date().toISOString(),
+    summary: {
+      totalContracts: yearCrs.length,
+      activeContracts: yearCrs.filter((c: any) => c.status === "active").length,
+      totalTasks,
+      completedTasks,
+      inProgressTasks,
+      overdueTasks,
+      pendingTasks,
+      completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+      totalClients: clientId ? 1 : allClients.length,
+    },
+    tasksByCrs,
+    memberStats,
+    disciplineStats,
+    monthlyTrend,
+  };
+}

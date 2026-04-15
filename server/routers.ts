@@ -23,6 +23,7 @@ import {
   getClientProgress, getCrsDisciplineProgress, getYearlyStats,
   getWhiteboardsByUser, saveWhiteboard, deleteWhiteboard, renameWhiteboard,
   getUserDisciplines, setUserDisciplines, getActivityLogs, getTaskTrend,
+  getAnnualReport,
   getDb,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
@@ -678,6 +679,9 @@ export const appRouter = router({
     recentActivity: protectedProcedure
       .input(z.object({ limit: z.number().optional() }))
       .query(async ({ input }) => getActivityLogs({ limit: input.limit ?? 15 })),
+    annualReport: protectedProcedure
+      .input(z.object({ year: z.number(), clientId: z.number().optional() }))
+      .query(async ({ input }) => getAnnualReport(input.year, input.clientId)),
   }),
 
   // ─── Notifications ──────────────────────────────────────────────────────────
