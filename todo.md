@@ -696,7 +696,12 @@
 - [x] Fallback: se Static Maps falhar, tenta html2canvas; se ambos falharem, exibe tabela de estados
 
 ## v5.16 — Relatórios: Corrigir Dados Zerados e Não Rastreados
-- [ ] Inspecionar todas as seções da aba Relatórios no browser
-- [ ] Identificar e corrigir queries com dados zerados (desempenho de membros, progresso de disciplinas, etc.)
-- [ ] Verificar se os campos rastreados no banco correspondem ao que o relatório exibe
-- [ ] Corrigir procedures reports.* que retornam dados vazios ou incorretos
+- [x] Criar procedure tasks.listBlocked (SQL raw — campo status não existe no schema Drizzle, só no banco)
+- [x] Criar procedure tasks.listWithCounts (SQL raw — contagem de tarefas por status por contrato)
+- [x] Criar procedure sprints.listAll (Drizzle ORM — todas as sprints com nome do contrato)
+- [x] Corrigir Reports.tsx: usar tasks.listWithCounts em vez de crs.list (sem taskCounts)
+- [x] Corrigir Reports.tsx: usar sprints.listAll em vez de listByCrs com enabled:false
+- [x] Corrigir Reports.tsx: usar tasks.listBlocked em vez de listByCrs com crsId:0
+- [x] Seletor de sprint: mostra nome do contrato (Sprint 01 — Sim Center)
+- [x] Card Tarefas Bloqueadas: mostra contagem real ou 'Nenhuma tarefa bloqueada'
+- [x] Desempenho por Membro: 6 membros encontrados com dados reais

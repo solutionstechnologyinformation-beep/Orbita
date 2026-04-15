@@ -325,6 +325,39 @@ export const appRouter = router({
         const { crsId, ...filters } = input;
         return getTasksByCrs(crsId, filters);
       }),
+    listBlocked: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const [rows] = await (db as any).$client.query(`
+        SELECT t.id, t.title, t.priority, t.blockReason, t.statusChangedAt,
+          t.dueDate, t.crsId, t.assigneeId, u.name as assigneeName, c.name as projectName
+        FROM tasks t
+        LEFT JOIN users u ON u.id = t.assigneeId
+        LEFT JOIN crs c ON c.id = t.crsId
+        WHERE t.status = 'blocked'
+        ORDER BY t.statusChangedAt DESC
+      `);
+      return rows as any[];
+    }),
+    listWithCounts: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const allCrs = await getAllCrs();
+      const [countRows] = await (db as any).$client.query(`
+        SELECT crsId,
+          COUNT(id) as total,
+          SUM(CASE WHEN status IN ('published','archived') THEN 1 ELSE 0 END) as published,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as inProgress,
+          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'shared' THEN 1 ELSE 0 END) as shared
+        FROM tasks GROUP BY crsId
+      `);
+      const countMap = Object.fromEntries((countRows as any[]).map((r: any) => [r.crsId, {
+        total: Number(r.total), published: Number(r.published),
+        inProgress: Number(r.inProgress), blocked: Number(r.blocked),
+        pending: Number(r.pending), shared: Number(r.shared),
+      }]));
+      return allCrs.map((c: any) => ({ ...c, taskCounts: countMap[c.id] ?? { total: 0, published: 0, inProgress: 0, blocked: 0, pending: 0, shared: 0 } }));
+    }),
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
@@ -986,6 +1019,16 @@ export const appRouter = router({
     listByCrs: protectedProcedure
       .input(z.object({ crsId: z.number() }))
       .query(async ({ input }) => getSprintsByCrs(input.crsId)),
+    listAll: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const { sprints: sp, crs: crsTable } = await import('../drizzle/schema');
+      const { eq: eq2, asc: asc2 } = await import('drizzle-orm');
+      return db.select({
+        id: sp.id, name: sp.name, goal: sp.goal, status: sp.status,
+        startDate: sp.startDate, endDate: sp.endDate, crsId: sp.crsId,
+        crsName: crsTable.name, crsCode: crsTable.code,
+      }).from(sp).leftJoin(crsTable, eq2(sp.crsId, crsTable.id)).orderBy(asc2(sp.startDate));
+    }),
     create: adminProcedure
       .input(z.object({
         crsId: z.number(),

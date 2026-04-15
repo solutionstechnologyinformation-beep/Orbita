@@ -315,11 +315,11 @@ export default function Reports() {
   const [selectedProjectForMembers, setSelectedProjectForMembers] = useState("none");
   const [loadingReport, setLoadingReport] = useState<string | null>(null);
 
-  const projectsQ = trpc.crs.list.useQuery();
-  const sprintsQ = trpc.sprints.listByCrs.useQuery({ crsId: 0 }, { enabled: false });
+  const projectsQ = trpc.tasks.listWithCounts.useQuery();
+  const sprintsQ = trpc.sprints.listAll.useQuery();
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
   const clientsQ = trpc.clients.list.useQuery();
-  const blockedTasksQ = trpc.tasks.listByCrs.useQuery({ crsId: 0 }, { enabled: false });
+  const blockedTasksQ = trpc.tasks.listBlocked.useQuery();
   const memberPerfCrsId = selectedProjectForMembers !== "none" ? Number(selectedProjectForMembers) : undefined;
   const memberPerfQ = trpc.users.memberPerformance.useQuery({ crsId: memberPerfCrsId });
 
@@ -397,9 +397,17 @@ export default function Reports() {
       description: "Lista todas as tarefas com status Bloqueado: motivo do bloqueio, responsável, projeto, prioridade e data de bloqueio.",
       badge: "Impedimentos",
       badgeColor: "bg-red-100 text-red-700",
-      extra: blockedTasksQ.data && blockedTasksQ.data.length > 0 ? (
-        <div className="mt-2 text-sm text-red-600 font-semibold">{blockedTasksQ.data.length} tarefa{blockedTasksQ.data.length !== 1 ? "s" : ""} bloqueada{blockedTasksQ.data.length !== 1 ? "s" : ""}</div>
-      ) : null,
+      extra: (
+        <div className="mt-2">
+          {blockedTasksQ.isLoading ? (
+            <div className="text-xs text-muted-foreground">Carregando...</div>
+          ) : blockedTasksQ.data && blockedTasksQ.data.length > 0 ? (
+            <div className="text-sm text-red-600 font-semibold">{blockedTasksQ.data.length} tarefa{blockedTasksQ.data.length !== 1 ? "s" : ""} bloqueada{blockedTasksQ.data.length !== 1 ? "s" : ""} encontrada{blockedTasksQ.data.length !== 1 ? "s" : ""}</div>
+          ) : (
+            <div className="text-xs text-green-600">Nenhuma tarefa bloqueada no momento</div>
+          )}
+        </div>
+      ),
     },
     {
       id: "members",
@@ -446,7 +454,7 @@ export default function Reports() {
               <SelectItem value="none">Selecionar sprint...</SelectItem>
               {sprints.map((s: any) => (
                 <SelectItem key={s.id} value={String(s.id)}>
-                  {s.name}
+                  {s.name}{s.crsName ? ` — ${s.crsName}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
