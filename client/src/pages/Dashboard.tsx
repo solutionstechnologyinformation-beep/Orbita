@@ -139,13 +139,13 @@ function GaugeCard({
           {/* Ponteiro */}
           <polygon
             points={`${needleTip.x},${needleTip.y} ${needleBase1.x},${needleBase1.y} ${needleBase2.x},${needleBase2.y}`}
-            fill="#1e293b"
+            fill="#1e3a5f"
             style={{ transition: 'all 0.8s cubic-bezier(0.34,1.56,0.64,1)' }}
           />
           {/* Círculo central */}
-          <circle cx={cx} cy={cy} r={r - 4} fill="hsl(var(--card))" stroke="hsl(var(--border))" strokeWidth="1.5" />
+          <circle cx={cx} cy={cy} r={r - 4} fill="#1e3a5f" stroke="#0f2744" strokeWidth="1.5" />
           {/* Valor */}
-          <text x={cx} y={cy + 6} textAnchor="middle" fontSize="16" fontWeight="700" fill={valueColor}>{value}%</text>
+          <text x={cx} y={cy + 6} textAnchor="middle" fontSize="16" fontWeight="700" fill="#ffffff">{value}%</text>
         </svg>
       </div>
       {description && <p className="text-xs text-muted-foreground text-center -mt-1">{description}</p>}
