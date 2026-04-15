@@ -705,3 +705,11 @@
 - [x] Seletor de sprint: mostra nome do contrato (Sprint 01 — Sim Center)
 - [x] Card Tarefas Bloqueadas: mostra contagem real ou 'Nenhuma tarefa bloqueada'
 - [x] Desempenho por Membro: 6 membros encontrados com dados reais
+
+## v5.17 — Relatórios: 3 Melhorias
+- [x] Filtro por cliente na aba Relatórios (seletor no topo, filtra todos os relatórios)
+- [x] Badge ativo com nome do cliente e contagem de projetos filtrados + botão 'Limpar filtro'
+- [x] PDF de Projetos com gráfico de barras SVG de progresso por contrato (verde/amarelo/vermelho)
+- [x] PDF de Sprint com burndown chart SVG (linha ideal vs real, escala e legenda)
+- [x] Seletor de sprint filtra por cliente quando cliente está selecionado
+- [x] Tarefas Bloqueadas filtra por projetos do cliente selecionado
