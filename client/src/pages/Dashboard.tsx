@@ -75,35 +75,80 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 // ── Gauge card ─────────────────────────────────────────────────────────────────
+// Velocímetro segmentado estilo gauge chart
 function GaugeCard({
-  label, value, color, icon: Icon, description,
+  label, value, description, inverted = false,
 }: {
-  label: string; value: number; color: string; icon: any; description?: string;
+  label: string; value: number; color?: string; icon?: any; description?: string; inverted?: boolean;
 }) {
-  const r = 36;
-  const circumference = 2 * Math.PI * r;
-  const offset = circumference - (Math.min(value, 100) / 100) * circumference;
+  // Segmentos: 10 fatias de 180° (18° cada), cores do vermelho ao verde
+  const SEGMENTS = [
+    '#d32f2f', '#e53935', '#e64a19', '#f57c00',
+    '#f9a825', '#c0ca33', '#8bc34a', '#4caf50',
+    '#2e7d32', '#1b5e20',
+  ];
+  const cx = 80, cy = 80, R = 62, r = 32;
+  const startAngle = 180; // graus, começa na esquerda
+  const totalArc = 180;   // semicírculo
+  const n = SEGMENTS.length;
+  const gap = 2; // gap em graus entre segmentos
+  const segArc = (totalArc - gap * n) / n;
+
+  // Calcular o valor efetivo para o ponteiro
+  // inverted: 0% = bom (verde), 100% = ruim (vermelho)
+  const effectiveValue = inverted ? 100 - value : value;
+  const clampedVal = Math.min(100, Math.max(0, effectiveValue));
+
+  // Converter grau para coordenada SVG (0° = direita, 180° = esquerda)
+  function polarToXY(angleDeg: number, radius: number) {
+    const rad = (angleDeg * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  }
+
+  // Gerar path de cada segmento
+  function segPath(i: number) {
+    const a1 = startAngle + i * (segArc + gap);
+    const a2 = a1 + segArc;
+    const p1 = polarToXY(a1, R);
+    const p2 = polarToXY(a2, R);
+    const p3 = polarToXY(a2, r);
+    const p4 = polarToXY(a1, r);
+    return `M ${p1.x} ${p1.y} A ${R} ${R} 0 0 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${r} ${r} 0 0 0 ${p4.x} ${p4.y} Z`;
+  }
+
+  // Ângulo do ponteiro: 180° (esquerda) → 360°/0° (direita)
+  const needleAngle = startAngle + (clampedVal / 100) * totalArc;
+  const needleTip = polarToXY(needleAngle, R - 6);
+  const needleBase1 = polarToXY(needleAngle + 90, 6);
+  const needleBase2 = polarToXY(needleAngle - 90, 6);
+
+  // Cor do valor: verde se bom, vermelho se ruim
+  const valueColor = inverted
+    ? (value <= 20 ? '#2e7d32' : value <= 50 ? '#f9a825' : '#d32f2f')
+    : (value >= 80 ? '#2e7d32' : value >= 50 ? '#f9a825' : '#d32f2f');
+
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col items-center gap-2">
-      <p className="text-xs font-medium text-muted-foreground text-center">{label}</p>
-      <div className="relative w-24 h-24">
-        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 88 88">
-          <circle cx="44" cy="44" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-          <circle
-            cx="44" cy="44" r={r} fill="none"
-            stroke={color} strokeWidth="8"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 0.8s ease" }}
+    <div className="bg-card border border-border rounded-2xl p-4 flex flex-col items-center gap-1">
+      <p className="text-xs font-semibold text-muted-foreground text-center leading-tight">{label}</p>
+      <div className="relative" style={{ width: 160, height: 92 }}>
+        <svg viewBox="0 0 160 90" width="160" height="90">
+          {/* Segmentos */}
+          {SEGMENTS.map((color, i) => (
+            <path key={i} d={segPath(i)} fill={color} opacity={0.92} />
+          ))}
+          {/* Ponteiro */}
+          <polygon
+            points={`${needleTip.x},${needleTip.y} ${needleBase1.x},${needleBase1.y} ${needleBase2.x},${needleBase2.y}`}
+            fill="#1e293b"
+            style={{ transition: 'all 0.8s cubic-bezier(0.34,1.56,0.64,1)' }}
           />
+          {/* Círculo central */}
+          <circle cx={cx} cy={cy} r={r - 4} fill="hsl(var(--card))" stroke="hsl(var(--border))" strokeWidth="1.5" />
+          {/* Valor */}
+          <text x={cx} y={cy + 6} textAnchor="middle" fontSize="16" fontWeight="700" fill={valueColor}>{value}%</text>
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <Icon className="w-4 h-4 mb-0.5" style={{ color }} />
-          <span className="text-xl font-bold text-foreground">{value}%</span>
-        </div>
       </div>
-      {description && <p className="text-xs text-muted-foreground text-center">{description}</p>}
+      {description && <p className="text-xs text-muted-foreground text-center -mt-1">{description}</p>}
     </div>
   );
 }
@@ -739,10 +784,10 @@ export default function Dashboard() {
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)
           ) : (
             <>
-              <GaugeCard label="Tarefas em Atraso"   value={overdueP}            color="#ef4444" icon={TrendingDown}  description={`${stats?.overdueTasks ?? 0} de ${total} tarefas`} />
-              <GaugeCard label="Tarefas Concluídas"  value={completedP}          color="#22c55e" icon={CheckCircle2}  description={`${stats?.completedTasks ?? 0} de ${total} tarefas`} />
-              <GaugeCard label="Checklist Concluído" value={checklistCompletedP} color="#f59e0b" icon={Clock}         description={`${stats?.completedChecklist ?? 0} de ${checklistTotal} itens`} />
-              <GaugeCard label="Dentro do Prazo"     value={onTimeP}             color="#3b82f6" icon={TrendingUp}    description={`${total - (stats?.overdueTasks ?? 0)} de ${total} tarefas`} />
+              <GaugeCard label="Tarefas em Atraso"   value={overdueP}            inverted={true}  description={`${stats?.overdueTasks ?? 0} de ${total} tarefas em atraso`} />
+              <GaugeCard label="Tarefas Concluídas"  value={completedP}                           description={`${stats?.completedTasks ?? 0} de ${total} tarefas concluídas`} />
+              <GaugeCard label="Checklist Concluído" value={checklistCompletedP}                   description={`${stats?.completedChecklist ?? 0} de ${checklistTotal} itens`} />
+              <GaugeCard label="Entregues no Prazo"   value={onTimeP}                              description={`${total - (stats?.overdueTasks ?? 0)} de ${total} tarefas no prazo`} />
             </>
           )}
         </div>

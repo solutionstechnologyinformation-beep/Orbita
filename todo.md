@@ -678,3 +678,11 @@
 - [x] Botão PDF por linha (ano) com estado de loading
 - [x] Função exportAnnualReportPDF: HTML formatado com KPIs, barras mensais, tabelas de contratos/membros/disciplinas
 - [x] Cabeçalho Orbita, rodapé, cores dinâmicas por taxa de conclusão
+
+## v5.14 — Dashboard: GaugeChart (Velocímetro Segmentado)
+- [x] Criar componente GaugeChart SVG com 10 segmentos coloridos (vermelho→laranja→amarelo→verde) e ponteiro
+- [x] Substituir card "Tarefas em Atraso" (donut) pelo GaugeChart com inverted=true
+- [x] Substituir card "Tarefas Concluídas" (donut) pelo GaugeChart
+- [x] Substituir card "Checklist Concluído" (donut) pelo GaugeChart
+- [x] Substituir card "Dentro do Prazo" → renomeado para "Entregues no Prazo" com GaugeChart
+- [x] Ponteiro com animação spring e cor do valor dinâmica (verde/amarelo/vermelho)
