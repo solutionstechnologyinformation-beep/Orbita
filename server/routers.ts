@@ -818,13 +818,14 @@ export const appRouter = router({
       }
       return { sprint, totalTasks, dataPoints };
     }),
-    weekTasks: protectedProcedure.query(async () => {
+    weekTasks: protectedProcedure.input(z.object({ weekOffset: z.number().default(0) }).optional()).query(async ({ input }) => {
       const db = await getDb();
       const { tasks: t, crs: c, users: u, kanbanPhases: kp } = await import('../drizzle/schema');
       const { eq: eq2, and: and2, gte: gte2, lte: lte2, or: or2, isNotNull: isNotNull2 } = await import('drizzle-orm');
+      const offset = input?.weekOffset ?? 0;
       const today = new Date();
       const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Monday
+      startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1) + offset * 7); // Monday
       startOfWeek.setHours(0, 0, 0, 0);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);

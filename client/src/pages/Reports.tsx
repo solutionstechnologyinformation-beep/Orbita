@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter } from "lucide-react";
+import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
@@ -416,12 +416,130 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
   openPrint(html, "Desempenho por Membro — Orbita");
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ──// ─── Annual Report ──────────────────────────────────────────────────────
+function exportAnnualReport(data: any, clientName?: string) {
+  const { year, summary, tasksByCrs, memberStats, monthlyTrend } = data;
+  const subtitle = clientName ? `Cliente: ${clientName} • Ano: ${year}` : `Ano: ${year}`;
+
+  // Monthly trend SVG
+  const months = (monthlyTrend ?? []) as any[];
+  const maxMonthly = Math.max(1, ...months.map((m: any) => Math.max(m.created, m.completed)));
+  const mW = 820, mH = 140, padL = 30, padR = 10, padT = 10, padB = 30;
+  const barAreaW = mW - padL - padR;
+  const barW = months.length > 0 ? Math.floor((barAreaW / months.length) * 0.35) : 20;
+  const gap2 = months.length > 0 ? Math.floor(barAreaW / months.length) : 60;
+  const yScaleM = (v: number) => padT + (mH - padT - padB) - (v / maxMonthly) * (mH - padT - padB);
+  const monthlySvg = `<svg width="${mW}" height="${mH}" xmlns="http://www.w3.org/2000/svg">
+    ${months.map((m: any, i: number) => {
+      const x = padL + i * gap2;
+      const yC = yScaleM(m.created); const yD = yScaleM(m.completed);
+      const hC = mH - padB - yC; const hD = mH - padB - yD;
+      return `<rect x="${x}" y="${yC}" width="${barW}" height="${Math.max(hC, 1)}" rx="2" fill="#93c5fd"/>
+        <rect x="${x + barW + 2}" y="${yD}" width="${barW}" height="${Math.max(hD, 1)}" rx="2" fill="#1d4ed8"/>
+        <text x="${x + barW}" y="${mH - 10}" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif">${m.monthName}</text>`;
+    }).join('')}
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${mH - padB}" stroke="#e2e8f0" stroke-width="1"/>
+    <line x1="${padL}" y1="${mH - padB}" x2="${mW - padR}" y2="${mH - padB}" stroke="#e2e8f0" stroke-width="1"/>
+    <rect x="${mW - 160}" y="${padT}" width="10" height="10" rx="2" fill="#93c5fd"/>
+    <text x="${mW - 146}" y="${padT + 9}" font-size="10" fill="#475569" font-family="Inter,sans-serif">Criadas</text>
+    <rect x="${mW - 90}" y="${padT}" width="10" height="10" rx="2" fill="#1d4ed8"/>
+    <text x="${mW - 76}" y="${padT + 9}" font-size="10" fill="#475569" font-family="Inter,sans-serif">Concluídas</text>
+  </svg>`;
+
+  // Tasks by contract rows
+  const crsRows = (tasksByCrs ?? []).slice(0, 20).map((c: any, i: number) => `
+    <tr style="${i % 2 === 0 ? 'background:#f8fafc;' : ''}">
+      <td style="padding:8px 12px;font-weight:500;">${c.crsCode ? `<span style="color:#64748b;font-size:10px;margin-right:6px;">${c.crsCode}</span>` : ''}${c.crsName}</td>
+      <td style="padding:8px 12px;color:#475569;">${c.clientName}</td>
+      <td style="padding:8px 12px;text-align:center;font-weight:600;">${c.totalTasks}</td>
+      <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:600;">${c.completedTasks}</td>
+      <td style="padding:8px 12px;text-align:center;color:#ef4444;">${c.overdueTasks}</td>
+      <td style="padding:8px 12px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+            <div style="width:${c.progress}%;height:100%;background:${c.progress >= 80 ? '#16a34a' : c.progress >= 50 ? '#3b82f6' : '#f59e0b'};border-radius:3px;"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:#1d4ed8;min-width:30px;">${c.progress}%</span>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  // Member stats rows
+  const memberRows2 = (memberStats ?? []).slice(0, 15).map((m: any, i: number) => `
+    <tr style="${i % 2 === 0 ? 'background:#f8fafc;' : ''}">
+      <td style="padding:8px 12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:26px;height:26px;border-radius:50%;background:${BLUE};color:${WHITE};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${(m.userName ?? '?').slice(0, 2).toUpperCase()}</div>
+          <span style="font-weight:500;">${m.userName}</span>
+        </div>
+      </td>
+      <td style="padding:8px 12px;text-align:center;font-weight:700;">${m.totalTasks}</td>
+      <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:600;">${m.completedTasks}</td>
+      <td style="padding:8px 12px;text-align:center;color:#ef4444;">${m.overdueTasks}</td>
+      <td style="padding:8px 12px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+            <div style="width:${m.completionRate}%;height:100%;background:${m.completionRate >= 80 ? '#16a34a' : m.completionRate >= 50 ? '#f59e0b' : '#ef4444'};border-radius:3px;"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;min-width:30px;">${m.completionRate}%</span>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const html = `
+    ${pdfHeader(`Relatório Anual ${year}`, subtitle)}
+    <div style="padding:24px 36px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        ${kpiBox('Contratos', summary.totalContracts)}
+        ${kpiBox('Tarefas Totais', summary.totalTasks)}
+        ${kpiBox('Concluídas', summary.completedTasks, '#16a34a')}
+        ${kpiBox('Taxa de Conclusão', summary.completionRate + '%', summary.completionRate >= 70 ? '#16a34a' : '#dc2626')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
+        ${kpiBox('Em Andamento', summary.inProgressTasks, '#3b82f6')}
+        ${kpiBox('Pendentes', summary.pendingTasks, '#f59e0b')}
+        ${kpiBox('Em Atraso', summary.overdueTasks, '#ef4444')}
+      </div>
+      <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:8px;">Tendência Mensal de Tarefas</h3>
+      <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:28px;">${monthlySvg}</div>
+      <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:12px;">Tarefas por Contrato</h3>
+      <table style="border-collapse:collapse;width:100%;margin-bottom:28px;">
+        <thead><tr style="background:#f1f5f9;">
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Contrato</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Cliente</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Total</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Concluídas</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Em Atraso</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Progresso</th>
+        </tr></thead>
+        <tbody>${crsRows}</tbody>
+      </table>
+      ${(memberStats ?? []).length > 0 ? `
+      <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:12px;">Desempenho por Membro</h3>
+      <table style="border-collapse:collapse;width:100%;">
+        <thead><tr style="background:#f1f5f9;">
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Membro</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Total</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Concluídas</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Em Atraso</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Taxa</th>
+        </tr></thead>
+        <tbody>${memberRows2}</tbody>
+      </table>` : ''}
+    </div>
+    ${pdfFooter()}`;
+  openPrint(html, `Relatório Anual ${year} — Orbita`);
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────
 export default function Reports() {
   const [selectedClient, setSelectedClient] = useState("all");
   const [selectedSprint, setSelectedSprint] = useState("none");
   const [selectedProjectForMembers, setSelectedProjectForMembers] = useState("none");
   const [loadingReport, setLoadingReport] = useState<string | null>(null);
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
   const projectsQ = trpc.tasks.listWithCounts.useQuery();
   const sprintsQ = trpc.sprints.listAll.useQuery();
@@ -430,6 +548,10 @@ export default function Reports() {
   const blockedTasksQ = trpc.tasks.listBlocked.useQuery();
   const memberPerfCrsId = selectedProjectForMembers !== "none" ? Number(selectedProjectForMembers) : undefined;
   const memberPerfQ = trpc.users.memberPerformance.useQuery({ crsId: memberPerfCrsId });
+  const annualReportQ = trpc.dashboard.annualReport.useQuery(
+    { year: Number(selectedYear), clientId: selectedClient !== "all" ? Number(selectedClient) : undefined },
+    { enabled: false }
+  );
 
   const allProjects = (projectsQ.data ?? []) as any[];
   const allSprints = (sprintsQ.data ?? []) as any[];
@@ -499,6 +621,17 @@ export default function Reports() {
       } else if (type === "members") {
         const memberData = (memberPerfQ.data ?? []) as any[];
         exportMemberPerformanceReport(memberData, selectedProjectObj?.name, clientName);
+      } else if (type === "annual") {
+        setLoadingReport("annual");
+        annualReportQ.refetch().then(({ data }) => {
+          if (data) {
+            exportAnnualReport(data, clientName);
+          } else {
+            toast.error("Erro ao carregar dados do relatório anual.");
+          }
+        }).catch(() => toast.error("Erro ao gerar relatório anual."))
+          .finally(() => setLoadingReport(null));
+        return;
       }
     } catch (e) {
       toast.error("Erro ao gerar relatório.");
@@ -570,6 +703,28 @@ export default function Reports() {
           {memberPerfQ.data && memberPerfQ.data.length > 0 && (
             <p className="text-xs text-muted-foreground">{memberPerfQ.data.length} membro{memberPerfQ.data.length !== 1 ? "s" : ""} encontrado{memberPerfQ.data.length !== 1 ? "s" : ""}</p>
           )}
+        </div>
+      ),
+    },
+    {
+      id: "annual",
+      icon: CalendarDays,
+      title: "Relatório Anual",
+      description: "Relatório consolidado do ano: KPIs gerais, tendência mensal de tarefas, desempenho por contrato e por membro da equipe.",
+      badge: "Anual",
+      badgeColor: "bg-indigo-50 text-indigo-700",
+      extra: (
+        <div className="mt-3">
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Selecionar ano..." />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map((y) => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       ),
     },

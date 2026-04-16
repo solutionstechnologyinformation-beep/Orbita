@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
-  MapPin, Activity, Users, FolderOpen, ChevronRight,
+  MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -174,6 +174,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [view, setView] = useState<DashView>("geral");
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
@@ -182,7 +183,7 @@ export default function Dashboard() {
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
-  const weekTasksQ = trpc.dashboard.weekTasks.useQuery();
+  const weekTasksQ = trpc.dashboard.weekTasks.useQuery({ weekOffset });
   const weekTasks = (weekTasksQ.data ?? []) as any[];
   const crsQ = trpc.crs.list.useQuery();
   const onboardingQ = (trpc as any).onboarding?.status?.useQuery?.();
@@ -209,6 +210,25 @@ export default function Dashboard() {
   }, [crsItems]);
 
   const maxTipoObra = useMemo(() => Math.max(1, ...tipoObraStats.map((t) => t.count)), [tipoObraStats]);
+
+  // ── Extensão por tipo de obra ─────────────────────────────────────────────────
+  const extensaoByTipo = useMemo(() => {
+    const map: Record<string, number> = {};
+    let totalKm = 0;
+    crsItems.forEach((c: any) => {
+      const km = c.extensaoKm ?? 0;
+      totalKm += km;
+      if (km === 0) return;
+      const types = parseTipoObra(c.tipoObra);
+      if (types.length === 0) { map["outro"] = (map["outro"] ?? 0) + km; return; }
+      types.forEach((t) => { map[t] = (map[t] ?? 0) + km / types.length; });
+    });
+    const entries = Object.entries(map)
+      .map(([key, km]) => ({ key, label: TIPO_OBRA_MAP[key] ?? key, km: Math.round(km * 10) / 10 }))
+      .sort((a, b) => b.km - a.km);
+    return { entries, totalKm: Math.round(totalKm * 10) / 10 };
+  }, [crsItems]);
+  const maxExtensao = useMemo(() => Math.max(1, ...extensaoByTipo.entries.map((e) => e.km)), [extensaoByTipo]);
 
   // ── Donut data ────────────────────────────────────────────────────────────────
   const donutData = useMemo(() => {
@@ -301,11 +321,34 @@ export default function Dashboard() {
                       value={`${stats?.checklistProgress ?? 0}%`}
                       valueColor="text-green-600"
                     />
-                    <StatRow
-                      icon={<Layers className="w-4 h-4" />}
-                      label="Extensão Total"
-                      value={`${crsItems.reduce((sum: number, c: any) => sum + (c.extensaoKm ?? 0), 0).toLocaleString("pt-BR")} km`}
-                    />
+                    {/* Extensão Total + por tipo */}
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                            <Layers className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm font-medium text-gray-700">Extensão Total</span>
+                        </div>
+                        <span className="text-base font-bold text-gray-900">{extensaoByTipo.totalKm.toLocaleString("pt-BR")} km</span>
+                      </div>
+                      {extensaoByTipo.entries.length > 0 && (
+                        <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-50">
+                          {extensaoByTipo.entries.map((e) => (
+                            <div key={e.key} className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500 w-28 truncate shrink-0">{e.label}</span>
+                              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-blue-400 transition-all"
+                                  style={{ width: `${(e.km / maxExtensao) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-semibold text-gray-600 w-16 text-right shrink-0">{e.km.toLocaleString("pt-BR")} km</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -421,18 +464,33 @@ export default function Dashboard() {
 
               {/* Mini-Gantt da Semana */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  Gantt da Semana
-                  <span className="text-xs text-gray-400 font-normal">
-                    {(() => {
-                      const today = new Date();
-                      const dow = today.getDay();
-                      const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1)); mon.setHours(0,0,0,0);
-                      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-                      return `${mon.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} – ${sun.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}`;
-                    })()}
-                  </span>
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    Gantt da Semana
+                    <span className="text-xs text-gray-400 font-normal">
+                      {(() => {
+                        const today = new Date();
+                        const dow = today.getDay();
+                        const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + weekOffset * 7); mon.setHours(0,0,0,0);
+                        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                        return `${mon.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} – ${sun.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}`;
+                      })()}
+                    </span>
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setWeekOffset(w => w - 1)} className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {weekOffset !== 0 && (
+                      <button onClick={() => setWeekOffset(0)} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+                        Hoje
+                      </button>
+                    )}
+                    <button onClick={() => setWeekOffset(w => w + 1)} className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
                 {weekTasksQ.isLoading ? (
                   <div className="space-y-2">{Array.from({length:4}).map((_,i)=><Skeleton key={i} className="h-7 w-full"/>)}</div>
                 ) : weekTasks.length === 0 ? (

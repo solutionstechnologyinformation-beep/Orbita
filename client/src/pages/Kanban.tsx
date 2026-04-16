@@ -1,9 +1,17 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
+import {
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  closestCenter, type DragStartEvent, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, useSortable, verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
-import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelContent, SplitPanelEmpty } from "@/components/SplitLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,9 +23,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
-  Plus, CheckCircle2, Circle, Clock, AlertTriangle,
+  Plus, CheckCircle2, Circle, AlertTriangle,
   User, Calendar, Layers, Search, Filter, ExternalLink, ChevronDown,
-  ChevronUp, ListChecks, Pencil, Trash2, FolderKanban, ChevronRight,
+  ChevronUp, ListChecks, Pencil, Trash2, FolderKanban, GripVertical,
 } from "lucide-react";
 
 // ── Tipo de Obra config ──────────────────────────────────────────────────────
@@ -48,8 +56,8 @@ function PhaseBadge({ color, name }: { color: string; name: string }) {
   );
 }
 
-// ── Checklist Preview (expanded with date + assignee) ─────────────────────────
-function ChecklistPreview({ items, taskId }: { items: any[]; taskId: number }) {
+// ── Checklist Preview ─────────────────────────────────────────────────────────
+function ChecklistPreview({ items }: { items: any[] }) {
   const utils = trpc.useUtils();
   const toggleMut = trpc.checklist.updateStatus.useMutation({
     onSuccess: () => utils.tasks.listByCrsWithChecklist.invalidate(),
@@ -87,7 +95,6 @@ function ChecklistPreview({ items, taskId }: { items: any[]; taskId: number }) {
                 {item.title}
               </span>
             </div>
-            {/* Date + Assignee row */}
             {(endDate || item.assigneeName) && (
               <div className="flex items-center gap-2 pl-5">
                 {item.assigneeName && (
@@ -111,13 +118,23 @@ function ChecklistPreview({ items, taskId }: { items: any[]; taskId: number }) {
   );
 }
 
-// ── Task Card ─────────────────────────────────────────────────────────────────
-function TaskCard({
-  task, phases, isAdmin, onEdit, onDelete, onNavigate,
+// ── Sortable Task Card ─────────────────────────────────────────────────────────
+function SortableTaskCard({
+  task, phases, isAdmin, onEdit, onDelete, onNavigate, isDragging,
 }: {
   task: any; phases: any[]; isAdmin: boolean;
   onEdit: (t: any) => void; onDelete: (id: number) => void; onNavigate: (id: number) => void;
+  isDragging?: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: `task-${task.id}`,
+    data: { type: "task", task },
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
   const [expanded, setExpanded] = useState(false);
   const p = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium;
   const phase = phases.find((ph) => ph.id === task.phaseId);
@@ -125,124 +142,117 @@ function TaskCard({
   const checklist: any[] = task.checklistItems ?? [];
 
   return (
-    <div className="bg-card border border-border rounded-xl p-3 hover:shadow-md transition-all group">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-2">
+    <div ref={setNodeRef} style={style} className="bg-card border border-border rounded-xl p-3 hover:shadow-md transition-all group">
+      {/* Drag handle + header */}
+      <div className="flex items-start gap-1.5">
+        <button
+          {...attributes} {...listeners}
+          className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: p.bg, color: p.color }}>
-              {p.label}
-            </span>
-            {phase && <PhaseBadge color={phase.color} name={phase.name} />}
-            {isOverdue && (
-              <span className="flex items-center gap-0.5 text-xs text-red-400">
-                <AlertTriangle className="w-3 h-3" /> Atrasada
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: p.bg, color: p.color }}>
+                  {p.label}
+                </span>
+                {isOverdue && (
+                  <span className="flex items-center gap-0.5 text-xs text-red-400">
+                    <AlertTriangle className="w-3 h-3" /> Atrasada
+                  </span>
+                )}
+              </div>
+              <p className="text-sm font-medium text-foreground leading-tight">{task.title}</p>
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <button onClick={() => onNavigate(task.id)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+              {isAdmin && (
+                <>
+                  <button onClick={() => onEdit(task)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => onDelete(task.id)} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Progress */}
+          {task.progress > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-0.5">
+                <span>Progresso</span><span>{Math.round(task.progress)}%</span>
+              </div>
+              <Progress value={task.progress} className="h-1" />
+            </div>
+          )}
+
+          {/* Meta */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {task.assigneeName && (
+              <span className="flex items-center gap-1 truncate">
+                <User className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{task.assigneeName}</span>
+              </span>
+            )}
+            {task.dueDate && (
+              <span className={`flex items-center gap-1 flex-shrink-0 ${isOverdue ? "text-red-400" : ""}`}>
+                <Calendar className="w-3 h-3" />
+                {new Date(task.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
               </span>
             )}
           </div>
-          <p className="text-sm font-medium text-foreground leading-tight">{task.title}</p>
-        </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button onClick={() => onNavigate(task.id)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-          {isAdmin && (
+
+          {/* Checklist */}
+          {checklist.length > 0 && (
             <>
-              <button onClick={() => onEdit(task)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
-                <Pencil className="w-3.5 h-3.5" />
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+              >
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {expanded ? "Ocultar checklist" : `Ver checklist (${checklist.filter((i: any) => i.status === "published").length}/${checklist.length})`}
               </button>
-              <button onClick={() => onDelete(task.id)} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {expanded && <ChecklistPreview items={checklist} />}
             </>
           )}
         </div>
       </div>
-
-      {/* Progress bar */}
-      {task.progress > 0 && (
-        <div className="mb-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-0.5">
-            <span>Progresso</span><span>{Math.round(task.progress)}%</span>
-          </div>
-          <Progress value={task.progress} className="h-1" />
-        </div>
-      )}
-
-      {/* Meta */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        {task.assigneeName && (
-          <span className="flex items-center gap-1 truncate">
-            <User className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{task.assigneeName}</span>
-          </span>
-        )}
-        {task.dueDate && (
-          <span className={`flex items-center gap-1 flex-shrink-0 ${isOverdue ? "text-red-400" : ""}`}>
-            <Calendar className="w-3 h-3" />
-            {new Date(task.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-          </span>
-        )}
-      </div>
-
-      {/* Checklist preview */}
-      {checklist.length > 0 && (
-        <>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
-          >
-            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {expanded ? "Ocultar checklist" : `Ver checklist (${checklist.filter((i: any) => i.status === "published").length}/${checklist.length})`}
-          </button>
-          {expanded && <ChecklistPreview items={checklist} taskId={task.id} />}
-        </>
-      )}
     </div>
   );
 }
 
-// ── Discipline Column ─────────────────────────────────────────────────────────
-function DisciplineColumn({
-  discipline, tasks, phases, isAdmin, onAddTask, onEdit, onDelete, onNavigate,
+// ── Phase Column (droppable) ───────────────────────────────────────────────────
+function PhaseColumn({
+  phase, tasks, isAdmin, onAddTask, onEdit, onDelete, onNavigate, activeTaskId,
 }: {
-  discipline: { id: number; name: string; color: string };
-  tasks: any[]; phases: any[]; isAdmin: boolean;
-  onAddTask: (disciplineId: number, disciplineName: string) => void;
+  phase: { id: number; name: string; color: string };
+  tasks: any[]; isAdmin: boolean;
+  onAddTask: (phaseId: number) => void;
   onEdit: (t: any) => void; onDelete: (id: number) => void; onNavigate: (id: number) => void;
+  activeTaskId: string | null;
 }) {
-  const colPct = (() => {
-    if (!tasks.length) return 0;
-    let totalWeight = 0;
-    let totalDone = 0;
-    for (const t of tasks) {
-      const cl: any[] = t.checklistItems ?? [];
-      if (cl.length > 0) {
-        const itemsDone = cl.filter((i: any) => i.status === "published").length;
-        totalWeight += cl.length;
-        totalDone += itemsDone;
-      } else {
-        totalWeight += 100;
-        totalDone += Math.min(100, t.progress ?? 0);
-      }
-    }
-    return totalWeight > 0 ? Math.round((totalDone / totalWeight) * 100) : 0;
-  })();
-
+  const taskIds = tasks.map((t) => `task-${t.id}`);
   return (
     <div className="flex flex-col bg-secondary/30 rounded-2xl border border-border overflow-hidden h-full">
-      {/* Column header */}
-      <div className="p-3 border-b border-border flex-shrink-0" style={{ borderTopColor: discipline.color, borderTopWidth: 3 }}>
-        <div className="flex items-center justify-between mb-1">
+      {/* Header */}
+      <div className="p-3 border-b border-border flex-shrink-0" style={{ borderTopColor: phase.color, borderTopWidth: 3 }}>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: discipline.color }} />
-            <h3 className="text-sm font-semibold text-foreground">{discipline.name}</h3>
+            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: phase.color }} />
+            <h3 className="text-sm font-semibold text-foreground">{phase.name}</h3>
           </div>
           <div className="flex items-center gap-1">
             <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
             {isAdmin && (
               <button
-                onClick={() => onAddTask(discipline.id, discipline.name)}
+                onClick={() => onAddTask(phase.id)}
                 className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -250,38 +260,36 @@ function DisciplineColumn({
             )}
           </div>
         </div>
-        {tasks.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Progress value={colPct} className="flex-1 h-1" />
-            <span className="text-xs text-muted-foreground">{colPct}%</span>
-          </div>
-        )}
       </div>
 
-      {/* Tasks */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Layers className="w-6 h-6 text-muted-foreground/30 mb-2" />
-            <p className="text-xs text-muted-foreground">Nenhuma tarefa</p>
-            {isAdmin && (
-              <button
-                onClick={() => onAddTask(discipline.id, discipline.name)}
-                className="mt-2 text-xs text-primary hover:underline"
-              >
-                + Adicionar tarefa
-              </button>
-            )}
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <TaskCard
-              key={`task-${task.id}`} task={task} phases={phases} isAdmin={isAdmin}
-              onEdit={onEdit} onDelete={onDelete} onNavigate={onNavigate}
-            />
-          ))
-        )}
-      </div>
+      {/* Droppable task list */}
+      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px]">
+          {tasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-border/40 rounded-xl">
+              <p className="text-xs text-muted-foreground">Arraste tarefas aqui</p>
+              {isAdmin && (
+                <button onClick={() => onAddTask(phase.id)} className="mt-1 text-xs text-primary hover:underline">
+                  + Adicionar
+                </button>
+              )}
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <SortableTaskCard
+                key={`task-${task.id}`}
+                task={task}
+                phases={[phase]}
+                isAdmin={isAdmin}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onNavigate={onNavigate}
+                isDragging={activeTaskId === `task-${task.id}`}
+              />
+            ))
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 }
@@ -293,28 +301,25 @@ export default function Kanban() {
   const [, navigate] = useLocation();
   const queryString = useSearch();
 
-  // CRS selector
   const urlCrsId = useMemo(() => {
     const params = new URLSearchParams(queryString);
     const v = params.get("crs");
     return v ? parseInt(v, 10) : null;
   }, [queryString]);
   const [selectedCrsId, setSelectedCrsId] = useState<number | null>(null);
-  useEffect(() => {
-    if (urlCrsId) setSelectedCrsId(urlCrsId);
-  }, [urlCrsId]);
+  useEffect(() => { if (urlCrsId) setSelectedCrsId(urlCrsId); }, [urlCrsId]);
 
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterPhase, setFilterPhase] = useState("all");
 
-  // ── NEW: up to 2 selected disciplines shown side by side ──────────────────
-  // selectedDisciplines: array of discipline names (max 2)
+  // Discipline selectors (max 2)
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
-  // dropdownOpen state for each slot
-  const [slot1Open, setSlot1Open] = useState(false);
-  const [slot2Open, setSlot2Open] = useState(false);
+  const [autoSelected, setAutoSelected] = useState(false);
+
+  // DnD state
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   // Dialogs
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -323,7 +328,7 @@ export default function Kanban() {
     title: "", description: "", priority: "medium", assigneeId: "",
     dueDate: "", setor: "", phaseId: "",
   });
-  const [prefillDiscipline, setPrefillDiscipline] = useState<{ id: number; name: string } | null>(null);
+  const [prefillPhaseId, setPrefillPhaseId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -333,12 +338,8 @@ export default function Kanban() {
   const selectedCrs = crsItems.find((c: any) => c.id === selectedCrsId) ?? (crsItems[0] ?? null);
   const effectiveCrsId = selectedCrs?.id ?? null;
 
-  const phasesQ = trpc.kanbanPhases.list.useQuery(
-    { crsId: effectiveCrsId! }, { enabled: !!effectiveCrsId }
-  );
-  const tasksQ = trpc.tasks.listByCrsWithChecklist.useQuery(
-    { crsId: effectiveCrsId! }, { enabled: !!effectiveCrsId }
-  );
+  const phasesQ = trpc.kanbanPhases.list.useQuery({ crsId: effectiveCrsId! }, { enabled: !!effectiveCrsId });
+  const tasksQ = trpc.tasks.listByCrsWithChecklist.useQuery({ crsId: effectiveCrsId! }, { enabled: !!effectiveCrsId });
   const disciplinesQ = trpc.disciplines.list.useQuery();
   const membersQ = trpc.users.list.useQuery();
   const myDisciplinesQ = trpc.users.getDisciplines.useQuery({ userId: user?.id }, { enabled: !!user?.id });
@@ -350,36 +351,37 @@ export default function Kanban() {
   const myDisciplineNames: string[] = (myDisciplinesQ.data ?? []).map((d: any) => d.disciplineName);
   const hasRestrictedDisciplines = !isAdmin && myDisciplineNames.length > 0;
 
-  // Auto-select first discipline when data loads
-  const [autoSelected, setAutoSelected] = useState(false);
+  // Available disciplines
+  const availableColumns = useMemo(() => {
+    const cols = disciplines.map((d) => ({ id: d.id, name: d.name, color: d.color ?? "#6366f1" }));
+    if (hasRestrictedDisciplines) return cols.filter((c) => myDisciplineNames.includes(c.name));
+    return cols;
+  }, [disciplines, hasRestrictedDisciplines, myDisciplineNames]);
+
+  // Auto-select first discipline
   useEffect(() => {
-    if (!autoSelected && disciplines.length > 0) {
-      if (hasRestrictedDisciplines && myDisciplineNames.length > 0) {
-        setSelectedDisciplines([myDisciplineNames[0]]);
-      } else if (disciplines[0]) {
-        setSelectedDisciplines([disciplines[0].name]);
-      }
+    if (!autoSelected && availableColumns.length > 0) {
+      setSelectedDisciplines([availableColumns[0].name]);
       setAutoSelected(true);
     }
-  }, [disciplines.length, hasRestrictedDisciplines, myDisciplineNames.join(",")]);
+  }, [availableColumns.length]);
 
   // Mutations
+  const moveTaskMut = trpc.tasks.movePhase.useMutation({
+    onSuccess: () => utils.tasks.listByCrsWithChecklist.invalidate(),
+    onError: (e) => { toast.error(e.message); utils.tasks.listByCrsWithChecklist.invalidate(); },
+  });
   const createTaskMut = trpc.tasks.create.useMutation({
     onSuccess: () => {
       toast.success("Tarefa criada!");
       utils.tasks.listByCrsWithChecklist.invalidate();
       setShowCreateTask(false);
       setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "", phaseId: "" });
-      setPrefillDiscipline(null);
     },
     onError: (e) => toast.error(e.message),
   });
   const updateTaskMut = trpc.tasks.update.useMutation({
-    onSuccess: () => {
-      toast.success("Tarefa atualizada!");
-      utils.tasks.listByCrsWithChecklist.invalidate();
-      setEditingTask(null);
-    },
+    onSuccess: () => { toast.success("Tarefa atualizada!"); utils.tasks.listByCrsWithChecklist.invalidate(); setEditingTask(null); },
     onError: (e) => toast.error(e.message),
   });
   const deleteTaskMut = trpc.tasks.delete.useMutation({
@@ -393,39 +395,27 @@ export default function Kanban() {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterAssignee !== "all" && String(t.assigneeId) !== filterAssignee) return false;
-      if (filterPhase !== "all" && String(t.phaseId) !== filterPhase) return false;
       return true;
     });
-  }, [allTasks, search, filterPriority, filterAssignee, filterPhase]);
+  }, [allTasks, search, filterPriority, filterAssignee]);
 
-  // Group tasks by discipline (setor)
-  const tasksByDiscipline = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    disciplines.forEach((d) => { map[d.name] = []; });
-    map["Sem Disciplina"] = [];
-    filteredTasks.forEach((t) => {
-      const key = t.setor && map[t.setor] !== undefined ? t.setor : "Sem Disciplina";
-      map[key].push(t);
-    });
-    return map;
-  }, [filteredTasks, disciplines]);
-
-  // All available discipline columns
-  const allColumns = useMemo(() => {
-    const cols = disciplines.map((d) => ({ id: d.id, name: d.name, color: d.color ?? "#6366f1" }));
-    if ((tasksByDiscipline["Sem Disciplina"] ?? []).length > 0) {
-      cols.push({ id: -1, name: "Sem Disciplina", color: "#94a3b8" });
+  // Tasks grouped by discipline then by phase
+  const tasksByDiscAndPhase = useMemo(() => {
+    const result: Record<string, Record<number, any[]>> = {};
+    for (const disc of availableColumns) {
+      result[disc.name] = {};
+      for (const ph of phases) result[disc.name][ph.id] = [];
     }
-    return cols;
-  }, [disciplines, tasksByDiscipline]);
-
-  // Available disciplines for restricted users
-  const availableColumns = useMemo(() => {
-    if (hasRestrictedDisciplines) {
-      return allColumns.filter((d) => myDisciplineNames.includes(d.name));
+    for (const t of filteredTasks) {
+      const discName = t.setor && result[t.setor] !== undefined ? t.setor : null;
+      if (!discName) continue;
+      const phId = t.phaseId;
+      if (result[discName] && result[discName][phId] !== undefined) {
+        result[discName][phId].push(t);
+      }
     }
-    return allColumns;
-  }, [allColumns, hasRestrictedDisciplines, myDisciplineNames]);
+    return result;
+  }, [filteredTasks, availableColumns, phases]);
 
   // Columns to render (max 2)
   const columnsToRender = useMemo(() => {
@@ -443,11 +433,44 @@ export default function Kanban() {
     });
   }
 
-  function openAddTask(disciplineId: number, disciplineName: string) {
-    setPrefillDiscipline({ id: disciplineId, name: disciplineName });
+  // DnD handlers
+  function handleDragStart(event: DragStartEvent) {
+    setActiveTaskId(event.active.id as string);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveTaskId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find source task
+    const taskId = parseInt(activeId.replace("task-", ""));
+    const task = allTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Determine target phase
+    let targetPhaseId: number | null = null;
+    if (overId.startsWith("phase-")) {
+      targetPhaseId = parseInt(overId.replace("phase-", ""));
+    } else if (overId.startsWith("task-")) {
+      const overTaskId = parseInt(overId.replace("task-", ""));
+      const overTask = allTasks.find((t) => t.id === overTaskId);
+      if (overTask) targetPhaseId = overTask.phaseId;
+    }
+
+    if (targetPhaseId && targetPhaseId !== task.phaseId) {
+      moveTaskMut.mutate({ id: taskId, phaseId: targetPhaseId });
+    }
+  }
+
+  function openAddTask(phaseId: number) {
+    setPrefillPhaseId(phaseId);
     setTaskForm({
       title: "", description: "", priority: "medium", assigneeId: "",
-      dueDate: "", setor: disciplineName, phaseId: phases[0]?.id ? String(phases[0].id) : "",
+      dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: String(phaseId),
     });
     setShowCreateTask(true);
   }
@@ -494,10 +517,15 @@ export default function Kanban() {
 
   const isLoading = crsQ.isLoading || tasksQ.isLoading || disciplinesQ.isLoading;
 
-  // ── Discipline Selector (sidebar widget) ────────────────────────────────────
+  // Active task for DragOverlay
+  const activeTask = activeTaskId
+    ? allTasks.find((t) => `task-${t.id}` === activeTaskId)
+    : null;
+
+  // ── Discipline Selector widget ────────────────────────────────────────────
   function DisciplineSelector({ slot, value, onChange }: { slot: 0 | 1; value: string; onChange: (v: string) => void }) {
     const disc = availableColumns.find((c) => c.name === value);
-    const taskCount = value ? (tasksByDiscipline[value] ?? []).length : 0;
+    const taskCount = value ? (tasksByDiscAndPhase[value] ? Object.values(tasksByDiscAndPhase[value]).flat().length : 0) : 0;
     return (
       <div className="px-4 py-2">
         <p className="text-xs font-medium text-muted-foreground mb-1">
@@ -517,15 +545,18 @@ export default function Kanban() {
           </SelectTrigger>
           <SelectContent>
             {slot === 1 && <SelectItem value="_none">— Nenhuma —</SelectItem>}
-            {availableColumns.map((c) => (
-              <SelectItem key={`slot${slot}-${c.id}`} value={c.name}>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
-                  <span>{c.name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">({(tasksByDiscipline[c.name] ?? []).length})</span>
-                </div>
-              </SelectItem>
-            ))}
+            {availableColumns.map((c) => {
+              const cnt = tasksByDiscAndPhase[c.name] ? Object.values(tasksByDiscAndPhase[c.name]).flat().length : 0;
+              return (
+                <SelectItem key={`slot${slot}-${c.id}`} value={c.name}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
+                    <span>{c.name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">({cnt})</span>
+                  </div>
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -535,6 +566,12 @@ export default function Kanban() {
   return (
     <AppLayout title="Kanban" fullHeight>
       <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
       <SplitLayout
         leftWidth="240px"
         left={
@@ -586,36 +623,25 @@ export default function Kanban() {
               )}
             </SplitPanelList>
 
-            {/* ── Discipline selectors ── */}
+            {/* Discipline selectors */}
             {effectiveCrsId && availableColumns.length > 0 && (
               <div className="border-t border-border pt-2 pb-2">
                 <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Disciplinas</p>
-                <DisciplineSelector
-                  slot={0}
-                  value={selectedDisciplines[0] ?? ""}
-                  onChange={(v) => setSlotDiscipline(0, v)}
-                />
-                <DisciplineSelector
-                  slot={1}
-                  value={selectedDisciplines[1] ?? ""}
-                  onChange={(v) => setSlotDiscipline(1, v)}
-                />
+                <DisciplineSelector slot={0} value={selectedDisciplines[0] ?? ""} onChange={(v) => setSlotDiscipline(0, v)} />
+                <DisciplineSelector slot={1} value={selectedDisciplines[1] ?? ""} onChange={(v) => setSlotDiscipline(1, v)} />
               </div>
             )}
           </>
         }
         right={
           <div className="flex flex-col h-full overflow-hidden">
-            {/* ── Toolbar ── */}
+            {/* Toolbar */}
             <div className="px-4 py-3 border-b border-border bg-background/80 backdrop-blur flex-shrink-0">
               <div className="flex flex-wrap items-center gap-3">
-                {/* Search */}
                 <div className="relative flex-1 min-w-[180px] max-w-xs">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
                 </div>
-
-                {/* Filters */}
                 <Select value={filterPriority} onValueChange={setFilterPriority}>
                   <SelectTrigger className="w-36 h-8 text-sm">
                     <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
@@ -628,7 +654,6 @@ export default function Kanban() {
                     ))}
                   </SelectContent>
                 </Select>
-
                 <Select value={filterAssignee} onValueChange={setFilterAssignee}>
                   <SelectTrigger className="w-40 h-8 text-sm">
                     <User className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
@@ -641,27 +666,6 @@ export default function Kanban() {
                     ))}
                   </SelectContent>
                 </Select>
-
-                {phases.length > 0 && (
-                  <Select value={filterPhase} onValueChange={setFilterPhase}>
-                    <SelectTrigger className="w-40 h-8 text-sm">
-                      <Layers className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                      <SelectValue placeholder="Fase" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as fases</SelectItem>
-                      {phases.map((ph: any) => (
-                        <SelectItem key={ph.id} value={String(ph.id)}>
-                          <span className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: ph.color }} />
-                            {ph.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
                 <div className="ml-auto flex items-center gap-2">
                   {selectedCrs?.tipoObra && (
                     <span className="text-xs px-2 py-1 rounded-full border border-border text-muted-foreground">
@@ -671,7 +675,7 @@ export default function Kanban() {
                   {isAdmin && effectiveCrsId && (
                     <Button size="sm" onClick={() => {
                       setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: phases[0]?.id ? String(phases[0].id) : "" });
-                      setPrefillDiscipline(null);
+                      setPrefillPhaseId(null);
                       setShowCreateTask(true);
                     }} className="gap-1.5 h-8">
                       <Plus className="w-3.5 h-3.5" /> Nova Tarefa
@@ -681,19 +685,18 @@ export default function Kanban() {
               </div>
             </div>
 
-            {/* ── Board ── */}
+            {/* Board */}
             {!effectiveCrsId ? (
               <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
                 <FolderKanban className="w-12 h-12 text-muted-foreground/30 mb-3" />
                 <p className="text-muted-foreground font-medium">Nenhum Contrato disponível</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">Crie um Contrato na página de Projetos para começar.</p>
               </div>
             ) : isLoading ? (
-              <div className="flex gap-4 p-4 overflow-x-auto">
-                {Array.from({ length: 2 }).map((_, i) => (
+              <div className="flex gap-4 p-4">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="flex-1">
                     <Skeleton className="h-12 rounded-t-2xl mb-2" />
-                    {Array.from({ length: 3 }).map((_, j) => <Skeleton key={j} className="h-28 rounded-xl mb-2" />)}
+                    {Array.from({ length: 2 }).map((_, j) => <Skeleton key={j} className="h-24 rounded-xl mb-2" />)}
                   </div>
                 ))}
               </div>
@@ -704,19 +707,37 @@ export default function Kanban() {
                 <p className="text-sm text-muted-foreground/60 mt-1">Use os seletores na barra lateral para escolher qual disciplina visualizar.</p>
               </div>
             ) : (
-              <div className={`grid gap-4 p-4 flex-1 overflow-y-auto ${columnsToRender.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+              <div className="flex-1 overflow-auto p-4">
                 {columnsToRender.map((disc) => (
-                  <DisciplineColumn
-                    key={`col-${disc.id}`}
-                    discipline={disc}
-                    tasks={tasksByDiscipline[disc.name] ?? []}
-                    phases={phases}
-                    isAdmin={isAdmin}
-                    onAddTask={openAddTask}
-                    onEdit={openEditTask}
-                    onDelete={(id) => { if (confirm("Excluir tarefa?")) deleteTaskMut.mutate({ id }); }}
-                    onNavigate={(id) => navigate(`/tasks/${id}`)}
-                  />
+                  <div key={`disc-${disc.id}`} className="mb-6">
+                    {/* Discipline header */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: disc.color }} />
+                      <h2 className="text-sm font-bold text-foreground">{disc.name}</h2>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                    {/* Phase columns */}
+                    {phases.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhuma fase configurada para este contrato.</p>
+                    ) : (
+                      <div className={`grid gap-3 ${phases.length <= 3 ? `grid-cols-${phases.length}` : "grid-cols-4"}`}
+                        style={{ gridTemplateColumns: `repeat(${Math.min(phases.length, 5)}, minmax(0, 1fr))` }}>
+                        {phases.map((ph: any) => (
+                          <PhaseColumn
+                            key={`ph-${disc.id}-${ph.id}`}
+                            phase={ph}
+                            tasks={(tasksByDiscAndPhase[disc.name] ?? {})[ph.id] ?? []}
+                            isAdmin={isAdmin}
+                            onAddTask={openAddTask}
+                            onEdit={openEditTask}
+                            onDelete={(id) => { if (confirm("Excluir tarefa?")) deleteTaskMut.mutate({ id }); }}
+                            onNavigate={(id) => navigate(`/tasks/${id}`)}
+                            activeTaskId={activeTaskId}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -724,11 +745,27 @@ export default function Kanban() {
         }
       />
 
-      {/* ── Create Task Dialog ── */}
-      <Dialog open={showCreateTask} onOpenChange={(o) => { if (!o) { setShowCreateTask(false); setPrefillDiscipline(null); } }}>
+      {/* DragOverlay */}
+      <DragOverlay>
+        {activeTask ? (
+          <div className="bg-card border border-primary/50 rounded-xl p-3 shadow-2xl rotate-2 opacity-95">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: (PRIORITY_CONFIG[activeTask.priority] ?? PRIORITY_CONFIG.medium).bg, color: (PRIORITY_CONFIG[activeTask.priority] ?? PRIORITY_CONFIG.medium).color }}>
+                {(PRIORITY_CONFIG[activeTask.priority] ?? PRIORITY_CONFIG.medium).label}
+              </span>
+            </div>
+            <p className="text-sm font-medium text-foreground">{activeTask.title}</p>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
+
+      {/* Create Task Dialog */}
+      <Dialog open={showCreateTask} onOpenChange={(o) => { if (!o) setShowCreateTask(false); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nova Tarefa{prefillDiscipline ? ` — ${prefillDiscipline.name}` : ""}</DialogTitle>
+            <DialogTitle>Nova Tarefa</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -803,7 +840,7 @@ export default function Kanban() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowCreateTask(false); setPrefillDiscipline(null); }}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowCreateTask(false)}>Cancelar</Button>
             <Button onClick={handleCreateTask} disabled={createTaskMut.isPending}>
               {createTaskMut.isPending ? "Criando..." : "Criar Tarefa"}
             </Button>
@@ -811,7 +848,7 @@ export default function Kanban() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Task Dialog ── */}
+      {/* Edit Task Dialog */}
       <Dialog open={!!editingTask} onOpenChange={(o) => !o && setEditingTask(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Editar Tarefa</DialogTitle></DialogHeader>
