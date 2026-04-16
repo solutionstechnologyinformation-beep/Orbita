@@ -25,7 +25,7 @@ const STEPS = [
     icon: FolderKanban,
     title: "Crie seu primeiro projeto",
     description: "Projetos organizam tarefas, membros e entregas. Comece dando um nome ao seu projeto.",
-    color: "#1561ad",
+    color: "#785500",
     bg: "bg-blue-50",
   },
   {
@@ -129,7 +129,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
         {/* Header */}
         <div
           className="px-6 pt-6 pb-4"
-          style={{ background: "linear-gradient(135deg, #1561ad 0%, #1c77ac 60%, #1dbab4 100%)" }}
+          style={{ background: "linear-gradient(135deg, #785500 0%, #9a6b00 60%, #1dbab4 100%)" }}
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
               <Button
                 onClick={handleFinish}
                 className="w-full gap-2"
-                style={{ backgroundColor: "#1561ad" }}
+                style={{ backgroundColor: "#785500" }}
               >
                 Ir para o Kanban
                 <ArrowRight className="w-4 h-4" />
@@ -226,7 +226,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                     </Button>
                     <Button
                       className="flex-1 gap-2"
-                      style={{ backgroundColor: "#1561ad" }}
+                      style={{ backgroundColor: "#785500" }}
                       onClick={handleCreateProject}
                       disabled={createProjectMut.isPending}
                     >
@@ -296,7 +296,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                     {inviteLink && (
                       <Button
                         className="flex-1 gap-2"
-                        style={{ backgroundColor: "#1561ad" }}
+                        style={{ backgroundColor: "#785500" }}
                         onClick={() => setStep(3)}
                       >
                         Próximo passo

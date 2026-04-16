@@ -69,7 +69,7 @@ export async function createClient(data: { name: string; description?: string; c
   const db = await getDb();
   const [result] = await db.execute(
     sql`INSERT INTO clients (name, description, color, status, createdById, createdAt, updatedAt)
-        VALUES (${data.name}, ${data.description ?? null}, ${data.color ?? '#1561ad'}, 'active', ${data.createdById}, NOW(), NOW())`
+        VALUES (${data.name}, ${data.description ?? null}, ${data.color ?? '#785500'}, 'active', ${data.createdById}, NOW(), NOW())`
   );
   return (result as any).insertId as number;
 }
@@ -152,7 +152,7 @@ export async function recalcCrsProgress(crsId: number) {
 // ─── Kanban Phases ─────────────────────────────────────────────────────────────
 const DEFAULT_PHASES = [
   { name: "Para Iniciar", color: "#94a3b8", position: 0, isDefault: true, isTerminal: false },
-  { name: "Em Andamento", color: "#1c77ac", position: 1, isDefault: true, isTerminal: false },
+  { name: "Em Andamento", color: "#9a6b00", position: 1, isDefault: true, isTerminal: false },
   { name: "Compartilhado", color: "#1dbab4", position: 2, isDefault: true, isTerminal: false },
   { name: "Publicado", color: "#22c55e", position: 3, isDefault: true, isTerminal: true },
   { name: "Arquivado", color: "#6366f1", position: 4, isDefault: true, isTerminal: true },
@@ -582,7 +582,7 @@ export async function getClientProgress() {
   const clientMap = new Map<number, { id: number; name: string; color: string; crsCount: number; avgProgress: number }>();
   rows.forEach((r: any) => {
     if (!clientMap.has(r.clientId)) {
-      clientMap.set(r.clientId, { id: r.clientId, name: r.clientName, color: r.clientColor ?? "#1561ad", crsCount: 0, avgProgress: 0 });
+      clientMap.set(r.clientId, { id: r.clientId, name: r.clientName, color: r.clientColor ?? "#785500", crsCount: 0, avgProgress: 0 });
     }
     if (r.crsId) {
       const c = clientMap.get(r.clientId)!;

@@ -95,8 +95,8 @@ function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }
           <div className="flex-1 min-w-0">
             {crs.clientName && (
               <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 font-medium"
-                style={{ backgroundColor: (crs.clientColor ?? "#1561ad") + "20", color: crs.clientColor ?? "#1561ad" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
+                style={{ backgroundColor: (crs.clientColor ?? "#785500") + "20", color: crs.clientColor ?? "#785500" }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#785500" }} />
                 {crs.clientName}
               </div>
             )}
@@ -136,7 +136,7 @@ function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all"
-              style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#1561ad" }} />
+              style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#785500" }} />
           </div>
         </div>
         {/* Progresso por Disciplina */}

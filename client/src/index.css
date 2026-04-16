@@ -41,8 +41,8 @@
 
 /* ── Light theme (default) ──────────────────────────────────────────────── */
 /* Brand palette:
-   Primary Blue:    #1561ad  → oklch(0.44 0.14 234)
-   Secondary Blue:  #1c77ac  → oklch(0.50 0.12 228)
+   Primary Gold:    #785500  → oklch(0.47 0.10 80.9)
+   Dark Gold:       #5c4000  → oklch(0.32 0.10 80.9)
    Teal:            #1dbab4  → oklch(0.69 0.13 188)
    Red-Orange:      #fc5226  → oklch(0.65 0.22 28)
 */
@@ -61,21 +61,21 @@
   --popover:                oklch(1.00 0.000 0);
   --popover-foreground:     oklch(0.12 0.020 230);
 
-  /* Primary — #1561ad Azul Forte */
-  --primary:                oklch(0.44 0.14 234);
+  /* Primary — #785500 Dourado */
+  --primary:                oklch(0.47 0.10 80.9);
   --primary-foreground:     oklch(1.00 0.000 0);
 
-  /* Secondary — light blue-gray */
-  --secondary:              oklch(0.95 0.010 220);
-  --secondary-foreground:   oklch(0.25 0.020 230);
+  /* Secondary — light warm-gray */
+  --secondary:              oklch(0.95 0.010 80);
+  --secondary-foreground:   oklch(0.25 0.020 80);
 
   /* Muted */
-  --muted:                  oklch(0.95 0.008 220);
-  --muted-foreground:       oklch(0.50 0.018 230);
+  --muted:                  oklch(0.95 0.008 80);
+  --muted-foreground:       oklch(0.50 0.018 80);
 
-  /* Accent — #1dbab4 Teal */
-  --accent:                 oklch(0.93 0.040 188);
-  --accent-foreground:      oklch(0.35 0.12 188);
+  /* Accent — warm gold tint */
+  --accent:                 oklch(0.95 0.030 80.9);
+  --accent-foreground:      oklch(0.35 0.10 80.9);
 
   /* Destructive — #fc5226 Red-Orange */
   --destructive:            oklch(0.65 0.22 28);
@@ -84,17 +84,17 @@
   /* Border / Input / Ring */
   --border:                 oklch(0.89 0.010 220);
   --input:                  oklch(0.95 0.008 220);
-  --ring:                   oklch(0.44 0.14 234);
+  --ring:                   oklch(0.47 0.10 80.9);
 
-  /* Sidebar — #1561ad deep blue */
-  --sidebar:                oklch(0.44 0.14 234);
-  --sidebar-foreground:     oklch(0.97 0.004 220);
-  --sidebar-primary:        oklch(0.69 0.13 188);
-  --sidebar-primary-foreground: oklch(0.12 0.020 230);
-  --sidebar-accent:         oklch(0.50 0.14 228);
-  --sidebar-accent-foreground: oklch(0.97 0.004 220);
-  --sidebar-border:         oklch(0.52 0.13 228);
-  --sidebar-ring:           oklch(0.69 0.13 188);
+  /* Sidebar — #5c4000 dourado escuro */
+  --sidebar:                oklch(0.32 0.10 80.9);
+  --sidebar-foreground:     oklch(0.97 0.004 80);
+  --sidebar-primary:        oklch(0.47 0.10 80.9);
+  --sidebar-primary-foreground: oklch(1.00 0.000 0);
+  --sidebar-accent:         oklch(0.40 0.09 80.9);
+  --sidebar-accent-foreground: oklch(0.97 0.004 80);
+  --sidebar-border:         oklch(0.43 0.08 80.9);
+  --sidebar-ring:           oklch(0.60 0.10 80.9);
 }
 
 /* ── Base styles ─────────────────────────────────────────────────────────── */
@@ -144,20 +144,20 @@
     border: 1px solid oklch(0.91 0.005 240);
   }
 
-  /* Gradient text — brand blue to teal */
+  /* Gradient text — brand gold */
   .gradient-text {
-    background: linear-gradient(135deg, #1561ad, #1dbab4);
+    background: linear-gradient(135deg, #785500, #b07d00);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Hero background — brand blue gradient */
+  /* Hero background — brand gold gradient */
   .hero-bg {
     background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.44 0.14 234 / 0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 90% 80%, oklch(0.69 0.13 188 / 0.10) 0%, transparent 50%),
-      oklch(0.98 0.003 220);
+      radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.47 0.10 80.9 / 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 80%, oklch(0.47 0.10 80.9 / 0.08) 0%, transparent 50%),
+      oklch(0.98 0.003 80);
   }
 
   /* Priority badges */
@@ -168,7 +168,7 @@
 
   /* Status badges */
   .status-todo        { @apply bg-slate-50 text-slate-600 border border-slate-200; }
-  .status-in_progress { @apply bg-blue-50 text-blue-700 border border-blue-200; }
+  .status-in_progress { @apply bg-amber-50 text-amber-800 border border-amber-200; }
   .status-done        { @apply bg-emerald-50 text-emerald-700 border border-emerald-200; }
 
   /* Kanban column */

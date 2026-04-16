@@ -243,7 +243,7 @@ export default function Sprints() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #1561ad; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #785500; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
     .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff; }
     .logo span { color: #ffffff; }
     .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
@@ -258,7 +258,7 @@ export default function Sprints() {
     .kpi-blocked .kpi-value { color: #ef4444; }
     .kpi-rate .kpi-value { color: #1dbab4; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 10px; margin: 8px 0 20px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #1561ad, #1dbab4); }
+    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #785500, #1dbab4); }
     section { margin-bottom: 24px; }
     h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #1dbab4; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -369,7 +369,7 @@ export default function Sprints() {
   </section>`;
       })() : ''}
 
-  <div style="margin-top:32px;padding:12px 24px;background:#1561ad;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
+  <div style="margin-top:32px;padding:12px 24px;background:#785500;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
     <span style="font-size:13px;font-weight:700;color:#ffffff;">Orbita</span>
     <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>

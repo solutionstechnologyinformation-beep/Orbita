@@ -30,7 +30,7 @@ const TIPO_OBRA_MAP: Record<string, string> = {
   outro: "Outro",
 };
 const TIPO_OBRA_COLOR: Record<string, string> = {
-  implementacao: "#1561ad",
+  implementacao: "#785500",
   restauracao: "#f97316",
   aumento_capacidade: "#8b5cf6",
   levantamento: "#6b7280",
@@ -48,8 +48,8 @@ function getPinColor(crsList: any[]): string {
     allTypes.push(...types);
   }
   const unique = Array.from(new Set(allTypes.filter(Boolean)));
-  if (unique.length === 1) return TIPO_OBRA_COLOR[unique[0]] ?? "#1561ad";
-  return "#1561ad";
+  if (unique.length === 1) return TIPO_OBRA_COLOR[unique[0]] ?? "#785500";
+  return "#785500";
 }
 function pct(n: number, total: number) {
   if (!total) return 0;
@@ -183,7 +183,7 @@ async function exportDashboardPDF(data: {
   const now = new Date().toLocaleString("pt-BR");
   const date = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
   const clientBadge = clientName
-    ? `<span style="background:${clientColor ?? "#1561ad"}22;color:${clientColor ?? "#1561ad"};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid ${clientColor ?? "#1561ad"}44">${clientName}</span>`
+    ? `<span style="background:${clientColor ?? "#785500"}22;color:${clientColor ?? "#785500"};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid ${clientColor ?? "#785500"}44">${clientName}</span>`
     : "";
 
   const projectRows = projects.slice(0, 10).map((p: any) => {
@@ -194,7 +194,7 @@ async function exportDashboardPDF(data: {
       <td style="padding:5px 8px;border:1px solid #e2e8f0">${p.code ?? "&mdash;"}</td>
       <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center">
           <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden">
-          <div style="background:#1561ad;height:8px;border-radius:99px;width:${ppct}%"></div>
+          <div style="background:#785500;height:8px;border-radius:99px;width:${ppct}%"></div>
         </div>
         <span style="font-size:10px;color:#64748b">${ppct}%</span>
       </td>
@@ -228,7 +228,7 @@ async function exportDashboardPDF(data: {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 0; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #1561ad; color: #ffffff; padding: 18px 28px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #785500; color: #ffffff; padding: 18px 28px; border-bottom: 3px solid rgba(0,0,0,0.1); }
     .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff; }
     .logo span { color: #ffffff; }
     .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
@@ -247,7 +247,7 @@ async function exportDashboardPDF(data: {
     h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #1dbab4; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { background: #f1f5f9; color: #475569; padding: 7px 8px; text-align: left; border: 1px solid #e2e8f0; font-weight: 600; }
-    .footer { margin-top: 32px; background: #1561ad; padding: 12px 28px; font-size: 10px; border-radius: 0 0 8px 8px; display: flex; justify-content: space-between; align-items: center; }
+    .footer { margin-top: 32px; background: #785500; padding: 12px 28px; font-size: 10px; border-radius: 0 0 8px 8px; display: flex; justify-content: space-between; align-items: center; }
     .ls-badge { display: flex; align-items: center; gap: 8px; }
     .ls-icon { width: 32px; height: 32px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
     .ls-icon span { color: #ffffff; font-weight: 900; font-size: 13px; }
@@ -380,13 +380,13 @@ async function exportDashboardPDF(data: {
         </div>`;
       }).join("");
       return `<div style="margin-bottom:8px">
-        <div style="font-size:11px;font-weight:700;color:#1561ad;background:#eff6ff;padding:3px 8px;border-radius:4px;margin-bottom:4px">${disc} (${tasks.length} tarefa${tasks.length !== 1 ? 's' : ''})</div>
+        <div style="font-size:11px;font-weight:700;color:#785500;background:#fef9ec;padding:3px 8px;border-radius:4px;margin-bottom:4px">${disc} (${tasks.length} tarefa${tasks.length !== 1 ? 's' : ''})</div>
         ${taskRows}
       </div>`;
     }).filter(Boolean).join("");
     return `<section style="margin-bottom:20px;page-break-inside:avoid">
       <h3 style="display:flex;align-items:center;gap:8px">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#1561ad;color:#fff;border-radius:50%;font-size:11px;font-weight:700;flex-shrink:0">${label}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#785500;color:#fff;border-radius:50%;font-size:11px;font-weight:700;flex-shrink:0">${label}</span>
         ${c.name} <span style="font-size:11px;font-weight:400;color:#64748b">${c.code ?? ""}</span>
       </h3>
       <div style="display:flex;gap:16px;margin:8px 0;flex-wrap:wrap">
@@ -864,7 +864,7 @@ export default function Dashboard() {
         {/* ── KPI Cards Row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Contratos Ativos",  value: projects.length,              icon: FolderKanban, gradient: "from-[#1561ad] to-[#2176d2]",   text: "text-white" },
+            { label: "Contratos Ativos",  value: projects.length,              icon: FolderKanban, gradient: "from-[#785500] to-[#b07d00]",   text: "text-white" },
             { label: "Total de Tarefas",  value: total,                        icon: Layers,       gradient: "from-[#1a7a4a] to-[#22c55e]",   text: "text-white" },
             { label: "Tarefas em Atraso", value: stats?.overdueTasks ?? 0,     icon: AlertTriangle, gradient: "from-[#b91c1c] to-[#ef4444]",  text: "text-white" },
             { label: "Clientes",          value: clientCount,                  icon: Briefcase,    gradient: "from-[#c2410c] to-[#f97316]",   text: "text-white" },
@@ -903,7 +903,7 @@ export default function Dashboard() {
         {!isLoading && allCrs.some((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano) && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Extensão Total", value: allCrs.reduce((s: number, c: any) => s + (Number(c.extensaoKm) || 0), 0).toFixed(1) + " km", icon: Ruler, color: "text-blue-400", bg: "bg-blue-500/10" },
+              { label: "Extensão Total", value: allCrs.reduce((s: number, c: any) => s + (Number(c.extensaoKm) || 0), 0).toFixed(1) + " km", icon: Ruler, color: "text-amber-600", bg: "bg-amber-500/10" },
               { label: "Área Total", value: allCrs.reduce((s: number, c: any) => s + (Number(c.areaHa) || 0), 0).toFixed(0) + " m²", icon: MapPin, color: "text-violet-400", bg: "bg-violet-500/10" },
               { label: "Perímetros Urbanos", value: allCrs.reduce((s: number, c: any) => s + (Number(c.perimetroUrbano) || 0), 0), icon: Building2, color: "text-orange-400", bg: "bg-orange-500/10" },
               { label: "Com Dados Técnicos", value: `${allCrs.filter((c: any) => c.extensaoKm || c.areaHa || c.perimetroUrbano).length}/${allCrs.length}`, icon: FolderKanban, color: "text-emerald-400", bg: "bg-emerald-500/10" },
@@ -925,13 +925,13 @@ export default function Dashboard() {
           <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-400" />
+                <TrendingUp className="w-4 h-4 text-amber-600" />
                 Histórico de Tarefas — Últimos 30 Dias
               </h3>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" />Concluídas</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-red-400 inline-block rounded" />Em Atraso</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-400 inline-block rounded" />Criadas</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-500 inline-block rounded" />Criadas</span>
               </div>
             </div>
             {taskTrendQ.isLoading ? (
@@ -975,21 +975,21 @@ export default function Dashboard() {
           {/* Mini Calendar — programação da semana */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-blue-400" />
+              <CalendarDays className="w-4 h-4 text-amber-600" />
               Programação da Semana
             </h3>
             <div className="space-y-1.5">
               {calDays.map(({ label, date, tasks: dayTasks, isToday }) => (
                 <div key={label}
                   className={`flex items-start gap-3 p-2 rounded-xl transition-colors ${
-                    isToday ? "bg-blue-500/10 border border-blue-500/20" : "hover:bg-muted/40"
+                    isToday ? "bg-amber-500/10 border border-amber-500/20" : "hover:bg-muted/40"
                   }`}>
                   <div className={`w-8 text-center flex-shrink-0 ${
-                    isToday ? "text-blue-400" : "text-muted-foreground"
+                    isToday ? "text-amber-600" : "text-muted-foreground"
                   }`}>
                     <p className="text-[10px] font-medium">{label}</p>
                     <p className={`text-lg font-bold leading-tight ${
-                      isToday ? "text-blue-400" : "text-foreground"
+                      isToday ? "text-amber-600" : "text-foreground"
                     }`}>{date.getDate()}</p>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1063,7 +1063,7 @@ export default function Dashboard() {
             return (
               <div className="bg-card border border-border rounded-2xl p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-blue-400" />
+                  <Briefcase className="w-4 h-4 text-amber-600" />
                   Contratos por Tipo de Obra
                 </h3>
                 <ResponsiveContainer width="100%" height={180}>
@@ -1108,16 +1108,16 @@ export default function Dashboard() {
                       className={`w-full space-y-1 text-left rounded-xl p-2 -m-2 transition-all border-2 ${
                         isActive ? "bg-muted/60" : "border-transparent hover:bg-muted/40"
                       }`}
-                      style={isActive ? { borderColor: c.color ?? "#1561ad" } : { borderColor: "transparent" }}>
+                      style={isActive ? { borderColor: c.color ?? "#785500" } : { borderColor: "transparent" }}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#1561ad" }} />
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? "#785500" }} />
                           <span className="text-xs font-medium truncate">{c.name}</span>
                         </div>
-                        <span className="text-xs font-bold flex-shrink-0" style={{ color: c.color ?? "#1561ad" }}>{c.avgProgress}%</span>
+                        <span className="text-xs font-bold flex-shrink-0" style={{ color: c.color ?? "#785500" }}>{c.avgProgress}%</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#1561ad" }} />
+                        <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${c.avgProgress}%`, backgroundColor: c.color ?? "#785500" }} />
                       </div>
                     </button>
                   );
@@ -1181,10 +1181,10 @@ export default function Dashboard() {
                 <div className="absolute top-2 right-2 bg-card border border-border rounded-xl p-3 shadow-lg max-w-52 z-10">
                   <button className="absolute top-1 right-1.5 text-muted-foreground hover:text-foreground text-xs" onClick={() => setSelectedMapCrs(null)}>✕</button>
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.clientColor ?? "#1561ad" }} />
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: selectedMapCrs.clientColor ?? "#785500" }} />
                     <p className="text-sm font-semibold truncate pr-4">{selectedMapCrs.name}</p>
                   </div>
-                  {selectedMapCrs.code && <p className="text-xs font-mono text-blue-500 mb-1">{selectedMapCrs.code}</p>}
+                  {selectedMapCrs.code && <p className="text-xs font-mono text-amber-700 mb-1">{selectedMapCrs.code}</p>}
                   {selectedMapCrs.clientName && <p className="text-xs text-muted-foreground">Cliente: {selectedMapCrs.clientName}</p>}
                   {selectedMapCrs.countryCode && (
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -1197,7 +1197,7 @@ export default function Dashboard() {
                   )}
                   <div className="mt-1.5 pt-1.5 border-t border-border flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">{Math.round(selectedMapCrs.progress ?? 0)}% concluído</span>
-                    <button className="text-xs text-blue-500 hover:underline" onClick={() => navigate(`/kanban?crs=${selectedMapCrs.id}`)}>Ver Kanban →</button>
+                    <button className="text-xs text-amber-700 hover:underline" onClick={() => navigate(`/kanban?crs=${selectedMapCrs.id}`)}>Ver Kanban →</button>
                   </div>
                 </div>
               )}
@@ -1213,7 +1213,7 @@ export default function Dashboard() {
                     {selectedStateGroup.crsList.map((crs: any) => (
                       <button key={crs.id} onClick={() => { setSelectedMapCrs(crs); setSelectedStateGroup(null); }}
                         className="w-full text-left flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-secondary/60 transition-colors">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: crs.clientColor ?? "#1561ad" }} />
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: crs.clientColor ?? "#785500" }} />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{crs.name}</p>
                           {crs.code && <p className="text-xs text-muted-foreground font-mono">{crs.code}</p>}
@@ -1233,7 +1233,7 @@ export default function Dashboard() {
           {/* Últimas Atualizações */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400" />
+              <Clock className="w-4 h-4 text-amber-600" />
               Últimas Atualizações
             </h3>
             {activityLogsQ.isLoading ? (
@@ -1247,8 +1247,8 @@ export default function Dashboard() {
               <div className="space-y-1 overflow-y-auto max-h-72">
                 {activityLogs.map((log: any, i: number) => (
                   <div key={i} className="flex items-start gap-3 p-2 rounded-xl hover:bg-muted/40 transition-colors">
-                    <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-[10px] font-bold text-blue-400">
+                    <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[10px] font-bold text-amber-600">
                         {(log.userName ?? "?").charAt(0).toUpperCase()}
                       </span>
                     </div>
@@ -1335,7 +1335,7 @@ export default function Dashboard() {
                         <p className="text-sm font-medium truncate">{p.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <div className="flex-1 bg-muted rounded-full h-1.5">
-                            <div className="bg-blue-400 h-1.5 rounded-full" style={{ width: `${ppct}%` }} />
+                            <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${ppct}%` }} />
                           </div>
                           <span className="text-xs text-muted-foreground">{ppct}%</span>
                         </div>
@@ -1352,7 +1352,7 @@ export default function Dashboard() {
         {(yearlyStatsQ.data ?? []).length > 0 && (
           <div className="bg-card border border-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-blue-400" />
+              <Calendar className="w-4 h-4 text-amber-600" />
               Visão Anual
             </h3>
             <div className="overflow-x-auto">
@@ -1378,13 +1378,13 @@ export default function Dashboard() {
                     return (
                       <tr key={y.year} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${isCurrentYear ? 'bg-blue-500/5' : ''}`}>
                         <td className="py-3 pr-4">
-                          <span className={`font-bold text-base ${isCurrentYear ? 'text-blue-400' : 'text-foreground'}`}>{y.year}</span>
-                          {isCurrentYear && <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">Atual</span>}
+                          <span className={`font-bold text-base ${isCurrentYear ? 'text-amber-600' : 'text-foreground'}`}>{y.year}</span>
+                          {isCurrentYear && <span className="ml-2 text-xs bg-blue-500/20 text-amber-600 px-1.5 py-0.5 rounded-full">Atual</span>}
                         </td>
                         <td className="text-right py-3 px-3 text-foreground font-medium">{y.totalCrs}</td>
                         <td className="text-right py-3 px-3 text-foreground">{y.totalTasks}</td>
                         <td className="text-right py-3 px-3 text-emerald-400 font-medium">{y.completedTasks}</td>
-                        <td className="text-right py-3 px-3 text-blue-400">{y.inProgressTasks}</td>
+                        <td className="text-right py-3 px-3 text-amber-600">{y.inProgressTasks}</td>
                         <td className="text-right py-3 px-3 text-red-400">{y.overdueTasks}</td>
                         <td className="text-right py-3 px-3 text-violet-400">{y.totalChecklist}</td>
                         <td className="py-3 pl-3">

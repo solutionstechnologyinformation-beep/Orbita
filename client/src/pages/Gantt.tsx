@@ -208,7 +208,7 @@ export default function Gantt() {
   // ── Export PDF (HTML Gantt chart) ─────────────────────────────────────────
   function exportGanttPDF() {
     const now = new Date().toLocaleString("pt-BR");
-    const BLUE = "#1561ad";
+    const BLUE = "#785500";
     const dayMs = 86400000;
 
     // Build date range from tasks
@@ -257,7 +257,7 @@ export default function Gantt() {
     const totalChartW = totalPdfDays * COL_W;
 
     const monthCells = monthGroups.map(m =>
-      `<td colspan="${m.days}" style="background:#1561ad;color:#fff;font-size:10px;font-weight:700;padding:3px 4px;border-right:1px solid rgba(255,255,255,0.2);white-space:nowrap;overflow:hidden;text-align:center">${m.label}</td>`
+      `<td colspan="${m.days}" style="background:#785500;color:#fff;font-size:10px;font-weight:700;padding:3px 4px;border-right:1px solid rgba(255,255,255,0.2);white-space:nowrap;overflow:hidden;text-align:center">${m.label}</td>`
     ).join("");
 
     const weekCells = weekGroups.map(w =>
@@ -359,7 +359,7 @@ export default function Gantt() {
     <table style="width:${LEFT_W + totalChartW}px">
       <thead>
         <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1561ad;border-right:2px solid #cbd5e1;height:22px"></td>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#785500;border-right:2px solid #cbd5e1;height:22px"></td>
           ${monthCells}
         </tr>
         <tr>
@@ -668,7 +668,7 @@ export default function Gantt() {
                                 left: bp.left,
                                 width: bp.width,
                                 height: ROW_H - 20,
-                                background: isOverdue ? "#ef4444" : (t.phaseColor ?? "#1561ad"),
+                                background: isOverdue ? "#ef4444" : (t.phaseColor ?? "#785500"),
                                 zIndex: 5,
                               }}
                             >

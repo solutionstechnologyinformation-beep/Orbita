@@ -37,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-const SIDEBAR_BG = "#1561ad";
+const SIDEBAR_BG = "#785500";
 const SIDEBAR_TEXT = "#ffffff";
 const SIDEBAR_ACTIVE_BG = "rgba(255,255,255,0.18)";
 const SIDEBAR_HOVER_BG = "rgba(255,255,255,0.10)";

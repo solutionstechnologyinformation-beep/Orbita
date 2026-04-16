@@ -13,8 +13,8 @@ import {
 
 // ─── Brand colors ─────────────────────────────────────────────────────────────
 const BRAND = {
-  blue:    "#1561ad",
-  blueAlt: "#1c77ac",
+  blue:    "#785500",
+  blueAlt: "#9a6b00",
   teal:    "#1dbab4",
   orange:  "#fc5226",
 };

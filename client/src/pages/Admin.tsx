@@ -140,7 +140,7 @@ export default function Admin() {
   // Clients state
   const [showClientDialog, setShowClientDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
-  const [clientForm, setClientForm] = useState({ name: "", color: "#1561ad", country: "Brasil", notes: "" });
+  const [clientForm, setClientForm] = useState({ name: "", color: "#785500", country: "Brasil", notes: "" });
 
   // CRS state
   const [showCrsDialog, setShowCrsDialog] = useState(false);
@@ -150,7 +150,7 @@ export default function Admin() {
 
   // Disciplines state
   const [showDisciplineDialog, setShowDisciplineDialog] = useState(false);
-  const [disciplineForm, setDisciplineForm] = useState({ name: "", color: "#1561ad", description: "" });
+  const [disciplineForm, setDisciplineForm] = useState({ name: "", color: "#785500", description: "" });
 
   // Users state
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
@@ -172,7 +172,7 @@ export default function Admin() {
 
   // Client mutations
   const createClientM = trpc.clients.create.useMutation({
-    onSuccess: () => { utils.clients.list.invalidate(); setShowClientDialog(false); setClientForm({ name: "", color: "#1561ad", country: "Brasil", notes: "" }); toast.success("Cliente criado!"); },
+    onSuccess: () => { utils.clients.list.invalidate(); setShowClientDialog(false); setClientForm({ name: "", color: "#785500", country: "Brasil", notes: "" }); toast.success("Cliente criado!"); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
   const updateClientM = trpc.clients.update.useMutation({
@@ -202,7 +202,7 @@ export default function Admin() {
 
   // Discipline mutations
   const createDisciplineM = trpc.disciplines.create.useMutation({
-    onSuccess: () => { utils.disciplines.list.invalidate(); setShowDisciplineDialog(false); setDisciplineForm({ name: "", color: "#1561ad", description: "" }); toast.success("Disciplina criada!"); },
+    onSuccess: () => { utils.disciplines.list.invalidate(); setShowDisciplineDialog(false); setDisciplineForm({ name: "", color: "#785500", description: "" }); toast.success("Disciplina criada!"); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
   const deleteDisciplineM = trpc.disciplines.delete.useMutation({
@@ -234,7 +234,7 @@ export default function Admin() {
 
   const openEditClient = (client: any) => {
     setEditingClient(client);
-    setClientForm({ name: client.name, color: client.color ?? "#1561ad", country: client.country ?? "Brasil", notes: client.notes ?? "" });
+    setClientForm({ name: client.name, color: client.color ?? "#785500", country: client.country ?? "Brasil", notes: client.notes ?? "" });
     setShowClientDialog(true);
   };
 
@@ -282,14 +282,14 @@ export default function Admin() {
           <TabsContent value="clients">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Clientes ({clients.length})</h2>
-              <Button size="sm" onClick={() => { setEditingClient(null); setClientForm({ name: "", color: "#1561ad", country: "Brasil", notes: "" }); setShowClientDialog(true); }}>
+              <Button size="sm" onClick={() => { setEditingClient(null); setClientForm({ name: "", color: "#785500", country: "Brasil", notes: "" }); setShowClientDialog(true); }}>
                 <Plus className="w-4 h-4 mr-1" />Novo Cliente
               </Button>
             </div>
             <div className="grid gap-3">
               {clients.map((client: any) => (
                 <div key={client.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
-                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: client.color ?? "#1561ad" }} />
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: client.color ?? "#785500" }} />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground">{client.name}</p>
                     <p className="text-xs text-muted-foreground">{client.country ?? "---"} {client.notes ? " · " + client.notes : ""}</p>
@@ -321,7 +321,7 @@ export default function Admin() {
             <div className="grid gap-3">
               {crsList.map((crs: any) => (
                 <div key={crs.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
-                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: crs.clientColor ?? "#1561ad" }} />
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: crs.clientColor ?? "#785500" }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-foreground">{crs.name}</p>
@@ -369,7 +369,7 @@ export default function Admin() {
           <TabsContent value="disciplines">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Disciplinas ({disciplines.length})</h2>
-              <Button size="sm" onClick={() => { setDisciplineForm({ name: "", color: "#1561ad", description: "" }); setShowDisciplineDialog(true); }}>
+              <Button size="sm" onClick={() => { setDisciplineForm({ name: "", color: "#785500", description: "" }); setShowDisciplineDialog(true); }}>
                 <Plus className="w-4 h-4 mr-1" />Nova Disciplina
               </Button>
             </div>
