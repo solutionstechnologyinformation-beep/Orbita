@@ -818,6 +818,39 @@ export const appRouter = router({
       }
       return { sprint, totalTasks, dataPoints };
     }),
+    weekTasks: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const { tasks: t, crs: c, users: u, kanbanPhases: kp } = await import('../drizzle/schema');
+      const { eq: eq2, and: and2, gte: gte2, lte: lte2, or: or2, isNotNull: isNotNull2 } = await import('drizzle-orm');
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Monday
+      startOfWeek.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      const rows = await db.select({
+        id: t.id, title: t.title, priority: t.priority,
+        startDate: t.startDate, endDate: t.endDate, dueDate: t.dueDate,
+        progress: t.progress, setor: t.setor,
+        assigneeName: u.name,
+        crsName: c.name, crsId: t.crsId,
+        phaseName: kp.name, phaseColor: kp.color, phaseIsTerminal: kp.isTerminal,
+      }).from(t)
+        .leftJoin(u, eq2(t.assigneeId, u.id))
+        .leftJoin(c, eq2(t.crsId, c.id))
+        .leftJoin(kp, eq2(t.phaseId, kp.id))
+        .where(
+          or2(
+            and2(gte2(t.startDate, startOfWeek), lte2(t.startDate, endOfWeek)),
+            and2(gte2(t.endDate, startOfWeek), lte2(t.endDate, endOfWeek)),
+            and2(gte2(t.dueDate, startOfWeek), lte2(t.dueDate, endOfWeek)),
+            and2(lte2(t.startDate, endOfWeek), gte2(t.endDate, startOfWeek))
+          )
+        )
+        .orderBy(t.startDate, t.dueDate);
+      return rows.slice(0, 20);
+    }),
     contractsByState: protectedProcedure.query(async () => {
       const db = await getDb();
       const { crs: crsTable, clients: clientsTable } = await import('../drizzle/schema');

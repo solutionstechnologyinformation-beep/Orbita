@@ -15,9 +15,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
-  Plus, ChevronRight, CheckCircle2, Circle, Clock, AlertTriangle,
+  Plus, CheckCircle2, Circle, Clock, AlertTriangle,
   User, Calendar, Layers, Search, Filter, ExternalLink, ChevronDown,
-  ChevronUp, ListChecks, Pencil, Trash2, FolderKanban,
+  ChevronUp, ListChecks, Pencil, Trash2, FolderKanban, ChevronRight,
 } from "lucide-react";
 
 // ── Tipo de Obra config ──────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ function PhaseBadge({ color, name }: { color: string; name: string }) {
   );
 }
 
-// ── Checklist mini-view ────────────────────────────────────────────────────────
+// ── Checklist Preview (expanded with date + assignee) ─────────────────────────
 function ChecklistPreview({ items, taskId }: { items: any[]; taskId: number }) {
   const utils = trpc.useUtils();
   const toggleMut = trpc.checklist.updateStatus.useMutation({
@@ -58,34 +58,55 @@ function ChecklistPreview({ items, taskId }: { items: any[]; taskId: number }) {
   const done = items.filter((i) => i.status === "published").length;
   if (!items.length) return null;
   return (
-    <div className="mt-2 space-y-1">
+    <div className="mt-2 space-y-1.5">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-muted-foreground flex items-center gap-1">
           <ListChecks className="w-3 h-3" /> {done}/{items.length}
         </span>
         <Progress value={items.length ? (done / items.length) * 100 : 0} className="w-20 h-1" />
       </div>
-      {items.slice(0, 3).map((item) => (
-        <div key={item.id} className="flex items-center gap-1.5">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMut.mutate({ id: item.id, status: item.status === "published" ? "pending" : "published" });
-            }}
-            className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
-          >
-            {item.status === "published"
-              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-              : <Circle className="w-3.5 h-3.5" />}
-          </button>
-          <span className={`text-xs truncate ${item.status === "published" ? "line-through text-muted-foreground" : "text-foreground"}`}>
-            {item.title}
-          </span>
-        </div>
-      ))}
-      {items.length > 3 && (
-        <p className="text-xs text-muted-foreground pl-5">+{items.length - 3} mais...</p>
-      )}
+      {items.map((item) => {
+        const isDone = item.status === "published";
+        const endDate = item.endDate ? new Date(item.endDate) : null;
+        const isOverdue = endDate && endDate < new Date() && !isDone;
+        return (
+          <div key={`ci-${item.id}`} className="flex flex-col gap-0.5 pl-0.5">
+            <div className="flex items-start gap-1.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMut.mutate({ id: item.id, status: isDone ? "pending" : "published" });
+                }}
+                className="flex-shrink-0 mt-0.5 text-muted-foreground hover:text-primary transition-colors"
+              >
+                {isDone
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  : <Circle className="w-3.5 h-3.5" />}
+              </button>
+              <span className={`text-xs leading-tight ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                {item.title}
+              </span>
+            </div>
+            {/* Date + Assignee row */}
+            {(endDate || item.assigneeName) && (
+              <div className="flex items-center gap-2 pl-5">
+                {item.assigneeName && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                    <User className="w-2.5 h-2.5" />
+                    {item.assigneeName}
+                  </span>
+                )}
+                {endDate && (
+                  <span className={`flex items-center gap-0.5 text-[10px] ${isOverdue ? "text-red-400" : "text-muted-foreground"}`}>
+                    <Calendar className="w-2.5 h-2.5" />
+                    {endDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -190,8 +211,6 @@ function DisciplineColumn({
   onAddTask: (disciplineId: number, disciplineName: string) => void;
   onEdit: (t: any) => void; onDelete: (id: number) => void; onNavigate: (id: number) => void;
 }) {
-  // Progresso da coluna = média ponderada dos itens de checklist de todas as tarefas
-  // Cada tarefa contribui com (itens concluídos / total de itens) ou progress se não tiver checklist
   const colPct = (() => {
     if (!tasks.length) return 0;
     let totalWeight = 0;
@@ -199,13 +218,10 @@ function DisciplineColumn({
     for (const t of tasks) {
       const cl: any[] = t.checklistItems ?? [];
       if (cl.length > 0) {
-        // Cada item do checklist vale (1 / totalItems) da tarefa
-        // Cada item concluído (status === 'published') vale 1 ponto
         const itemsDone = cl.filter((i: any) => i.status === "published").length;
         totalWeight += cl.length;
         totalDone += itemsDone;
       } else {
-        // Sem checklist: usa o campo progress (0-100) como 1 item
         totalWeight += 100;
         totalDone += Math.min(100, t.progress ?? 0);
       }
@@ -214,9 +230,9 @@ function DisciplineColumn({
   })();
 
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[320px] bg-secondary/30 rounded-2xl border border-border overflow-hidden">
+    <div className="flex flex-col bg-secondary/30 rounded-2xl border border-border overflow-hidden h-full">
       {/* Column header */}
-      <div className="p-3 border-b border-border" style={{ borderTopColor: discipline.color, borderTopWidth: 3 }}>
+      <div className="p-3 border-b border-border flex-shrink-0" style={{ borderTopColor: discipline.color, borderTopWidth: 3 }}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: discipline.color }} />
@@ -243,7 +259,7 @@ function DisciplineColumn({
       </div>
 
       {/* Tasks */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-280px)]">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Layers className="w-6 h-6 text-muted-foreground/30 mb-2" />
@@ -260,7 +276,7 @@ function DisciplineColumn({
         ) : (
           tasks.map((task) => (
             <TaskCard
-              key={task.id} task={task} phases={phases} isAdmin={isAdmin}
+              key={`task-${task.id}`} task={task} phases={phases} isAdmin={isAdmin}
               onEdit={onEdit} onDelete={onDelete} onNavigate={onNavigate}
             />
           ))
@@ -276,35 +292,29 @@ export default function Kanban() {
   const isAdmin = user?.role === "admin" || user?.role === "master_admin";
   const [, navigate] = useLocation();
   const queryString = useSearch();
-  // CRS selector — read ?crs=X from URL
+
+  // CRS selector
   const urlCrsId = useMemo(() => {
     const params = new URLSearchParams(queryString);
     const v = params.get("crs");
     return v ? parseInt(v, 10) : null;
   }, [queryString]);
   const [selectedCrsId, setSelectedCrsId] = useState<number | null>(null);
-  // Pre-select CRS from URL param when data loads
   useEffect(() => {
     if (urlCrsId) setSelectedCrsId(urlCrsId);
-  }, [urlCrsId]);;
+  }, [urlCrsId]);
+
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterPhase, setFilterPhase] = useState("all");
-  // Discipline visibility filter: set of discipline names to HIDE (empty = show all)
-  const [hiddenDisciplines, setHiddenDisciplines] = useState<Set<string>>(new Set());
-  // hasRestrictedDisciplines é calculado abaixo após queries, mas usamos ref para toggleDiscipline
-  const restrictedRef = useRef(false);
-  function toggleDiscipline(name: string) {
-    // Usuários com disciplinas restritas não podem alterar o filtro
-    if (restrictedRef.current) return;
-    setHiddenDisciplines((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
+
+  // ── NEW: up to 2 selected disciplines shown side by side ──────────────────
+  // selectedDisciplines: array of discipline names (max 2)
+  const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
+  // dropdownOpen state for each slot
+  const [slot1Open, setSlot1Open] = useState(false);
+  const [slot2Open, setSlot2Open] = useState(false);
 
   // Dialogs
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -338,34 +348,20 @@ export default function Kanban() {
   const disciplines: any[] = disciplinesQ.data ?? [];
   const members: any[] = membersQ.data ?? [];
   const myDisciplineNames: string[] = (myDisciplinesQ.data ?? []).map((d: any) => d.disciplineName);
-  // Se o usuário não é admin e tem disciplinas configuradas, o filtro é obrigatório (não pode ser removido)
   const hasRestrictedDisciplines = !isAdmin && myDisciplineNames.length > 0;
-  // Manter ref sincronizada para uso em toggleDiscipline
-  restrictedRef.current = hasRestrictedDisciplines;
 
-  // Auto-hide disciplines not assigned to the current user (only if user has disciplines configured)
-  const [autoFilterApplied, setAutoFilterApplied] = useState(false);
+  // Auto-select first discipline when data loads
+  const [autoSelected, setAutoSelected] = useState(false);
   useEffect(() => {
-    if (!autoFilterApplied && myDisciplineNames.length > 0 && disciplines.length > 0) {
-      const toHide = disciplines
-        .filter((d: any) => !myDisciplineNames.includes(d.name))
-        .map((d: any) => d.name);
-      if (toHide.length > 0) {
-        setHiddenDisciplines(new Set(toHide));
+    if (!autoSelected && disciplines.length > 0) {
+      if (hasRestrictedDisciplines && myDisciplineNames.length > 0) {
+        setSelectedDisciplines([myDisciplineNames[0]]);
+      } else if (disciplines[0]) {
+        setSelectedDisciplines([disciplines[0].name]);
       }
-      setAutoFilterApplied(true);
+      setAutoSelected(true);
     }
-  }, [myDisciplineNames.join(","), disciplines.length]);
-
-  // For restricted users: always re-apply mandatory filter (prevent manual override)
-  useEffect(() => {
-    if (hasRestrictedDisciplines && disciplines.length > 0) {
-      const toHide = disciplines
-        .filter((d: any) => !myDisciplineNames.includes(d.name))
-        .map((d: any) => d.name);
-      setHiddenDisciplines(new Set(toHide));
-    }
-  }, [hasRestrictedDisciplines, myDisciplineNames.join(","), disciplines.length]);
+  }, [disciplines.length, hasRestrictedDisciplines, myDisciplineNames.join(",")]);
 
   // Mutations
   const createTaskMut = trpc.tasks.create.useMutation({
@@ -414,7 +410,7 @@ export default function Kanban() {
     return map;
   }, [filteredTasks, disciplines]);
 
-  // All available discipline columns (for filter chips)
+  // All available discipline columns
   const allColumns = useMemo(() => {
     const cols = disciplines.map((d) => ({ id: d.id, name: d.name, color: d.color ?? "#6366f1" }));
     if ((tasksByDiscipline["Sem Disciplina"] ?? []).length > 0) {
@@ -423,13 +419,31 @@ export default function Kanban() {
     return cols;
   }, [disciplines, tasksByDiscipline]);
 
-  // Columns filtered by hiddenDisciplines
-  const columnsToShow = useMemo(() => {
-    return allColumns.filter((d) => !hiddenDisciplines.has(d.name));
-  }, [allColumns, hiddenDisciplines]);
+  // Available disciplines for restricted users
+  const availableColumns = useMemo(() => {
+    if (hasRestrictedDisciplines) {
+      return allColumns.filter((d) => myDisciplineNames.includes(d.name));
+    }
+    return allColumns;
+  }, [allColumns, hasRestrictedDisciplines, myDisciplineNames]);
+
+  // Columns to render (max 2)
+  const columnsToRender = useMemo(() => {
+    return selectedDisciplines
+      .filter(Boolean)
+      .map((name) => availableColumns.find((c) => c.name === name))
+      .filter(Boolean) as { id: number; name: string; color: string }[];
+  }, [selectedDisciplines, availableColumns]);
+
+  function setSlotDiscipline(slot: 0 | 1, name: string) {
+    setSelectedDisciplines((prev) => {
+      const next = [...prev];
+      next[slot] = name;
+      return next.slice(0, 2);
+    });
+  }
 
   function openAddTask(disciplineId: number, disciplineName: string) {
-    const disc = disciplines.find((d) => d.id === disciplineId);
     setPrefillDiscipline({ id: disciplineId, name: disciplineName });
     setTaskForm({
       title: "", description: "", priority: "medium", assigneeId: "",
@@ -480,11 +494,49 @@ export default function Kanban() {
 
   const isLoading = crsQ.isLoading || tasksQ.isLoading || disciplinesQ.isLoading;
 
+  // ── Discipline Selector (sidebar widget) ────────────────────────────────────
+  function DisciplineSelector({ slot, value, onChange }: { slot: 0 | 1; value: string; onChange: (v: string) => void }) {
+    const disc = availableColumns.find((c) => c.name === value);
+    const taskCount = value ? (tasksByDiscipline[value] ?? []).length : 0;
+    return (
+      <div className="px-4 py-2">
+        <p className="text-xs font-medium text-muted-foreground mb-1">
+          {slot === 0 ? "Disciplina 1" : "Disciplina 2"}
+        </p>
+        <Select value={value || "_none"} onValueChange={(v) => onChange(v === "_none" ? "" : v)}>
+          <SelectTrigger className="h-9 text-sm w-full">
+            {disc ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: disc.color }} />
+                <span className="truncate">{disc.name}</span>
+                <Badge variant="secondary" className="ml-auto text-xs flex-shrink-0">{taskCount}</Badge>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">Selecionar...</span>
+            )}
+          </SelectTrigger>
+          <SelectContent>
+            {slot === 1 && <SelectItem value="_none">— Nenhuma —</SelectItem>}
+            {availableColumns.map((c) => (
+              <SelectItem key={`slot${slot}-${c.id}`} value={c.name}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
+                  <span>{c.name}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">({(tasksByDiscipline[c.name] ?? []).length})</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
   return (
     <AppLayout title="Kanban" fullHeight>
       <>
       <SplitLayout
-        leftWidth="280px"
+        leftWidth="240px"
         left={
           <>
             <SplitPanelHeader
@@ -533,176 +585,145 @@ export default function Kanban() {
                 })
               )}
             </SplitPanelList>
+
+            {/* ── Discipline selectors ── */}
+            {effectiveCrsId && availableColumns.length > 0 && (
+              <div className="border-t border-border pt-2 pb-2">
+                <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Disciplinas</p>
+                <DisciplineSelector
+                  slot={0}
+                  value={selectedDisciplines[0] ?? ""}
+                  onChange={(v) => setSlotDiscipline(0, v)}
+                />
+                <DisciplineSelector
+                  slot={1}
+                  value={selectedDisciplines[1] ?? ""}
+                  onChange={(v) => setSlotDiscipline(1, v)}
+                />
+              </div>
+            )}
           </>
         }
         right={
           <div className="flex flex-col h-full overflow-hidden">
-        {/* ── Toolbar ── */}
-        <div className="px-4 py-3 border-b border-border bg-background/80 backdrop-blur flex-shrink-0">
-          <div className="flex flex-wrap items-center gap-3">
+            {/* ── Toolbar ── */}
+            <div className="px-4 py-3 border-b border-border bg-background/80 backdrop-blur flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[180px] max-w-xs">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
+                </div>
 
-            {/* Search */}
-            <div className="relative flex-1 min-w-[180px] max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
-            </div>
+                {/* Filters */}
+                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                  <SelectTrigger className="w-36 h-8 text-sm">
+                    <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue placeholder="Prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            {/* Filters */}
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
-              <SelectTrigger className="w-36 h-8 text-sm">
-                <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                <SelectValue placeholder="Prioridade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                  <SelectTrigger className="w-40 h-8 text-sm">
+                    <User className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue placeholder="Responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {members.map((m: any) => (
+                      <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-              <SelectTrigger className="w-40 h-8 text-sm">
-                <User className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                <SelectValue placeholder="Responsável" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {members.map((m: any) => (
-                  <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                {phases.length > 0 && (
+                  <Select value={filterPhase} onValueChange={setFilterPhase}>
+                    <SelectTrigger className="w-40 h-8 text-sm">
+                      <Layers className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                      <SelectValue placeholder="Fase" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as fases</SelectItem>
+                      {phases.map((ph: any) => (
+                        <SelectItem key={ph.id} value={String(ph.id)}>
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: ph.color }} />
+                            {ph.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
 
-            {phases.length > 0 && (
-              <Select value={filterPhase} onValueChange={setFilterPhase}>
-                <SelectTrigger className="w-40 h-8 text-sm">
-                  <Layers className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                  <SelectValue placeholder="Fase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as fases</SelectItem>
-                  {phases.map((ph: any) => (
-                    <SelectItem key={ph.id} value={String(ph.id)}>
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: ph.color }} />
-                        {ph.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <div className="ml-auto flex items-center gap-2">
-              {selectedCrs?.tipoObra && (
-                <span className="text-xs px-2 py-1 rounded-full border border-border text-muted-foreground">
-                  {TIPO_OBRA_MAP[selectedCrs.tipoObra] ?? selectedCrs.tipoObra}
-                </span>
-              )}
-              {isAdmin && effectiveCrsId && (
-                <Button size="sm" onClick={() => {
-                  setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "", phaseId: phases[0]?.id ? String(phases[0].id) : "" });
-                  setPrefillDiscipline(null);
-                  setShowCreateTask(true);
-                }} className="gap-1.5 h-8">
-                  <Plus className="w-3.5 h-3.5" /> Nova Tarefa
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Discipline Filter Chips ── */}
-        {allColumns.length > 1 && (
-          <div className="px-4 py-2 border-b border-border bg-background/60 flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-muted-foreground font-medium flex-shrink-0">Disciplinas:</span>
-            {hasRestrictedDisciplines ? (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 border border-blue-500/30">
-                <Layers className="w-3 h-3" />
-                Filtrado pelo seu setor
-              </span>
-            ) : (
-              <button
-                onClick={() => setHiddenDisciplines(new Set())}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
-                  hiddenDisciplines.size === 0
-                    ? "bg-primary text-white border-primary"
-                    : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-                }`}
-              >
-                Todas
-              </button>
-            )}
-            {allColumns.map((disc) => {
-              const isHidden = hiddenDisciplines.has(disc.name);
-              const isRestricted = hasRestrictedDisciplines;
-              return (
-                <button
-                  key={disc.id}
-                  onClick={() => toggleDiscipline(disc.name)}
-                  disabled={isRestricted}
-                  title={isRestricted && !isHidden ? `Disciplina do seu setor` : isRestricted && isHidden ? `Você não tem acesso a esta disciplina` : undefined}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
-                    isHidden
-                      ? "bg-transparent text-muted-foreground/30 border-border/30 line-through opacity-50"
-                      : isRestricted
-                        ? "border-transparent text-white cursor-default"
-                        : "border-transparent text-white"
-                  }`}
-                  style={!isHidden ? { backgroundColor: disc.color, borderColor: disc.color } : {}}
-                >
-                  {!isHidden && <span className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />}
-                  {disc.name}
-                  <span className="opacity-70">({(tasksByDiscipline[disc.name] ?? []).length})</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── Board ── */}
-        {!effectiveCrsId ? (
-          <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
-            <FolderKanban className="w-12 h-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhum Contrato disponível</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">Crie um Contrato na página de Projetos para começar.</p>
-          </div>
-        ) : isLoading ? (
-          <div className="flex gap-4 p-4 overflow-x-auto">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="min-w-[280px]">
-                <Skeleton className="h-12 rounded-t-2xl mb-2" />
-                {Array.from({ length: 3 }).map((_, j) => <Skeleton key={j} className="h-28 rounded-xl mb-2" />)}
+                <div className="ml-auto flex items-center gap-2">
+                  {selectedCrs?.tipoObra && (
+                    <span className="text-xs px-2 py-1 rounded-full border border-border text-muted-foreground">
+                      {TIPO_OBRA_MAP[selectedCrs.tipoObra] ?? selectedCrs.tipoObra}
+                    </span>
+                  )}
+                  {isAdmin && effectiveCrsId && (
+                    <Button size="sm" onClick={() => {
+                      setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: phases[0]?.id ? String(phases[0].id) : "" });
+                      setPrefillDiscipline(null);
+                      setShowCreateTask(true);
+                    }} className="gap-1.5 h-8">
+                      <Plus className="w-3.5 h-3.5" /> Nova Tarefa
+                    </Button>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-        ) : columnsToShow.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
-            <Layers className="w-12 h-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhuma disciplina cadastrada</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">Acesse Admin → Disciplinas para criar as disciplinas do projeto.</p>
-          </div>
-        ) : (
-          <div className="flex gap-4 p-4 overflow-x-auto flex-1">
-            {columnsToShow.map((disc) => (
-              <DisciplineColumn
-                key={disc.id}
-                discipline={disc}
-                tasks={tasksByDiscipline[disc.name] ?? []}
-                phases={phases}
-                isAdmin={isAdmin}
-                onAddTask={openAddTask}
-                onEdit={openEditTask}
-                onDelete={(id) => { if (confirm("Excluir tarefa?")) deleteTaskMut.mutate({ id }); }}
-                onNavigate={(id) => navigate(`/tasks/${id}`)}
-              />
-            ))}
-          </div>
-        )}
+            </div>
+
+            {/* ── Board ── */}
+            {!effectiveCrsId ? (
+              <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
+                <FolderKanban className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground font-medium">Nenhum Contrato disponível</p>
+                <p className="text-sm text-muted-foreground/60 mt-1">Crie um Contrato na página de Projetos para começar.</p>
+              </div>
+            ) : isLoading ? (
+              <div className="flex gap-4 p-4 overflow-x-auto">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="flex-1">
+                    <Skeleton className="h-12 rounded-t-2xl mb-2" />
+                    {Array.from({ length: 3 }).map((_, j) => <Skeleton key={j} className="h-28 rounded-xl mb-2" />)}
+                  </div>
+                ))}
+              </div>
+            ) : columnsToRender.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 py-20 text-center">
+                <Layers className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground font-medium">Selecione uma disciplina</p>
+                <p className="text-sm text-muted-foreground/60 mt-1">Use os seletores na barra lateral para escolher qual disciplina visualizar.</p>
+              </div>
+            ) : (
+              <div className={`grid gap-4 p-4 flex-1 overflow-y-auto ${columnsToRender.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+                {columnsToRender.map((disc) => (
+                  <DisciplineColumn
+                    key={`col-${disc.id}`}
+                    discipline={disc}
+                    tasks={tasksByDiscipline[disc.name] ?? []}
+                    phases={phases}
+                    isAdmin={isAdmin}
+                    onAddTask={openAddTask}
+                    onEdit={openEditTask}
+                    onDelete={(id) => { if (confirm("Excluir tarefa?")) deleteTaskMut.mutate({ id }); }}
+                    onNavigate={(id) => navigate(`/tasks/${id}`)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         }
       />
+
       {/* ── Create Task Dialog ── */}
       <Dialog open={showCreateTask} onOpenChange={(o) => { if (!o) { setShowCreateTask(false); setPrefillDiscipline(null); } }}>
         <DialogContent className="max-w-lg">

@@ -182,6 +182,8 @@ export default function Dashboard() {
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
+  const weekTasksQ = trpc.dashboard.weekTasks.useQuery();
+  const weekTasks = (weekTasksQ.data ?? []) as any[];
   const crsQ = trpc.crs.list.useQuery();
   const onboardingQ = (trpc as any).onboarding?.status?.useQuery?.();
 
@@ -417,6 +419,75 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* Mini-Gantt da Semana */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  Gantt da Semana
+                  <span className="text-xs text-gray-400 font-normal">
+                    {(() => {
+                      const today = new Date();
+                      const dow = today.getDay();
+                      const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1)); mon.setHours(0,0,0,0);
+                      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                      return `${mon.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} – ${sun.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}`;
+                    })()}
+                  </span>
+                </h3>
+                {weekTasksQ.isLoading ? (
+                  <div className="space-y-2">{Array.from({length:4}).map((_,i)=><Skeleton key={i} className="h-7 w-full"/>)}</div>
+                ) : weekTasks.length === 0 ? (
+                  <div className="h-20 flex items-center justify-center text-sm text-gray-400">Nenhuma tarefa esta semana</div>
+                ) : (() => {
+                  const today = new Date();
+                  const dow = today.getDay();
+                  const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1)); mon.setHours(0,0,0,0);
+                  const todayIdx = dow === 0 ? 6 : dow - 1;
+                  const DAYS = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+                  return (
+                    <div>
+                      <div className="grid mb-1" style={{gridTemplateColumns:"130px repeat(7,1fr)"}}>
+                        <div/>
+                        {DAYS.map((d,i)=>{
+                          const dd = new Date(mon); dd.setDate(mon.getDate()+i);
+                          return <div key={d} className={`text-center text-[10px] font-medium py-0.5 rounded ${i===todayIdx?"bg-blue-100 text-blue-700":"text-gray-400"}`}>{d}<br/>{dd.getDate()}</div>;
+                        })}
+                      </div>
+                      <div className="space-y-1">
+                        {weekTasks.slice(0,8).map((task:any)=>{
+                          const sD = task.startDate ? new Date(task.startDate) : (task.dueDate ? new Date(task.dueDate) : null);
+                          const eD = task.endDate ? new Date(task.endDate) : (task.dueDate ? new Date(task.dueDate) : null);
+                          const si = sD ? Math.max(0,Math.min(6,Math.round((sD.getTime()-mon.getTime())/86400000))) : 0;
+                          const ei = eD ? Math.max(si,Math.min(6,Math.round((eD.getTime()-mon.getTime())/86400000))) : si;
+                          const barColor = task.phaseIsTerminal ? "#22c55e" : task.priority==="urgent" ? "#ef4444" : task.priority==="high" ? "#f59e0b" : "#3b82f6";
+                          return (
+                            <div key={task.id} className="grid items-center" style={{gridTemplateColumns:"130px repeat(7,1fr)"}}>
+                              <div className="text-xs text-gray-700 truncate pr-1" title={task.title}>{task.title}</div>
+                              {Array.from({length:7}).map((_,ci)=>(
+                                <div key={ci} className={`h-5 ${ci===todayIdx?"bg-blue-50":"bg-gray-50"} relative`}>
+                                  {ci===si && (
+                                    <div className="absolute inset-y-0.5 left-0 rounded flex items-center px-1 overflow-hidden"
+                                      style={{backgroundColor:barColor+"cc", right:`${-(ei-si)*100}%`, minWidth:"100%"}}>
+                                      <span className="text-[9px] text-white font-medium truncate">{task.assigneeName??""}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-3 mt-2 pt-2 border-t border-gray-50">
+                        {[{c:"#22c55e",l:"Concluído"},{c:"#3b82f6",l:"Normal"},{c:"#f59e0b",l:"Alta"},{c:"#ef4444",l:"Urgente"}].map(x=>(
+                          <div key={x.l} className="flex items-center gap-1">
+                            <span className="w-3 h-2 rounded-sm" style={{backgroundColor:x.c}}/>
+                            <span className="text-[10px] text-gray-400">{x.l}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
               {/* Atividade Recente */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">Atividade Recente</h3>

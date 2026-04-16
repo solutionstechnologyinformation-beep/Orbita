@@ -523,7 +523,7 @@ export default function Reports() {
       title: "Relatório de Projetos",
       description: "Lista detalhada de todos os projetos com cliente vinculado, status, total de tarefas, taxa de conclusão e gráfico de barras de progresso.",
       badge: "Projetos",
-      badgeColor: "bg-indigo-100 text-indigo-700",
+      badgeColor: "bg-blue-100 text-blue-700",
       extra: null,
     },
     {
@@ -532,7 +532,7 @@ export default function Reports() {
       title: "Tarefas Bloqueadas",
       description: "Lista todas as tarefas com status Bloqueado: motivo do bloqueio, responsável, projeto, prioridade e data de bloqueio.",
       badge: "Impedimentos",
-      badgeColor: "bg-red-100 text-red-700",
+      badgeColor: "bg-red-50 text-red-600",
       extra: (
         <div className="mt-2">
           {blockedTasksQ.isLoading ? (
@@ -540,7 +540,7 @@ export default function Reports() {
           ) : blockedTasks.length > 0 ? (
             <div className="text-sm text-red-600 font-semibold">{blockedTasks.length} tarefa{blockedTasks.length !== 1 ? "s" : ""} bloqueada{blockedTasks.length !== 1 ? "s" : ""} encontrada{blockedTasks.length !== 1 ? "s" : ""}</div>
           ) : (
-            <div className="text-xs text-green-600">Nenhuma tarefa bloqueada no momento</div>
+            <div className="text-xs text-blue-600">Nenhuma tarefa bloqueada no momento</div>
           )}
         </div>
       ),
@@ -551,7 +551,7 @@ export default function Reports() {
       title: "Desempenho por Membro",
       description: "Relatório individual de cada membro da equipe: total de tarefas, concluídas, em andamento, bloqueadas e taxa de conclusão.",
       badge: "Equipe",
-      badgeColor: "bg-emerald-100 text-emerald-700",
+      badgeColor: "bg-blue-50 text-blue-600",
       extra: (
         <div className="mt-3 space-y-2">
           <Select value={selectedProjectForMembers} onValueChange={setSelectedProjectForMembers}>
@@ -579,7 +579,7 @@ export default function Reports() {
       title: "Relatório de Sprint",
       description: "Relatório completo de uma sprint específica: KPIs, burndown chart (linha ideal vs real) e lista de tarefas com status e responsável.",
       badge: "Sprint",
-      badgeColor: "bg-violet-100 text-violet-700",
+      badgeColor: "bg-blue-100 text-blue-700",
       extra: (
         <div className="mt-3">
           <Select value={selectedSprint} onValueChange={setSelectedSprint}>
