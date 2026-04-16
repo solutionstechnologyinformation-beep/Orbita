@@ -326,6 +326,19 @@ export const appRouter = router({
         const { crsId, ...filters } = input;
         return getTasksByCrs(crsId, filters);
       }),
+    listByCrsWithChecklist: protectedProcedure
+      .input(z.object({ crsId: z.number() }))
+      .query(async ({ input }) => {
+        const taskList = await getTasksByCrs(input.crsId);
+        const { getChecklistItems: getCI } = await import('./db');
+        const enriched = await Promise.all(
+          taskList.map(async (t: (typeof taskList)[number]) => {
+            const checklistItems = await getCI(t.id);
+            return { ...t, checklistItems };
+          })
+        );
+        return enriched;
+      }),
     listBlocked: protectedProcedure.query(async () => {
       const db = await getDb();
       const [rows] = await (db as any).$client.query(`
@@ -774,6 +787,60 @@ export const appRouter = router({
     contractsForPdf: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))
       .query(async ({ input }) => getContractsForPdf(input.clientId)),
+    activeSprint: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const { sprints: sp, sprintTasks: st, tasks: t, kanbanPhases: kp } = await import('../drizzle/schema');
+      const { eq: eq2, desc: desc2, and: and2 } = await import('drizzle-orm');
+      // Find the most recent active sprint
+      const [sprint] = await db.select().from(sp).where(eq2(sp.status, 'active')).orderBy(desc2(sp.startDate)).limit(1);
+      if (!sprint) return null;
+      // Get tasks in sprint with phase info
+      const sprintTaskRows = await db
+        .select({ id: t.id, phaseIsTerminal: kp.isTerminal })
+        .from(st)
+        .innerJoin(t, eq2(st.taskId, t.id))
+        .leftJoin(kp, eq2(t.phaseId, kp.id))
+        .where(eq2(st.sprintId, sprint.id));
+      const totalTasks = sprintTaskRows.length;
+      const start = new Date(sprint.startDate);
+      const end = new Date(sprint.endDate);
+      const msPerDay = 86400000;
+      const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay));
+      const today = new Date();
+      const dataPoints: { day: number; ideal: number; real: number }[] = [];
+      for (let d = 0; d <= totalDays; d++) {
+        const dayDate = new Date(start.getTime() + d * msPerDay);
+        const isPast = dayDate <= today;
+        const completed = isPast ? sprintTaskRows.filter((r: any) => r.phaseIsTerminal).length : 0;
+        const remaining = totalTasks - completed;
+        const ideal = Math.max(0, totalTasks - (totalTasks / totalDays) * d);
+        dataPoints.push({ day: d + 1, ideal: Math.round(ideal * 10) / 10, real: remaining });
+      }
+      return { sprint, totalTasks, dataPoints };
+    }),
+    contractsByState: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const { crs: crsTable, clients: clientsTable } = await import('../drizzle/schema');
+      const { eq: eq2, and: and2 } = await import('drizzle-orm');
+      const rows = await db.select({
+        stateCode: crsTable.stateCode, state: crsTable.state, progress: crsTable.progress,
+        clientName: clientsTable.name,
+      }).from(crsTable)
+        .leftJoin(clientsTable, eq2(crsTable.clientId, clientsTable.id))
+        .where(eq2(crsTable.status, 'active'));
+      // Group by stateCode
+      const map: Record<string, { state: string; count: number; totalProgress: number }> = {};
+      rows.forEach((r: any) => {
+        const key = r.stateCode ?? r.state ?? 'BR';
+        if (!map[key]) map[key] = { state: r.state ?? r.stateCode ?? 'Brasil', count: 0, totalProgress: 0 };
+        map[key].count++;
+        map[key].totalProgress += r.progress ?? 0;
+      });
+      return Object.entries(map).map(([code, v]) => ({
+        code, state: v.state, count: v.count,
+        avgProgress: v.count > 0 ? Math.round(v.totalProgress / v.count) : 0,
+      })).sort((a, b) => b.count - a.count);
+    }),
   }),
 
   // ─── Notifications ──────────────────────────────────────────────────────────

@@ -52,7 +52,7 @@ function PhaseBadge({ color, name }: { color: string; name: string }) {
 function ChecklistPreview({ items, taskId }: { items: any[]; taskId: number }) {
   const utils = trpc.useUtils();
   const toggleMut = trpc.checklist.updateStatus.useMutation({
-    onSuccess: () => utils.tasks.listByCrs.invalidate(),
+    onSuccess: () => utils.tasks.listByCrsWithChecklist.invalidate(),
     onError: (e) => toast.error(e.message),
   });
   const done = items.filter((i) => i.status === "published").length;
@@ -326,7 +326,7 @@ export default function Kanban() {
   const phasesQ = trpc.kanbanPhases.list.useQuery(
     { crsId: effectiveCrsId! }, { enabled: !!effectiveCrsId }
   );
-  const tasksQ = trpc.tasks.listByCrs.useQuery(
+  const tasksQ = trpc.tasks.listByCrsWithChecklist.useQuery(
     { crsId: effectiveCrsId! }, { enabled: !!effectiveCrsId }
   );
   const disciplinesQ = trpc.disciplines.list.useQuery();
@@ -371,7 +371,7 @@ export default function Kanban() {
   const createTaskMut = trpc.tasks.create.useMutation({
     onSuccess: () => {
       toast.success("Tarefa criada!");
-      utils.tasks.listByCrs.invalidate();
+      utils.tasks.listByCrsWithChecklist.invalidate();
       setShowCreateTask(false);
       setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "", phaseId: "" });
       setPrefillDiscipline(null);
@@ -381,13 +381,13 @@ export default function Kanban() {
   const updateTaskMut = trpc.tasks.update.useMutation({
     onSuccess: () => {
       toast.success("Tarefa atualizada!");
-      utils.tasks.listByCrs.invalidate();
+      utils.tasks.listByCrsWithChecklist.invalidate();
       setEditingTask(null);
     },
     onError: (e) => toast.error(e.message),
   });
   const deleteTaskMut = trpc.tasks.delete.useMutation({
-    onSuccess: () => { toast.success("Tarefa excluída."); utils.tasks.listByCrs.invalidate(); },
+    onSuccess: () => { toast.success("Tarefa excluída."); utils.tasks.listByCrsWithChecklist.invalidate(); },
     onError: (e) => toast.error(e.message),
   });
 

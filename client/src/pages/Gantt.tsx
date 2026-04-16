@@ -552,7 +552,7 @@ export default function Gantt() {
                   const isOpen = !collapsed.has(row.key);
                   return (
                     <div
-                      key={row.key + i}
+                      key={`${row.key}__${i}`}
                       className="flex items-center gap-1.5 px-2 cursor-pointer select-none bg-primary/8 hover:bg-primary/12 border-b border-border"
                       style={{ height: ROW_H }}
                       onClick={() => setCollapsed(prev => { const n = new Set(prev); n.has(row.key) ? n.delete(row.key) : n.add(row.key); return n; })}
@@ -567,7 +567,7 @@ export default function Gantt() {
                   const isOpen = !collapsed.has(row.key);
                   return (
                     <div
-                      key={row.key + i}
+                      key={`${row.key}__${i}`}
                       className="flex items-center gap-1.5 pl-6 pr-2 cursor-pointer select-none bg-muted/30 hover:bg-muted/50 border-b border-border"
                       style={{ height: ROW_H }}
                       onClick={() => setCollapsed(prev => { const n = new Set(prev); n.has(row.key) ? n.delete(row.key) : n.add(row.key); return n; })}
@@ -583,7 +583,7 @@ export default function Gantt() {
                 // task row
                 const t = row.task;
                 return (
-                  <div key={t.id + i} className="flex items-center gap-2 pl-10 pr-2 border-b border-border hover:bg-muted/20" style={{ height: ROW_H }}>
+                  <div key={`task-${t.id}-${i}`} className="flex items-center gap-2 pl-10 pr-2 border-b border-border hover:bg-muted/20" style={{ height: ROW_H }}>
                     <span className="text-[10px] text-muted-foreground shrink-0 w-4">{row.index}</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -633,7 +633,7 @@ export default function Gantt() {
                 {rows.map((row, i) => {
                   if (row.type === "group") {
                     return (
-                      <div key={row.key + i} className="flex bg-primary/5 border-b border-border" style={{ height: ROW_H, width: totalGridWidth }}>
+                      <div key={`${row.key}__${i}`} className="flex bg-primary/5 border-b border-border" style={{ height: ROW_H, width: totalGridWidth }}>
                         {days.map((d, j) => (
                           <div key={j} className={`shrink-0 border-r ${d.getDay() === 0 ? "border-border" : "border-border/30"}`} style={{ width: colPx }} />
                         ))}
@@ -642,7 +642,7 @@ export default function Gantt() {
                   }
                   if (row.type === "subgroup") {
                     return (
-                      <div key={row.key + i} className="flex bg-muted/20 border-b border-border" style={{ height: ROW_H, width: totalGridWidth }}>
+                      <div key={`${row.key}__${i}`} className="flex bg-muted/20 border-b border-border" style={{ height: ROW_H, width: totalGridWidth }}>
                         {days.map((d, j) => (
                           <div key={j} className={`shrink-0 border-r ${d.getDay() === 0 ? "border-border" : "border-border/30"}`} style={{ width: colPx }} />
                         ))}
@@ -654,7 +654,7 @@ export default function Gantt() {
                   const bp = barProps(t);
                   const isOverdue = t.dueDate && new Date(t.dueDate) < today && t.phaseName !== "Concluído";
                   return (
-                    <div key={t.id + i} className="relative flex border-b border-border hover:bg-muted/10" style={{ height: ROW_H, width: totalGridWidth }}>
+                    <div key={`task-${t.id}-${i}`} className="relative flex border-b border-border hover:bg-muted/10" style={{ height: ROW_H, width: totalGridWidth }}>
                       {/* Grid columns */}
                       {days.map((d, j) => {
                         const isToday2 = diffDays(d, today) === 0;
