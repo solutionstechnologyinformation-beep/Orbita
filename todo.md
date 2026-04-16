@@ -728,3 +728,19 @@
 - [x] Kanban: badge "Filtrado pelo seu setor" exibido para usuários com filtro obrigatório
 - [x] Kanban: botão "Todas" e toggles de disciplina desabilitados para usuários restritos
 - [x] TypeScript: 0 erros confirmados
+
+## v6.0 — Migração para Layout 3 (Split Panel)
+
+- [x] Criar componente SplitLayout reutilizável
+- [x] Atualizar AppLayout sidebar com novo estilo visual
+- [x] Migrar Projetos para Split Panel (lista + detalhe)
+- [x] Migrar Kanban para Split Panel (lista projetos + quadro)
+- [x] Migrar Gantt para Split Panel (árvore + gráfico)
+- [x] Migrar Sprints para Split Panel (lista sprints + detalhe)
+- [x] Migrar Programação para Split Panel (entregas + calendário)
+- [x] Migrar Calendário para Split Panel (mini-cal + calendário completo)
+- [x] Migrar Relatórios para Split Panel (menu + preview)
+- [x] Migrar Chat de Tarefas para Split Panel (lista conversas + chat — já era nativo)
+- [x] Migrar Quadro Branco para layout full-canvas (já era nativo)
+- [x] Migrar Notificações para Split Panel (lista + detalhe)
+- [x] Migrar Admin para Split Panel (menu admin + conteúdo)

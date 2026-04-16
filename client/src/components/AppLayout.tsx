@@ -64,9 +64,11 @@ interface AppLayoutProps {
   children: React.ReactNode;
   title?: string;
   backHref?: string;
+  /** Se true, remove o padding do main e usa overflow-hidden para suportar SplitLayout */
+  fullHeight?: boolean;
 }
 
-export default function AppLayout({ children, title, backHref }: AppLayoutProps) {
+export default function AppLayout({ children, title, backHref, fullHeight }: AppLayoutProps) {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -406,7 +408,7 @@ export default function AppLayout({ children, title, backHref }: AppLayoutProps)
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className={fullHeight ? "flex-1 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto p-4 lg:p-6"}>
           {children}
         </main>
       </div>

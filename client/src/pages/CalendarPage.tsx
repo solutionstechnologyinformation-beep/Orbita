@@ -1,4 +1,5 @@
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -166,207 +167,181 @@ export default function CalendarPage() {
   const selectedDayTasks = selectedDayDate ? getTasksForDay(selectedDayDate) : [];
 
   return (
-    <AppLayout title="Calendário">
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendário de Compromissos</h1>
-          <p className="text-gray-500 text-sm mt-1">Compromissos de toda a equipe — visível para todos os usuários</p>
-        </div>
-        <Button onClick={() => { setSelectedDayDate(null); setShowCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Novo Compromisso
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Calendar */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
-                  {MONTHS[month]} {year}
-                </CardTitle>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={prevMonth}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); }}>
-                    Hoje
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={nextMonth}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Weekday headers */}
-              <div className="grid grid-cols-7 mb-1">
-                {WEEKDAYS.map(d => (
-                  <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
-                ))}
-              </div>
-              {/* Day cells */}
-              <div className="grid grid-cols-7 gap-px bg-gray-200">
-                {calendarDays.map((date, i) => {
-                  if (!date) return <div key={i} className="bg-gray-50 h-24" />;
-                  const dayEvents = getEventsForDay(date);
-                  const dayTasks = getTasksForDay(date);
-                  const isToday = date.toDateString() === today.toDateString();
-                  const hasConflict = dayEvents.length > 0 && dayTasks.length > 0;
-                  return (
-                    <div
-                      key={i}
-                      className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${hasConflict ? "ring-1 ring-inset ring-orange-300" : ""}`}
-                      onClick={() => handleDayClick(date)}
-                    >
-                      <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${
-                        isToday ? "bg-indigo-600 text-white" : "text-gray-700"
-                      }`}>
-                        {date.getDate()}
-                      </div>
-                      <div className="space-y-0.5">
-                        {dayEvents.slice(0, 2).map((e: any) => (
-                          <div
-                            key={e.id}
-                            className="text-xs px-1 py-0.5 rounded truncate text-white"
-                            style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }}
-                            title={`${e.title} (${e.creatorName ?? "?"})`}
-                          >
-                            {e.title}
+    <AppLayout title="Calendário" fullHeight>
+      <SplitLayout
+        leftWidth="280px"
+        left={
+          <>
+            <SplitPanelHeader
+              title="Calendário"
+              subtitle="Compromissos"
+              action={
+                <Button size="sm" onClick={() => { setSelectedDayDate(null); setShowCreate(true); }} className="gap-1.5 h-8 text-xs">
+                  <Plus className="w-3.5 h-3.5" /> Novo
+                </Button>
+              }
+            />
+            <SplitPanelContent>
+              <div className="space-y-4">
+                {/* Upcoming events */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" />
+                      Próximos Compromissos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {agendaQ.isLoading ? (
+                      <p className="text-xs text-gray-400">Carregando...</p>
+                    ) : upcomingEvents.length === 0 ? (
+                      <p className="text-xs text-gray-400">Nenhum compromisso nos próximos 30 dias.</p>
+                    ) : (
+                      upcomingEvents.map((e: any) => (
+                        <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
+                          <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{e.title}</p>
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-gray-400" />
+                              <span className="text-xs text-gray-500 truncate">{e.creatorName ?? "?"}</span>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                              {new Date(e.startDate).toLocaleDateString("pt-BR")}
+                              {e.startDate !== e.endDate && ` – ${new Date(e.endDate).toLocaleDateString("pt-BR")}`}
+                            </p>
+                            <Badge variant="outline" className="text-xs mt-0.5" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>
+                              {EVENT_LABELS[e.type]}
+                            </Badge>
                           </div>
-                        ))}
-                        {dayTasks.slice(0, 1).map((t: any) => (
-                          <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate bg-slate-200 text-slate-700" title={`Tarefa: ${t.title}`}>
-                            📋 {t.title}
-                          </div>
-                        ))}
-                        {(dayEvents.length + dayTasks.length) > 3 && (
-                          <div className="text-xs text-gray-400 px-1">+{dayEvents.length + dayTasks.length - 3} mais</div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-          {/* Day detail panel */}
-          {selectedDayDate && (
-            <Card className="mt-4">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">
-                  {selectedDayDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && (
-                  <p className="text-xs text-gray-400">Nenhum compromisso ou tarefa neste dia.</p>
-                )}
-                {selectedDayEvents.map((e: any) => (
-                  <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
-                    <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{e.title}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <User className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500">{e.creatorName ?? "Desconhecido"}</span>
-                        <Badge variant="outline" className="text-xs ml-1" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>
-                          {EVENT_LABELS[e.type]}
-                        </Badge>
-                      </div>
-                      {e.description && <p className="text-xs text-gray-400 mt-0.5">{e.description}</p>}
-                    </div>
-                    {e.createdById === user?.id && (
-                      <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
-                    )}
-                  </div>
-                ))}
-                {selectedDayTasks.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-orange-600 mb-1 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" /> Suas tarefas neste dia
-                    </p>
-                    {selectedDayTasks.map((t: any) => (
-                      <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 border border-orange-100">
-                        <div className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{t.title}</p>
-                          <p className="text-xs text-gray-400">{t.projectName ?? "Contrato"}</p>
+                          {e.createdById === user?.id && (
+                            <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
+                          )}
                         </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+                {/* Legend */}
+                <Card>
+                  <CardContent className="pt-4 space-y-2">
+                    <p className="text-xs font-semibold text-gray-500 mb-1">Legenda</p>
+                    {Object.entries(EVENT_LABELS).map(([key, label]) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_COLORS[key] }} />
+                        <span className="text-xs text-gray-600">{label}</span>
                       </div>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Sidebar: upcoming events */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
-                Próximos Compromissos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {agendaQ.isLoading ? (
-                <p className="text-xs text-gray-400">Carregando...</p>
-              ) : upcomingEvents.length === 0 ? (
-                <p className="text-xs text-gray-400">Nenhum compromisso nos próximos 30 dias.</p>
-              ) : (
-                upcomingEvents.map((e: any) => (
-                  <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
-                    <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{e.title}</p>
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500 truncate">{e.creatorName ?? "?"}</span>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        {new Date(e.startDate).toLocaleDateString("pt-BR")}
-                        {e.startDate !== e.endDate && ` – ${new Date(e.endDate).toLocaleDateString("pt-BR")}`}
-                      </p>
-                      <Badge variant="outline" className="text-xs mt-0.5" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>
-                        {EVENT_LABELS[e.type]}
-                      </Badge>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm bg-slate-200" />
+                      <span className="text-xs text-gray-600">Tarefa (sua)</span>
                     </div>
-                    {e.createdById === user?.id && (
-                      <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm ring-1 ring-orange-300 bg-white" />
+                      <span className="text-xs text-gray-600">Conflito evento/tarefa</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </SplitPanelContent>
+          </>
+        }
+        right={
+          <SplitPanelContent noPadding>
+            <div className="p-4 overflow-y-auto h-full space-y-4">
+              {/* Main calendar */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{MONTHS[month]} {year}</CardTitle>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); }}>Hoje</Button>
+                      <Button variant="ghost" size="sm" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
                   </div>
-                ))
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-7 mb-1">
+                    {WEEKDAYS.map(d => (
+                      <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-px bg-gray-200">
+                    {calendarDays.map((date, i) => {
+                      if (!date) return <div key={i} className="bg-gray-50 h-24" />;
+                      const dayEvents = getEventsForDay(date);
+                      const dayTasks = getTasksForDay(date);
+                      const isToday = date.toDateString() === today.toDateString();
+                      const hasConflict = dayEvents.length > 0 && dayTasks.length > 0;
+                      return (
+                        <div key={i} className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${hasConflict ? "ring-1 ring-inset ring-orange-300" : ""}`} onClick={() => handleDayClick(date)}>
+                          <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? "bg-indigo-600 text-white" : "text-gray-700"}`}>{date.getDate()}</div>
+                          <div className="space-y-0.5">
+                            {dayEvents.slice(0, 2).map((e: any) => (
+                              <div key={e.id} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} title={`${e.title} (${e.creatorName ?? "?"})`}>{e.title}</div>
+                            ))}
+                            {dayTasks.slice(0, 1).map((t: any) => (
+                              <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate bg-slate-200 text-slate-700" title={`Tarefa: ${t.title}`}>📋 {t.title}</div>
+                            ))}
+                            {(dayEvents.length + dayTasks.length) > 3 && (
+                              <div className="text-xs text-gray-400 px-1">+{dayEvents.length + dayTasks.length - 3} mais</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Day detail panel */}
+              {selectedDayDate && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{selectedDayDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && (
+                      <p className="text-xs text-gray-400">Nenhum compromisso ou tarefa neste dia.</p>
+                    )}
+                    {selectedDayEvents.map((e: any) => (
+                      <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
+                        <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{e.title}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <User className="h-3 w-3 text-gray-400" />
+                            <span className="text-xs text-gray-500">{e.creatorName ?? "Desconhecido"}</span>
+                            <Badge variant="outline" className="text-xs ml-1" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>{EVENT_LABELS[e.type]}</Badge>
+                          </div>
+                          {e.description && <p className="text-xs text-gray-400 mt-0.5">{e.description}</p>}
+                        </div>
+                        {e.createdById === user?.id && (
+                          <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    {selectedDayTasks.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-orange-600 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Suas tarefas neste dia</p>
+                        {selectedDayTasks.map((t: any) => (
+                          <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 border border-orange-100">
+                            <div className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{t.title}</p>
+                              <p className="text-xs text-gray-400">{t.projectName ?? "Contrato"}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Legend */}
-          <Card>
-            <CardContent className="pt-4 space-y-2">
-              <p className="text-xs font-semibold text-gray-500 mb-1">Legenda</p>
-              {Object.entries(EVENT_LABELS).map(([key, label]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_COLORS[key] }} />
-                  <span className="text-xs text-gray-600">{label}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-slate-200" />
-                <span className="text-xs text-gray-600">Tarefa (sua)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm ring-1 ring-orange-300 bg-white" />
-                <span className="text-xs text-gray-600">Conflito evento/tarefa</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
+          </SplitPanelContent>
+        }
+      />
 
       {/* Create Event Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -446,7 +421,6 @@ export default function CalendarPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
     </AppLayout>
   );
 }

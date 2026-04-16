@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { AlertTriangle, Calendar, ZoomIn, ZoomOut, ChevronDown, ChevronRight as ChevronRightIcon, FileDown, Users, Layers, Filter } from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -392,9 +393,15 @@ export default function Gantt() {
   }
 
   return (
-    <AppLayout title="Gráfico de Gantt">
+    <AppLayout title="Gráfico de Gantt" fullHeight>
+      <SplitLayout
+        leftWidth="240px"
+        left={
+          <>
+            <SplitPanelHeader title="Filtros" />
+            <SplitPanelContent>
       {/* ── Toolbar ── */}
-      <div className="space-y-3 mb-4">
+      <div className="space-y-3">
         {/* Row 1: Filters */}
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -506,7 +513,12 @@ export default function Gantt() {
           </Button>
         </div>
       </div>
-
+            </SplitPanelContent>
+          </>
+        }
+        right={
+          <SplitPanelContent noPadding>
+            <div className="p-4 overflow-x-auto h-full">
       {/* ── Loading ── */}
       {ganttQ.isLoading && (
         <div className="space-y-2">
@@ -690,6 +702,10 @@ export default function Gantt() {
           </div>
         </div>
       )}
+            </div>
+          </SplitPanelContent>
+        }
+      />
     </AppLayout>
   );
 }

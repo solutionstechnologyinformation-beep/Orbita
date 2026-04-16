@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelContent, SplitPanelEmpty } from "@/components/SplitLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,6 @@ const TIPO_OBRA_OPTIONS = [
 
 type TipoObraKey = typeof TIPO_OBRA_OPTIONS[number]["key"];
 
-/** Parseia o campo tipoObra que pode ser string JSON, string simples ou null */
 function parseTipoObra(raw: string | null | undefined): TipoObraKey[] {
   if (!raw) return [];
   try {
@@ -69,8 +69,8 @@ const emptyForm = {
   techDataByType: {} as TechDataByType,
 };
 
-// ── CrsCard Component ─────────────────────────────────────────────────────────
-type CrsCardProps = {
+// ── CrsDetail Component ───────────────────────────────────────────────────────
+type CrsDetailProps = {
   crs: CrsItem;
   tipos: TipoObraKey[];
   isAdmin: boolean;
@@ -80,7 +80,7 @@ type CrsCardProps = {
   onDelete: (id: number, name: string) => void;
 };
 
-function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }: CrsCardProps) {
+function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }: CrsDetailProps) {
   const [showDisciplines, setShowDisciplines] = useState(false);
   const discQ = trpc.crs_discipline.progress.useQuery(
     { crsId: crs.id },
@@ -89,78 +89,121 @@ function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }
   const disciplines = discQ.data ?? [];
 
   return (
-    <Card className="border-border hover:shadow-md transition-shadow">
-      <CardHeader className="pb-2 pt-4 px-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            {crs.clientName && (
-              <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mb-2 font-medium"
-                style={{ backgroundColor: (crs.clientColor ?? "#785500") + "20", color: crs.clientColor ?? "#785500" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#785500" }} />
-                {crs.clientName}
-              </div>
-            )}
-            <h3 className="font-semibold text-foreground truncate">{crs.name}</h3>
-            {crs.code && <p className="text-xs text-muted-foreground mt-0.5">#{crs.code}</p>}
-          </div>
-          {crs.status === "archived" && <Badge variant="secondary" className="text-xs shrink-0">Arquivado</Badge>}
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {crs.clientName && (
+            <div className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full mb-2 font-medium"
+              style={{ backgroundColor: (crs.clientColor ?? "#785500") + "20", color: crs.clientColor ?? "#785500" }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#785500" }} />
+              {crs.clientName}
+            </div>
+          )}
+          <h2 className="text-xl font-bold text-foreground">{crs.name}</h2>
+          {crs.code && <p className="text-sm text-muted-foreground mt-0.5">#{crs.code}</p>}
         </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4">
+        {crs.status === "archived" && <Badge variant="secondary">Arquivado</Badge>}
+      </div>
+
+      {/* Location + Types */}
+      <div className="grid grid-cols-2 gap-4">
         {(crs.country || crs.state) && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-            <MapPin className="w-3 h-3" />
-            <span>{[crs.state, crs.country].filter(Boolean).join(", ")}</span>
-          </div>
+          <Card className="border-border">
+            <CardContent className="p-3 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Localização</p>
+                <p className="text-sm font-medium">{[crs.state, crs.country].filter(Boolean).join(", ")}</p>
+              </div>
+            </CardContent>
+          </Card>
         )}
         {tipos.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {tipos.map(k => (
-              <span key={k} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                {TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k}
-              </span>
-            ))}
-          </div>
+          <Card className="border-border">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground mb-1.5">Tipo(s) de Obra</p>
+              <div className="flex flex-wrap gap-1">
+                {tipos.map(k => (
+                  <span key={k} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    {TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
-        {(crs.extensaoKm != null || crs.areaHa != null || crs.perimetroUrbano != null) && (
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
-            {crs.extensaoKm != null && <span><span className="font-medium text-foreground/70">Ext:</span> {crs.extensaoKm} km</span>}
-            {crs.areaHa != null && <span><span className="font-medium text-foreground/70">Área:</span> {crs.areaHa} m²</span>}
-            {crs.perimetroUrbano != null && <span><span className="font-medium text-foreground/70">Perím.:</span> {crs.perimetroUrbano}</span>}
+      </div>
+
+      {/* Technical data */}
+      {(crs.extensaoKm != null || crs.areaHa != null || crs.perimetroUrbano != null) && (
+        <div className="grid grid-cols-3 gap-3">
+          {crs.extensaoKm != null && (
+            <Card className="border-border">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-muted-foreground">Extensão</p>
+                <p className="text-lg font-bold text-foreground">{crs.extensaoKm}</p>
+                <p className="text-xs text-muted-foreground">km</p>
+              </CardContent>
+            </Card>
+          )}
+          {crs.areaHa != null && (
+            <Card className="border-border">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-muted-foreground">Área</p>
+                <p className="text-lg font-bold text-foreground">{crs.areaHa}</p>
+                <p className="text-xs text-muted-foreground">m²</p>
+              </CardContent>
+            </Card>
+          )}
+          {crs.perimetroUrbano != null && (
+            <Card className="border-border">
+              <CardContent className="p-3 text-center">
+                <p className="text-xs text-muted-foreground">Perím. Urbanos</p>
+                <p className="text-lg font-bold text-foreground">{crs.perimetroUrbano}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Progress */}
+      <Card className="border-border">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-foreground">Progresso Geral</p>
+            <p className="text-lg font-bold text-primary">{crs.progress}%</p>
           </div>
-        )}
-        {/* Progresso geral */}
-        <div className="mb-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>Progresso Geral</span><span className="font-medium">{crs.progress}%</span>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all"
               style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#785500" }} />
           </div>
-        </div>
-        {/* Progresso por Disciplina */}
-        <div className="mb-2">
+        </CardContent>
+      </Card>
+
+      {/* Disciplines */}
+      <Card className="border-border">
+        <CardContent className="p-4">
           <button
             onClick={() => setShowDisciplines(v => !v)}
-            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+            className="flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 font-medium transition-colors w-full text-left"
           >
             <span>{showDisciplines ? "▾" : "▸"}</span>
             <span>Disciplinas {disciplines.length > 0 ? `(${disciplines.length})` : ""}</span>
-            {discQ.isLoading && <span className="text-muted-foreground ml-1">…</span>}
+            {discQ.isLoading && <span className="text-muted-foreground ml-1 text-xs">carregando…</span>}
           </button>
           {showDisciplines && disciplines.length > 0 && (
-            <div className="mt-2 space-y-1.5">
-              {disciplines.map(d => (
+            <div className="mt-3 space-y-2">
+              {disciplines.map((d: any) => (
                 <div key={d.name}>
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-0.5">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="truncate">{d.name}</span>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="truncate font-medium">{d.name}</span>
                     </div>
                     <span className="font-medium shrink-0 ml-2">{d.done}/{d.total} ({d.progress}%)</span>
                   </div>
-                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${d.progress}%`, backgroundColor: d.color }} />
                   </div>
                 </div>
@@ -168,51 +211,72 @@ function CrsCard({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete }
             </div>
           )}
           {showDisciplines && disciplines.length === 0 && !discQ.isLoading && (
-            <p className="text-[11px] text-muted-foreground mt-1 ml-3">Nenhum item de checklist cadastrado.</p>
+            <p className="text-xs text-muted-foreground mt-2">Nenhum item de checklist cadastrado.</p>
           )}
-        </div>
-        {crs.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{crs.description}</p>}
-        {(crs.derivedStartDate || crs.derivedEndDate) && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2 bg-muted/50 rounded-md px-2 py-1.5">
-            <Calendar className="w-3 h-3 shrink-0" />
+        </CardContent>
+      </Card>
+
+      {/* Description */}
+      {crs.description && (
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground mb-1">Descrição</p>
+            <p className="text-sm text-foreground">{crs.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dates */}
+      {(crs.derivedStartDate || crs.derivedEndDate) && (
+        <Card className="border-border">
+          <CardContent className="p-4 flex items-center gap-4">
+            <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             {crs.derivedStartDate && (
-              <span><span className="font-medium text-foreground/70">Início:</span> {new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</span>
+              <div>
+                <p className="text-xs text-muted-foreground">Início</p>
+                <p className="text-sm font-medium">{new Date(crs.derivedStartDate).toLocaleDateString("pt-BR")}</p>
+              </div>
             )}
-            {crs.derivedStartDate && crs.derivedEndDate && <span className="text-muted-foreground/40">•</span>}
+            {crs.derivedStartDate && crs.derivedEndDate && <div className="w-px h-8 bg-border" />}
             {crs.derivedEndDate && (
-              <span><span className="font-medium text-foreground/70">Entrega:</span> {new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</span>
+              <div>
+                <p className="text-xs text-muted-foreground">Entrega</p>
+                <p className="text-sm font-medium">{new Date(crs.derivedEndDate).toLocaleDateString("pt-BR")}</p>
+              </div>
             )}
-          </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-2">
+        {crs.status !== "archived" && (
+          <Link href={`/kanban?crs=${crs.id}`} className="flex-1">
+            <Button variant="default" className="w-full gap-2">
+              <ExternalLink className="w-4 h-4" /> Abrir Kanban
+            </Button>
+          </Link>
         )}
-        <div className="flex items-center gap-2 mt-2">
-          {crs.status !== "archived" && (
-            <Link href={`/kanban?crs=${crs.id}`} className="flex-1">
-              <Button variant="default" size="sm" className="w-full gap-1.5 text-xs">
-                <ExternalLink className="w-3.5 h-3.5" /> Abrir Kanban
+        {isAdmin && (
+          <>
+            <Button variant="outline" onClick={() => onEdit(crs)}>Editar</Button>
+            {crs.status !== "archived" ? (
+              <Button variant="ghost" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => onArchive(crs.id)}>
+                <Archive className="w-4 h-4" />
               </Button>
-            </Link>
-          )}
-          {isAdmin && (
-            <>
-              <Button variant="outline" size="sm" className="text-xs" onClick={() => onEdit(crs)}>Editar</Button>
-              {crs.status !== "archived" ? (
-                <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 hover:bg-orange-50" onClick={() => onArchive(crs.id)}>
-                  <Archive className="w-3.5 h-3.5" />
-                </Button>
-              ) : (
-                <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => onRestore(crs.id)}>
-                  <ArchiveRestore className="w-3.5 h-3.5" />
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10"
-                onClick={() => onDelete(crs.id, crs.name)}>
-                <Trash2 className="w-3.5 h-3.5" />
+            ) : (
+              <Button variant="ghost" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => onRestore(crs.id)}>
+                <ArchiveRestore className="w-4 h-4" />
               </Button>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            )}
+            <Button variant="ghost" className="text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(crs.id, crs.name)}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -226,6 +290,7 @@ export default function Projects() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingCrs, setEditingCrs] = useState<CrsItem | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [selectedCrsId, setSelectedCrsId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
   const crsQ = trpc.crs.list.useQuery();
@@ -321,7 +386,8 @@ export default function Projects() {
   });
   const clients: Client[] = clientsQ.data ?? [];
 
-  // ── Shared form fields ───────────────────────────────────────────────────
+  const selectedCrs = filtered.find((c) => c.id === selectedCrsId) ?? filtered[0] ?? null;
+
   function TipoObraCheckboxes() {
     return (
       <div>
@@ -348,11 +414,9 @@ export default function Projects() {
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
         <div className="space-y-4">
           <TipoObraCheckboxes />
-          {/* Perím. Urbanos — campo global */}
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Perím. Urbanos</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
           </div>
-          {/* Extensão e Área por tipo de obra selecionado */}
           {form.tiposObra.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-medium text-muted-foreground">Medidas por tipo de obra:</p>
@@ -365,35 +429,21 @@ export default function Projects() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">Extensão (km)</Label>
-                        <Input
-                          className="mt-1 h-8 text-sm"
-                          type="number" min="0" step="0.1"
-                          placeholder="Ex: 42.5"
+                        <Input className="mt-1 h-8 text-sm" type="number" min="0" step="0.1" placeholder="Ex: 42.5"
                           value={entry.extensaoKm != null ? String(entry.extensaoKm) : ""}
                           onChange={(e) => {
                             const val = e.target.value ? parseFloat(e.target.value) : null;
-                            setForm((f) => ({
-                              ...f,
-                              techDataByType: { ...f.techDataByType, [tipoKey]: { ...f.techDataByType[tipoKey], extensaoKm: val } },
-                            }));
-                          }}
-                        />
+                            setForm((f) => ({ ...f, techDataByType: { ...f.techDataByType, [tipoKey]: { ...f.techDataByType[tipoKey], extensaoKm: val } } }));
+                          }} />
                       </div>
                       <div>
                         <Label className="text-xs">Área (m²)</Label>
-                        <Input
-                          className="mt-1 h-8 text-sm"
-                          type="number" min="0" step="1"
-                          placeholder="Ex: 12000"
+                        <Input className="mt-1 h-8 text-sm" type="number" min="0" step="1" placeholder="Ex: 12000"
                           value={entry.areaHa != null ? String(entry.areaHa) : ""}
                           onChange={(e) => {
                             const val = e.target.value ? parseFloat(e.target.value) : null;
-                            setForm((f) => ({
-                              ...f,
-                              techDataByType: { ...f.techDataByType, [tipoKey]: { ...f.techDataByType[tipoKey], areaHa: val } },
-                            }));
-                          }}
-                        />
+                            setForm((f) => ({ ...f, techDataByType: { ...f.techDataByType, [tipoKey]: { ...f.techDataByType[tipoKey], areaHa: val } } }));
+                          }} />
                       </div>
                     </div>
                   </div>
@@ -407,112 +457,147 @@ export default function Projects() {
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Projetos CRS</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os contratos e projetos por cliente</p>
-          </div>
-          {isAdmin && (
-            <Button onClick={() => { setForm(emptyForm); setShowCreate(true); }} className="gap-2">
-              <Plus className="w-4 h-4" /> Novo Contrato
-            </Button>
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-6">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Buscar por nome ou código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-          </div>
-          <Select value={filterClient} onValueChange={setFilterClient}>
-            <SelectTrigger className="w-48">
-              <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="Todos os clientes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os clientes</SelectItem>
-              {clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="flex gap-0 border border-border rounded-md overflow-hidden">
-            {["active", "archived"].map((s) => (
-              <button key={s} onClick={() => setFilterStatus(s)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}>
-                {s === "active" ? "Ativos" : "Arquivados"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: "Total de Contratos", value: (crsQ.data?.length ?? 0) + (archivedQ.data?.length ?? 0), icon: Layers, color: "text-primary" },
-            { label: "Ativos", value: crsQ.data?.length ?? 0, icon: FolderOpen, color: "text-emerald-500" },
-            { label: "Arquivados", value: archivedQ.data?.length ?? 0, icon: Archive, color: "text-orange-500" },
-            { label: "Clientes", value: clients.length, icon: Globe, color: "text-teal-500" },
-          ].map((stat) => (
-            <Card key={stat.label} className="border-border">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-muted ${stat.color}`}><stat.icon className="w-4 h-4" /></div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+    <AppLayout title="Projetos CRS" fullHeight>
+      <SplitLayout
+        leftWidth="340px"
+        left={
+          <>
+            {/* Left Panel Header */}
+            <SplitPanelHeader
+              title="Contratos"
+              subtitle={`${filtered.length} ${filterStatus === "archived" ? "arquivados" : "ativos"}`}
+              action={
+                isAdmin ? (
+                  <Button size="sm" onClick={() => { setForm(emptyForm); setShowCreate(true); }} className="gap-1.5 h-8 text-xs">
+                    <Plus className="w-3.5 h-3.5" /> Novo
+                  </Button>
+                ) : undefined
+              }
+            />
+            {/* Filters */}
+            <div className="flex-shrink-0 px-3 py-2 border-b border-border bg-card space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
+              </div>
+              <div className="flex gap-2">
+                <Select value={filterClient} onValueChange={setFilterClient}>
+                  <SelectTrigger className="flex-1 h-7 text-xs">
+                    <SelectValue placeholder="Todos os clientes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os clientes</SelectItem>
+                    {clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-0 border border-border rounded-md overflow-hidden">
+                  {["active", "archived"].map((s) => (
+                    <button key={s} onClick={() => setFilterStatus(s)}
+                      className={`px-2 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}>
+                      {s === "active" ? "Ativos" : "Arq."}
+                    </button>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* CRS Grid */}
-        {crsQ.isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Layers className="w-12 h-12 text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhum Contrato encontrado</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">{filterStatus === "archived" ? "Nenhum Contrato arquivado." : "Crie o primeiro Contrato para começar."}</p>
-            {isAdmin && filterStatus === "active" && (
-              <Button onClick={() => { setForm(emptyForm); setShowCreate(true); }} className="mt-4 gap-2">
-                <Plus className="w-4 h-4" /> Criar CRS
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((crs) => {
-              const tipos = parseTipoObra(crs.tipoObra);
-              return (<CrsCard key={crs.id} crs={crs} tipos={tipos} isAdmin={isAdmin}
+              </div>
+            </div>
+            {/* Stats row */}
+            <div className="flex-shrink-0 grid grid-cols-4 border-b border-border">
+              {[
+                { label: "Total", value: (crsQ.data?.length ?? 0) + (archivedQ.data?.length ?? 0), color: "text-primary" },
+                { label: "Ativos", value: crsQ.data?.length ?? 0, color: "text-emerald-500" },
+                { label: "Arq.", value: archivedQ.data?.length ?? 0, color: "text-orange-500" },
+                { label: "Clientes", value: clients.length, color: "text-teal-500" },
+              ].map((stat) => (
+                <div key={stat.label} className="py-2 px-2 text-center border-r border-border last:border-0">
+                  <p className={`text-base font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+            {/* List */}
+            <SplitPanelList>
+              {crsQ.isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 border-b border-border/50">
+                    <Skeleton className="h-4 w-3/4 mb-1" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                ))
+              ) : filtered.length === 0 ? (
+                <SplitPanelEmpty
+                  icon={<Layers className="w-5 h-5" />}
+                  title="Nenhum contrato"
+                  description={filterStatus === "archived" ? "Nenhum arquivado." : "Crie o primeiro contrato."}
+                />
+              ) : (
+                filtered.map((crs) => {
+                  const tipos = parseTipoObra(crs.tipoObra);
+                  const isSelected = crs.id === selectedCrs?.id;
+                  return (
+                    <SplitPanelItem key={crs.id} active={isSelected} onClick={() => setSelectedCrsId(crs.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            {crs.clientColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: crs.clientColor }} />}
+                            <p className="text-sm font-semibold text-foreground truncate">{crs.name}</p>
+                          </div>
+                          {crs.clientName && <p className="text-xs text-muted-foreground truncate">{crs.clientName}</p>}
+                          {crs.state && <p className="text-xs text-muted-foreground">{crs.state}</p>}
+                          {tipos.length > 0 && (
+                            <p className="text-[11px] text-muted-foreground/70 mt-0.5 truncate">{formatTipoObra(tipos)}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-primary">{crs.progress}%</p>
+                          <div className="w-12 h-1 bg-muted rounded-full mt-1">
+                            <div className="h-full rounded-full" style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : "#785500" }} />
+                          </div>
+                        </div>
+                      </div>
+                    </SplitPanelItem>
+                  );
+                })
+              )}
+            </SplitPanelList>
+          </>
+        }
+        right={
+          selectedCrs ? (
+            <SplitPanelContent>
+              <CrsDetail
+                crs={selectedCrs}
+                tipos={parseTipoObra(selectedCrs.tipoObra)}
+                isAdmin={isAdmin}
                 onEdit={openEdit}
                 onArchive={(id: number) => archiveMut.mutate({ id })}
                 onRestore={(id: number) => restoreMut.mutate({ id })}
                 onDelete={(id: number, name: string) => { if (confirm(`Excluir "${name}"? Esta ação não pode ser desfeita.`)) deleteMut.mutate({ id }); }}
-              />);
-            })}
-          </div>
-        )}
-      </div>
+              />
+            </SplitPanelContent>
+          ) : (
+            <SplitPanelEmpty
+              icon={<FolderOpen className="w-5 h-5" />}
+              title="Selecione um contrato"
+              description="Clique em um contrato na lista para ver os detalhes."
+            />
+          )
+        }
+      />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Novo Contrato</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label>Cliente *</Label>
-              <Select value={form.clientId} onValueChange={(v) => setForm((f) => ({ ...f, clientId: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
-                <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Nome *</Label><Input className="mt-1" placeholder="Ex: Rodovia BR-101" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
+              <div>
+                <Label>Cliente *</Label>
+                <Select value={form.clientId} onValueChange={(v) => setForm((f) => ({ ...f, clientId: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Nome *</Label><Input className="mt-1" placeholder="Nome do contrato" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
               <div><Label>Código</Label><Input className="mt-1" placeholder="Ex: CRS-2024-001" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} /></div>
             </div>
             <div><Label>Descrição</Label><Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>

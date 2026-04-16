@@ -1,4 +1,5 @@
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelContent, SplitPanelEmpty } from "@/components/SplitLayout";
 import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -397,14 +398,24 @@ export default function Sprints() {
   }
 
   return (
-    <AppLayout title="Sprints">
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sprints</h1>
-          <p className="text-gray-500 text-sm mt-1">Gerencie ciclos semanais de trabalho com metas e tarefas</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <AppLayout title="Sprints" fullHeight>
+      <SplitLayout
+        leftWidth="300px"
+        left={
+          <>
+            <SplitPanelHeader
+              title="Sprints"
+              subtitle="Ciclos de trabalho"
+              action={
+                crsId ? (
+                  <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5 h-8 text-xs">
+                    <Plus className="w-3.5 h-3.5" /> Nova
+                  </Button>
+                ) : undefined
+              }
+            />
+            <div className="flex-shrink-0 px-3 py-2 border-b border-border bg-card space-y-2">
+              <div className="flex flex-wrap gap-2">
           {/* Filtro: Cliente */}
           <Select
             value={filterClientId?.toString() ?? "all"}
@@ -443,70 +454,60 @@ export default function Sprints() {
               )}
             </SelectContent>
           </Select>
-          {crsId && (
-            <Button onClick={() => setShowCreate(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Nova Sprint
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {!crsId ? (
-        <Card>
-          <CardContent className="py-16 text-center text-gray-400">
-            <Target className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Selecione um Contrato para ver as sprints.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sprint list */}
-          <div className="lg:col-span-1 space-y-3">
-            {sprintsQ.isLoading ? (
-              <div className="text-center py-8 text-gray-400">Carregando...</div>
-            ) : sprints.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center text-gray-400">
-                  <Target className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Nenhuma sprint criada.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              sprints.map((sprint: any) => (
-                <Card
-                  key={sprint.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${selectedSprintId === sprint.id ? "ring-2 ring-indigo-500" : ""}`}
-                  onClick={() => setSelectedSprintId(sprint.id)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-sm">{sprint.name}</h3>
-                      <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            </div>
+            </div>
+            <SplitPanelList>
+              {!crsId ? (
+                <SplitPanelEmpty
+                  icon={<Target className="w-5 h-5" />}
+                  title="Selecione um Contrato"
+                  description="Escolha um contrato acima para ver as sprints."
+                />
+              ) : sprintsQ.isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 border-b border-border/50">
+                    <div className="h-4 bg-muted rounded w-3/4 mb-1" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                  </div>
+                ))
+              ) : sprints.length === 0 ? (
+                <SplitPanelEmpty
+                  icon={<Target className="w-5 h-5" />}
+                  title="Nenhuma sprint"
+                  description="Crie a primeira sprint para este contrato."
+                />
+              ) : (
+                sprints.map((sprint: any) => (
+                  <SplitPanelItem
+                    key={sprint.id}
+                    active={selectedSprintId === sprint.id}
+                    onClick={() => setSelectedSprintId(sprint.id)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-foreground truncate">{sprint.name}</p>
+                        {sprint.goal && <p className="text-xs text-muted-foreground truncate mt-0.5">{sprint.goal}</p>}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Badge className={`text-xs ${STATUS_COLORS[sprint.status]}`}>
+                            {STATUS_LABELS[sprint.status]}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(sprint.startDate).toLocaleDateString("pt-BR")} – {new Date(sprint.endDate).toLocaleDateString("pt-BR")}</span>
+                        </div>
+                        <Progress value={sprintProgress(sprint)} className="mt-2 h-1" />
+                      </div>
                     </div>
-                    {sprint.goal && (
-                      <p className="text-xs text-gray-500 mb-2 line-clamp-2">{sprint.goal}</p>
-                    )}
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge className={`text-xs ${STATUS_COLORS[sprint.status]}`}>
-                        {STATUS_LABELS[sprint.status]}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <span>
-                        {new Date(sprint.startDate).toLocaleDateString("pt-BR")} –{" "}
-                        {new Date(sprint.endDate).toLocaleDateString("pt-BR")}
-                      </span>
-                    </div>
-                    <Progress value={sprintProgress(sprint)} className="mt-2 h-1.5" />
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-
-          {/* Sprint detail */}
-          <div className="lg:col-span-2 space-y-4" ref={burndownChartRef}>
+                  </SplitPanelItem>
+                ))
+              )}
+            </SplitPanelList>
+          </>
+        }
+        right={
+          <SplitPanelContent>
+            <div className="space-y-4" ref={burndownChartRef}>
             {!selectedSprintId ? (
               <Card>
                 <CardContent className="py-16 text-center text-gray-400">
@@ -868,8 +869,9 @@ export default function Sprints() {
               </>
             )}
           </div>
-        </div>
-      )}
+          </SplitPanelContent>
+        }
+      />
 
       {/* Create Sprint Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -922,7 +924,6 @@ export default function Sprints() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
     </AppLayout>
   );
 }

@@ -1,4 +1,5 @@
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -180,15 +181,15 @@ export default function Scheduling() {
   const selectedDayTasks = selectedDay ? (tasksByDate.get(selectedDay.toDateString()) ?? []) : [];
 
   return (
-    <AppLayout title="Programação">
-      <div className="p-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Programação</h1>
-            <p className="text-gray-500 text-sm mt-1">Visualize tarefas por data e responsável</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
+    <AppLayout title="Programação" fullHeight>
+      <SplitLayout
+        leftWidth="240px"
+        left={
+          <>
+            <SplitPanelHeader title="Filtros" subtitle="Programação" />
+            <SplitPanelContent>
+              <div className="space-y-3">
+                <div className="space-y-2">
             {/* Client filter */}
             <Select
               value={filterClientId?.toString() ?? "all"}
@@ -219,27 +220,22 @@ export default function Scheduling() {
                 ))}
               </SelectContent>
             </Select>
-            {/* View toggle */}
-            <div className="flex items-center border rounded-md overflow-hidden">
-              <Button
-                variant={viewMode === "calendar" ? "default" : "ghost"}
-                size="sm"
-                className="h-9 rounded-none gap-1.5"
-                onClick={() => setViewMode("calendar")}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" /> Calendário
-              </Button>
-              <Button
-                variant={viewMode === "swimlane" ? "default" : "ghost"}
-                size="sm"
-                className="h-9 rounded-none gap-1.5"
-                onClick={() => setViewMode("swimlane")}
-              >
-                <Rows className="h-3.5 w-3.5" /> Swimlane
-              </Button>
-            </div>
-          </div>
-        </div>
+                </div>
+                <div className="flex items-center border rounded-md overflow-hidden">
+                  <Button variant={viewMode === "calendar" ? "default" : "ghost"} size="sm" className="h-8 rounded-none gap-1 text-xs flex-1" onClick={() => setViewMode("calendar")}>
+                    <LayoutGrid className="h-3 w-3" /> Calendário
+                  </Button>
+                  <Button variant={viewMode === "swimlane" ? "default" : "ghost"} size="sm" className="h-8 rounded-none gap-1 text-xs flex-1" onClick={() => setViewMode("swimlane")}>
+                    <Rows className="h-3 w-3" /> Swimlane
+                  </Button>
+                </div>
+              </div>
+            </SplitPanelContent>
+          </>
+        }
+        right={
+          <SplitPanelContent noPadding>
+            <div className="p-4 space-y-4 overflow-y-auto h-full">
 
         {/* Overdue alert */}
         {overdueTasks.length > 0 && (
@@ -572,7 +568,10 @@ export default function Scheduling() {
             )}
           </>
         )}
-      </div>
+            </div>
+          </SplitPanelContent>
+        }
+      />
     </AppLayout>
   );
 }

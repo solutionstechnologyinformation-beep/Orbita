@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -262,20 +263,53 @@ export default function Admin() {
     }
   };
 
-  return (
-    <AppLayout>
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Administração</h1>
-        </div>
+  const [adminTab, setAdminTab] = useState("clients");
 
-        <Tabs defaultValue="clients">
-          <TabsList className="mb-6 flex-wrap h-auto gap-1">
-            <TabsTrigger value="clients"><Building2 className="w-4 h-4 mr-1.5" />Clientes</TabsTrigger>
-            <TabsTrigger value="crs"><Globe className="w-4 h-4 mr-1.5" />Contrato</TabsTrigger>
-            <TabsTrigger value="disciplines"><Tag className="w-4 h-4 mr-1.5" />Disciplinas</TabsTrigger>
-            <TabsTrigger value="users"><Users className="w-4 h-4 mr-1.5" />Usuários</TabsTrigger>
-            <TabsTrigger value="registros"><ClipboardList className="w-4 h-4 mr-1.5" />Registros</TabsTrigger>
+  const adminMenuItems = [
+    { value: "clients",     icon: Building2,     label: "Clientes" },
+    { value: "crs",         icon: Globe,         label: "Contratos" },
+    { value: "disciplines", icon: Tag,           label: "Disciplinas" },
+    { value: "users",       icon: Users,         label: "Usuários" },
+    { value: "registros",   icon: ClipboardList, label: "Registros" },
+  ];
+
+  return (
+    <AppLayout fullHeight>
+      <SplitLayout
+        leftWidth="200px"
+        left={
+          <>
+            <SplitPanelHeader title="Administração" subtitle="Configurações" />
+            <SplitPanelContent noPadding>
+              <nav className="space-y-0.5 p-2">
+                {adminMenuItems.map(({ value, icon: Icon, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setAdminTab(value)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      adminTab === value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            </SplitPanelContent>
+          </>
+        }
+        right={
+          <SplitPanelContent noPadding>
+            <div className="p-5 overflow-y-auto h-full">
+        <Tabs value={adminTab} onValueChange={setAdminTab}>
+          <TabsList className="sr-only">
+            <TabsTrigger value="clients">Clientes</TabsTrigger>
+            <TabsTrigger value="crs">Contrato</TabsTrigger>
+            <TabsTrigger value="disciplines">Disciplinas</TabsTrigger>
+            <TabsTrigger value="users">Usuários</TabsTrigger>
+            <TabsTrigger value="registros">Registros</TabsTrigger>
           </TabsList>
 
           {/* CLIENTS TAB */}
@@ -496,7 +530,10 @@ export default function Admin() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+            </div>
+          </SplitPanelContent>
+        }
+      />
 
       {/* User Disciplines Dialog */}
       {editingUserDisc && (

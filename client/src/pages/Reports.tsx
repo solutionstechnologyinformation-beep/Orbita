@@ -1,4 +1,5 @@
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -600,55 +601,46 @@ export default function Reports() {
   ];
 
   return (
-    <AppLayout title="Relatórios">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold">Relatórios</h2>
-            <p className="text-muted-foreground mt-1">
-              Gere e exporte relatórios em PDF para análise e compartilhamento.
-            </p>
-          </div>
-          {/* Client filter */}
-          <div className="flex items-center gap-2 min-w-[220px]">
-            <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <Select value={selectedClient} onValueChange={(v) => {
-              setSelectedClient(v);
-              setSelectedSprint("none");
-              setSelectedProjectForMembers("none");
-            }}>
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Filtrar por cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os clientes</SelectItem>
-                {clients.map((c: any) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Active filter badge */}
-        {selectedClient !== "all" && selectedClientObj && (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="gap-1.5 text-sm py-1 px-3">
-              <Filter className="w-3 h-3" />
-              Filtrando por: <strong>{selectedClientObj.name}</strong>
-              <span className="text-muted-foreground ml-1">({projects.length} projeto{projects.length !== 1 ? "s" : ""})</span>
-            </Badge>
-            <button
-              className="text-xs text-muted-foreground hover:text-foreground underline"
-              onClick={() => { setSelectedClient("all"); setSelectedSprint("none"); setSelectedProjectForMembers("none"); }}
-            >
-              Limpar filtro
-            </button>
-          </div>
-        )}
+    <AppLayout title="Relatórios" fullHeight>
+      <SplitLayout
+        leftWidth="220px"
+        left={
+          <>
+            <SplitPanelHeader title="Relatórios" subtitle="Exportar PDF" />
+            <SplitPanelContent>
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">Filtrar por cliente</p>
+                <Select value={selectedClient} onValueChange={(v) => {
+                  setSelectedClient(v);
+                  setSelectedSprint("none");
+                  setSelectedProjectForMembers("none");
+                }}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos os clientes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os clientes</SelectItem>
+                    {clients.map((c: any) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedClient !== "all" && selectedClientObj && (
+                  <div className="space-y-1">
+                    <Badge variant="secondary" className="gap-1 text-xs w-full justify-start">
+                      <Filter className="w-3 h-3" />
+                      {selectedClientObj.name}
+                    </Badge>
+                    <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setSelectedClient("all"); setSelectedSprint("none"); setSelectedProjectForMembers("none"); }}>Limpar filtro</button>
+                  </div>
+                )}
+              </div>
+            </SplitPanelContent>
+          </>
+        }
+        right={
+          <SplitPanelContent noPadding>
+            <div className="p-4 space-y-5 overflow-y-auto h-full">
 
         {/* Report Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -705,7 +697,10 @@ export default function Reports() {
             O filtro por cliente no topo aplica-se a todos os relatórios gerados.
           </p>
         </div>
-      </div>
+            </div>
+          </SplitPanelContent>
+        }
+      />
     </AppLayout>
   );
 }

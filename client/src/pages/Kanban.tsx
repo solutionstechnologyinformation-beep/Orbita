@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelContent, SplitPanelEmpty } from "@/components/SplitLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -480,30 +481,65 @@ export default function Kanban() {
   const isLoading = crsQ.isLoading || tasksQ.isLoading || disciplinesQ.isLoading;
 
   return (
-    <AppLayout title="Kanban">
-      <div className="flex flex-col h-full">
+    <AppLayout title="Kanban" fullHeight>
+      <>
+      <SplitLayout
+        leftWidth="280px"
+        left={
+          <>
+            <SplitPanelHeader
+              title="Contratos"
+              subtitle={`${crsItems.length} contrato${crsItems.length !== 1 ? 's' : ''}`}
+            />
+            <SplitPanelList>
+              {crsQ.isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 border-b border-border/50">
+                    <Skeleton className="h-4 w-3/4 mb-1" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                ))
+              ) : crsItems.length === 0 ? (
+                <SplitPanelEmpty
+                  icon={<FolderKanban className="w-5 h-5" />}
+                  title="Nenhum contrato"
+                  description="Crie um contrato na página de Projetos."
+                />
+              ) : (
+                crsItems.map((c: any) => {
+                  const isSelected = c.id === effectiveCrsId;
+                  return (
+                    <SplitPanelItem key={c.id} active={isSelected} onClick={() => setSelectedCrsId(c.id)}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          {c.clientName && (
+                            <div className="flex items-center gap-1 mb-0.5">
+                              {c.clientColor && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c.clientColor }} />}
+                              <p className="text-xs text-muted-foreground truncate">{c.clientName}</p>
+                            </div>
+                          )}
+                          <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
+                          {c.state && <p className="text-xs text-muted-foreground">{c.state}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-bold text-primary">{c.progress}%</p>
+                          <div className="w-10 h-1 bg-muted rounded-full mt-1">
+                            <div className="h-full rounded-full" style={{ width: `${c.progress}%`, backgroundColor: '#785500' }} />
+                          </div>
+                        </div>
+                      </div>
+                    </SplitPanelItem>
+                  );
+                })
+              )}
+            </SplitPanelList>
+          </>
+        }
+        right={
+          <div className="flex flex-col h-full overflow-hidden">
         {/* ── Toolbar ── */}
-        <div className="px-4 py-3 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-10">
+        <div className="px-4 py-3 border-b border-border bg-background/80 backdrop-blur flex-shrink-0">
           <div className="flex flex-wrap items-center gap-3">
-            {/* CRS selector */}
-            <div className="flex items-center gap-2">
-              <FolderKanban className="w-4 h-4 text-muted-foreground" />
-              <Select
-                value={selectedCrsId ? String(selectedCrsId) : (crsItems[0] ? String(crsItems[0].id) : "")}
-                onValueChange={(v) => setSelectedCrsId(parseInt(v))}
-              >
-                <SelectTrigger className="w-52 h-8 text-sm">
-                  <SelectValue placeholder="Selecione um Contrato" />
-                </SelectTrigger>
-                <SelectContent>
-                  {crsItems.map((c: any) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.clientName ? `${c.clientName} — ` : ""}{c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Search */}
             <div className="relative flex-1 min-w-[180px] max-w-xs">
@@ -664,8 +700,9 @@ export default function Kanban() {
             ))}
           </div>
         )}
-      </div>
-
+          </div>
+        }
+      />
       {/* ── Create Task Dialog ── */}
       <Dialog open={showCreateTask} onOpenChange={(o) => { if (!o) { setShowCreateTask(false); setPrefillDiscipline(null); } }}>
         <DialogContent className="max-w-lg">
@@ -837,6 +874,7 @@ export default function Kanban() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </>
     </AppLayout>
   );
 }
