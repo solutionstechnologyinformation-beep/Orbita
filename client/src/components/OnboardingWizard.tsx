@@ -25,7 +25,7 @@ const STEPS = [
     icon: FolderKanban,
     title: "Crie seu primeiro projeto",
     description: "Projetos organizam tarefas, membros e entregas. Comece dando um nome ao seu projeto.",
-    color: "#785500",
+    color: "#3b82f6",
     bg: "bg-blue-50",
   },
   {
@@ -33,8 +33,8 @@ const STEPS = [
     icon: UserPlus,
     title: "Convide um membro",
     description: "Colabore com sua equipe. Gere um link de convite para adicionar membros ao projeto.",
-    color: "#1dbab4",
-    bg: "bg-teal-50",
+    color: "#3b82f6",
+    bg: "bg-blue-50",
   },
   {
     id: 3,
@@ -129,7 +129,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
         {/* Header */}
         <div
           className="px-6 pt-6 pb-4"
-          style={{ background: "linear-gradient(135deg, #785500 0%, #9a6b00 60%, #1dbab4 100%)" }}
+          style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 60%, #0ea5e9 100%)" }}
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
               <Button
                 onClick={handleFinish}
                 className="w-full gap-2"
-                style={{ backgroundColor: "#785500" }}
+                style={{ backgroundColor: "#3b82f6" }}
               >
                 Ir para o Kanban
                 <ArrowRight className="w-4 h-4" />
@@ -226,7 +226,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                     </Button>
                     <Button
                       className="flex-1 gap-2"
-                      style={{ backgroundColor: "#785500" }}
+                      style={{ backgroundColor: "#3b82f6" }}
                       onClick={handleCreateProject}
                       disabled={createProjectMut.isPending}
                     >
@@ -280,7 +280,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                   ) : (
                     <Button
                       className="w-full gap-2"
-                      style={{ backgroundColor: "#1dbab4" }}
+                      style={{ backgroundColor: "#3b82f6" }}
                       onClick={handleGenerateInvite}
                       disabled={createInviteMut.isPending}
                     >
@@ -296,7 +296,7 @@ export default function OnboardingWizard({ open, onClose }: OnboardingWizardProp
                     {inviteLink && (
                       <Button
                         className="flex-1 gap-2"
-                        style={{ backgroundColor: "#785500" }}
+                        style={{ backgroundColor: "#3b82f6" }}
                         onClick={() => setStep(3)}
                       >
                         Próximo passo

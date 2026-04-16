@@ -121,8 +121,8 @@ const ANALYTICAL_PROMPTS = [
     icon: AlertTriangle,
     label: "Riscos de Atraso",
     prompt: "Quais tarefas têm maior risco de atraso? Identifique padrões e sugira ações preventivas para os próximos 15 dias.",
-    color: "text-amber-600",
-    bg: "bg-amber-50 hover:bg-amber-100",
+    color: "text-blue-600",
+    bg: "bg-blue-50 hover:bg-blue-100",
   },
   {
     icon: Users,
@@ -149,8 +149,8 @@ const ANALYTICAL_PROMPTS = [
     icon: MessageSquare,
     label: "Prioridades da Semana",
     prompt: "Com base nos dados atuais, quais são as 5 prioridades mais importantes para esta semana? Justifique cada uma.",
-    color: "text-teal-600",
-    bg: "bg-teal-50 hover:bg-teal-100",
+    color: "text-blue-600",
+    bg: "bg-blue-50 hover:bg-blue-100",
   },
 ];
 

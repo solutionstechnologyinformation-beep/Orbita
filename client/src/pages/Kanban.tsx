@@ -524,7 +524,7 @@ export default function Kanban() {
                         <div className="text-right shrink-0">
                           <p className="text-xs font-bold text-primary">{c.progress}%</p>
                           <div className="w-10 h-1 bg-muted rounded-full mt-1">
-                            <div className="h-full rounded-full" style={{ width: `${c.progress}%`, backgroundColor: '#785500' }} />
+                            <div className="h-full rounded-full" style={{ width: `${c.progress}%`, backgroundColor: '#3b82f6' }} />
                           </div>
                         </div>
                       </div>
@@ -618,7 +618,7 @@ export default function Kanban() {
           <div className="px-4 py-2 border-b border-border bg-background/60 flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground font-medium flex-shrink-0">Disciplinas:</span>
             {hasRestrictedDisciplines ? (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/30">
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 border border-blue-500/30">
                 <Layers className="w-3 h-3" />
                 Filtrado pelo seu setor
               </span>

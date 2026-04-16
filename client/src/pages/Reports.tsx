@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
 
-const BLUE = "#1e3a5f";
+const BLUE = "#3b82f6";
 const WHITE = "#ffffff";
 
 function pdfHeader(title: string, subtitle?: string) {
@@ -82,7 +82,7 @@ function barChartSvg(items: { label: string; value: number; color: string }[], m
     return `
       <text x="0" y="${y + barH - 5}" font-size="11" fill="#475569" font-family="Inter,sans-serif">${item.label.length > 22 ? item.label.slice(0, 22) + "…" : item.label}</text>
       <rect x="${labelW}" y="${y}" width="${Math.max(barW, 2)}" height="${barH}" rx="4" fill="${item.color}" opacity="0.85"/>
-      <text x="${labelW + barW + 6}" y="${y + barH - 5}" font-size="11" fill="#1e3a5f" font-weight="700" font-family="Inter,sans-serif">${item.value}%</text>`;
+      <text x="${labelW + barW + 6}" y="${y + barH - 5}" font-size="11" fill="#1d4ed8" font-weight="700" font-family="Inter,sans-serif">${item.value}%</text>`;
   }).join("");
   return `<svg width="${width}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">${rows}</svg>`;
 }
@@ -126,7 +126,7 @@ function burndownSvg(dataPoints: { date: string; remaining: number; ideal: numbe
     <!-- Ideal line (dashed) -->
     <path d="${idealPath}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,4" fill="none"/>
     <!-- Remaining line -->
-    <path d="${remainPath}" stroke="#1e3a5f" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+    <path d="${remainPath}" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
     <!-- Axes -->
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + h}" stroke="#cbd5e1" stroke-width="1"/>
     <line x1="${padL}" y1="${padT + h}" x2="${padL + w}" y2="${padT + h}" stroke="#cbd5e1" stroke-width="1"/>
@@ -135,8 +135,8 @@ function burndownSvg(dataPoints: { date: string; remaining: number; ideal: numbe
     <!-- Legend -->
     <rect x="${padL + w - 180}" y="${padT}" width="12" height="3" rx="1" fill="#94a3b8"/>
     <text x="${padL + w - 164}" y="${padT + 7}" font-size="10" fill="#94a3b8" font-family="Inter,sans-serif">Ideal</text>
-    <rect x="${padL + w - 110}" y="${padT}" width="12" height="3" rx="1" fill="#1e3a5f"/>
-    <text x="${padL + w - 94}" y="${padT + 7}" font-size="10" fill="#1e3a5f" font-family="Inter,sans-serif">Real</text>
+    <rect x="${padL + w - 110}" y="${padT}" width="12" height="3" rx="1" fill="#1d4ed8"/>
+    <text x="${padL + w - 94}" y="${padT + 7}" font-size="10" fill="#1d4ed8" font-family="Inter,sans-serif">Real</text>
   </svg>`;
 }
 

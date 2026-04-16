@@ -244,7 +244,7 @@ export default function Sprints() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #785500; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #3b82f6; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
     .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff; }
     .logo span { color: #ffffff; }
     .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
@@ -257,11 +257,11 @@ export default function Sprints() {
     .kpi-completed .kpi-value { color: #22c55e; }
     .kpi-progress .kpi-value { color: #3b82f6; }
     .kpi-blocked .kpi-value { color: #ef4444; }
-    .kpi-rate .kpi-value { color: #1dbab4; }
+    .kpi-rate .kpi-value { color: #3b82f6; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 10px; margin: 8px 0 20px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #785500, #1dbab4); }
+    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #3b82f6, #3b82f6); }
     section { margin-bottom: 24px; }
-    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #1dbab4; padding-left: 8px; }
+    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #3b82f6; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { background: #f1f5f9; padding: 6px 8px; text-align: left; border: 1px solid #e2e8f0; font-weight: 600; color: #475569; }
     .footer { margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
@@ -370,7 +370,7 @@ export default function Sprints() {
   </section>`;
       })() : ''}
 
-  <div style="margin-top:32px;padding:12px 24px;background:#785500;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
+  <div style="margin-top:32px;padding:12px 24px;background:#3b82f6;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
     <span style="font-size:13px;font-weight:700;color:#ffffff;">Orbita</span>
     <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
@@ -584,8 +584,8 @@ export default function Sprints() {
                           </p>
                           <p className="text-xs text-gray-500">Itens Checklist</p>
                         </div>
-                        <div className="bg-amber-50 rounded-lg p-3">
-                          <p className="text-2xl font-bold text-amber-600">
+                        <div className="bg-blue-50 rounded-lg p-3">
+                          <p className="text-2xl font-bold text-blue-600">
                             {(() => {
                               const total = selectedSprint.tasks?.length ?? 0;
                               const done = selectedSprint.tasks?.filter((t: any) => t.phaseIsTerminal).length ?? 0;

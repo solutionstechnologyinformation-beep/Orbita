@@ -1,7 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { cn } from "@/lib/utils";
 import {
   Bell,
   Bot,
@@ -23,7 +22,6 @@ import {
   Target,
   User,
   X,
-  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -37,21 +35,25 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-const SIDEBAR_BG = "#785500";
-const SIDEBAR_TEXT = "#ffffff";
-const SIDEBAR_ACTIVE_BG = "rgba(255,255,255,0.18)";
-const SIDEBAR_HOVER_BG = "rgba(255,255,255,0.10)";
+// ── Sidebar color tokens ──────────────────────────────────────────────────
+const SIDEBAR_BG = "#0f172a";          // azul-marinho escuro
+const SIDEBAR_TEXT = "#e2e8f0";        // cinza claro
+const SIDEBAR_ACTIVE_BG = "#3b82f6";   // azul primário
+const SIDEBAR_ACTIVE_TEXT = "#ffffff"; // branco
+const SIDEBAR_HOVER_BG = "rgba(255,255,255,0.08)";
+const SIDEBAR_SECTION_TEXT = "rgba(148,163,184,0.8)"; // slate-400
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/projects", icon: FolderKanban, label: "Projetos" },
+  { href: "/kanban", icon: Kanban, label: "Kanban" },
   { href: "/gantt", icon: GanttChartSquare, label: "Gantt" },
   { href: "/sprints", icon: Target, label: "Sprints" },
   { href: "/scheduling", icon: CalendarRange, label: "Programação" },
   { href: "/calendar", icon: CalendarDays, label: "Calendário" },
+  { href: "/relatorios", icon: FileBarChart, label: "Relatórios" },
   { href: "/team-chat", icon: MessageSquare, label: "Chat de Tarefas" },
   { href: "/whiteboard", icon: PenSquare, label: "Quadro Branco" },
-  { href: "/relatorios", icon: FileBarChart, label: "Relatórios" },
   { href: "/notifications", icon: Bell, label: "Notificações" },
   { href: "/chat", icon: Bot, label: "Chat IA" },
 ];
@@ -93,10 +95,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
 
   if (loading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: SIDEBAR_BG }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Carregando...</p>
+          <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-400 text-sm">Carregando...</p>
         </div>
       </div>
     );
@@ -110,35 +112,34 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     <div className="flex flex-col h-full" style={{ backgroundColor: SIDEBAR_BG }}>
       {/* Logo / Brand */}
       <div
-        className="flex items-center gap-3 px-4 py-5 border-b"
-        style={{ backgroundColor: SIDEBAR_BG, borderColor: "rgba(0,0,0,0.15)" }}
+        className="flex items-center gap-3 px-5 py-5"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
       >
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: "rgba(255,255,255,0.20)" }}
-        >
-          <Zap className="w-4 h-4" style={{ color: "#ffffff" }} />
+        {/* Orbita icon — circular orbit */}
+        <div className="w-8 h-8 flex-shrink-0 relative">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+            <circle cx="16" cy="16" r="14" stroke="#3b82f6" strokeWidth="2" fill="none" />
+            <circle cx="16" cy="16" r="4" fill="#3b82f6" />
+            <ellipse cx="16" cy="16" rx="14" ry="6" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" fill="none" transform="rotate(-30 16 16)" />
+          </svg>
         </div>
-        <span className="font-bold text-xl tracking-tight" style={{ color: SIDEBAR_TEXT }}>
-          Orbita
-        </span>
+        <span className="font-bold text-xl tracking-tight text-white">Orbita</span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" style={{ backgroundColor: SIDEBAR_BG }}>
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         {navItems.map(({ href, icon: Icon, label }) => {
-          const active = location === href || (href !== "/dashboard" && location.startsWith(href));
+          const active = location === href || (href !== "/dashboard" && href !== "/kanban" && location.startsWith(href));
 
           // Item especial: Projetos com submenu de Contrato
           if (href === "/projects") {
             return (
               <div key={href}>
                 <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative w-full cursor-pointer"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer"
                   style={{
-                    color: SIDEBAR_TEXT,
+                    color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                     backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
-                    fontWeight: active ? 700 : 500,
                   }}
                   onMouseEnter={(e) => {
                     if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
@@ -152,18 +153,12 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                     setCrsExpanded(!crsExpanded);
                   }}
                 >
-                  {active && (
-                    <div
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"
-                      style={{ backgroundColor: "#1dbab4" }}
-                    />
-                  )}
-                  <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
+                  <Icon className="w-4 h-4 flex-shrink-0" />
                   <span className="flex-1">{label}</span>
                   {crsList.length > 0 && (
                     crsExpanded
-                      ? <ChevronDown className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
-                      : <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                      ? <ChevronDown className="w-3 h-3 opacity-60" />
+                      : <ChevronRight className="w-3 h-3 opacity-60" />
                   )}
                 </div>
                 {/* Submenu de Contrato */}
@@ -179,14 +174,14 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                           onClick={() => setSidebarOpen(false)}
                           className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 w-full"
                           style={{
-                            color: crsActive ? "#1dbab4" : "rgba(255,255,255,0.75)",
-                            backgroundColor: crsActive ? SIDEBAR_ACTIVE_BG : "transparent",
+                            color: crsActive ? "#3b82f6" : "rgba(148,163,184,0.9)",
+                            backgroundColor: crsActive ? "rgba(59,130,246,0.15)" : "transparent",
                           }}
                           onMouseEnter={(e) => {
                             (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
                           }}
                           onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLElement).style.backgroundColor = crsActive ? SIDEBAR_ACTIVE_BG : "transparent";
+                            (e.currentTarget as HTMLElement).style.backgroundColor = crsActive ? "rgba(59,130,246,0.15)" : "transparent";
                           }}
                         >
                           <Kanban className="w-3 h-3 flex-shrink-0" />
@@ -198,7 +193,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                       <Link
                         href="/projects"
                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all duration-150 w-full"
-                        style={{ color: "rgba(255,255,255,0.5)" }}
+                        style={{ color: "rgba(148,163,184,0.5)" }}
                       >
                         +{crsList.length - 8} mais...
                       </Link>
@@ -214,11 +209,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               key={href}
               href={href}
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative w-full"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
               style={{
-                color: SIDEBAR_TEXT,
+                color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                 backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
-                fontWeight: active ? 700 : 500,
               }}
               onMouseEnter={(e) => {
                 if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
@@ -227,18 +221,12 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                 if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
               }}
             >
-              {active && (
-                <div
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"
-                  style={{ backgroundColor: "#1dbab4" }}
-                />
-              )}
-              <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
+              <Icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1">{label}</span>
               {label === "Notificações" && unreadCount > 0 && (
                 <Badge
                   className="text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center"
-                  style={{ backgroundColor: "#fc5226", color: "white" }}
+                  style={{ backgroundColor: "#ef4444", color: "white" }}
                 >
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </Badge>
@@ -250,10 +238,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         {user?.role === "admin" && (
           <>
             <div className="pt-4 pb-1 px-3">
-              <p
-                className="text-xs font-semibold uppercase tracking-wider"
-                style={{ color: "rgba(255,255,255,0.55)" }}
-              >
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: SIDEBAR_SECTION_TEXT }}>
                 Admin
               </p>
             </div>
@@ -266,9 +251,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
                   style={{
-                    color: SIDEBAR_TEXT,
+                    color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                     backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
-                    fontWeight: active ? 700 : 500,
                   }}
                   onMouseEnter={(e) => {
                     if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
@@ -277,7 +261,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                     if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
                   }}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" style={{ color: SIDEBAR_TEXT }} />
+                  <Icon className="w-4 h-4 flex-shrink-0" />
                   {label}
                 </Link>
               );
@@ -288,8 +272,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
 
       {/* User Profile */}
       <div
-        className="border-t p-3"
-        style={{ backgroundColor: SIDEBAR_BG, borderColor: "rgba(0,0,0,0.15)" }}
+        className="p-3"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -302,16 +286,16 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               <Avatar className="w-8 h-8 flex-shrink-0">
                 <AvatarFallback
                   className="text-xs font-semibold"
-                  style={{ backgroundColor: "rgba(255,255,255,0.20)", color: "white" }}
+                  style={{ backgroundColor: "rgba(59,130,246,0.25)", color: "#93c5fd" }}
                 >
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: SIDEBAR_TEXT }}>
+                <p className="text-sm font-semibold truncate" style={{ color: "#f1f5f9" }}>
                   {user?.name ?? "Usuário"}
                 </p>
-                <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.65)" }}>
+                <p className="text-xs truncate" style={{ color: "rgba(148,163,184,0.8)" }}>
                   {user?.email ?? ""}
                 </p>
               </div>
@@ -371,41 +355,55 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
 
       {/* Main Content */}
       <div className="flex-1 lg:ml-60 flex flex-col h-screen overflow-hidden">
-        {/* Top Header */}
-        <header className="flex-shrink-0 z-30 bg-white/90 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-muted-foreground hover:text-foreground"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          {backHref && (
-            <Link
-              href={backHref}
-              className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm transition-colors"
+        {/* Top Header — only shown when title or backHref is provided */}
+        {(title || backHref) && (
+          <header className="flex-shrink-0 z-30 bg-white/95 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-muted-foreground hover:text-foreground"
             >
-              <ChevronLeft className="w-4 h-4" />
-              Voltar
-            </Link>
-          )}
+              <Menu className="w-5 h-5" />
+            </button>
 
-          {title && (
-            <h1 className="text-base font-semibold text-foreground flex-1 truncate">{title}</h1>
-          )}
+            {backHref && (
+              <Link
+                href={backHref}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar
+              </Link>
+            )}
 
-          <div className="flex items-center gap-2 ml-auto">
-            <Link
-              href="/notifications"
-              className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
+            {title && (
+              <h1 className="text-base font-semibold text-foreground flex-1 truncate">{title}</h1>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              <Link
+                href="/notifications"
+                className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
+              >
+                <Bell className="w-4 h-4 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                )}
+              </Link>
+            </div>
+          </header>
+        )}
+
+        {/* Mobile hamburger when no header */}
+        {!title && !backHref && (
+          <div className="lg:hidden flex-shrink-0 z-30 bg-white/95 border-b border-border px-4 h-12 flex items-center">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-muted-foreground hover:text-foreground"
             >
-              <Bell className="w-4 h-4 text-muted-foreground" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-              )}
-            </Link>
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
-        </header>
+        )}
 
         {/* Page Content */}
         <main className={fullHeight ? "flex-1 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto p-4 lg:p-6"}>

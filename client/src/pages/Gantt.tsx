@@ -209,7 +209,7 @@ export default function Gantt() {
   // ── Export PDF (HTML Gantt chart) ─────────────────────────────────────────
   function exportGanttPDF() {
     const now = new Date().toLocaleString("pt-BR");
-    const BLUE = "#785500";
+    const BLUE = "#3b82f6";
     const dayMs = 86400000;
 
     // Build date range from tasks
@@ -258,11 +258,11 @@ export default function Gantt() {
     const totalChartW = totalPdfDays * COL_W;
 
     const monthCells = monthGroups.map(m =>
-      `<td colspan="${m.days}" style="background:#785500;color:#fff;font-size:10px;font-weight:700;padding:3px 4px;border-right:1px solid rgba(255,255,255,0.2);white-space:nowrap;overflow:hidden;text-align:center">${m.label}</td>`
+      `<td colspan="${m.days}" style="background:#3b82f6;color:#fff;font-size:10px;font-weight:700;padding:3px 4px;border-right:1px solid rgba(255,255,255,0.2);white-space:nowrap;overflow:hidden;text-align:center">${m.label}</td>`
     ).join("");
 
     const weekCells = weekGroups.map(w =>
-      `<td colspan="${w.days}" style="background:#1e3a5f;color:#93c5fd;font-size:9px;font-weight:600;padding:2px 4px;border-right:1px solid rgba(255,255,255,0.15);white-space:nowrap;overflow:hidden;text-align:center">${w.label}</td>`
+      `<td colspan="${w.days}" style="background:#0f172a;color:#93c5fd;font-size:9px;font-weight:600;padding:2px 4px;border-right:1px solid rgba(255,255,255,0.15);white-space:nowrap;overflow:hidden;text-align:center">${w.label}</td>`
     ).join("");
 
     // Today offset
@@ -275,7 +275,7 @@ export default function Gantt() {
       const isToday = i === todayOffset;
       const isSun = d.getDay() === 0;
       const isSat = d.getDay() === 6;
-      const bg = isToday ? "#ef4444" : isSun || isSat ? "#253a5a" : "#1e3a5f";
+      const bg = isToday ? "#ef4444" : isSun || isSat ? "#1e293b" : "#0f172a";
       const color = isToday ? "#fff" : isSun || isSat ? "#64748b" : "#7dd3fc";
       const fw = isToday ? "800" : "400";
       dayHeaderCells.push(`<td style="width:${COL_W}px;min-width:${COL_W}px;background:${bg};color:${color};font-size:8px;font-weight:${fw};text-align:center;padding:1px 0;border-right:1px solid rgba(255,255,255,0.1);white-space:nowrap">${d.getDate()}</td>`);
@@ -360,15 +360,15 @@ export default function Gantt() {
     <table style="width:${LEFT_W + totalChartW}px">
       <thead>
         <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#785500;border-right:2px solid #cbd5e1;height:22px"></td>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#3b82f6;border-right:2px solid #cbd5e1;height:22px"></td>
           ${monthCells}
         </tr>
         <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1e3a5f;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1">Semana</td>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#0f172a;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1">Semana</td>
           ${weekCells}
         </tr>
         <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#1e3a5f;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1;border-bottom:2px solid #334155">Atividade</td>
+          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#0f172a;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1;border-bottom:2px solid #334155">Atividade</td>
           ${dayCellsRow}
         </tr>
       </thead>
@@ -613,7 +613,7 @@ export default function Gantt() {
                   ))}
                 </div>
                 {/* Week/day sub-header */}
-                <div className="flex border-b border-border bg-[#1e3a5f]" style={{ height: HEADER_H / 2 }}>
+                <div className="flex border-b border-border bg-[#0f172a]" style={{ height: HEADER_H / 2 }}>
                   {days.map((d, i) => {
                     const isSun = d.getDay() === 0;
                     const isToday = diffDays(d, today) === 0;
@@ -680,7 +680,7 @@ export default function Gantt() {
                                 left: bp.left,
                                 width: bp.width,
                                 height: ROW_H - 20,
-                                background: isOverdue ? "#ef4444" : (t.phaseColor ?? "#785500"),
+                                background: isOverdue ? "#ef4444" : (t.phaseColor ?? "#3b82f6"),
                                 zIndex: 5,
                               }}
                             >

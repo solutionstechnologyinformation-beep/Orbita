@@ -95,8 +95,8 @@ function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete
         <div className="min-w-0 flex-1">
           {crs.clientName && (
             <div className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full mb-2 font-medium"
-              style={{ backgroundColor: (crs.clientColor ?? "#785500") + "20", color: crs.clientColor ?? "#785500" }}>
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#785500" }} />
+              style={{ backgroundColor: (crs.clientColor ?? "#3b82f6") + "20", color: crs.clientColor ?? "#3b82f6" }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: crs.clientColor ?? "#3b82f6" }} />
               {crs.clientName}
             </div>
           )}
@@ -176,7 +176,7 @@ function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all"
-              style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#1dbab4" : "#785500" }} />
+              style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : crs.progress >= 50 ? "#3b82f6" : "#3b82f6" }} />
           </div>
         </CardContent>
       </Card>
@@ -506,7 +506,7 @@ export default function Projects() {
                 { label: "Total", value: (crsQ.data?.length ?? 0) + (archivedQ.data?.length ?? 0), color: "text-primary" },
                 { label: "Ativos", value: crsQ.data?.length ?? 0, color: "text-emerald-500" },
                 { label: "Arq.", value: archivedQ.data?.length ?? 0, color: "text-orange-500" },
-                { label: "Clientes", value: clients.length, color: "text-teal-500" },
+                { label: "Clientes", value: clients.length, color: "text-blue-500" },
               ].map((stat) => (
                 <div key={stat.label} className="py-2 px-2 text-center border-r border-border last:border-0">
                   <p className={`text-base font-bold ${stat.color}`}>{stat.value}</p>
@@ -550,7 +550,7 @@ export default function Projects() {
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-primary">{crs.progress}%</p>
                           <div className="w-12 h-1 bg-muted rounded-full mt-1">
-                            <div className="h-full rounded-full" style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : "#785500" }} />
+                            <div className="h-full rounded-full" style={{ width: `${crs.progress}%`, backgroundColor: crs.progress >= 100 ? "#10b981" : "#3b82f6" }} />
                           </div>
                         </div>
                       </div>

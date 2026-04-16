@@ -37,7 +37,7 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: "bg-blue-100 text-blue-700",
   shared: "bg-purple-100 text-purple-700",
   published: "bg-green-100 text-green-700",
-  archived: "bg-teal-100 text-teal-700",
+  archived: "bg-blue-100 text-blue-700",
   blocked: "bg-red-100 text-red-700",
 };
 
