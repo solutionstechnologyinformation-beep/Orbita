@@ -12,6 +12,7 @@ import {
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -48,32 +49,6 @@ function getStatusLabel(progress: number) {
 }
 
 // ── Google Maps de Contratos ──────────────────────────────────────────────────
-const FORGE_BASE_URL = (import.meta.env.VITE_FRONTEND_FORGE_API_URL as string) || "";
-const MAPS_API_KEY = (import.meta.env.VITE_FRONTEND_FORGE_API_KEY as string) || "";
-const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
-
-let _mapsPromise: Promise<void> | null = null;
-function loadMapsScript(): Promise<void> {
-  if ((window as any).google?.maps) return Promise.resolve();
-  if (_mapsPromise) return _mapsPromise;
-  _mapsPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector('script[data-maps-proxy]');
-    if (existing) {
-      if ((window as any).google?.maps) { resolve(); return; }
-      existing.addEventListener("load", () => resolve(), { once: true });
-      return;
-    }
-    const s = document.createElement("script");
-    s.setAttribute("data-maps-proxy", "1");
-    s.src = `${MAPS_PROXY_URL}/maps/api/js?key=${MAPS_API_KEY}&v=weekly&libraries=marker`;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => { _mapsPromise = null; reject(new Error("Maps failed to load")); };
-    document.head.appendChild(s);
-  });
-  return _mapsPromise;
-}
-
 interface ContractLocation {
   name: string;
   state: string | null;
@@ -81,64 +56,64 @@ interface ContractLocation {
   count: number;
   avgProgress: number;
 }
-
 function ContractsMap({ locations }: { locations: ContractLocation[] }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
 
-  const buildMap = useCallback(async () => {
-    if (!containerRef.current || locations.length === 0) return;
-    try {
-      await loadMapsScript();
-    } catch {
-      return;
-    }
+  const handleMapReady = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+    // Configure map style
+    map.setOptions({
+      mapTypeId: "roadmap",
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      zoomControl: true,
+      styles: [
+        { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
+        { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+        { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+        { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e8e8e8" }] },
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", stylers: [{ visibility: "off" }] },
+      ],
+    });
+    if (locations.length === 0) return;
+    placeMarkers(map);
+  }, [locations]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const placeMarkers = useCallback((map: google.maps.Map) => {
     const g = (window as any).google.maps;
-
-    if (!mapRef.current) {
-      mapRef.current = new g.Map(containerRef.current, {
-        zoom: 4,
-        center: { lat: -14.235, lng: -51.925 },
-        mapTypeId: "roadmap",
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        zoomControl: true,
-        styles: [
-          { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
-          { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-          { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-          { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e8e8e8" }] },
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] },
-        ],
-      });
-    }
-
     // Clear old markers
     markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
     markersRef.current = [];
-
     const geocoder = new g.Geocoder();
     const bounds = new g.LatLngBounds();
     let geocodedCount = 0;
+    let pending = locations.length;
 
-    for (let i = 0; i < locations.length; i++) {
-      const loc = locations[i];
-      if (i > 0) await new Promise((r) => setTimeout(r, 150));
+    const finish = () => {
+      if (geocodedCount > 0) {
+        if (geocodedCount === 1) {
+          map.setCenter(bounds.getCenter());
+          map.setZoom(6);
+        } else {
+          map.fitBounds(bounds, 60);
+        }
+      }
+    };
+
+    locations.forEach((loc, i) => {
       const query = [loc.state, loc.country || "Brasil"].filter(Boolean).join(", ");
-      if (!query) continue;
-
-      await new Promise<void>((resolve) => {
+      if (!query) { pending--; if (pending === 0) finish(); return; }
+      setTimeout(() => {
         geocoder.geocode({ address: query }, (results: any, status: any) => {
           if (status === "OK" && results?.[0]) {
             const pos = results[0].geometry.location;
             bounds.extend(pos);
             geocodedCount++;
-
             const marker = new g.Marker({
-              map: mapRef.current,
+              map,
               position: pos,
               title: `${loc.state ?? loc.country}: ${loc.count} contrato(s)`,
               icon: {
@@ -156,7 +131,6 @@ function ContractsMap({ locations }: { locations: ContractLocation[] }) {
                 fontSize: "12px",
               },
             });
-
             const infoWindow = new g.InfoWindow({
               content: `<div style="font-family:Inter,sans-serif;padding:4px 2px;min-width:140px;">
                 <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px;">${loc.state ?? loc.country ?? ""}</div>
@@ -164,30 +138,23 @@ function ContractsMap({ locations }: { locations: ContractLocation[] }) {
                 <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Progresso médio: ${loc.avgProgress}%</div>
               </div>`,
             });
-
             marker.addListener("click", () => {
-              infoWindow.open({ anchor: marker, map: mapRef.current });
+              infoWindow.open({ anchor: marker, map });
             });
             markersRef.current.push(marker);
           }
-          resolve();
+          pending--;
+          if (pending === 0) finish();
         });
-      });
-    }
-
-    if (geocodedCount > 0 && mapRef.current) {
-      if (geocodedCount === 1) {
-        mapRef.current.setCenter(bounds.getCenter());
-        mapRef.current.setZoom(6);
-      } else {
-        mapRef.current.fitBounds(bounds, 40);
-      }
-    }
+      }, i * 150);
+    });
   }, [locations]);
 
   useEffect(() => {
-    buildMap();
-  }, [buildMap]);
+    if (mapRef.current && locations.length > 0) {
+      placeMarkers(mapRef.current);
+    }
+  }, [locations, placeMarkers]);
 
   if (locations.length === 0) {
     return (
@@ -199,8 +166,14 @@ function ContractsMap({ locations }: { locations: ContractLocation[] }) {
       </div>
     );
   }
-
-   return <div ref={containerRef} className="w-full rounded-xl overflow-hidden" style={{ height: 320 }} />;
+  return (
+    <MapView
+      className="rounded-xl overflow-hidden !h-80"
+      initialCenter={{ lat: -14.235, lng: -51.925 }}
+      initialZoom={4}
+      onMapReady={handleMapReady}
+    />
+  );
 }
 // ── KPI Card ───────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, icon, iconBg, trend }: {
