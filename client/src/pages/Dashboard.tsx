@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -47,92 +47,161 @@ function getStatusLabel(progress: number) {
   return { label: "Atrasado", color: "#ef4444" };
 }
 
-// ── Mapa SVG do Brasil ─────────────────────────────────────────────────────────
-// Mapa simplificado com estados como círculos posicionados geograficamente
-const BRAZIL_STATES: { code: string; name: string; cx: number; cy: number }[] = [
-  { code: "AC", name: "Acre", cx: 80, cy: 210 },
-  { code: "AM", name: "Amazonas", cx: 145, cy: 165 },
-  { code: "RR", name: "Roraima", cx: 165, cy: 95 },
-  { code: "PA", name: "Pará", cx: 240, cy: 155 },
-  { code: "AP", name: "Amapá", cx: 285, cy: 105 },
-  { code: "TO", name: "Tocantins", cx: 270, cy: 215 },
-  { code: "MA", name: "Maranhão", cx: 310, cy: 160 },
-  { code: "PI", name: "Piauí", cx: 340, cy: 185 },
-  { code: "CE", name: "Ceará", cx: 375, cy: 155 },
-  { code: "RN", name: "Rio Grande do Norte", cx: 405, cy: 155 },
-  { code: "PB", name: "Paraíba", cx: 405, cy: 175 },
-  { code: "PE", name: "Pernambuco", cx: 390, cy: 195 },
-  { code: "AL", name: "Alagoas", cx: 405, cy: 210 },
-  { code: "SE", name: "Sergipe", cx: 400, cy: 225 },
-  { code: "BA", name: "Bahia", cx: 355, cy: 240 },
-  { code: "MG", name: "Minas Gerais", cx: 320, cy: 285 },
-  { code: "ES", name: "Espírito Santo", cx: 365, cy: 280 },
-  { code: "RJ", name: "Rio de Janeiro", cx: 345, cy: 305 },
-  { code: "SP", name: "São Paulo", cx: 295, cy: 310 },
-  { code: "PR", name: "Paraná", cx: 265, cy: 340 },
-  { code: "SC", name: "Santa Catarina", cx: 270, cy: 365 },
-  { code: "RS", name: "Rio Grande do Sul", cx: 255, cy: 395 },
-  { code: "MS", name: "Mato Grosso do Sul", cx: 230, cy: 300 },
-  { code: "MT", name: "Mato Grosso", cx: 195, cy: 230 },
-  { code: "GO", name: "Goiás", cx: 265, cy: 265 },
-  { code: "DF", name: "Distrito Federal", cx: 285, cy: 265 },
-  { code: "RO", name: "Rondônia", cx: 135, cy: 230 },
-];
+// ── Google Maps de Contratos ──────────────────────────────────────────────────
+const FORGE_BASE_URL = (import.meta.env.VITE_FRONTEND_FORGE_API_URL as string) || "";
+const MAPS_API_KEY = (import.meta.env.VITE_FRONTEND_FORGE_API_KEY as string) || "";
+const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
 
-function BrazilMap({ stateData }: { stateData: { code: string; count: number }[] }) {
-  const stateMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    stateData.forEach((s) => { m[s.code] = s.count; });
-    return m;
-  }, [stateData]);
-
-  const maxCount = useMemo(() => Math.max(1, ...stateData.map((s) => s.count)), [stateData]);
-
-  return (
-    <svg viewBox="0 0 480 440" className="w-full h-full" style={{ maxHeight: 340 }}>
-      {/* Background */}
-      <rect width="480" height="440" fill="#f0f6ff" rx="12" />
-      {/* State bubbles */}
-      {BRAZIL_STATES.map((st) => {
-        const count = stateMap[st.code] ?? 0;
-        const hasData = count > 0;
-        const intensity = hasData ? 0.3 + (count / maxCount) * 0.7 : 0;
-        const r = hasData ? 14 + (count / maxCount) * 10 : 10;
-        return (
-          <g key={st.code}>
-            <circle
-              cx={st.cx} cy={st.cy} r={r}
-              fill={hasData ? `rgba(30, 64, 175, ${intensity})` : "#cbd5e1"}
-              stroke={hasData ? "#1e40af" : "#94a3b8"}
-              strokeWidth={hasData ? 1.5 : 0.5}
-            />
-            {hasData && (
-              <text
-                x={st.cx} y={st.cy + 1}
-                textAnchor="middle" dominantBaseline="middle"
-                fontSize={count >= 100 ? 8 : 10}
-                fontWeight="700"
-                fill="white"
-              >
-                {count}
-              </text>
-            )}
-            {!hasData && (
-              <text
-                x={st.cx} y={st.cy + 1}
-                textAnchor="middle" dominantBaseline="middle"
-                fontSize={7} fill="#64748b"
-              >
-                {st.code}
-              </text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
-  );
+let _mapsPromise: Promise<void> | null = null;
+function loadMapsScript(): Promise<void> {
+  if ((window as any).google?.maps) return Promise.resolve();
+  if (_mapsPromise) return _mapsPromise;
+  _mapsPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector('script[data-maps-proxy]');
+    if (existing) {
+      if ((window as any).google?.maps) { resolve(); return; }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      return;
+    }
+    const s = document.createElement("script");
+    s.setAttribute("data-maps-proxy", "1");
+    s.src = `${MAPS_PROXY_URL}/maps/api/js?key=${MAPS_API_KEY}&v=weekly&libraries=marker`;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { _mapsPromise = null; reject(new Error("Maps failed to load")); };
+    document.head.appendChild(s);
+  });
+  return _mapsPromise;
 }
 
+interface ContractLocation {
+  name: string;
+  state: string | null;
+  country: string | null;
+  count: number;
+  avgProgress: number;
+}
+
+function ContractsMap({ locations }: { locations: ContractLocation[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+
+  const buildMap = useCallback(async () => {
+    if (!containerRef.current || locations.length === 0) return;
+    try {
+      await loadMapsScript();
+    } catch {
+      return;
+    }
+    const g = (window as any).google.maps;
+
+    if (!mapRef.current) {
+      mapRef.current = new g.Map(containerRef.current, {
+        zoom: 4,
+        center: { lat: -14.235, lng: -51.925 },
+        mapTypeId: "roadmap",
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: true,
+        styles: [
+          { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
+          { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+          { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+          { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e8e8e8" }] },
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", stylers: [{ visibility: "off" }] },
+        ],
+      });
+    }
+
+    // Clear old markers
+    markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
+    markersRef.current = [];
+
+    const geocoder = new g.Geocoder();
+    const bounds = new g.LatLngBounds();
+    let geocodedCount = 0;
+
+    for (let i = 0; i < locations.length; i++) {
+      const loc = locations[i];
+      if (i > 0) await new Promise((r) => setTimeout(r, 150));
+      const query = [loc.state, loc.country || "Brasil"].filter(Boolean).join(", ");
+      if (!query) continue;
+
+      await new Promise<void>((resolve) => {
+        geocoder.geocode({ address: query }, (results: any, status: any) => {
+          if (status === "OK" && results?.[0]) {
+            const pos = results[0].geometry.location;
+            bounds.extend(pos);
+            geocodedCount++;
+
+            const marker = new g.Marker({
+              map: mapRef.current,
+              position: pos,
+              title: `${loc.state ?? loc.country}: ${loc.count} contrato(s)`,
+              icon: {
+                path: g.SymbolPath.CIRCLE,
+                scale: 14 + Math.min(loc.count * 2, 10),
+                fillColor: "#1d4ed8",
+                fillOpacity: 0.9,
+                strokeColor: "#ffffff",
+                strokeWeight: 2.5,
+              },
+              label: {
+                text: String(loc.count),
+                color: "#ffffff",
+                fontWeight: "700",
+                fontSize: "12px",
+              },
+            });
+
+            const infoWindow = new g.InfoWindow({
+              content: `<div style="font-family:Inter,sans-serif;padding:4px 2px;min-width:140px;">
+                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px;">${loc.state ?? loc.country ?? ""}</div>
+                <div style="font-size:12px;color:#64748b;">${loc.count} contrato${loc.count !== 1 ? "s" : ""}</div>
+                <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Progresso médio: ${loc.avgProgress}%</div>
+              </div>`,
+            });
+
+            marker.addListener("click", () => {
+              infoWindow.open({ anchor: marker, map: mapRef.current });
+            });
+            markersRef.current.push(marker);
+          }
+          resolve();
+        });
+      });
+    }
+
+    if (geocodedCount > 0 && mapRef.current) {
+      if (geocodedCount === 1) {
+        mapRef.current.setCenter(bounds.getCenter());
+        mapRef.current.setZoom(6);
+      } else {
+        mapRef.current.fitBounds(bounds, 40);
+      }
+    }
+  }, [locations]);
+
+  useEffect(() => {
+    buildMap();
+  }, [buildMap]);
+
+  if (locations.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64 bg-gray-50 rounded-xl border border-gray-100">
+        <div className="text-center text-gray-400">
+          <MapPin className="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">Nenhum contrato ativo com localização</p>
+        </div>
+      </div>
+    );
+  }
+
+   return <div ref={containerRef} className="w-full rounded-xl overflow-hidden" style={{ height: 320 }} />;
+}
 // ── KPI Card ───────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, icon, iconBg, trend }: {
   label: string; value: string | number; icon: React.ReactNode; iconBg: string; trend?: string;
@@ -294,7 +363,7 @@ export default function Dashboard() {
                 {contractsByStateQ.isLoading ? (
                   <Skeleton className="h-64 w-full rounded-lg" />
                 ) : (
-                  <BrazilMap stateData={stateData.map((s: any) => ({ code: s.code, count: s.count }))} />
+                  <ContractsMap locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0 }))} />
                 )}
               </div>
 
