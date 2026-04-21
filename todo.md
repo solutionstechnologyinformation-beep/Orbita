@@ -744,3 +744,4 @@
 - [x] Migrar Quadro Branco para layout full-canvas (já era nativo)
 - [x] Migrar Notificações para Split Panel (lista + detalhe)
 - [x] Migrar Admin para Split Panel (menu admin + conteúdo)
+- [x] Aba "Manual de Uso" adicionada na sidebar (seção Ajuda) com conteúdo completo das 18 seções, navegação lateral, botão de download do PDF

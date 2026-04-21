@@ -3,6 +3,7 @@ import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import {
   Bell,
+  BookOpen,
   Bot,
   CalendarDays,
   CalendarRange,
@@ -60,6 +61,10 @@ const navItems = [
 
 const adminItems = [
   { href: "/admin", icon: Shield, label: "Admin" },
+];
+
+const helpItems = [
+  { href: "/manual", icon: BookOpen, label: "Manual de Uso" },
 ];
 
 interface AppLayoutProps {
@@ -231,6 +236,37 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </Badge>
               )}
+            </Link>
+          );
+        })}
+
+        {/* Ajuda */}
+        <div className="pt-4 pb-1 px-3">
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: SIDEBAR_SECTION_TEXT }}>
+            Ajuda
+          </p>
+        </div>
+        {helpItems.map(({ href, icon: Icon, label }) => {
+          const active = location.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
+              style={{
+                color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
+                backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
+              }}
+              onMouseLeave={(e) => {
+                if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+              }}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {label}
             </Link>
           );
         })}
