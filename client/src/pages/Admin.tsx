@@ -156,6 +156,7 @@ export default function Admin() {
   // Users state
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
   const [editingUserDisc, setEditingUserDisc] = useState<any>(null);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<any>(null);
 
   // Registros state
   const [registrosFilter, setRegistrosFilter] = useState("all");
@@ -208,6 +209,12 @@ export default function Admin() {
   });
   const deleteDisciplineM = trpc.disciplines.delete.useMutation({
     onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina excluida"); },
+  });
+
+  // User delete mutation
+  const deleteUserM = trpc.users.delete.useMutation({
+    onSuccess: () => { utils.users.list.invalidate(); setConfirmDeleteUser(null); toast.success("Usuário removido com sucesso."); },
+    onError: (e) => toast.error("Erro: " + e.message),
   });
 
   // User role mutation
@@ -457,6 +464,11 @@ export default function Admin() {
                       <Button size="sm" variant="ghost" onClick={() => setEditingUserRole({ id: u.id, role: u.role })}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
+                      {(user?.role === "master_admin" || user?.role === "admin") && u.role !== "master_admin" && u.id !== user?.id && (
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" title="Remover usuário" onClick={() => setConfirmDeleteUser(u)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -534,6 +546,39 @@ export default function Admin() {
           </SplitPanelContent>
         }
       />
+
+      {/* Confirm Delete User Dialog */}
+      {confirmDeleteUser && (
+        <Dialog open onOpenChange={(o) => { if (!o) setConfirmDeleteUser(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-4 h-4" />
+                Remover Usuário
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-3">
+              <p className="text-sm text-foreground">
+                Tem certeza que deseja remover o usuário <span className="font-semibold">{confirmDeleteUser.name ?? confirmDeleteUser.email}</span>?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Esta ação é irreversível. O usuário perderá acesso ao sistema e será removido de todos os projetos e disciplinas.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmDeleteUser(null)}>Cancelar</Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteUserM.mutate({ userId: confirmDeleteUser.id })}
+                disabled={deleteUserM.isPending}
+              >
+                {deleteUserM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                Remover
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* User Disciplines Dialog */}
       {editingUserDisc && (

@@ -46,6 +46,14 @@ export async function updateUser(id: number, data: Partial<typeof users.$inferIn
   const db = await getDb();
   await db.update(users).set({ ...data, updatedAt: new Date() }).where(eq(users.id, id));
 }
+export async function deleteUser(id: number) {
+  const db = await getDb();
+  // Remove related data to avoid FK violations
+  await db.delete(userDisciplines).where(eq(userDisciplines.userId, id));
+  // Remove from project_members (raw SQL since table isn't in schema exports)
+  await db.execute(sql`DELETE FROM project_members WHERE userId = ${id}`);
+  await db.delete(users).where(eq(users.id, id));
+}
 export async function getAllUsers() {
   const db = await getDb();
   return db.select({ id: users.id, name: users.name, email: users.email, role: users.role, avatarUrl: users.avatarUrl, createdAt: users.createdAt }).from(users).orderBy(asc(users.name));

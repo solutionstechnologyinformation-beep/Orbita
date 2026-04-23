@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import {
-  getUserByOpenId, createUser, updateUser, getAllUsers, getMemberPerformance,
+  getUserByOpenId, createUser, updateUser, getAllUsers, deleteUser, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
   getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs, recalcCrsProgress,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
@@ -94,6 +94,22 @@ export const appRouter = router({
       .input(z.object({ disciplines: z.array(z.string()) }))
       .mutation(async ({ ctx, input }) => {
         await setUserDisciplines(ctx.user.id, input.disciplines);
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.user.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Você não pode remover sua própria conta." });
+        }
+        const allUsers = await getAllUsers();
+        const targetUser = allUsers.find((u: any) => u.id === input.userId);
+        if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado." });
+        if (targetUser.role === "master_admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "O administrador principal não pode ser removido." });
+        }
+        await deleteUser(input.userId);
+        await logActivity({ userId: ctx.user.id, action: "deleted_user", entityType: "user", entityId: input.userId, metadata: JSON.stringify({ name: targetUser.name ?? targetUser.email }) });
         return { success: true };
       }),
     memberPerformance: protectedProcedure

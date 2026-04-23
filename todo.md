@@ -745,3 +745,4 @@
 - [x] Migrar Notificações para Split Panel (lista + detalhe)
 - [x] Migrar Admin para Split Panel (menu admin + conteúdo)
 - [x] Aba "Manual de Uso" adicionada na sidebar (seção Ajuda) com conteúdo completo das 18 seções, navegação lateral, botão de download do PDF
+- [x] Opção de remover usuário adicionada no painel Admin (aba Usuários) — botão Trash2 visível para admin/master_admin, exceto para o próprio usuário e para master_admin; diálogo de confirmação com aviso de ação irreversível; procedure users.delete protegida no backend
