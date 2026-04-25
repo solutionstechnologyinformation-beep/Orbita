@@ -27,6 +27,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback } from "./ui/avatar";
+import { UserAvatar } from "./UserAvatar";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -109,9 +110,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     );
   }
 
-  const initials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "U";
+  const initials = user?.avatarInitials ||
+    (user?.name
+      ? user.name.trim().split(/\s+/).map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
+      : "U");
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full" style={{ backgroundColor: SIDEBAR_BG }}>
@@ -319,14 +321,15 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
             >
-              <Avatar className="w-8 h-8 flex-shrink-0">
-                <AvatarFallback
-                  className="text-xs font-semibold"
-                  style={{ backgroundColor: "rgba(59,130,246,0.25)", color: "#93c5fd" }}
-                >
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                user={{
+                  name: user?.name,
+                  avatarUrl: user?.avatarUrl,
+                  avatarColor: (user as any)?.avatarColor,
+                  avatarInitials: (user as any)?.avatarInitials,
+                }}
+                size="sm"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate" style={{ color: "#f1f5f9" }}>
                   {user?.name ?? "Usuário"}

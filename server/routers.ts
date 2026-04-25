@@ -60,9 +60,16 @@ export const appRouter = router({
       return { success: true };
     }),
     updateProfile: protectedProcedure
-      .input(z.object({ name: z.string().optional(), avatarUrl: z.string().optional() }))
+      .input(z.object({ name: z.string().optional(), avatarUrl: z.string().optional(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
       .mutation(async ({ ctx, input }) => {
         await updateUser(ctx.user.id, input);
+        return { success: true };
+      }),
+    updateUserAvatar: adminProcedure
+      .input(z.object({ userId: z.number(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
+      .mutation(async ({ input }) => {
+        const { userId, ...data } = input;
+        await updateUser(userId, data);
         return { success: true };
       }),
   }),

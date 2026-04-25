@@ -18,6 +18,8 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin", "master_admin", "company_admin", "leader"]).default("user").notNull(),
   avatarUrl: text("avatarUrl"),
+  avatarColor: varchar("avatarColor", { length: 32 }),
+  avatarInitials: varchar("avatarInitials", { length: 4 }),
   company: varchar("company", { length: 256 }),
   companyId: int("companyId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

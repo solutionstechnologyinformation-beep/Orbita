@@ -16,8 +16,9 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Plus, Trash2, Edit2, Users, Building2, Tag, Globe, Archive, RotateCcw,
-  ClipboardList, User, Layers, Loader2,
+  ClipboardList, User, Layers, Loader2, Palette,
 } from "lucide-react";
+import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 
 const COUNTRIES = [
   "Brasil","Argentina","Chile","Colombia","Peru","Uruguai","Paraguai","Bolivia","Venezuela","Ecuador",
@@ -157,6 +158,8 @@ export default function Admin() {
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
   const [editingUserDisc, setEditingUserDisc] = useState<any>(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState<any>(null);
+  const [editingUserAvatar, setEditingUserAvatar] = useState<any>(null);
+  const [avatarForm, setAvatarForm] = useState({ avatarColor: "#3b82f6", avatarInitials: "" });
 
   // Registros state
   const [registrosFilter, setRegistrosFilter] = useState("all");
@@ -209,6 +212,12 @@ export default function Admin() {
   });
   const deleteDisciplineM = trpc.disciplines.delete.useMutation({
     onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina excluida"); },
+  });
+
+  // User avatar mutation
+  const updateAvatarM = trpc.auth.updateUserAvatar.useMutation({
+    onSuccess: () => { utils.users.list.invalidate(); setEditingUserAvatar(null); toast.success("Avatar atualizado!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
   });
 
   // User delete mutation
@@ -439,8 +448,22 @@ export default function Admin() {
             <div className="grid gap-3">
               {users.map((u: any) => (
                 <div key={u.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
-                  <div className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold text-sm shrink-0">
-                    {(u.name ?? u.email ?? "?")[0].toUpperCase()}
+                  <div className="relative shrink-0">
+                    <UserAvatar user={u} size="md" />
+                    {/* Discipline dots */}
+                    {(() => {
+                      const discData = disciplinesQ.data as any[];
+                      const userDiscData = (u.disciplines ?? []) as string[];
+                      const matched = (discData ?? []).filter((d: any) => userDiscData.includes(d.name));
+                      if (matched.length === 0) return null;
+                      return (
+                        <div className="absolute -bottom-1 -right-1 flex gap-0.5">
+                          {matched.slice(0, 3).map((d: any) => (
+                            <span key={d.id} className="w-2.5 h-2.5 rounded-full border border-background" style={{ backgroundColor: d.color ?? "#6366f1" }} title={d.name} />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground">{u.name ?? "Sem nome"}</p>
@@ -460,6 +483,9 @@ export default function Admin() {
                       <Badge variant={u.role === "admin" || u.role === "master_admin" ? "default" : "outline"} className="text-xs capitalize">{u.role}</Badge>
                       <Button size="sm" variant="ghost" title="Gerenciar disciplinas" onClick={() => setEditingUserDisc(u)}>
                         <Layers className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" title="Editar avatar" onClick={() => { setEditingUserAvatar(u); setAvatarForm({ avatarColor: u.avatarColor ?? "#3b82f6", avatarInitials: u.avatarInitials ?? "" }); }}>
+                        <Palette className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditingUserRole({ id: u.id, role: u.role })}>
                         <Edit2 className="w-4 h-4" />
@@ -546,6 +572,37 @@ export default function Admin() {
           </SplitPanelContent>
         }
       />
+
+      {/* Edit Avatar Dialog */}
+      {editingUserAvatar && (
+        <Dialog open onOpenChange={(o) => { if (!o) setEditingUserAvatar(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Palette className="w-4 h-4" />
+                Avatar de {editingUserAvatar.name ?? editingUserAvatar.email}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <AvatarEditor
+                value={avatarForm}
+                onChange={setAvatarForm}
+                name={editingUserAvatar.name}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingUserAvatar(null)}>Cancelar</Button>
+              <Button
+                onClick={() => updateAvatarM.mutate({ userId: editingUserAvatar.id, avatarColor: avatarForm.avatarColor, avatarInitials: avatarForm.avatarInitials || undefined })}
+                disabled={updateAvatarM.isPending}
+              >
+                {updateAvatarM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Confirm Delete User Dialog */}
       {confirmDeleteUser && (
