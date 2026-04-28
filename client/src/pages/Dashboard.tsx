@@ -228,8 +228,6 @@ export default function Dashboard() {
   const weekTasksQ = trpc.dashboard.weekTasks.useQuery({ weekOffset });
   const weekTasks = (weekTasksQ.data ?? []) as any[];
   const crsQ = trpc.crs.list.useQuery();
-  const onboardingQ = (trpc as any).onboarding?.status?.useQuery?.();
-
   const stats = statsQ.data;
   const clientProgress = (clientProgressQ.data ?? []) as any[];
   const myTasks = (myTasksQ.data ?? []) as any[];
@@ -292,9 +290,6 @@ export default function Dashboard() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
   }, [crsItems]);
-
-  // ── Onboarding check ─────────────────────────────────────────────────────────
-  const showOnboarding = false; // onboarding check disabled
 
   const isLoading = statsQ.isLoading;
 

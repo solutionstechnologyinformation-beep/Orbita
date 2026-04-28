@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Avatar, AvatarFallback } from "./ui/avatar";
 import { UserAvatar } from "./UserAvatar";
 import { Badge } from "./ui/badge";
 import {
@@ -109,11 +108,6 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
       </div>
     );
   }
-
-  const initials = user?.avatarInitials ||
-    (user?.name
-      ? user.name.trim().split(/\s+/).map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-      : "U");
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full" style={{ backgroundColor: SIDEBAR_BG }}>

@@ -2,9 +2,9 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import {
-  getUserByOpenId, createUser, updateUser, getAllUsers, deleteUser, getMemberPerformance,
+  updateUser, getAllUsers, deleteUser, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
-  getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs, recalcCrsProgress,
+  getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
   getTasksByCrs, getTaskById, createTask, updateTask, deleteTask, recalcTaskProgress,
   getTaskComments, createTaskComment, deleteTaskComment,
@@ -308,10 +308,9 @@ export const appRouter = router({
         assigneeId: z.number().optional(),
       }))
       .query(async ({ input }) => {
-        const { getDb: db2 } = await import('./db');
         const { tasks: t, crs: c, users: u, kanbanPhases: kp, clients: cl } = await import('../drizzle/schema');
         const { eq: eq2, and: and2, like: like2 } = await import('drizzle-orm');
-        const db = await db2();
+        const db = await getDb();
         const conditions: any[] = [];
         if (input.crsId) conditions.push(eq2(t.crsId, input.crsId));
         if (input.assigneeId) conditions.push(eq2(t.assigneeId, input.assigneeId));
@@ -353,10 +352,9 @@ export const appRouter = router({
       .input(z.object({ crsId: z.number() }))
       .query(async ({ input }) => {
         const taskList = await getTasksByCrs(input.crsId);
-        const { getChecklistItems: getCI } = await import('./db');
         const enriched = await Promise.all(
           taskList.map(async (t: (typeof taskList)[number]) => {
-            const checklistItems = await getCI(t.id);
+            const checklistItems = await getChecklistItems(t.id);
             return { ...t, checklistItems };
           })
         );
@@ -464,10 +462,9 @@ export const appRouter = router({
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         // Record phase change history
         if (data.phaseId !== undefined && data.phaseId !== task.phaseId) {
-          const { getDb: db2 } = await import("./db");
           const { kanbanPhases } = await import("../drizzle/schema");
           const { eq: eq2 } = await import("drizzle-orm");
-          const dbConn = await db2();
+          const dbConn = await getDb();
           const [fromPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, task.phaseId)).limit(1);
           const [toPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, data.phaseId)).limit(1);
           await recordPhaseChange({
@@ -508,10 +505,9 @@ export const appRouter = router({
         const task = await getTaskById(input.id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         if (input.phaseId !== task.phaseId) {
-          const { getDb: db2 } = await import("./db");
           const { kanbanPhases } = await import("../drizzle/schema");
           const { eq: eq2 } = await import("drizzle-orm");
-          const dbConn = await db2();
+          const dbConn = await getDb();
           const [fromPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, task.phaseId)).limit(1);
           const [toPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, input.phaseId)).limit(1);
           await recordPhaseChange({
