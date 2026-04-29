@@ -1,5 +1,6 @@
 import AppLayout from "@/components/AppLayout";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { Search } from "lucide-react";
 import {
   BookOpen,
   ChevronRight,
@@ -668,7 +669,16 @@ const sections: Section[] = [
 // ─── Componente principal ────────────────────────────────────────────────────
 export default function UserManual() {
   const [activeId, setActiveId] = useState(sections[0].id);
+  const [search, setSearch] = useState("");
   const activeSection = sections.find((s) => s.id === activeId) ?? sections[0];
+
+  const filteredSections = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sections;
+    return sections.filter((s) =>
+      s.title.toLowerCase().includes(q) || s.num.toLowerCase().includes(q)
+    );
+  }, [search]);
 
   return (
     <AppLayout title="Manual de Uso">
@@ -687,9 +697,26 @@ export default function UserManual() {
             <p className="text-xs text-slate-400 pl-10">Versão 1.0 — 2026</p>
           </div>
 
+          {/* Search */}
+          <div className="px-3 pb-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar seção..."
+                className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition"
+              />
+            </div>
+          </div>
+
           {/* Nav items */}
-          <nav className="flex-1 py-3 px-2 space-y-0.5">
-            {sections.map((s) => {
+          <nav className="flex-1 py-1 px-2 space-y-0.5">
+            {filteredSections.length === 0 && (
+              <p className="text-xs text-slate-400 text-center py-4">Nenhuma seção encontrada</p>
+            )}
+            {filteredSections.map((s) => {
               const Icon = s.icon;
               const isActive = s.id === activeId;
               return (
