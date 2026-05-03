@@ -55,7 +55,8 @@ function openPrint(html: string, title: string) {
   if (!w) { toast.error("Pop-up bloqueado. Permita pop-ups para exportar."); return; }
   w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
     <style>
-      body{font-family:Inter,sans-serif;margin:0;padding:24px;background:#f0f2f5;}
+      body{font-family:Inter,sans-serif;margin:0;padding:24px;background:#f0f2f5;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
       table{border-collapse:collapse;width:100%;}
       th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:12px;}
       th{background:#f1f5f9;font-weight:600;color:#475569;}

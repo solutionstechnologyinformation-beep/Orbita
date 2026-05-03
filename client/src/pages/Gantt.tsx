@@ -198,8 +198,11 @@ export default function Gantt() {
 
   // ── Bar calculation ───────────────────────────────────────────────────────
   function barProps(task: any): { left: number; width: number; valid: boolean } {
-    const s = task.startDate ? dayStart(new Date(task.startDate)) : null;
-    const e = task.endDate ? dayStart(new Date(task.endDate)) : task.dueDate ? dayStart(new Date(task.dueDate)) : null;
+    // Use dueDate as fallback for start when startDate is missing
+    const s = task.startDate ? dayStart(new Date(task.startDate))
+              : task.dueDate ? dayStart(new Date(task.dueDate)) : null;
+    const e = task.endDate ? dayStart(new Date(task.endDate))
+              : task.dueDate ? dayStart(new Date(task.dueDate)) : null;
     if (!s || !e) return { left: 0, width: 0, valid: false };
     const left = diffDays(s, rangeStart) * colPx;
     const width = Math.max(colPx * 0.8, (diffDays(e, s) + 1) * colPx - 4);

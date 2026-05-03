@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   ArrowLeft, Edit2, Save, X, Plus, Trash2, MessageSquare,
   CheckSquare, History, Loader2, User, Calendar, ChevronDown
@@ -54,6 +55,8 @@ export default function TaskDetail() {
   const [showChecklistDates, setShowChecklistDates] = useState(false);
   const [newChecklistAssigneeId, setNewChecklistAssigneeId] = useState<string>("_none");
   const [newComment, setNewComment] = useState("");
+  const [deleteChecklistId, setDeleteChecklistId] = useState<number | null>(null);
+  const [deleteChecklistReason, setDeleteChecklistReason] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editPriority, setEditPriority] = useState("");
@@ -440,7 +443,7 @@ export default function TaskDetail() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => deleteChecklistM.mutate({ id: item.id })}
+                          onClick={() => { setDeleteChecklistId(item.id); setDeleteChecklistReason(""); }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -682,6 +685,43 @@ export default function TaskDetail() {
           </TabsContent>
         </Tabs>
       </div>
+      {/* Dialog de exclusão de item do checklist com motivo */}
+      <Dialog open={deleteChecklistId !== null} onOpenChange={(o) => { if (!o) setDeleteChecklistId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir item do checklist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita. O motivo será registrado no histórico de atividades.</p>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Motivo da exclusão</label>
+              <textarea
+                className="w-full border rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+                placeholder="Informe o motivo (opcional)..."
+                value={deleteChecklistReason}
+                onChange={e => setDeleteChecklistReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteChecklistId(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteChecklistM.isPending}
+              onClick={() => {
+                if (deleteChecklistId !== null) {
+                  deleteChecklistM.mutate({ id: deleteChecklistId, reason: deleteChecklistReason || undefined }, {
+                    onSuccess: () => setDeleteChecklistId(null),
+                  });
+                }
+              }}
+            >
+              {deleteChecklistM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

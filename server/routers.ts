@@ -387,15 +387,18 @@ export const appRouter = router({
     listWithCounts: protectedProcedure.query(async () => {
       const db = await getDb();
       const allCrs = await getAllCrs();
+      // Use kanban phase terminal flag to determine completion (not legacy status field)
       const [countRows] = await (db as any).$client.query(`
-        SELECT crsId,
-          COUNT(id) as total,
-          SUM(CASE WHEN status IN ('published','archived') THEN 1 ELSE 0 END) as published,
-          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as inProgress,
-          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'shared' THEN 1 ELSE 0 END) as shared
-        FROM tasks GROUP BY crsId
+        SELECT t.crsId,
+          COUNT(t.id) as total,
+          SUM(CASE WHEN kp.isTerminal = 1 THEN 1 ELSE 0 END) as published,
+          SUM(CASE WHEN kp.isTerminal = 0 OR kp.isTerminal IS NULL THEN 1 ELSE 0 END) as inProgress,
+          SUM(CASE WHEN t.status = 'blocked' THEN 1 ELSE 0 END) as blocked,
+          SUM(CASE WHEN t.status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN t.status = 'shared' THEN 1 ELSE 0 END) as shared
+        FROM tasks t
+        LEFT JOIN kanban_phases kp ON kp.id = t.phaseId
+        GROUP BY t.crsId
       `);
       const countMap = Object.fromEntries((countRows as any[]).map((r: any) => [r.crsId, {
         total: Number(r.total), published: Number(r.published),
@@ -466,6 +469,7 @@ export const appRouter = router({
         position: z.number().optional(),
         setor: z.string().nullable().optional(),
         blockReason: z.string().nullable().optional(),
+        status: z.enum(["pending", "in_progress", "shared", "published", "archived", "blocked"]).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
@@ -654,14 +658,23 @@ export const appRouter = router({
         return { success: true };
       }),
     delete: adminProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .input(z.object({ id: z.number(), reason: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
         const db = await getDb();
         const { checklistItems: ci } = await import("../drizzle/schema");
         const { eq: eq2 } = await import("drizzle-orm");
-        const [item] = await db.select({ taskId: ci.taskId }).from(ci).where(eq2(ci.id, input.id)).limit(1);
+        const [item] = await db.select({ taskId: ci.taskId, title: ci.title }).from(ci).where(eq2(ci.id, input.id)).limit(1);
         await deleteChecklistItem(input.id);
-        if (item) await recalcTaskProgress(item.taskId);
+        if (item) {
+          await recalcTaskProgress(item.taskId);
+          await logActivity({
+            userId: ctx.user.id,
+            action: "deleted_checklist_item",
+            entityType: "checklist",
+            entityId: item.taskId,
+            metadata: JSON.stringify({ itemTitle: item.title, reason: input.reason ?? "Não informado" }),
+          });
+        }
         return { success: true };
       }),
     addComment: protectedProcedure
@@ -819,8 +832,8 @@ export const appRouter = router({
       .query(async ({ input }) => getContractsForPdf(input.clientId)),
     activeSprint: protectedProcedure.query(async () => {
       const db = await getDb();
-      const { sprints: sp, sprintTasks: st, tasks: t, kanbanPhases: kp } = await import('../drizzle/schema');
-      const { eq: eq2, desc: desc2, and: and2 } = await import('drizzle-orm');
+      const { sprints: sp, sprintTasks: st, tasks: t, kanbanPhases: kp, taskPhaseHistory: tph } = await import('../drizzle/schema');
+      const { eq: eq2, desc: desc2, inArray: inArray2, and: and2, gte: gte2, lte: lte2 } = await import('drizzle-orm');
       // Find the most recent active sprint
       const [sprint] = await db.select().from(sp).where(eq2(sp.status, 'active')).orderBy(desc2(sp.startDate)).limit(1);
       if (!sprint) return null;
@@ -832,19 +845,48 @@ export const appRouter = router({
         .leftJoin(kp, eq2(t.phaseId, kp.id))
         .where(eq2(st.sprintId, sprint.id));
       const totalTasks = sprintTaskRows.length;
+      const sprintTaskIds = sprintTaskRows.map((r: any) => r.id);
       const start = new Date(sprint.startDate);
       const end = new Date(sprint.endDate);
       const msPerDay = 86400000;
       const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay));
       const today = new Date();
-      const dataPoints: { day: number; ideal: number; real: number }[] = [];
+      // Get terminal phase IDs
+      const terminalPhaseRows = sprintTaskIds.length > 0
+        ? await db.select({ id: kp.id }).from(kp).where(eq2(kp.isTerminal, true))
+        : [];
+      const terminalPhaseIds = new Set(terminalPhaseRows.map((r: any) => r.id));
+      // Get phase history for sprint tasks to know when each task was completed
+      const phaseHistoryRows = sprintTaskIds.length > 0
+        ? await db.select({ taskId: tph.taskId, toPhaseId: tph.toPhaseId, changedAt: tph.changedAt })
+            .from(tph)
+            .where(inArray2(tph.taskId, sprintTaskIds))
+            .orderBy(tph.changedAt)
+        : [];
+      // For each task, find the earliest date it entered a terminal phase
+      const taskCompletedAt = new Map<number, Date>();
+      phaseHistoryRows.forEach((h: any) => {
+        if (terminalPhaseIds.has(h.toPhaseId) && !taskCompletedAt.has(h.taskId)) {
+          taskCompletedAt.set(h.taskId, new Date(h.changedAt));
+        }
+      });
+      // Also count tasks currently in terminal phase that may not have history
+      sprintTaskRows.forEach((r: any) => {
+        if (r.phaseIsTerminal && !taskCompletedAt.has(r.id)) {
+          taskCompletedAt.set(r.id, today); // assume completed today if no history
+        }
+      });
+      const dataPoints: { day: number; ideal: number; real: number | null }[] = [];
       for (let d = 0; d <= totalDays; d++) {
         const dayDate = new Date(start.getTime() + d * msPerDay);
+        dayDate.setHours(23, 59, 59, 999);
         const isPast = dayDate <= today;
-        const completed = isPast ? sprintTaskRows.filter((r: any) => r.phaseIsTerminal).length : 0;
+        const completed = isPast
+          ? Array.from(taskCompletedAt.values()).filter(completedDate => completedDate <= dayDate).length
+          : 0;
         const remaining = totalTasks - completed;
         const ideal = Math.max(0, totalTasks - (totalTasks / totalDays) * d);
-        dataPoints.push({ day: d + 1, ideal: Math.round(ideal * 10) / 10, real: remaining });
+        dataPoints.push({ day: d + 1, ideal: Math.round(ideal * 10) / 10, real: isPast ? remaining : null });
       }
       return { sprint, totalTasks, dataPoints };
     }),

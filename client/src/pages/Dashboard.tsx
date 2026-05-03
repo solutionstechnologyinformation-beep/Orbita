@@ -553,7 +553,8 @@ export default function Dashboard() {
                           const eD = task.endDate ? new Date(task.endDate) : (task.dueDate ? new Date(task.dueDate) : null);
                           const si = sD ? Math.max(0,Math.min(6,Math.round((sD.getTime()-mon.getTime())/86400000))) : 0;
                           const ei = eD ? Math.max(si,Math.min(6,Math.round((eD.getTime()-mon.getTime())/86400000))) : si;
-                          const barColor = task.phaseIsTerminal ? "#22c55e" : task.priority==="urgent" ? "#ef4444" : task.priority==="high" ? "#f59e0b" : "#3b82f6";
+                          // Use phase color (status) as primary; fall back to priority color
+                          const barColor = task.phaseColor ?? (task.phaseIsTerminal ? "#22c55e" : task.priority==="urgent" ? "#ef4444" : task.priority==="high" ? "#f59e0b" : "#3b82f6");
                           return (
                             <div key={task.id} className="grid items-center" style={{gridTemplateColumns:"130px repeat(7,1fr)"}}>
                               <div className="text-xs text-gray-700 truncate pr-1" title={task.title}>{task.title}</div>
@@ -571,8 +572,11 @@ export default function Dashboard() {
                           );
                         })}
                       </div>
-                      <div className="flex gap-3 mt-2 pt-2 border-t border-gray-50">
-                        {[{c:"#22c55e",l:"Concluído"},{c:"#3b82f6",l:"Normal"},{c:"#f59e0b",l:"Alta"},{c:"#ef4444",l:"Urgente"}].map(x=>(
+                      <div className="flex flex-wrap gap-3 mt-2 pt-2 border-t border-gray-50">
+                        {weekTasks.reduce((acc:any[], t:any) => {
+                          if (t.phaseName && t.phaseColor && !acc.find((x:any)=>x.l===t.phaseName)) acc.push({c:t.phaseColor,l:t.phaseName});
+                          return acc;
+                        }, []).map((x:any)=>(
                           <div key={x.l} className="flex items-center gap-1">
                             <span className="w-3 h-2 rounded-sm" style={{backgroundColor:x.c}}/>
                             <span className="text-[10px] text-gray-400">{x.l}</span>

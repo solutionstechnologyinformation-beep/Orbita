@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, AlertTriangle, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, User, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 
 const EVENT_COLORS: Record<string, string> = {
@@ -24,6 +24,23 @@ const EVENT_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
+// Task status colors matching the Kanban
+const TASK_STATUS_COLORS: Record<string, string> = {
+  pending: "#94a3b8",
+  in_progress: "#3b82f6",
+  shared: "#8b5cf6",
+  published: "#22c55e",
+  archived: "#6b7280",
+  blocked: "#ef4444",
+};
+const TASK_STATUS_LABELS: Record<string, string> = {
+  pending: "Para Iniciar",
+  in_progress: "Em Andamento",
+  shared: "Compartilhado",
+  published: "Publicado",
+  archived: "Arquivado",
+  blocked: "Bloqueado",
+};
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS = [
@@ -49,8 +66,8 @@ export default function CalendarPage() {
 
   // All events — shared calendar, all users see all events
   const agendaQ = trpc.agenda.list.useQuery({});
-  // My tasks for conflict detection
-  const myTasksQ = trpc.tasks.listForGantt.useQuery({ assigneeId: user?.id }, { enabled: !!user?.id });
+  // ALL tasks from contracts (not filtered by assignee)
+  const allTasksQ = trpc.tasks.listForGantt.useQuery({});
 
   const utils = trpc.useUtils();
 
@@ -71,7 +88,7 @@ export default function CalendarPage() {
   });
 
   const events = (agendaQ.data ?? []) as any[];
-  const myTasks = (myTasksQ.data ?? []) as any[];
+  const allTasks = (allTasksQ.data ?? []) as any[];
 
   // Build calendar grid
   const calendarDays = useMemo(() => {
@@ -94,33 +111,17 @@ export default function CalendarPage() {
   }
 
   function getTasksForDay(date: Date) {
-    return myTasks.filter((t: any) => {
+    return allTasks.filter((t: any) => {
       const due = t.dueDate ? new Date(t.dueDate) : null;
       const tStart = t.startDate ? new Date(t.startDate) : due;
       const tEnd = t.endDate ? new Date(t.endDate) : due;
       if (!tStart) return false;
       const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const s = new Date(tStart.getFullYear(), tStart.getMonth(), tStart.getDate());
-      const e2 = new Date(tEnd!.getFullYear(), tEnd!.getMonth(), tEnd!.getDate());
+      const e2 = tEnd ? new Date(tEnd.getFullYear(), tEnd.getMonth(), tEnd.getDate()) : s;
       return d >= s && d <= e2;
     });
   }
-
-  // Detect conflicts between new event dates and existing tasks
-  function detectConflicts(startStr: string, endStr: string) {
-    if (!startStr || !endStr) return [];
-    const newStart = new Date(startStr + "T00:00:00");
-    const newEnd = new Date(endStr + "T23:59:59");
-    return myTasks.filter((t: any) => {
-      const due = t.dueDate ? new Date(t.dueDate) : null;
-      const tStart = t.startDate ? new Date(t.startDate) : due;
-      const tEnd = t.endDate ? new Date(t.endDate) : due;
-      if (!tStart) return false;
-      return tStart <= newEnd && (tEnd ?? tStart) >= newStart;
-    });
-  }
-
-  const conflicts = detectConflicts(form.startDate, form.endDate);
 
   // Upcoming events (next 30 days)
   const upcomingEvents = useMemo(() => {
@@ -145,7 +146,6 @@ export default function CalendarPage() {
     setSelectedDayDate(date);
     const iso = date.toISOString().split("T")[0];
     setForm(f => ({ ...f, startDate: iso, endDate: iso }));
-    setShowCreate(true);
   }
 
   function handleCreate() {
@@ -169,12 +169,12 @@ export default function CalendarPage() {
   return (
     <AppLayout title="Calendário" fullHeight>
       <SplitLayout
-        leftWidth="280px"
+        leftWidth="290px"
         left={
           <>
             <SplitPanelHeader
               title="Calendário"
-              subtitle="Compromissos"
+              subtitle="Compromissos e Tarefas"
               action={
                 <Button size="sm" onClick={() => { setSelectedDayDate(null); setShowCreate(true); }} className="gap-1.5 h-8 text-xs">
                   <Plus className="w-3.5 h-3.5" /> Novo
@@ -222,24 +222,34 @@ export default function CalendarPage() {
                     )}
                   </CardContent>
                 </Card>
-                {/* Legend */}
+
+                {/* Legend — Events */}
                 <Card>
                   <CardContent className="pt-4 space-y-2">
-                    <p className="text-xs font-semibold text-gray-500 mb-1">Legenda</p>
+                    <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5" /> Legenda — Eventos
+                    </p>
                     {Object.entries(EVENT_LABELS).map(([key, label]) => (
                       <div key={key} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: EVENT_COLORS[key] }} />
+                        <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[key] }} />
                         <span className="text-xs text-gray-600">{label}</span>
                       </div>
                     ))}
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-sm bg-slate-200" />
-                      <span className="text-xs text-gray-600">Tarefa (sua)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-sm ring-1 ring-orange-300 bg-white" />
-                      <span className="text-xs text-gray-600">Conflito evento/tarefa</span>
-                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Legend — Tasks */}
+                <Card>
+                  <CardContent className="pt-4 space-y-2">
+                    <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
+                      <ClipboardList className="h-3.5 w-3.5" /> Legenda — Tarefas dos Contratos
+                    </p>
+                    {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: TASK_STATUS_COLORS[key] }} />
+                        <span className="text-xs text-gray-600">{label}</span>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               </div>
@@ -256,7 +266,7 @@ export default function CalendarPage() {
                     <CardTitle className="text-lg">{MONTHS[month]} {year}</CardTitle>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); }}>Hoje</Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); }} className="text-xs px-2">Hoje</Button>
                       <Button variant="ghost" size="sm" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
                     </div>
                   </div>
@@ -273,17 +283,31 @@ export default function CalendarPage() {
                       const dayEvents = getEventsForDay(date);
                       const dayTasks = getTasksForDay(date);
                       const isToday = date.toDateString() === today.toDateString();
-                      const hasConflict = dayEvents.length > 0 && dayTasks.length > 0;
+                      const isSelected = selectedDayDate?.toDateString() === date.toDateString();
                       return (
-                        <div key={i} className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${hasConflict ? "ring-1 ring-inset ring-orange-300" : ""}`} onClick={() => handleDayClick(date)}>
+                        <div
+                          key={i}
+                          className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${isSelected ? "ring-2 ring-inset ring-indigo-500" : ""}`}
+                          onClick={() => handleDayClick(date)}
+                        >
                           <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? "bg-indigo-600 text-white" : "text-gray-700"}`}>{date.getDate()}</div>
                           <div className="space-y-0.5">
                             {dayEvents.slice(0, 2).map((e: any) => (
                               <div key={e.id} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} title={`${e.title} (${e.creatorName ?? "?"})`}>{e.title}</div>
                             ))}
-                            {dayTasks.slice(0, 1).map((t: any) => (
-                              <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate bg-slate-200 text-slate-700" title={`Tarefa: ${t.title}`}>📋 {t.title}</div>
-                            ))}
+                            {dayTasks.slice(0, Math.max(0, 3 - dayEvents.length)).map((t: any) => {
+                              const statusKey = t.phaseName?.toLowerCase().includes("conclu") ? "published" :
+                                t.phaseName?.toLowerCase().includes("andamento") ? "in_progress" :
+                                t.phaseName?.toLowerCase().includes("bloqueado") ? "blocked" :
+                                t.phaseName?.toLowerCase().includes("compartilhado") ? "shared" :
+                                t.phaseName?.toLowerCase().includes("arquivado") ? "archived" : "pending";
+                              const color = TASK_STATUS_COLORS[statusKey] ?? "#94a3b8";
+                              return (
+                                <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: color + "cc" }} title={`${t.title} — ${t.projectName ?? "Contrato"} (${t.assigneeName ?? "Sem responsável"})`}>
+                                  📋 {t.title}
+                                </div>
+                              );
+                            })}
                             {(dayEvents.length + dayTasks.length) > 3 && (
                               <div className="text-xs text-gray-400 px-1">+{dayEvents.length + dayTasks.length - 3} mais</div>
                             )}
@@ -294,45 +318,79 @@ export default function CalendarPage() {
                   </div>
                 </CardContent>
               </Card>
+
               {/* Day detail panel */}
               {selectedDayDate && (
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">{selectedDayDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm">{selectedDayDate.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</CardTitle>
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { const iso = selectedDayDate.toISOString().split("T")[0]; setForm(f => ({ ...f, startDate: iso, endDate: iso })); setShowCreate(true); }}>
+                        <Plus className="h-3 w-3" /> Evento
+                      </Button>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3">
                     {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && (
                       <p className="text-xs text-gray-400">Nenhum compromisso ou tarefa neste dia.</p>
                     )}
-                    {selectedDayEvents.map((e: any) => (
-                      <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
-                        <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{e.title}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <User className="h-3 w-3 text-gray-400" />
-                            <span className="text-xs text-gray-500">{e.creatorName ?? "Desconhecido"}</span>
-                            <Badge variant="outline" className="text-xs ml-1" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>{EVENT_LABELS[e.type]}</Badge>
-                          </div>
-                          {e.description && <p className="text-xs text-gray-400 mt-0.5">{e.description}</p>}
+
+                    {/* Events */}
+                    {selectedDayEvents.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-blue-600 mb-1.5 flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Eventos</p>
+                        <div className="space-y-1.5">
+                          {selectedDayEvents.map((e: any) => (
+                            <div key={e.id} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 group">
+                              <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{e.title}</p>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <User className="h-3 w-3 text-gray-400" />
+                                  <span className="text-xs text-gray-500">{e.creatorName ?? "Desconhecido"}</span>
+                                  <Badge variant="outline" className="text-xs ml-1" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>{EVENT_LABELS[e.type]}</Badge>
+                                </div>
+                                {e.description && <p className="text-xs text-gray-400 mt-0.5">{e.description}</p>}
+                              </div>
+                              {e.createdById === user?.id && (
+                                <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                        {e.createdById === user?.id && (
-                          <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-xs" onClick={() => deleteMut.mutate({ id: e.id })}>✕</button>
-                        )}
                       </div>
-                    ))}
+                    )}
+
+                    {/* Tasks from contracts */}
                     {selectedDayTasks.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-orange-600 mb-1 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Suas tarefas neste dia</p>
-                        {selectedDayTasks.map((t: any) => (
-                          <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 border border-orange-100">
-                            <div className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{t.title}</p>
-                              <p className="text-xs text-gray-400">{t.projectName ?? "Contrato"}</p>
-                            </div>
-                          </div>
-                        ))}
+                        <p className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Tarefas dos Contratos ({selectedDayTasks.length})</p>
+                        <div className="space-y-1.5">
+                          {selectedDayTasks.map((t: any) => {
+                            const statusKey = t.phaseName?.toLowerCase().includes("conclu") ? "published" :
+                              t.phaseName?.toLowerCase().includes("andamento") ? "in_progress" :
+                              t.phaseName?.toLowerCase().includes("bloqueado") ? "blocked" :
+                              t.phaseName?.toLowerCase().includes("compartilhado") ? "shared" :
+                              t.phaseName?.toLowerCase().includes("arquivado") ? "archived" : "pending";
+                            const color = TASK_STATUS_COLORS[statusKey] ?? "#94a3b8";
+                            const statusLabel = TASK_STATUS_LABELS[statusKey] ?? t.phaseName ?? "—";
+                            return (
+                              <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">{t.title}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-xs text-gray-400">{t.projectName ?? "Contrato"}</span>
+                                    {t.assigneeName && <span className="text-xs text-gray-400">· {t.assigneeName}</span>}
+                                  </div>
+                                </div>
+                                <span className="text-xs font-medium px-1.5 py-0.5 rounded-full text-white flex-shrink-0" style={{ backgroundColor: color }}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -392,18 +450,6 @@ export default function CalendarPage() {
                 />
               </div>
             </div>
-            {conflicts.length > 0 && (
-              <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-orange-700">Conflito com suas tarefas</p>
-                  <p className="text-xs text-orange-600 mt-0.5">
-                    {conflicts.slice(0, 3).map((t: any) => t.title).join(", ")}
-                    {conflicts.length > 3 && ` e mais ${conflicts.length - 3}...`}
-                  </p>
-                </div>
-              </div>
-            )}
             <div>
               <Label>Descrição</Label>
               <Input
