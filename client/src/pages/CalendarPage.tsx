@@ -53,6 +53,13 @@ export default function CalendarPage() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay());
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const [showCreate, setShowCreate] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [form, setForm] = useState({
@@ -141,6 +148,34 @@ export default function CalendarPage() {
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
   }
+
+  // Week navigation
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+  }, [weekStart]);
+
+  function prevWeek() {
+    setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
+  }
+  function nextWeek() {
+    setWeekStart(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; });
+  }
+  function goToToday() {
+    setYear(today.getFullYear());
+    setMonth(today.getMonth());
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay());
+    d.setHours(0, 0, 0, 0);
+    setWeekStart(d);
+  }
+
+  const weekLabel = weekDays.length > 0
+    ? `${weekDays[0].toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} – ${weekDays[6].toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}`
+    : "";
 
   function handleDayClick(date: Date) {
     setSelectedDayDate(date);
@@ -262,60 +297,125 @@ export default function CalendarPage() {
               {/* Main calendar */}
               <Card>
                 <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{MONTHS[month]} {year}</CardTitle>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); }} className="text-xs px-2">Hoje</Button>
-                      <Button variant="ghost" size="sm" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <CardTitle className="text-lg">
+                      {viewMode === "month" ? `${MONTHS[month]} ${year}` : weekLabel}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      {/* View toggle */}
+                      <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                        <button
+                          className={`text-xs px-3 py-1.5 transition-colors ${viewMode === "month" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                          onClick={() => setViewMode("month")}
+                        >Mês</button>
+                        <button
+                          className={`text-xs px-3 py-1.5 transition-colors ${viewMode === "week" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                          onClick={() => setViewMode("week")}
+                        >Semana</button>
+                      </div>
+                      {/* Navigation */}
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={viewMode === "month" ? prevMonth : prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={goToToday} className="text-xs px-2">Hoje</Button>
+                        <Button variant="ghost" size="sm" onClick={viewMode === "month" ? nextMonth : nextWeek}><ChevronRight className="h-4 w-4" /></Button>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-7 mb-1">
-                    {WEEKDAYS.map(d => (
-                      <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-px bg-gray-200">
-                    {calendarDays.map((date, i) => {
-                      if (!date) return <div key={i} className="bg-gray-50 h-24" />;
-                      const dayEvents = getEventsForDay(date);
-                      const dayTasks = getTasksForDay(date);
-                      const isToday = date.toDateString() === today.toDateString();
-                      const isSelected = selectedDayDate?.toDateString() === date.toDateString();
-                      return (
-                        <div
-                          key={i}
-                          className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${isSelected ? "ring-2 ring-inset ring-indigo-500" : ""}`}
-                          onClick={() => handleDayClick(date)}
-                        >
-                          <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? "bg-indigo-600 text-white" : "text-gray-700"}`}>{date.getDate()}</div>
-                          <div className="space-y-0.5">
-                            {dayEvents.slice(0, 2).map((e: any) => (
-                              <div key={e.id} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} title={`${e.title} (${e.creatorName ?? "?"})`}>{e.title}</div>
-                            ))}
-                            {dayTasks.slice(0, Math.max(0, 3 - dayEvents.length)).map((t: any) => {
-                              const statusKey = t.phaseName?.toLowerCase().includes("conclu") ? "published" :
-                                t.phaseName?.toLowerCase().includes("andamento") ? "in_progress" :
-                                t.phaseName?.toLowerCase().includes("bloqueado") ? "blocked" :
-                                t.phaseName?.toLowerCase().includes("compartilhado") ? "shared" :
-                                t.phaseName?.toLowerCase().includes("arquivado") ? "archived" : "pending";
-                              const color = TASK_STATUS_COLORS[statusKey] ?? "#94a3b8";
-                              return (
-                                <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: color + "cc" }} title={`${t.title} — ${t.projectName ?? "Contrato"} (${t.assigneeName ?? "Sem responsável"})`}>
-                                  📋 {t.title}
-                                </div>
-                              );
-                            })}
-                            {(dayEvents.length + dayTasks.length) > 3 && (
-                              <div className="text-xs text-gray-400 px-1">+{dayEvents.length + dayTasks.length - 3} mais</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {viewMode === "month" ? (
+                    <>
+                      <div className="grid grid-cols-7 mb-1">
+                        {WEEKDAYS.map(d => (
+                          <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-px bg-gray-200">
+                        {calendarDays.map((date, i) => {
+                          if (!date) return <div key={i} className="bg-gray-50 h-24" />;
+                          const dayEvents = getEventsForDay(date);
+                          const dayTasks = getTasksForDay(date);
+                          const isToday = date.toDateString() === today.toDateString();
+                          const isSelected = selectedDayDate?.toDateString() === date.toDateString();
+                          return (
+                            <div
+                              key={i}
+                              className={`bg-white h-24 p-1 cursor-pointer hover:bg-indigo-50 transition-colors ${isSelected ? "ring-2 ring-inset ring-indigo-500" : ""}`}
+                              onClick={() => handleDayClick(date)}
+                            >
+                              <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? "bg-indigo-600 text-white" : "text-gray-700"}`}>{date.getDate()}</div>
+                              <div className="space-y-0.5">
+                                {dayEvents.slice(0, 2).map((e: any) => (
+                                  <div key={e.id} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} title={`${e.title} (${e.creatorName ?? "?"})`}>{e.title}</div>
+                                ))}
+                                {dayTasks.slice(0, Math.max(0, 3 - dayEvents.length)).map((t: any) => {
+                                  const statusKey = t.phaseName?.toLowerCase().includes("conclu") ? "published" :
+                                    t.phaseName?.toLowerCase().includes("andamento") ? "in_progress" :
+                                    t.phaseName?.toLowerCase().includes("bloqueado") ? "blocked" :
+                                    t.phaseName?.toLowerCase().includes("compartilhado") ? "shared" :
+                                    t.phaseName?.toLowerCase().includes("arquivado") ? "archived" : "pending";
+                                  const color = TASK_STATUS_COLORS[statusKey] ?? "#94a3b8";
+                                  return (
+                                    <div key={`t-${t.id}`} className="text-xs px-1 py-0.5 rounded truncate text-white" style={{ backgroundColor: color + "cc" }} title={`${t.title} — ${t.projectName ?? "Contrato"} (${t.assigneeName ?? "Sem responsável"})`}>
+                                      📋 {t.title}
+                                    </div>
+                                  );
+                                })}
+                                {(dayEvents.length + dayTasks.length) > 3 && (
+                                  <div className="text-xs text-gray-400 px-1">+{dayEvents.length + dayTasks.length - 3} mais</div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    /* Week view */
+                    <div className="overflow-x-auto">
+                      <div className="grid grid-cols-7 gap-px bg-gray-200 min-w-[560px]">
+                        {weekDays.map((date, i) => {
+                          const dayEvents = getEventsForDay(date);
+                          const dayTasks = getTasksForDay(date);
+                          const isToday = date.toDateString() === today.toDateString();
+                          const isSelected = selectedDayDate?.toDateString() === date.toDateString();
+                          return (
+                            <div
+                              key={i}
+                              className={`bg-white min-h-48 p-2 cursor-pointer hover:bg-indigo-50 transition-colors ${isSelected ? "ring-2 ring-inset ring-indigo-500" : ""}`}
+                              onClick={() => handleDayClick(date)}
+                            >
+                              <div className="mb-2 text-center">
+                                <div className="text-xs text-gray-400">{WEEKDAYS[date.getDay()]}</div>
+                                <div className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-indigo-600 text-white" : "text-gray-700"}`}>{date.getDate()}</div>
+                              </div>
+                              <div className="space-y-1">
+                                {dayEvents.map((e: any) => (
+                                  <div key={e.id} className="text-xs px-1.5 py-1 rounded truncate text-white" style={{ backgroundColor: EVENT_COLORS[e.type] ?? "#6366f1" }} title={`${e.title} (${e.creatorName ?? "?"})`}>{e.title}</div>
+                                ))}
+                                {dayTasks.map((t: any) => {
+                                  const statusKey = t.phaseName?.toLowerCase().includes("conclu") ? "published" :
+                                    t.phaseName?.toLowerCase().includes("andamento") ? "in_progress" :
+                                    t.phaseName?.toLowerCase().includes("bloqueado") ? "blocked" :
+                                    t.phaseName?.toLowerCase().includes("compartilhado") ? "shared" :
+                                    t.phaseName?.toLowerCase().includes("arquivado") ? "archived" : "pending";
+                                  const color = TASK_STATUS_COLORS[statusKey] ?? "#94a3b8";
+                                  return (
+                                    <div key={`t-${t.id}`} className="text-xs px-1.5 py-1 rounded truncate text-white" style={{ backgroundColor: color + "cc" }} title={`${t.title} — ${t.projectName ?? "Contrato"}`}>
+                                      📋 {t.title}
+                                    </div>
+                                  );
+                                })}
+                                {dayEvents.length === 0 && dayTasks.length === 0 && (
+                                  <div className="text-xs text-gray-300 text-center mt-2">—</div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

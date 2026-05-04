@@ -511,6 +511,25 @@ export const appRouter = router({
             relatedTaskId: id,
           });
         }
+        // Notify assignee and owner when task is blocked
+        if (data.status === "blocked" && (task as any).status !== "blocked") {
+          const blockerName = ctx.user.name ?? ctx.user.email ?? "Alguém";
+          const reason = data.blockReason ? ` Motivo: ${data.blockReason}` : "";
+          if (task.assigneeId && task.assigneeId !== ctx.user.id) {
+            await notifyUser({
+              userId: task.assigneeId,
+              title: `Tarefa bloqueada: "${task.title}"`,
+              message: `${blockerName} marcou esta tarefa como bloqueada.${reason}`,
+              notificationType: "task_blocked",
+              relatedTaskId: id,
+            });
+          }
+          // Also notify owner
+          await notifyOwner({
+            title: `Tarefa bloqueada: "${task.title}"`,
+            content: `${blockerName} bloqueou a tarefa "${task.title}".${reason}`,
+          });
+        }
         await updateTask(id, data);
         return { success: true };
       }),
