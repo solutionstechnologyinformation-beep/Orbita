@@ -49,14 +49,16 @@ function getStatusLabel(progress: number) {
 }
 
 // ── Google Maps de Contratos ──────────────────────────────────────────────────
+interface ContractItem { id: number; name: string; clientName: string | null; progress: number; }
 interface ContractLocation {
   name: string;
   state: string | null;
   country: string | null;
   count: number;
   avgProgress: number;
+  contracts?: ContractItem[];
 }
-function ContractsMap({ locations }: { locations: ContractLocation[] }) {
+function ContractsMap({ locations, onNavigate }: { locations: ContractLocation[]; onNavigate: (path: string) => void }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
 
@@ -131,15 +133,40 @@ function ContractsMap({ locations }: { locations: ContractLocation[] }) {
                 fontSize: "12px",
               },
             });
+            // Build infoWindow content with contract list if available
+            const contractsList = loc.contracts && loc.contracts.length > 0
+              ? loc.contracts.map((c: ContractItem) =>
+                  `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;" data-crs-id="${c.id}">
+                    <div style="width:6px;height:6px;border-radius:50%;background:#3b82f6;flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:12px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${c.name}</div>
+                      ${c.clientName ? `<div style="font-size:11px;color:#64748b;">${c.clientName}</div>` : ''}
+                    </div>
+                    <div style="font-size:11px;color:#3b82f6;font-weight:600;white-space:nowrap;">${c.progress}%</div>
+                  </div>`
+                ).join('')
+              : '';
             const infoWindow = new g.InfoWindow({
-              content: `<div style="font-family:Inter,sans-serif;padding:4px 2px;min-width:140px;">
+              content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:200px;max-width:260px;">
                 <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px;">${loc.state ?? loc.country ?? ""}</div>
-                <div style="font-size:12px;color:#64748b;">${loc.count} contrato${loc.count !== 1 ? "s" : ""}</div>
-                <div style="font-size:12px;color:#3b82f6;margin-top:2px;">Progresso médio: ${loc.avgProgress}%</div>
+                <div style="font-size:12px;color:#64748b;margin-bottom:2px;">${loc.count} contrato${loc.count !== 1 ? "s" : ""} &bull; Progresso médio: <span style="color:#3b82f6;font-weight:600;">${loc.avgProgress}%</span></div>
+                ${contractsList ? `<div style="margin-top:6px;max-height:180px;overflow-y:auto;">${contractsList}</div>` : ''}
               </div>`,
             });
             marker.addListener("click", () => {
               infoWindow.open({ anchor: marker, map });
+              // After open, attach click listeners to contract rows
+              setTimeout(() => {
+                const container = document.querySelector('.gm-style-iw-d');
+                if (container) {
+                  container.querySelectorAll('[data-crs-id]').forEach((el: Element) => {
+                    (el as HTMLElement).addEventListener('click', () => {
+                      const crsId = (el as HTMLElement).getAttribute('data-crs-id');
+                      if (crsId) { onNavigate(`/kanban?crs=${crsId}`); infoWindow.close(); }
+                    });
+                  });
+                }
+              }, 200);
             });
             markersRef.current.push(marker);
           }
@@ -331,7 +358,10 @@ export default function Dashboard() {
                 {contractsByStateQ.isLoading ? (
                   <Skeleton className="h-64 w-full rounded-lg" />
                 ) : (
-                  <ContractsMap locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0 }))} />
+                  <ContractsMap
+                    locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0, contracts: s.contracts ?? [] }))}
+                    onNavigate={navigate}
+                  />
                 )}
               </div>
 

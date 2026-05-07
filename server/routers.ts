@@ -345,7 +345,15 @@ export const appRouter = router({
           .where(conditions.length > 0 ? and2(...conditions) : undefined)
           .orderBy(t.setor, u.name, t.startDate);
         // filter by clientId after join
-        return input.clientId ? rows.filter((r: any) => r.clientId === input.clientId) : rows;
+        const filtered = input.clientId ? rows.filter((r: any) => r.clientId === input.clientId) : rows;
+        // Enrich with checklist items
+        const enriched = await Promise.all(
+          filtered.map(async (task: any) => {
+            const items = await getChecklistItems(task.id);
+            return { ...task, checklistItems: items };
+          })
+        );
+        return enriched;
       }),
     listByCrs: protectedProcedure
       .input(z.object({
@@ -946,24 +954,27 @@ export const appRouter = router({
     contractsByState: protectedProcedure.query(async () => {
       const db = await getDb();
       const { crs: crsTable, clients: clientsTable } = await import('../drizzle/schema');
-      const { eq: eq2, and: and2 } = await import('drizzle-orm');
+      const { eq: eq2 } = await import('drizzle-orm');
       const rows = await db.select({
+        id: crsTable.id, name: crsTable.name,
         stateCode: crsTable.stateCode, state: crsTable.state, progress: crsTable.progress,
         clientName: clientsTable.name,
       }).from(crsTable)
         .leftJoin(clientsTable, eq2(crsTable.clientId, clientsTable.id))
         .where(eq2(crsTable.status, 'active'));
       // Group by stateCode
-      const map: Record<string, { state: string; count: number; totalProgress: number }> = {};
+      const map: Record<string, { state: string; count: number; totalProgress: number; contracts: { id: number; name: string; clientName: string | null; progress: number }[] }> = {};
       rows.forEach((r: any) => {
         const key = r.stateCode ?? r.state ?? 'BR';
-        if (!map[key]) map[key] = { state: r.state ?? r.stateCode ?? 'Brasil', count: 0, totalProgress: 0 };
+        if (!map[key]) map[key] = { state: r.state ?? r.stateCode ?? 'Brasil', count: 0, totalProgress: 0, contracts: [] };
         map[key].count++;
         map[key].totalProgress += r.progress ?? 0;
+        map[key].contracts.push({ id: r.id, name: r.name, clientName: r.clientName ?? null, progress: r.progress ?? 0 });
       });
       return Object.entries(map).map(([code, v]) => ({
         code, state: v.state, count: v.count,
         avgProgress: v.count > 0 ? Math.round(v.totalProgress / v.count) : 0,
+        contracts: v.contracts,
       })).sort((a, b) => b.count - a.count);
     }),
   }),

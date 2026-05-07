@@ -172,7 +172,7 @@ const DEFAULT_PHASES = [
   { name: "Em Andamento", color: "#9a6b00", position: 1, isDefault: true, isTerminal: false },
   { name: "Compartilhado", color: "#1dbab4", position: 2, isDefault: true, isTerminal: false },
   { name: "Publicado", color: "#22c55e", position: 3, isDefault: true, isTerminal: true },
-  { name: "Arquivado", color: "#6366f1", position: 4, isDefault: true, isTerminal: true },
+  { name: "Concluído", color: "#6366f1", position: 4, isDefault: true, isTerminal: true },
   { name: "Bloqueado", color: "#fc5226", position: 5, isDefault: true, isTerminal: false },
 ];
 export async function createDefaultPhases(crsId: number, createdById: number) {

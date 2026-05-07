@@ -30,8 +30,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-red-100 text-red-700",
 };
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendente", in_progress: "Em Andamento", shared: "Compartilhado",
-  published: "Publicado", archived: "Arquivado", blocked: "Bloqueado",
+  pending: "Para Iniciar", in_progress: "Em Andamento", shared: "Em Andamento",
+  published: "Concluído", archived: "Concluído", blocked: "Bloqueado",
 };
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gray-100 text-gray-700",
@@ -401,12 +401,9 @@ export default function TaskDetail() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="pending">Pendente</SelectItem>
+                                <SelectItem value="pending">Para Iniciar</SelectItem>
                                 <SelectItem value="in_progress">Em Andamento</SelectItem>
-                                <SelectItem value="shared">Compartilhado</SelectItem>
-                                <SelectItem value="published">Publicado</SelectItem>
-                                <SelectItem value="archived">Arquivado</SelectItem>
-                                <SelectItem value="blocked">Bloqueado</SelectItem>
+                                <SelectItem value="published">Concluído</SelectItem>
                               </SelectContent>
                             </Select>
                           )}

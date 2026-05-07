@@ -170,7 +170,8 @@ export default function Gantt() {
   type Row =
     | { type: "group"; key: string; label: string }
     | { type: "subgroup"; key: string; label: string; parentKey: string }
-    | { type: "task"; task: any; index: number };
+    | { type: "task"; task: any; index: number }
+    | { type: "checklist"; item: any; taskId: number };
 
   const rows = useMemo<Row[]>(() => {
     const result: Row[] = [];
@@ -186,6 +187,12 @@ export default function Gantt() {
           if (!collapsed.has(sg.subKey)) {
             sg.tasks.forEach((t) => {
               result.push({ type: "task", task: t, index: ++taskIdx });
+              // Add checklist sub-rows if task is expanded
+              if (!collapsed.has(`checklist-${t.id}`) && t.checklistItems?.length > 0) {
+                t.checklistItems.forEach((ci: any) => {
+                  result.push({ type: "checklist", item: ci, taskId: t.id });
+                });
+              }
             });
           }
         });
@@ -583,11 +590,35 @@ export default function Gantt() {
                     </div>
                   );
                 }
+                // checklist sub-row
+                if (row.type === "checklist") {
+                  const ci = row.item;
+                  const isDone = ci.status === "published" || ci.status === "archived";
+                  return (
+                    <div key={`ci-${ci.id}-${i}`} className="flex items-center gap-2 pl-14 pr-2 border-b border-border/50 hover:bg-muted/10 bg-muted/5" style={{ height: ROW_H - 8 }}>
+                      <div className={`w-2.5 h-2.5 rounded-sm shrink-0 border ${isDone ? "bg-green-500 border-green-500" : "border-muted-foreground/40"}`} />
+                      <span className={`text-[10px] truncate flex-1 ${isDone ? "line-through text-muted-foreground" : "text-foreground/80"}`}>{ci.title}</span>
+                      {ci.assigneeName && <span className="text-[9px] text-muted-foreground shrink-0">{ci.assigneeName.split(" ")[0]}</span>}
+                    </div>
+                  );
+                }
                 // task row
-                const t = row.task;
+                const t = (row as { type: "task"; task: any; index: number }).task;
+                const taskIdx2 = (row as { type: "task"; task: any; index: number }).index;
+                const hasChecklist = t.checklistItems?.length > 0;
+                const checklistExpanded = !collapsed.has(`checklist-${t.id}`);
                 return (
-                  <div key={`task-${t.id}-${i}`} className="flex items-center gap-2 pl-10 pr-2 border-b border-border hover:bg-muted/20" style={{ height: ROW_H }}>
-                    <span className="text-[10px] text-muted-foreground shrink-0 w-4">{row.index}</span>
+                  <div key={`task-${t.id}-${i}`} className="flex items-center gap-1.5 pl-10 pr-2 border-b border-border hover:bg-muted/20" style={{ height: ROW_H }}>
+                    {hasChecklist && (
+                      <button
+                        className="shrink-0 p-0.5 hover:bg-muted rounded"
+                        onClick={() => setCollapsed(prev => { const n = new Set(prev); const k = `checklist-${t.id}`; n.has(k) ? n.delete(k) : n.add(k); return n; })}
+                      >
+                        {checklistExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRightIcon className="w-3 h-3 text-muted-foreground" />}
+                      </button>
+                    )}
+                    {!hasChecklist && <span className="w-4 shrink-0" />}
+                    <span className="text-[10px] text-muted-foreground shrink-0 w-4">{taskIdx2}</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="text-xs truncate flex-1 cursor-default">{t.title}</span>
@@ -596,6 +627,7 @@ export default function Gantt() {
                         <p className="font-semibold">{t.title}</p>
                         {t.assigneeName && <p className="text-xs text-muted-foreground">Responsável: {t.assigneeName}</p>}
                         {t.phaseName && <p className="text-xs text-muted-foreground">Fase: {t.phaseName}</p>}
+                        {hasChecklist && <p className="text-xs text-muted-foreground">{t.checklistItems.filter((c: any) => c.status === 'published' || c.status === 'archived').length}/{t.checklistItems.length} itens concluídos</p>}
                       </TooltipContent>
                     </Tooltip>
                     {t.priority === "urgent" && <Badge variant="destructive" className="text-[9px] px-1 py-0 shrink-0">!</Badge>}
@@ -652,8 +684,37 @@ export default function Gantt() {
                       </div>
                     );
                   }
+                  // checklist sub-row (right panel)
+                  if (row.type === "checklist") {
+                    const ci = row.item;
+                    const bp2 = barProps(ci);
+                    const isDone = ci.status === "published" || ci.status === "archived";
+                    return (
+                      <div key={`ci-right-${ci.id}-${i}`} className="relative flex border-b border-border/50 bg-muted/5" style={{ height: ROW_H - 8, width: totalGridWidth }}>
+                        {days.map((d, j) => (
+                          <div key={j} className={`shrink-0 border-r border-border/20`} style={{ width: colPx }} />
+                        ))}
+                        {bp2.valid && (
+                          <div
+                            className="absolute rounded flex items-center px-1.5 overflow-hidden"
+                            style={{
+                              left: bp2.left,
+                              width: bp2.width,
+                              height: ROW_H - 20,
+                              top: 4,
+                              background: isDone ? "#22c55e" : "#94a3b8",
+                              opacity: 0.85,
+                              zIndex: 5,
+                            }}
+                          >
+                            <span className="text-white text-[9px] truncate">{ci.title}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
                   // task row
-                  const t = row.task;
+                  const t = (row as { type: "task"; task: any; index: number }).task;
                   const bp = barProps(t);
                   const isOverdue = t.dueDate && new Date(t.dueDate) < today && t.phaseName !== "Concluído";
                   return (
