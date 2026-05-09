@@ -975,10 +975,113 @@ export const appRouter = router({
         code, state: v.state, count: v.count,
         avgProgress: v.count > 0 ? Math.round(v.totalProgress / v.count) : 0,
         contracts: v.contracts,
-      })).sort((a, b) => b.count - a.count);
+       })).sort((a, b) => b.count - a.count);
+    }),
+
+    // ── SLA / Pontualidade ──────────────────────────────────────────────────
+    slaStats: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const { tasks: t, kanbanPhases: kp, taskPhaseHistory: tph } = await import('../drizzle/schema');
+      const { eq: eq2, and: and2, isNotNull: isNotNull2, lte: lte2, sql: sqlExpr2 } = await import('drizzle-orm');
+      const now = new Date();
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+      // Tasks completed this month (in terminal phases)
+      const completedThisMonth = await db.execute(
+        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
+          FROM task_phase_history tph
+          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
+          WHERE tph.changedAt >= ${thisMonthStart}`
+      ) as any[];
+
+      // Tasks completed on time this month (completed before or on dueDate)
+      const onTimeThisMonth = await db.execute(
+        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
+          FROM task_phase_history tph
+          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
+          JOIN tasks t ON t.id = tph.taskId
+          WHERE tph.changedAt >= ${thisMonthStart}
+            AND t.dueDate IS NOT NULL
+            AND tph.changedAt <= t.dueDate`
+      ) as any[];
+
+      // Tasks completed last month
+      const completedLastMonth = await db.execute(
+        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
+          FROM task_phase_history tph
+          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
+          WHERE tph.changedAt >= ${lastMonthStart} AND tph.changedAt <= ${lastMonthEnd}`
+      ) as any[];
+
+      // Tasks completed on time last month
+      const onTimeLastMonth = await db.execute(
+        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
+          FROM task_phase_history tph
+          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
+          JOIN tasks t ON t.id = tph.taskId
+          WHERE tph.changedAt >= ${lastMonthStart} AND tph.changedAt <= ${lastMonthEnd}
+            AND t.dueDate IS NOT NULL
+            AND tph.changedAt <= t.dueDate`
+      ) as any[];
+
+      const totalThis = Number((completedThisMonth[0] as any)?.[0]?.cnt ?? 0);
+      const onTimeThis = Number((onTimeThisMonth[0] as any)?.[0]?.cnt ?? 0);
+      const totalLast = Number((completedLastMonth[0] as any)?.[0]?.cnt ?? 0);
+      const onTimeLast = Number((onTimeLastMonth[0] as any)?.[0]?.cnt ?? 0);
+
+      const slaThis = totalThis > 0 ? Math.round((onTimeThis / totalThis) * 100) : null;
+      const slaLast = totalLast > 0 ? Math.round((onTimeLast / totalLast) * 100) : null;
+      const trend = slaThis !== null && slaLast !== null ? slaThis - slaLast : null;
+
+      return { slaThis, slaLast, trend, totalThis, onTimeThis };
+    }),
+
+    // ── Vencimentos Próximos ─────────────────────────────────────────────────
+    upcomingDeadlines: protectedProcedure.query(async () => {
+      const db = await getDb();
+      const { tasks: t, kanbanPhases: kp, crs: crsTable } = await import('../drizzle/schema');
+      const { eq: eq2, and: and2, isNotNull: isNotNull2, gte: gte2, lte: lte2, sql: sqlExpr2 } = await import('drizzle-orm');
+      const now = new Date();
+      const in7 = new Date(now.getTime() + 7 * 86400000);
+      const in15 = new Date(now.getTime() + 15 * 86400000);
+      const in30 = new Date(now.getTime() + 30 * 86400000);
+
+      // Count tasks due in each window (not in terminal phases)
+      const countRows = await db.execute(
+        sqlExpr2`SELECT
+          SUM(CASE WHEN t.dueDate <= ${in7} THEN 1 ELSE 0 END) as next7,
+          SUM(CASE WHEN t.dueDate > ${in7} AND t.dueDate <= ${in15} THEN 1 ELSE 0 END) as next15,
+          SUM(CASE WHEN t.dueDate > ${in15} AND t.dueDate <= ${in30} THEN 1 ELSE 0 END) as next30
+          FROM tasks t
+          JOIN kanban_phases kp ON kp.id = t.phaseId AND kp.isTerminal = 0
+          WHERE t.dueDate IS NOT NULL AND t.dueDate >= ${now}`
+      ) as any[];
+
+      const counts = (countRows[0] as any)?.[0] ?? {};
+
+      // Upcoming tasks list (next 10 due)
+      const upcoming = await db.execute(
+        sqlExpr2`SELECT t.id, t.title, t.dueDate, t.priority, kp.name as phaseName, kp.color as phaseColor, c.name as crsName
+          FROM tasks t
+          JOIN kanban_phases kp ON kp.id = t.phaseId AND kp.isTerminal = 0
+          LEFT JOIN crs c ON c.id = t.crsId
+          WHERE t.dueDate IS NOT NULL AND t.dueDate >= ${now}
+          ORDER BY t.dueDate ASC
+          LIMIT 8`
+      ) as any[];
+
+      return {
+        counts: {
+          next7: Number(counts.next7 ?? 0),
+          next15: Number(counts.next15 ?? 0),
+          next30: Number(counts.next30 ?? 0),
+        },
+        tasks: (upcoming[0] as any[]) ?? [],
+      };
     }),
   }),
-
   // ─── Notifications ──────────────────────────────────────────────────────────
   notifications: router({
     list: protectedProcedure.query(async ({ ctx }) => getNotifications(ctx.user.id)),

@@ -10,6 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
+  Target, CalendarClock, Zap, TrendingDown, ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
@@ -253,6 +254,9 @@ export default function Dashboard() {
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
   const weekTasksQ = trpc.dashboard.weekTasks.useQuery({ weekOffset });
+  const slaQ = trpc.dashboard.slaStats.useQuery();
+  const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
+  const recentFullQ = trpc.dashboard.recentActivity.useQuery({ limit: 10 });
   const weekTasks = (weekTasksQ.data ?? []) as any[];
   const crsQ = trpc.crs.list.useQuery();
   const stats = statsQ.data;
@@ -617,40 +621,144 @@ export default function Dashboard() {
                   );
                 })()}
               </div>
-              {/* Atividade Recente */}
+              {/* ── Painel SLA / Pontualidade ───────────────────────────────── */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-3">Atividade Recente</h3>
-                {recentQ.isLoading ? (
-                  <div className="space-y-3">
-                    {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-blue-600" /> SLA / Pontualidade
+                  </h3>
+                  <span className="text-xs text-gray-400">Mês atual vs. anterior</span>
+                </div>
+                {slaQ.isLoading ? (
+                  <Skeleton className="h-20 w-full" />
+                ) : (() => {
+                  const sla = slaQ.data;
+                  const pct = sla?.slaThis;
+                  const trend = sla?.trend;
+                  const color = pct === null || pct === undefined ? "gray" : pct >= 80 ? "green" : pct >= 60 ? "yellow" : "red";
+                  const colorMap: Record<string, string> = { green: "text-green-600", yellow: "text-yellow-600", red: "text-red-600", gray: "text-gray-400" };
+                  const bgMap: Record<string, string> = { green: "bg-green-50", yellow: "bg-yellow-50", red: "bg-red-50", gray: "bg-gray-50" };
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-end gap-3">
+                        <span className={`text-4xl font-bold ${colorMap[color]}`}>
+                          {pct !== null && pct !== undefined ? `${pct}%` : "—"}
+                        </span>
+                        {trend !== null && trend !== undefined && (
+                          <div className={`flex items-center gap-0.5 text-sm mb-1 ${trend >= 0 ? "text-green-600" : "text-red-500"}`}>
+                            {trend >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                            <span>{trend >= 0 ? "+" : ""}{trend}pp</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all ${color === "green" ? "bg-green-500" : color === "yellow" ? "bg-yellow-500" : color === "red" ? "bg-red-500" : "bg-gray-300"}`}
+                          style={{ width: `${pct ?? 0}%` }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className={`rounded-lg p-2 ${bgMap[color]}`}>
+                          <p className="text-xs text-gray-500">No prazo (mês)</p>
+                          <p className={`text-lg font-bold ${colorMap[color]}`}>{sla?.onTimeThis ?? 0}</p>
+                        </div>
+                        <div className="rounded-lg p-2 bg-gray-50">
+                          <p className="text-xs text-gray-500">Total concluídas</p>
+                          <p className="text-lg font-bold text-gray-700">{sla?.totalThis ?? 0}</p>
+                        </div>
+                      </div>
+                      {sla?.slaLast !== null && sla?.slaLast !== undefined && (
+                        <p className="text-xs text-gray-400">Mês anterior: <span className="font-medium text-gray-600">{sla.slaLast}%</span></p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ── Linha do Tempo de Vencimentos ──────────────────────────────── */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <CalendarClock className="w-4 h-4 text-orange-500" /> Vencimentos Próximos
+                  </h3>
+                </div>
+                {upcomingQ.isLoading ? (
+                  <Skeleton className="h-24 w-full" />
+                ) : (() => {
+                  const up = upcomingQ.data;
+                  const counts = up?.counts ?? { next7: 0, next15: 0, next30: 0 };
+                  const tasks = (up?.tasks ?? []) as any[];
+                  const bars = [
+                    { label: "7 dias", value: counts.next7, color: "bg-red-500" },
+                    { label: "15 dias", value: counts.next15, color: "bg-orange-400" },
+                    { label: "30 dias", value: counts.next30, color: "bg-yellow-400" },
+                  ];
+                  const maxVal = Math.max(...bars.map(b => b.value), 1);
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        {bars.map(b => (
+                          <div key={b.label} className="flex-1 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="w-full bg-gray-100 rounded h-16 flex flex-col-reverse overflow-hidden">
+                                <div
+                                  className={`${b.color} transition-all`}
+                                  style={{ height: `${Math.round((b.value / maxVal) * 100)}%`, minHeight: b.value > 0 ? "4px" : "0" }}
+                                />
+                              </div>
+                              <span className="text-lg font-bold text-gray-800">{b.value}</span>
+                              <span className="text-xs text-gray-400">{b.label}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-1 max-h-36 overflow-y-auto">
+                        {tasks.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-2">Nenhuma tarefa com prazo próximo</p>
+                        ) : tasks.map((t: any) => (
+                          <div key={t.id} className="flex items-center gap-2 py-1 border-b border-gray-50 last:border-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.phaseColor ?? "#94a3b8" }} />
+                            <span className="text-xs text-gray-700 flex-1 truncate">{t.title}</span>
+                            <span className="text-xs text-gray-400 shrink-0">{new Date(t.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ── Feed de Últimas Atualizações ───────────────────────────────── */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-purple-500" /> Últimas Atualizações
+                  </h3>
+                </div>
+                {recentFullQ.isLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
                   </div>
-                ) : (recentQ.data ?? []).length === 0 ? (
+                ) : (recentFullQ.data ?? []).length === 0 ? (
                   <p className="text-sm text-gray-400 py-4 text-center">Nenhuma atividade recente</p>
                 ) : (
-                  <div className="space-y-0">
-                    {(recentQ.data ?? []).slice(0, 5).map((a: any) => {
+                  <div className="space-y-0 max-h-64 overflow-y-auto">
+                    {(recentFullQ.data ?? []).map((a: any) => {
                       const meta = (() => { try { return JSON.parse(a.metadata ?? "{}"); } catch { return {}; } })();
                       const entityLabel = meta.entityName ?? meta.crsName ?? meta.taskTitle ?? "";
+                      const actionIcon = a.action === "create" ? "🟢" : a.action === "delete" ? "🔴" : "🔵";
+                      const actionText = a.action === "create" ? "criou" : a.action === "update" ? "atualizou" : a.action === "delete" ? "excluiu" : a.action;
+                      const entityText = a.entityType === "crs" ? "contrato" : a.entityType === "task" ? "tarefa" : a.entityType === "checklist" ? "checklist" : a.entityType;
                       return (
-                        <div key={a.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                          <Avatar className="w-8 h-8 shrink-0">
-                            <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
-                              {initials(a.userName ?? "?")}
-                            </AvatarFallback>
-                          </Avatar>
+                        <div key={a.id} className="flex items-start gap-2.5 py-2 border-b border-gray-50 last:border-0">
+                          <span className="text-sm mt-0.5">{actionIcon}</span>
                           <div className="flex-1 min-w-0">
-                            <span className="text-sm text-gray-700">
-                              <span className="font-medium">{a.userName}</span>{" "}
-                              {a.action === "create" ? "criou" : a.action === "update" ? "atualizou" : a.action === "delete" ? "excluiu" : a.action}{" "}
-                              {a.entityType === "crs" ? "o contrato" : a.entityType === "task" ? "a tarefa" : a.entityType === "checklist" ? "o checklist" : a.entityType}
-                            </span>
-                            {entityLabel && (
-                              <Badge variant="secondary" className="ml-2 text-xs py-0 px-1.5 bg-blue-50 text-blue-700 border-0">
-                                {entityLabel}
-                              </Badge>
-                            )}
+                            <p className="text-xs text-gray-700 leading-snug">
+                              <span className="font-semibold">{a.userName}</span> {actionText} {entityText}
+                              {entityLabel && <span className="text-blue-600 font-medium"> "{entityLabel}"</span>}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{fmtTime(a.createdAt)}</p>
                           </div>
-                          <span className="text-xs text-gray-400 shrink-0">{fmtTime(a.createdAt)}</span>
                         </div>
                       );
                     })}
@@ -660,7 +768,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
         {/* ══════════════════════════════════════════════════════════════════════
             VISÃO DETALHADA
         ══════════════════════════════════════════════════════════════════════ */}
