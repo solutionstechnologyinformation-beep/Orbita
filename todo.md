@@ -746,3 +746,12 @@
 - [x] Migrar Admin para Split Panel (menu admin + conteúdo)
 - [x] Aba "Manual de Uso" adicionada na sidebar (seção Ajuda) com conteúdo completo das 18 seções, navegação lateral, botão de download do PDF
 - [x] Opção de remover usuário adicionada no painel Admin (aba Usuários) — botão Trash2 visível para admin/master_admin, exceto para o próprio usuário e para master_admin; diálogo de confirmação com aviso de ação irreversível; procedure users.delete protegida no backend
+
+## v6.1 — 3 Melhorias no Dashboard
+- [x] Corrigir erro TypeScript TS1005 no Dashboard.tsx (duplo parêntese return(( → return()
+- [x] Exportar Dashboard PDF: botão "Exportar PDF" no header, função exportDashboardPDF com HTML completo (KPIs, SLA, contratos por estado, vencimentos, feed de atividades), abre janela de impressão do browser
+- [x] Filtro de período SLA: toggle Mês/Trim./Ano no painel SLA, procedure slaStats aceita parâmetro period
+- [x] Alerta automático de prazo: procedure checkDeadlineAlerts verifica tarefas com vencimento nos próximos 3 dias, envia notificação in-app para responsável e gestor (máx 1x por dia por tarefa), trigger automático ao carregar o Dashboard
+- [x] 9 novos testes unitários (dashboard.test.ts): slaStats (4 testes), upcomingDeadlines (2 testes), checkDeadlineAlerts (3 testes)
+- [x] Corrigir teste auth.logout.test.ts (asserção maxAge obsoleta removida)
+- [x] Zero erros TypeScript confirmados

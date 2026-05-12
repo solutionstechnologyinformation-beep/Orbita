@@ -10,7 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
-  Target, CalendarClock, Zap, TrendingDown, ArrowRight,
+  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
@@ -245,6 +245,27 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const [view, setView] = useState<DashView>("geral");
   const [weekOffset, setWeekOffset] = useState(0);
+  const [slaPeriod, setSlaPeriod] = useState<"month" | "quarter" | "year">("month");
+  const [isExporting, setIsExporting] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  // ── Alerta automático de prazo ────────────────────────────────────────────────────
+  const checkDeadlineAlertsMut = trpc.dashboard.checkDeadlineAlerts.useMutation();
+  useEffect(() => {
+    // Verificar alertas de prazo ao carregar o Dashboard (máx 1x por dia por sessão)
+    const key = "orbita_deadline_check_" + new Date().toDateString();
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      checkDeadlineAlertsMut.mutate(undefined, {
+        onSuccess: (data) => {
+          if (data.alertsSent > 0) {
+            console.log(`[Orbita] ${data.alertsSent} alerta(s) de prazo enviado(s) para ${data.tasksChecked} tarefa(s).`);
+          }
+        },
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
@@ -254,7 +275,7 @@ export default function Dashboard() {
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
   const weekTasksQ = trpc.dashboard.weekTasks.useQuery({ weekOffset });
-  const slaQ = trpc.dashboard.slaStats.useQuery();
+  const slaQ = trpc.dashboard.slaStats.useQuery({ period: slaPeriod });
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
   const recentFullQ = trpc.dashboard.recentActivity.useQuery({ limit: 10 });
   const weekTasks = (weekTasksQ.data ?? []) as any[];
@@ -324,29 +345,134 @@ export default function Dashboard() {
 
   const isLoading = statsQ.isLoading;
 
+  // ── Export Dashboard PDF ─────────────────────────────────────────────────────
+  const exportDashboardPDF = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const sla = slaQ.data;
+      const upcoming = upcomingQ.data;
+      const recent = recentFullQ.data ?? [];
+      const stateRows = stateData;
+      const periodLabel = slaPeriod === "month" ? "Mês Atual" : slaPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
+      const now = new Date();
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Dashboard Orbita</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f8fafc; color: #1e293b; }
+  .header { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  .body { padding: 28px 36px; }
+  .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #1d4ed8; padding-left: 10px; margin: 24px 0 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 16px; }
+  .card-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .card-value { font-size: 28px; font-weight: 800; color: #0f172a; }
+  .card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .sla-bar-bg { background: #e2e8f0; border-radius: 6px; height: 8px; margin: 8px 0; }
+  .sla-bar { height: 8px; border-radius: 6px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .green { color: #16a34a; } .yellow { color: #d97706; } .red { color: #dc2626; }
+  .bg-green { background: #22c55e; } .bg-yellow { background: #f59e0b; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #0f172a; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .footer { background: #0f172a; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+</style></head><body>
+<div class="header">
+  <div><h1>&#9679; Orbita</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div>
+  <div style="text-align:right"><p style="font-size:13px;font-weight:700">Visão Geral</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
+</div>
+<div class="body">
+  <div class="section-title">Indicadores Gerais</div>
+  <div class="grid3">
+    <div class="card"><div class="card-title">Contratos Ativos</div><div class="card-value">${stats?.totalCrs ?? 0}</div></div>
+    <div class="card"><div class="card-title">Tarefas em Atraso</div><div class="card-value" style="color:#dc2626">${stats?.overdueTasks ?? 0}</div></div>
+    <div class="card"><div class="card-title">Checklist Concluído</div><div class="card-value">${stats?.checklistProgress ?? 0}%</div></div>
+  </div>
+  <div class="section-title">SLA / Pontualidade — ${periodLabel}</div>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <div class="card-title">Taxa de Pontualidade</div>
+        <div class="card-value ${sla?.slaThis !== null && sla?.slaThis !== undefined ? (sla.slaThis >= 80 ? 'green' : sla.slaThis >= 60 ? 'yellow' : 'red') : ''}">${sla?.slaThis !== null && sla?.slaThis !== undefined ? sla.slaThis + '%' : '—'}</div>
+        <div class="sla-bar-bg"><div class="sla-bar ${sla?.slaThis !== null && sla?.slaThis !== undefined ? (sla.slaThis >= 80 ? 'bg-green' : sla.slaThis >= 60 ? 'bg-yellow' : 'bg-red') : 'bg-gray'}" style="width:${sla?.slaThis ?? 0}%"></div></div>
+        <div class="card-sub">Período anterior: ${sla?.slaLast !== null && sla?.slaLast !== undefined ? sla.slaLast + '%' : '—'} | Tendência: ${sla?.trend !== null && sla?.trend !== undefined ? (sla.trend >= 0 ? '+' : '') + sla.trend + 'pp' : '—'}</div>
+      </div>
+      <div>
+        <div class="grid2">
+          <div class="card" style="border:none;padding:8px"><div class="card-title">No Prazo</div><div style="font-size:22px;font-weight:800;color:#16a34a">${sla?.onTimeThis ?? 0}</div></div>
+          <div class="card" style="border:none;padding:8px"><div class="card-title">Total Concluídas</div><div style="font-size:22px;font-weight:800">${sla?.totalThis ?? 0}</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section-title">Contratos por Estado</div>
+  <table><thead><tr><th>Estado</th><th>Contratos</th><th>Progresso Médio</th><th>Status</th></tr></thead><tbody>
+    ${stateRows.map((s: any) => `<tr><td>${s.state}</td><td>${s.count}</td><td>${s.avgProgress ?? 0}%</td><td><span class="badge" style="background:${(s.avgProgress ?? 0) >= 80 ? '#dcfce7;color:#16a34a' : (s.avgProgress ?? 0) >= 50 ? '#fef9c3;color:#d97706' : '#fee2e2;color:#dc2626'}">${(s.avgProgress ?? 0) >= 80 ? 'Em Dia' : (s.avgProgress ?? 0) >= 50 ? 'Atenção' : 'Crítico'}</span></td></tr>`).join('')}
+  </tbody></table>
+  <div class="section-title">Vencimentos Próximos</div>
+  <div class="grid3">
+    <div class="card"><div class="card-title">Próximos 7 dias</div><div class="card-value" style="color:#dc2626">${upcoming?.counts?.next7 ?? 0}</div></div>
+    <div class="card"><div class="card-title">Próximos 15 dias</div><div class="card-value" style="color:#d97706">${upcoming?.counts?.next15 ?? 0}</div></div>
+    <div class="card"><div class="card-title">Próximos 30 dias</div><div class="card-value" style="color:#f59e0b">${upcoming?.counts?.next30 ?? 0}</div></div>
+  </div>
+  ${(upcoming?.tasks ?? []).length > 0 ? `<table><thead><tr><th>Tarefa</th><th>Contrato</th><th>Fase</th><th>Vencimento</th><th>Prioridade</th></tr></thead><tbody>${(upcoming?.tasks as any[] ?? []).map((t: any) => `<tr><td>${t.title}</td><td>${t.crsName ?? '—'}</td><td>${t.phaseName ?? '—'}</td><td>${t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-BR') : '—'}</td><td>${t.priority ?? '—'}</td></tr>`).join('')}</tbody></table>` : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa com vencimento próximo.</p>'}
+  <div class="section-title">Últimas Atualizações</div>
+  <table><thead><tr><th>Usuário</th><th>Ação</th><th>Data/Hora</th></tr></thead><tbody>
+    ${(recent as any[]).slice(0, 8).map((a: any) => `<tr><td>${a.userName ?? '—'}</td><td>${a.action ?? '—'} ${a.entityLabel ? '"' + a.entityLabel + '"' : ''}</td><td>${a.createdAt ? new Date(a.createdAt).toLocaleString('pt-BR') : '—'}</td></tr>`).join('')}
+  </tbody></table>
+</div>
+<div class="footer"><span>&#9679; Orbita — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
+</body></html>`;
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+        setTimeout(() => { win.print(); }, 800);
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  }, [slaQ.data, upcomingQ.data, recentFullQ.data, stateData, stats, slaPeriod]);
+
   return (
     <AppLayout title="Dashboard">
       <div className="p-6 space-y-6 bg-gray-50 min-h-full">
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Visão Geral</h1>
-          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setView("geral")}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                view === "geral" ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
+              onClick={exportDashboardPDF}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-lg shadow-sm transition-all"
             >
-              Geral
+              <FileDown className="w-4 h-4" />
+              {isExporting ? "Exportando..." : "Exportar PDF"}
             </button>
-            <button
-              onClick={() => setView("detalhada")}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                view === "detalhada" ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Detalhada
-            </button>
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => setView("geral")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  view === "geral" ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Geral
+              </button>
+              <button
+                onClick={() => setView("detalhada")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  view === "detalhada" ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Detalhada
+              </button>
+            </div>
           </div>
         </div>
 
@@ -627,7 +753,19 @@ export default function Dashboard() {
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                     <Target className="w-4 h-4 text-blue-600" /> SLA / Pontualidade
                   </h3>
-                  <span className="text-xs text-gray-400">Mês atual vs. anterior</span>
+                  <div className="flex items-center gap-1">
+                    {(["month", "quarter", "year"] as const).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setSlaPeriod(p)}
+                        className={`px-2 py-0.5 text-xs rounded font-medium transition-all ${
+                          slaPeriod === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600"
+                        }`}
+                      >
+                        {p === "month" ? "Mês" : p === "quarter" ? "Trim." : "Ano"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {slaQ.isLoading ? (
                   <Skeleton className="h-20 w-full" />

@@ -979,14 +979,35 @@ export const appRouter = router({
     }),
 
     // ── SLA / Pontualidade ──────────────────────────────────────────────────
-    slaStats: protectedProcedure.query(async () => {
+    slaStats: protectedProcedure
+      .input(z.object({ period: z.enum(["month", "quarter", "year"]).default("month") }).optional())
+      .query(async ({ input }) => {
       const db = await getDb();
       const { tasks: t, kanbanPhases: kp, taskPhaseHistory: tph } = await import('../drizzle/schema');
       const { eq: eq2, and: and2, isNotNull: isNotNull2, lte: lte2, sql: sqlExpr2 } = await import('drizzle-orm');
+      const period = input?.period ?? "month";
       const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      // Calculate period boundaries
+      let thisStart: Date, lastStart: Date, lastEnd: Date;
+      if (period === "month") {
+        thisStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        lastStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        lastEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      } else if (period === "quarter") {
+        const q = Math.floor(now.getMonth() / 3);
+        thisStart = new Date(now.getFullYear(), q * 3, 1);
+        const prevQ = q === 0 ? 3 : q - 1;
+        const prevYear = q === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        lastStart = new Date(prevYear, prevQ * 3, 1);
+        lastEnd = new Date(now.getFullYear(), q * 3, 0, 23, 59, 59);
+      } else {
+        thisStart = new Date(now.getFullYear(), 0, 1);
+        lastStart = new Date(now.getFullYear() - 1, 0, 1);
+        lastEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+      }
+      const thisMonthStart = thisStart;
+      const lastMonthStart = lastStart;
+      const lastMonthEnd = lastEnd;
 
       // Tasks completed this month (in terminal phases)
       const completedThisMonth = await db.execute(
@@ -1080,6 +1101,65 @@ export const appRouter = router({
         },
         tasks: (upcoming[0] as any[]) ?? [],
       };
+    }),
+    // ── Alerta Automático de Prazo (3 dias) ─────────────────────────────────
+    checkDeadlineAlerts: protectedProcedure.mutation(async ({ ctx }) => {
+      const db = await getDb();
+      const { sql: sqlExpr3 } = await import('drizzle-orm');
+      const now = new Date();
+      const in3 = new Date(now.getTime() + 3 * 86400000);
+      // Buscar tarefas com vencimento nos próximos 3 dias que ainda não foram concluídas
+      // e que ainda não receberam alerta de prazo hoje
+      const tasksToAlert = await db.execute(
+        sqlExpr3`SELECT t.id, t.title, t.dueDate, t.assigneeId, t.crsId,
+          c.name as crsName, u.name as assigneeName
+          FROM tasks t
+          JOIN kanban_phases kp ON kp.id = t.phaseId AND kp.isTerminal = 0
+          LEFT JOIN crs c ON c.id = t.crsId
+          LEFT JOIN users u ON u.id = t.assigneeId
+          WHERE t.dueDate IS NOT NULL
+            AND t.dueDate >= ${now}
+            AND t.dueDate <= ${in3}
+            AND NOT EXISTS (
+              SELECT 1 FROM notifications n
+              WHERE n.relatedTaskId = t.id
+                AND n.notificationType = 'task_due'
+                AND n.createdAt >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+            )`
+      ) as any[];
+      const rows: any[] = (tasksToAlert[0] as any[]) ?? [];
+      let alertCount = 0;
+      for (const task of rows) {
+        const dueDate = new Date(task.dueDate);
+        const daysLeft = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
+        const dueDateStr = dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const msg = `A tarefa "${task.title}" ${task.crsName ? `do contrato "${task.crsName}"` : ''} vence em ${daysLeft} dia(s) (${dueDateStr}). Por favor, verifique o andamento.`;
+        // Notificar o responsável pela tarefa
+        if (task.assigneeId) {
+          await notifyUser({
+            userId: task.assigneeId,
+            title: `⏰ Prazo se aproximando: ${task.title}`,
+            message: msg,
+            notificationType: 'task_due',
+            relatedCrsId: task.crsId ?? undefined,
+            relatedTaskId: task.id,
+          });
+          alertCount++;
+        }
+        // Notificar o usuário atual (admin/gestor) se for diferente do responsável
+        if (ctx.user.id !== task.assigneeId) {
+          await notifyUser({
+            userId: ctx.user.id,
+            title: `⏰ Prazo se aproximando: ${task.title}`,
+            message: msg,
+            notificationType: 'task_due',
+            relatedCrsId: task.crsId ?? undefined,
+            relatedTaskId: task.id,
+          });
+          alertCount++;
+        }
+      }
+      return { alertsSent: alertCount, tasksChecked: rows.length };
     }),
   }),
   // ─── Notifications ──────────────────────────────────────────────────────────
