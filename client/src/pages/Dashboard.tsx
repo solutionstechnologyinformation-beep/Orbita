@@ -10,7 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
-  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter,
+  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter, Route,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
@@ -576,6 +576,34 @@ export default function Dashboard() {
                       value={stats?.completedTasks ?? 0}
                       icon={<CheckCircle2 className="w-5 h-5 text-green-600" />}
                       iconBg="bg-green-50"
+                    />
+                  </>
+                )}
+              </div>
+
+              {/* KPI cards para extensao, area e perimetro urbano */}
+              <div className="grid grid-cols-3 gap-3">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+                ) : (
+                  <>
+                    <KpiCard
+                      label="Extensao Total"
+                      value={`${(stats?.totalExtensaoKm ?? 0).toLocaleString("pt-BR")} km`}
+                      icon={<Layers className="w-5 h-5 text-blue-600" />}
+                      iconBg="bg-blue-50"
+                    />
+                    <KpiCard
+                      label="Area Total"
+                      value={`${(stats?.totalAreaHa ?? 0).toLocaleString("pt-BR")} ha`}
+                      icon={<MapPin className="w-5 h-5 text-green-600" />}
+                      iconBg="bg-green-50"
+                    />
+                    <KpiCard
+                      label="Perimetro Urbano"
+                      value={`${(stats?.totalPerimetroUrbano ?? 0).toLocaleString("pt-BR")} km`}
+                      icon={<Route className="w-5 h-5 text-orange-600" />}
+                      iconBg="bg-orange-50"
                     />
                   </>
                 )}

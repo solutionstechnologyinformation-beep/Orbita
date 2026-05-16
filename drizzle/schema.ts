@@ -35,6 +35,7 @@ export const clients = mysqlTable("clients", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 256 }).notNull(),
   description: text("description"),
+  crsCode: varchar("crsCode", { length: 64 }),  // código identificador do cliente no CRS (ex: "Seinfra", "DNIT")
   color: varchar("color", { length: 32 }).default("#1561ad").notNull(),
   status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
   createdById: int("createdById").notNull(),

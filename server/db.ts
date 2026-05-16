@@ -82,11 +82,11 @@ export async function getClientById(id: number) {
   const r = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
   return r[0];
 }
-export async function createClient(data: { name: string; description?: string; color?: string; createdById: number }) {
+export async function createClient(data: { name: string; description?: string; crsCode?: string; color?: string; createdById: number }) {
   const db = await getDb();
   const [result] = await db.execute(
-    sql`INSERT INTO clients (name, description, color, status, createdById, createdAt, updatedAt)
-        VALUES (${data.name}, ${data.description ?? null}, ${data.color ?? '#785500'}, 'active', ${data.createdById}, NOW(), NOW())`
+    sql`INSERT INTO clients (name, description, crsCode, color, status, createdById, createdAt, updatedAt)
+        VALUES (${data.name}, ${data.description ?? null}, ${data.crsCode ?? null}, ${data.color ?? '#785500'}, 'active', ${data.createdById}, NOW(), NOW())`
   );
   return (result as any).insertId as number;
 }
@@ -564,6 +564,15 @@ export async function getDashboardStats(clientId?: number) {
   const pendingChecklist = totalChecklist - completedChecklist;
   const overdueChecklist = allChecklist.filter((c: any) => (c.status !== 'published' && c.status !== 'archived' && c.completedAt == null) && c.endDate && new Date(c.endDate) < now).length;
   const checklistProgress = totalChecklist > 0 ? Math.round((completedChecklist / totalChecklist) * 100) : 0;
+  // Totais de extensao, area e perimetro urbano dos contratos
+  const crsStats = await db.select({
+    totalExtensao: sql<number>`COALESCE(SUM(extensaoKm), 0)`,
+    totalArea: sql<number>`COALESCE(SUM(areaHa), 0)`,
+    totalPerimetro: sql<number>`COALESCE(SUM(perimetroUrbano), 0)`,
+  }).from(crs).where(crsConditions);
+  const totalExtensaoKm = crsStats[0]?.totalExtensao ?? 0;
+  const totalAreaHa = crsStats[0]?.totalArea ?? 0;
+  const totalPerimetroUrbano = crsStats[0]?.totalPerimetro ?? 0;
   return {
     totalClients: totalClients[0]?.count ?? 0,
     totalCrs: totalCrs[0]?.count ?? 0,
@@ -579,6 +588,10 @@ export async function getDashboardStats(clientId?: number) {
     pendingChecklist,
     overdueChecklist,
     checklistProgress,
+    // Totais de extensao, area e perimetro urbano
+    totalExtensaoKm: Math.round(totalExtensaoKm * 100) / 100,
+    totalAreaHa: Math.round(totalAreaHa * 100) / 100,
+    totalPerimetroUrbano: Math.round(totalPerimetroUrbano * 100) / 100,
   };
 }
 

@@ -755,3 +755,35 @@
 - [x] 9 novos testes unitários (dashboard.test.ts): slaStats (4 testes), upcomingDeadlines (2 testes), checkDeadlineAlerts (3 testes)
 - [x] Corrigir teste auth.logout.test.ts (asserção maxAge obsoleta removida)
 - [x] Zero erros TypeScript confirmados
+
+## v6.2 — 3 Sugestões do Dashboard
+- [ ] Toast visual quando alertas de prazo são enviados (ex: "⏰ 3 tarefas vencem em menos de 3 dias")
+- [ ] Configuração do prazo de alerta nas preferências de notificação (1, 3 ou 7 dias)
+- [ ] Backend: campo deadlineAlertDays em notification_preferences (default 3)
+- [ ] Backend: procedure notificationPreferences.update aceita deadlineAlertDays
+- [ ] Backend: checkDeadlineAlerts usa deadlineAlertDays do usuário
+- [ ] PDF Dashboard: incluir imagem do mapa de contratos por estado (via staticMapUrl)
+
+## v6.3 — 4 Melhorias CRS/OS/Dashboard
+- [ ] Schema: campo crsCode (varchar 64) na tabela clients
+- [ ] Migrar banco: ALTER TABLE clients ADD COLUMN crsCode
+- [ ] Admin: campo "Código CRS" no formulário de cliente (ex: Seinfra)
+- [ ] Admin: exibir crsCode na lista de clientes
+- [ ] Projects/Kanban: ao criar CRS, seletor mostra "Código CRS - Nome do Cliente" (ex: Seinfra)
+- [ ] Projects: renomear label "Nome" → "OS" no formulário de criação/edição de CRS
+- [ ] Projects: renomear label "Código" → "Código CRS" no formulário
+- [ ] Projects: lista de contratos exibe "OS: {name}" e "CRS: {code}"
+- [ ] Mapa Dashboard: marcadores exibem "ClienteCrsCode-UF" (ex: Seinfra-BA) em vez de contagem
+- [ ] staticMapUrl: incluir clientCrsCode no retorno dos contratos
+- [ ] Dashboard: cards de totais (Extensão Total km, Área Total ha, Perímetros Urbanos)
+- [ ] Backend: getDashboardStats retorna totalExtensaoKm, totalAreaHa, totalPerimetroUrbano
+
+## v6.2 — 4 Melhorias CRS/OS
+
+- [x] Adicionar campo crsCode na tabela clients (Admin) para identificar clientes por código (ex: Seinfra, DNIT)
+- [x] Seletor de cliente ao criar CRS exibe "CódigoCRS — Nome" para facilitar identificação
+- [x] Renomear "Nome do Contrato" → "OS" (Ordem de Serviço) na aba Projetos e Admin
+- [x] Renomear "Código" → "Código CRS" para clareza
+- [x] Mapa do Dashboard exibe "CódigoCRS-UF" nos marcadores (ex: Seinfra-BA)
+- [x] Dashboard com 3 novos KPI cards: Extensão Total (km), Área Total (ha), Perímetro Urbano (km)
+- [x] Todos os 23 testes passando (3 arquivos de teste)

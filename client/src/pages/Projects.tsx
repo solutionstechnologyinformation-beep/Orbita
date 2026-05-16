@@ -59,7 +59,7 @@ type CrsItem = {
   techDataByType?: string | null;
   derivedStartDate?: Date | null; derivedEndDate?: Date | null;
 };
-type Client = { id: number; name: string; color?: string | null };
+type Client = { id: number; name: string; color?: string | null; crsCode?: string | null };
 
 const emptyForm = {
   clientId: "", name: "", code: "", description: "",
@@ -594,11 +594,11 @@ export default function Projects() {
                 <Label>Cliente *</Label>
                 <Select value={form.clientId} onValueChange={(v) => setForm((f) => ({ ...f, clientId: v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.crsCode ? `${c.crsCode} — ${c.name}` : c.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Nome *</Label><Input className="mt-1" placeholder="Nome do contrato" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-              <div><Label>Código</Label><Input className="mt-1" placeholder="Ex: CRS-2024-001" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} /></div>
+              <div><Label>OS *</Label><Input className="mt-1" placeholder="Nome da Ordem de Serviço" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
+              <div><Label>Código CRS</Label><Input className="mt-1" placeholder="Ex: CRS-2024-001" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} /></div>
             </div>
             <div><Label>Descrição</Label><Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -639,8 +639,8 @@ export default function Projects() {
           <DialogHeader><DialogTitle>Editar Contrato</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Nome *</Label><Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-              <div><Label>Código</Label><Input className="mt-1" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} /></div>
+              <div><Label>OS *</Label><Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
+              <div><Label>Código CRS</Label><Input className="mt-1" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} /></div>
             </div>
             <div><Label>Descrição</Label><Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">

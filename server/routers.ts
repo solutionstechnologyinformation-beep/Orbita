@@ -155,14 +155,14 @@ export const appRouter = router({
       return c;
     }),
     create: adminProcedure
-      .input(z.object({ name: z.string().min(1), description: z.string().optional(), color: z.string().optional() }))
+      .input(z.object({ name: z.string().min(1), description: z.string().optional(), crsCode: z.string().optional(), color: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
         const id = await createClient({ ...input, createdById: ctx.user.id });
         await logActivity({ userId: ctx.user.id, action: "created_client", entityType: "client", entityId: id });
         return { id };
       }),
     update: adminProcedure
-      .input(z.object({ id: z.number(), name: z.string().optional(), description: z.string().optional(), color: z.string().optional(), status: z.enum(["active", "archived"]).optional() }))
+      .input(z.object({ id: z.number(), name: z.string().optional(), description: z.string().optional(), crsCode: z.string().nullable().optional(), color: z.string().optional(), status: z.enum(["active", "archived"]).optional() }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
         await updateClient(id, data);
@@ -807,16 +807,22 @@ export const appRouter = router({
         const { eq, and } = await import("drizzle-orm");
         const conditions: any[] = [eq(crsTable.status, "active")];
         if (input.clientId) conditions.push(eq(crsTable.clientId, input.clientId));
+        const { clients: clientsTable } = await import("../drizzle/schema");
+        const { sql: sqlFn } = await import("drizzle-orm");
         const contracts = await db
-          .select({ id: crsTable.id, name: crsTable.name, state: crsTable.state, stateCode: crsTable.stateCode, country: crsTable.country, countryCode: crsTable.countryCode, tipoObra: crsTable.tipoObra })
+          .select({ id: crsTable.id, name: crsTable.name, state: crsTable.state, stateCode: crsTable.stateCode, country: crsTable.country, countryCode: crsTable.countryCode, tipoObra: crsTable.tipoObra, clientId: crsTable.clientId, clientName: clientsTable.name, clientCrsCode: clientsTable.crsCode })
           .from(crsTable)
+          .leftJoin(clientsTable, eq(crsTable.clientId, clientsTable.id))
           .where(and(...conditions));
 
-        // Agrupar por estado
-        const stateCount: Record<string, number> = {};
-        contracts.forEach((c: typeof contracts[0]) => {
-          const key = c.state ?? c.stateCode ?? c.country ?? "Brasil";
-          stateCount[key] = (stateCount[key] ?? 0) + 1;
+        // Agrupar por estado com código CRS do cliente
+        const stateData: Record<string, { count: number; crsCode?: string }> = {};
+        contracts.forEach((c: any) => {
+          const state = c.crs.state ?? c.crs.stateCode ?? c.crs.country ?? "Brasil";
+          if (!stateData[state]) {
+            stateData[state] = { count: 0, crsCode: c.clients?.crsCode };
+          }
+          stateData[state].count += 1;
         });
 
         // Construir URL da Static Maps API com marcadores azuis grandes por estado
@@ -832,25 +838,27 @@ export const appRouter = router({
         url.searchParams.append("style", "feature:landscape|color:0xf0f4f8");
         url.searchParams.append("style", "feature:administrative.country|element:geometry.stroke|color:0x1561ad|weight:2");
 
-        const stateEntries = Object.entries(stateCount);
+        const stateEntries = Object.entries(stateData);
         if (stateEntries.length === 0) {
           url.searchParams.set("center", "-14.235,-51.9253");
           url.searchParams.set("zoom", "4");
         } else {
-          stateEntries.forEach(([state, count]) => {
-            const label = count <= 9 ? String(count) : "+";
-            url.searchParams.append("markers", `color:0x1561ad|size:large|label:${label}|${encodeURIComponent(state + ",Brasil")}`);
+          stateEntries.forEach(([state, data]) => {
+            // Criar label com código CRS + UF (ex: "Seinfra-BA")
+            const ufCode = state.substring(0, 2).toUpperCase();
+            const label = data.crsCode ? `${data.crsCode.substring(0, 3)}-${ufCode}` : (data.count <= 9 ? String(data.count) : "+");
+            url.searchParams.append("markers", `color:0x1561ad|size:large|label:${encodeURIComponent(label)}|${encodeURIComponent(state + ",Brasil")}`);
           });
         }
 
         try {
           const response = await fetch(url.toString());
-          if (!response.ok) return { url: null, contracts, stateCount };
+          if (!response.ok) return { url: null, contracts, stateCount: Object.fromEntries(Object.entries(stateData).map(([k, v]) => [k, v.count])) };
           const buffer = await response.arrayBuffer();
           const base64 = Buffer.from(buffer).toString("base64");
-          return { url: `data:image/png;base64,${base64}`, contracts, stateCount };
+          return { url: `data:image/png;base64,${base64}`, contracts, stateCount: Object.fromEntries(Object.entries(stateData).map(([k, v]) => [k, v.count])) };
         } catch {
-          return { url: null, contracts, stateCount };
+          return { url: null, contracts, stateCount: Object.fromEntries(Object.entries(stateData).map(([k, v]) => [k, v.count])) };
         }
       }),
 

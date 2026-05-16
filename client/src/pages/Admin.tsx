@@ -142,7 +142,7 @@ export default function Admin() {
   // Clients state
   const [showClientDialog, setShowClientDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
-  const [clientForm, setClientForm] = useState({ name: "", color: "#3b82f6", country: "Brasil", notes: "" });
+  const [clientForm, setClientForm] = useState({ name: "", color: "#3b82f6", country: "Brasil", notes: "", crsCode: "" });
 
   // CRS state
   const [showCrsDialog, setShowCrsDialog] = useState(false);
@@ -177,7 +177,7 @@ export default function Admin() {
 
   // Client mutations
   const createClientM = trpc.clients.create.useMutation({
-    onSuccess: () => { utils.clients.list.invalidate(); setShowClientDialog(false); setClientForm({ name: "", color: "#3b82f6", country: "Brasil", notes: "" }); toast.success("Cliente criado!"); },
+    onSuccess: () => { utils.clients.list.invalidate(); setShowClientDialog(false); setClientForm({ name: "", color: "#3b82f6", country: "Brasil", notes: "", crsCode: "" }); toast.success("Cliente criado!"); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
   const updateClientM = trpc.clients.update.useMutation({
@@ -251,7 +251,7 @@ export default function Admin() {
 
   const openEditClient = (client: any) => {
     setEditingClient(client);
-    setClientForm({ name: client.name, color: client.color ?? "#3b82f6", country: client.country ?? "Brasil", notes: client.notes ?? "" });
+    setClientForm({ name: client.name, color: client.color ?? "#3b82f6", country: client.country ?? "Brasil", notes: client.notes ?? "", crsCode: client.crsCode ?? "" });
     setShowClientDialog(true);
   };
 
@@ -332,7 +332,7 @@ export default function Admin() {
           <TabsContent value="clients">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Clientes ({clients.length})</h2>
-              <Button size="sm" onClick={() => { setEditingClient(null); setClientForm({ name: "", color: "#3b82f6", country: "Brasil", notes: "" }); setShowClientDialog(true); }}>
+              <Button size="sm" onClick={() => { setEditingClient(null); setClientForm({ name: "", color: "#3b82f6", country: "Brasil", notes: "", crsCode: "" }); setShowClientDialog(true); }}>
                 <Plus className="w-4 h-4 mr-1" />Novo Cliente
               </Button>
             </div>
@@ -341,7 +341,10 @@ export default function Admin() {
                 <div key={client.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
                   <span className="w-4 h-4 rounded-full shrink-0" style={{ background: client.color ?? "#3b82f6" }} />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground">{client.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground">{client.name}</p>
+                      {client.crsCode && <Badge variant="outline" className="text-xs font-mono">{client.crsCode}</Badge>}
+                    </div>
                     <p className="text-xs text-muted-foreground">{client.country ?? "---"} {client.notes ? " · " + client.notes : ""}</p>
                   </div>
                   <Badge variant="outline" className="text-xs">{crsList.filter((c: any) => c.clientId === client.id).length} CRS</Badge>
@@ -668,6 +671,7 @@ export default function Admin() {
                 </Select>
               </div>
             </div>
+            <div><Label>Código CRS <span className="text-muted-foreground text-xs">(identificador do cliente, ex: Seinfra, DNIT)</span></Label><Input value={clientForm.crsCode} onChange={(e) => setClientForm({ ...clientForm, crsCode: e.target.value })} placeholder="Ex: Seinfra" className="mt-1 font-mono" /></div>
             <div><Label>Observações</Label><Input value={clientForm.notes} onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })} placeholder="Observações opcionais" /></div>
           </div>
           <DialogFooter>
@@ -688,12 +692,12 @@ export default function Admin() {
               <Label>Cliente *</Label>
               <Select value={crsForm.clientId} onValueChange={(v) => setCrsForm({ ...crsForm, clientId: v })}>
                 <SelectTrigger><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
-                <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.crsCode ? `${c.crsCode} — ${c.name}` : c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Nome *</Label><Input value={crsForm.name} onChange={(e) => setCrsForm({ ...crsForm, name: e.target.value })} placeholder="Nome do Contrato" /></div>
-              <div><Label>Código</Label><Input value={crsForm.code} onChange={(e) => setCrsForm({ ...crsForm, code: e.target.value })} placeholder="Ex: CRS-001" /></div>
+              <div><Label>OS *</Label><Input value={crsForm.name} onChange={(e) => setCrsForm({ ...crsForm, name: e.target.value })} placeholder="Nome da Ordem de Serviço" /></div>
+              <div><Label>Código CRS</Label><Input value={crsForm.code} onChange={(e) => setCrsForm({ ...crsForm, code: e.target.value })} placeholder="Ex: CRS-001" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

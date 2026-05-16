@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE clients ADD COLUMN crsCode VARCHAR(64) NULL AFTER description;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user mFYW14gxEd5Yqia.95faba156a8e --database 78V7RJAjjEpxvD9o6SGFEZ --execute ALTER TABLE clients ADD COLUMN crsCode VARCHAR(64) NULL AFTER description;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 432
+}
