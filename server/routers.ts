@@ -616,6 +616,42 @@ export const appRouter = router({
         await deleteTaskComment(input.id);
         return { success: true };
       }),
+    duplicate: protectedProcedure
+      .input(z.object({ id: z.number(), targetCrsId: z.number().optional(), targetPhaseId: z.number().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const sourceTask = await getTaskById(input.id);
+        if (!sourceTask) throw new TRPCError({ code: "NOT_FOUND" });
+        
+        // Create new task with same properties
+        const newTaskId = await createTask({
+          crsId: input.targetCrsId || sourceTask.crsId,
+          phaseId: input.targetPhaseId || sourceTask.phaseId,
+          title: `${sourceTask.title} (cópia)`,
+          description: sourceTask.description,
+          priority: sourceTask.priority,
+          assigneeId: sourceTask.assigneeId,
+          dueDate: sourceTask.dueDate,
+          setor: sourceTask.setor,
+          createdById: ctx.user.id,
+        });
+        
+        // Copy all checklist items
+        const sourceItems = await getChecklistItems(input.id);
+        for (const item of sourceItems) {
+          await createChecklistItem({
+            taskId: newTaskId,
+            title: item.title,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            assigneeId: item.assigneeId,
+            position: item.position,
+            createdById: ctx.user.id,
+          });
+        }
+        
+        await logActivity({ userId: ctx.user.id, action: "duplicated_task", entityType: "task", entityId: input.id });
+        return { id: newTaskId };
+      }),
   }),
 
   // ─── Checklist Items ────────────────────────────────────────────────────────

@@ -109,6 +109,14 @@ export default function TaskDetail() {
     onError: (e) => toast.error(e.message),
   });
 
+  const duplicateTaskM = trpc.tasks.duplicate.useMutation({
+    onSuccess: (data) => {
+      toast.success("Tarefa duplicada!");
+      navigate(`/tasks/${data.id}`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const addCommentM = trpc.tasks.addComment.useMutation({
     onSuccess: () => { invalidateTask(); setNewComment(""); },
     onError: (e) => toast.error(e.message),
@@ -203,11 +211,18 @@ export default function TaskDetail() {
                 </Button>
               </>
             ) : (
-              (user?.role === "admin" || user?.role === "leader") && (
-                <Button size="sm" variant="outline" onClick={startEdit}>
-                  <Edit2 className="h-4 w-4 mr-1" /> Editar
-                </Button>
-              )
+              <>
+                {(user?.role === "admin" || user?.role === "leader") && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={startEdit}>
+                      <Edit2 className="h-4 w-4 mr-1" /> Editar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => duplicateTaskM.mutate({ id: taskId })} disabled={duplicateTaskM.isPending}>
+                      <Plus className="h-4 w-4 mr-1" /> Duplicar
+                    </Button>
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -787,3 +787,12 @@
 - [x] Mapa do Dashboard exibe "CódigoCRS-UF" nos marcadores (ex: Seinfra-BA)
 - [x] Dashboard com 3 novos KPI cards: Extensão Total (km), Área Total (ha), Perímetro Urbano (km)
 - [x] Todos os 23 testes passando (3 arquivos de teste)
+
+## v6.4 — 5 Melhorias Checklist/Kanban/km
+
+- [x] Editar itens de checklist inline (clique para editar título)
+- [x] Reordenar itens de checklist (botões seta para cima/baixo)
+- [x] Mover tarefas entre colunas no Kanban com mudança de status automática (fase terminal = published)
+- [x] Copiar estrutura de tarefa com checklist como template (botão Duplicar no TaskDetail)
+- [x] Corrigir preenchimento de km dos projetos (adicionar inputs de extensaoKm, areaHa no formulário principal)
+- [x] Todos os 23 testes passando (dashboard.test.ts com 9 novos testes)
