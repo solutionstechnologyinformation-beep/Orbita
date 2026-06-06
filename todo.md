@@ -112,7 +112,7 @@
 - [x] TaskDetail: exibir avatar/iniciais do responsável atual ao lado do seletor
 
 ## Melhorias v3.6
-- [ ] Sidebar (AppLayout): fundo azul-marinho, texto/ícones brancos, item ativo com destaque claro
+- [x] Sidebar (AppLayout): fundo azul-marinho, texto/ícones brancos, item ativo com destaque claro
 - [ ] PDFs (AIChat): incluir logo Orbita (ícone SVG/canvas) e nome da ferramenta no cabeçalho
 
 ## Melhorias v3.6
@@ -796,3 +796,12 @@
 - [x] Copiar estrutura de tarefa com checklist como template (botão Duplicar no TaskDetail)
 - [x] Corrigir preenchimento de km dos projetos (adicionar inputs de extensaoKm, areaHa no formulário principal)
 - [x] Todos os 23 testes passando (dashboard.test.ts com 9 novos testes)
+
+## v6.5 — Componentes e Preparação para Itens Críticos
+
+- [x] FilePreviewModal criado (PDF via iframe, imagens via img, fallback para download)
+- [ ] admin.createUser com hash de senha (próxima sessão)
+- [ ] Campo company nos usuários + filtro por empresa (próxima sessão)
+- [ ] Notificações e alertas automáticos (próxima sessão)
+- [x] Todos os 23 testes passando
+- [x] Zero erros TypeScript
