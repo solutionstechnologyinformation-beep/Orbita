@@ -132,7 +132,7 @@ function SortableTaskCard({
   });
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
     opacity: isDragging ? 0.4 : 1,
   };
   const [expanded, setExpanded] = useState(false);
@@ -142,7 +142,7 @@ function SortableTaskCard({
   const checklist: any[] = task.checklistItems ?? [];
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-card border border-border rounded-xl p-3 hover:shadow-md transition-all group">
+    <div ref={setNodeRef} style={style} className="bg-card border border-border rounded-xl p-3 hover:shadow-lg transition-all duration-200 group hover:scale-[1.02] active:scale-[0.98]">
       {/* Drag handle + header */}
       <div className="flex items-start gap-1.5">
         <button
@@ -264,7 +264,7 @@ function PhaseColumn({
 
       {/* Droppable task list */}
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px]">
+        <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px] transition-colors duration-200 hover:bg-primary/5 rounded-lg">
           {tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-border/40 rounded-xl">
               <p className="text-xs text-muted-foreground">Arraste tarefas aqui</p>
@@ -368,7 +368,13 @@ export default function Kanban() {
 
   // Mutations
   const moveTaskMut = trpc.tasks.movePhase.useMutation({
-    onSuccess: () => utils.tasks.listByCrsWithChecklist.invalidate(),
+    onSuccess: () => {
+      utils.tasks.listByCrsWithChecklist.invalidate();
+      toast.success('Tarefa movida com sucesso!', {
+        duration: 2000,
+        icon: '✓',
+      });
+    },
     onError: (e) => { toast.error(e.message); utils.tasks.listByCrsWithChecklist.invalidate(); },
   });
   const createTaskMut = trpc.tasks.create.useMutation({

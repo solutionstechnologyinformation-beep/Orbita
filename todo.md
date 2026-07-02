@@ -805,3 +805,13 @@
 - [ ] Notificações e alertas automáticos (próxima sessão)
 - [x] Todos os 23 testes passando
 - [x] Zero erros TypeScript
+
+## v6.6 — Animações e Feedback Visual no Kanban
+
+- [x] Transições suaves ao mover tarefas (cubic-bezier 200ms)
+- [x] Escala visual ao hover (1.02x) e ao arrastar (0.98x)
+- [x] Drop zones com feedback visual (hover bg-primary/5)
+- [x] Toast de sucesso ao mover tarefa entre colunas
+- [x] Sombra dinâmica ao hover (shadow-lg)
+- [x] Todos os 23 testes passando
+- [x] Zero erros TypeScript
