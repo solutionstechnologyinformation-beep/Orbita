@@ -6,6 +6,7 @@ import {
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
   conversations, conversationParticipants, directMessages,
   sprintChecklistItems, whiteboards, userDisciplines,
+  googleCalendarTokens, googleCalendarEvents,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -1436,4 +1437,76 @@ export async function getContractsForPdf(clientId?: number) {
   });
 
   return Promise.all(contracts);
+}
+
+
+// ─── Google Calendar ────────────────────────────────────────────────────────────
+export async function getGoogleCalendarToken(userId: number) {
+  const db = await getDb();
+  const r = await db.select().from(googleCalendarTokens).where(eq(googleCalendarTokens.userId, userId)).limit(1);
+  return r[0];
+}
+
+export async function saveGoogleCalendarToken(userId: number, data: { accessToken: string; refreshToken?: string; expiresAt?: Date }) {
+  const db = await getDb();
+  const existing = await getGoogleCalendarToken(userId);
+  
+  if (existing) {
+    await db.update(googleCalendarTokens)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(googleCalendarTokens.userId, userId));
+  } else {
+    await db.insert(googleCalendarTokens).values({
+      userId,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+}
+
+export async function deleteGoogleCalendarToken(userId: number) {
+  const db = await getDb();
+  await db.delete(googleCalendarTokens).where(eq(googleCalendarTokens.userId, userId));
+}
+
+export async function saveGoogleCalendarEvent(userId: number, data: {
+  googleEventId: string;
+  agendaEventId?: number;
+  title: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+  isSynced: boolean;
+}) {
+  const db = await getDb();
+  const existing = await db.select().from(googleCalendarEvents)
+    .where(and(eq(googleCalendarEvents.userId, userId), eq(googleCalendarEvents.googleEventId, data.googleEventId)))
+    .limit(1);
+  
+  if (existing[0]) {
+    await db.update(googleCalendarEvents)
+      .set({ ...data, lastSyncedAt: new Date(), updatedAt: new Date() })
+      .where(eq(googleCalendarEvents.id, existing[0].id));
+  } else {
+    await db.insert(googleCalendarEvents).values({
+      userId,
+      ...data,
+      lastSyncedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+}
+
+export async function getGoogleCalendarEventsByUser(userId: number) {
+  const db = await getDb();
+  return await db.select().from(googleCalendarEvents).where(eq(googleCalendarEvents.userId, userId));
+}
+
+export async function deleteGoogleCalendarEvent(eventId: number) {
+  const db = await getDb();
+  await db.delete(googleCalendarEvents).where(eq(googleCalendarEvents.id, eventId));
 }

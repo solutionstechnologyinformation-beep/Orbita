@@ -26,6 +26,8 @@ import {
   getAnnualReport,
   getContractsForPdf,
   getDb,
+  getGoogleCalendarToken, saveGoogleCalendarToken, deleteGoogleCalendarToken,
+  saveGoogleCalendarEvent, getGoogleCalendarEventsByUser, deleteGoogleCalendarEvent,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
@@ -1638,6 +1640,36 @@ export const appRouter = router({
         }
         return { notified };
       }),
+  }),
+
+  googleCalendar: router({
+    getAuthUrl: protectedProcedure.query(({ ctx }) => {
+      const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
+      const redirectUri = `${process.env.OAUTH_SERVER_URL}/api/oauth/google/callback`;
+      const scopes = [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/userinfo.email",
+      ];
+      const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      authUrl.searchParams.append("client_id", clientId!);
+      authUrl.searchParams.append("redirect_uri", redirectUri);
+      authUrl.searchParams.append("response_type", "code");
+      authUrl.searchParams.append("scope", scopes.join(" "));
+      authUrl.searchParams.append("access_type", "offline");
+      authUrl.searchParams.append("prompt", "consent");
+      return { authUrl: authUrl.toString() };
+    }),
+    isConnected: protectedProcedure.query(async ({ ctx }) => {
+      const token = await getGoogleCalendarToken(ctx.user.id);
+      return { connected: !!token };
+    }),
+    disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+      await deleteGoogleCalendarToken(ctx.user.id);
+      return { success: true };
+    }),
+    listEvents: protectedProcedure.query(async ({ ctx }) => {
+      return await getGoogleCalendarEventsByUser(ctx.user.id);
+    }),
   }),
 });
 

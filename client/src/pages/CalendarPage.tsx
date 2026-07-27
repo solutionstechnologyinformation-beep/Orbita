@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, User, ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, User, ClipboardList, LogOut, LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { GoogleCalendarCard } from "@/components/GoogleCalendarCard";
 
 const EVENT_COLORS: Record<string, string> = {
   meeting: "#3b82f6",
@@ -218,6 +219,9 @@ export default function CalendarPage() {
             />
             <SplitPanelContent>
               <div className="space-y-4">
+                {/* Google Calendar Connection */}
+                <GoogleCalendarCard />
+
                 {/* Upcoming events */}
                 <Card>
                   <CardHeader className="pb-2">

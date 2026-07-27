@@ -393,3 +393,35 @@ export const whiteboards = mysqlTable("whiteboards", {
 });
 export type Whiteboard = typeof whiteboards.$inferSelect;
 export type InsertWhiteboard = typeof whiteboards.$inferInsert;
+
+// ─── Google Calendar Tokens ───────────────────────────────────────────────────
+export const googleCalendarTokens = mysqlTable("google_calendar_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  expiresAt: timestamp("expiresAt"),
+  syncedAt: timestamp("syncedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type GoogleCalendarToken = typeof googleCalendarTokens.$inferSelect;
+export type InsertGoogleCalendarToken = typeof googleCalendarTokens.$inferInsert;
+
+// ─── Google Calendar Events (sincronizados) ───────────────────────────────────
+export const googleCalendarEvents = mysqlTable("google_calendar_events", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  googleEventId: varchar("googleEventId", { length: 256 }).notNull(),
+  agendaEventId: int("agendaEventId"),  // referência ao evento local (agenda_events)
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  isSynced: boolean("isSynced").default(false).notNull(),
+  lastSyncedAt: timestamp("lastSyncedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type GoogleCalendarEvent = typeof googleCalendarEvents.$inferSelect;
+export type InsertGoogleCalendarEvent = typeof googleCalendarEvents.$inferInsert;

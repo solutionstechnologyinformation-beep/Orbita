@@ -815,3 +815,19 @@
 - [x] Sombra dinâmica ao hover (shadow-lg)
 - [x] Todos os 23 testes passando
 - [x] Zero erros TypeScript
+
+
+## v6.7 — Integração Google Calendar
+- [x] Schema: criar tabelas google_calendar_tokens e google_calendar_events
+- [x] Backend: funções db.ts para gerenciar tokens e eventos do Google Calendar
+- [x] Backend: procedures tRPC para autenticação OAuth 2.0 do Google
+- [x] Backend: procedures tRPC para sincronização de eventos
+- [x] Backend: procedures tRPC para conectar/desconectar Google Calendar
+- [x] Frontend: componente GoogleCalendarCard na página de Calendário
+- [x] Frontend: botão "Conectar" que abre fluxo OAuth do Google
+- [x] Frontend: botão "Desconectar" para remover integração
+- [x] Testes: vitest para funções de Google Calendar (salvar, atualizar, deletar tokens)
+- [ ] Frontend: exibir eventos sincronizados do Google Calendar no calendário
+- [ ] Frontend: criar eventos no Orbita que sincronizam com Google Calendar
+- [ ] Backend: refresh automático de tokens expirados
+- [ ] Backend: sincronização bidirecional de eventos (Google → Orbita e Orbita → Google)
