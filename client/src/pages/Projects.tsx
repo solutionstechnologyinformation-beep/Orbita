@@ -477,10 +477,10 @@ export default function Projects() {
               }
             />
             {/* Filters */}
-            <div className="flex-shrink-0 px-3 py-2 border-b border-border bg-card space-y-2">
+            <div className="flex-shrink-0 px-3 py-2 border-b border-border bg-card space-y-2" style={{backgroundColor: '#dedede'}}>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
+                <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" style={{backgroundColor: '#ffffff'}} />
               </div>
               <div className="flex gap-2">
                 <Select value={filterClient} onValueChange={setFilterClient}>
@@ -495,7 +495,7 @@ export default function Projects() {
                 <div className="flex gap-0 border border-border rounded-md overflow-hidden">
                   {["active", "archived"].map((s) => (
                     <button key={s} onClick={() => setFilterStatus(s)}
-                      className={`px-2 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}>
+                      className={`px-2 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`} style={{backgroundColor: '#ffffff'}}>
                       {s === "active" ? "Ativos" : "Arq."}
                     </button>
                   ))}

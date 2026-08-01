@@ -26,6 +26,7 @@ import Reports from "./pages/Reports";
 import JoinProject from "./pages/JoinProject";
 import Plans from "./pages/Plans";
 import UserManual from "./pages/UserManual";
+import { SubscriptionPortal } from "./pages/SubscriptionPortal";
 
 function Router() {
   return (
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/relatorios" component={Reports} />
       <Route path="/join" component={JoinProject} />
       <Route path="/planos" component={Plans} />
+      <Route path="/assinatura" component={SubscriptionPortal} />
       <Route path="/manual" component={UserManual} />
       <Route path="/admin" component={Admin} />
       <Route path="/profile" component={Profile} />

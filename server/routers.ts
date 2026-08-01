@@ -28,9 +28,14 @@ import {
   getDb,
   getGoogleCalendarToken, saveGoogleCalendarToken, deleteGoogleCalendarToken,
   saveGoogleCalendarEvent, getGoogleCalendarEventsByUser, deleteGoogleCalendarEvent,
+  getSubscriptionPlans, getSubscriptionPlanById, getUserSubscription, createUserSubscription,
+  updateUserSubscription, cancelUserSubscription, getUserInvoices, hasActiveSubscription,
+  getSubscriptionStatus, isTrialPeriod,
 } from "./db";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
+import stripe from "stripe";
+const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // ─── Admin guard ───────────────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -1669,6 +1674,84 @@ export const appRouter = router({
     }),
     listEvents: protectedProcedure.query(async ({ ctx }) => {
       return await getGoogleCalendarEventsByUser(ctx.user.id);
+    }),
+  }),
+
+  subscription: router({
+    listPlans: publicProcedure.query(async () => {
+      const plans = await getSubscriptionPlans();
+      return plans.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        monthlyPrice: p.monthlyPrice,
+        annualPrice: p.annualPrice,
+        maxUsers: p.maxUsers,
+        maxProjects: p.maxProjects,
+        features: p.features ? JSON.parse(p.features) : [],
+        description: p.description,
+      }));
+    }),
+
+    getStatus: protectedProcedure.query(async ({ ctx }) => {
+      return await getSubscriptionStatus(ctx.user.id);
+    }),
+
+    createCheckoutSession: protectedProcedure.input((v: any) => ({
+      planId: v.planId,
+      billingCycle: v.billingCycle || "monthly",
+    })).mutation(async ({ ctx, input }) => {
+      const plan = await getSubscriptionPlanById(input.planId);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Plano nao encontrado" });
+
+      const origin = ctx.req?.headers.origin || "https://orbita.manus.space";
+
+      const session = await stripeClient.checkout.sessions.create({
+        customer_email: ctx.user.email || undefined,
+        client_reference_id: ctx.user.id.toString(),
+        metadata: {
+          user_id: ctx.user.id.toString(),
+          customer_email: ctx.user.email || "",
+          customer_name: ctx.user.name || "",
+          plan_id: input.planId.toString(),
+          billing_cycle: input.billingCycle,
+        },
+        line_items: [
+          {
+            price: plan.stripePriceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        success_url: `${origin}/dashboard?checkout=success`,
+        cancel_url: `${origin}/pricing?checkout=canceled`,
+        allow_promotion_codes: true,
+      });
+
+      return { checkoutUrl: session.url };
+    }),
+
+    getInvoices: protectedProcedure.query(async ({ ctx }) => {
+      return await getUserInvoices(ctx.user.id);
+    }),
+
+    cancel: protectedProcedure.input((v: any) => ({
+      reason: v.reason,
+    })).mutation(async ({ ctx, input }) => {
+      const sub = await getUserSubscription(ctx.user.id);
+      if (!sub) throw new TRPCError({ code: "NOT_FOUND", message: "Assinatura nao encontrada" });
+
+      if (sub.stripeSubscriptionId) {
+        await stripeClient.subscriptions.cancel(sub.stripeSubscriptionId);
+      }
+
+      await cancelUserSubscription(sub.id, input.reason);
+      return { success: true };
+    }),
+
+    checkAccess: protectedProcedure.query(async ({ ctx }) => {
+      const hasAccess = await hasActiveSubscription(ctx.user.id);
+      const isTrialing = await isTrialPeriod(ctx.user.id);
+      return { hasAccess, isTrialing };
     }),
   }),
 });

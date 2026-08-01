@@ -7,6 +7,7 @@ import {
   conversations, conversationParticipants, directMessages,
   sprintChecklistItems, whiteboards, userDisciplines,
   googleCalendarTokens, googleCalendarEvents,
+  subscriptionPlans, userSubscriptions, subscriptionInvoices,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -1509,4 +1510,163 @@ export async function getGoogleCalendarEventsByUser(userId: number) {
 export async function deleteGoogleCalendarEvent(eventId: number) {
   const db = await getDb();
   await db.delete(googleCalendarEvents).where(eq(googleCalendarEvents.id, eventId));
+}
+
+
+// ─── Subscription Plans ────────────────────────────────────────────────────────
+export async function getSubscriptionPlans() {
+  const db = await getDb();
+  return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true));
+}
+
+export async function getSubscriptionPlanById(id: number) {
+  const db = await getDb();
+  return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id)).limit(1).then((r: any[]) => r[0]);
+}
+
+export async function getSubscriptionPlanByStripePriceId(stripePriceId: string) {
+  const db = await getDb();
+  return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.stripePriceId, stripePriceId)).limit(1).then((r: any[]) => r[0]);
+}
+
+export async function createSubscriptionPlan(data: {
+  name: string;
+  stripePriceId: string;
+  stripeProductId: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  maxUsers: number;
+  maxProjects: number;
+  features?: string;
+  description?: string;
+}) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO subscription_plans (name, stripePriceId, stripeProductId, monthlyPrice, annualPrice, maxUsers, maxProjects, features, description, isActive, createdAt, updatedAt)
+        VALUES (${data.name}, ${data.stripePriceId}, ${data.stripeProductId}, ${data.monthlyPrice}, ${data.annualPrice}, ${data.maxUsers}, ${data.maxProjects}, ${data.features ?? null}, ${data.description ?? null}, TRUE, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
+}
+
+// ─── User Subscriptions ────────────────────────────────────────────────────────
+export async function getUserSubscription(userId: number) {
+  const db = await getDb();
+  const result: any[] = await db.select().from(userSubscriptions)
+    .where(and(eq(userSubscriptions.userId, userId), eq(userSubscriptions.status, "active")))
+    .limit(1);
+  return result[0];
+}
+
+export async function getUserSubscriptionByStripeId(stripeSubscriptionId: string) {
+  const db = await getDb();
+  return await db.select().from(userSubscriptions)
+    .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId))
+    .limit(1)
+    .then((r: any[]) => r[0]);
+}
+
+export async function createUserSubscription(data: {
+  userId: number;
+  planId: number;
+  stripeSubscriptionId?: string;
+  stripeCustomerId?: string;
+  status: "active" | "trialing" | "past_due" | "canceled" | "unpaid";
+  currentPeriodStart?: Date;
+  currentPeriodEnd?: Date;
+  trialEndDate?: Date;
+  billingCycle: "monthly" | "annual";
+}) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO user_subscriptions (userId, planId, stripeSubscriptionId, stripeCustomerId, status, currentPeriodStart, currentPeriodEnd, trialEndDate, billingCycle, autoRenew, createdAt, updatedAt)
+        VALUES (${data.userId}, ${data.planId}, ${data.stripeSubscriptionId ?? null}, ${data.stripeCustomerId ?? null}, ${data.status}, ${data.currentPeriodStart ?? null}, ${data.currentPeriodEnd ?? null}, ${data.trialEndDate ?? null}, ${data.billingCycle}, TRUE, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
+}
+
+export async function updateUserSubscription(subscriptionId: number, data: Partial<{
+  status: string;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  canceledAt: Date;
+  cancelReason: string;
+  autoRenew: boolean;
+}>) {
+  const db = await getDb();
+  await db.update(userSubscriptions).set({ ...data, updatedAt: new Date() }).where(eq(userSubscriptions.id, subscriptionId));
+}
+
+export async function cancelUserSubscription(subscriptionId: number, reason?: string) {
+  const db = await getDb();
+  await db.update(userSubscriptions).set({
+    status: "canceled",
+    canceledAt: new Date(),
+    cancelReason: reason ?? null,
+    updatedAt: new Date(),
+  }).where(eq(userSubscriptions.id, subscriptionId));
+}
+
+// ─── Subscription Invoices ─────────────────────────────────────────────────────
+export async function getUserInvoices(userId: number) {
+  const db = await getDb();
+  return await db.select().from(subscriptionInvoices)
+    .where(eq(subscriptionInvoices.userId, userId))
+    .orderBy(desc(subscriptionInvoices.createdAt));
+}
+
+export async function createSubscriptionInvoice(data: {
+  userId: number;
+  subscriptionId: number;
+  stripeInvoiceId?: string;
+  amount: number;
+  currency?: string;
+  status?: string;
+  paidAt?: Date;
+  dueDate?: Date;
+  invoiceUrl?: string;
+}) {
+  const db = await getDb();
+  const [result] = await db.execute(
+    sql`INSERT INTO subscription_invoices (userId, subscriptionId, stripeInvoiceId, amount, currency, status, paidAt, dueDate, invoiceUrl, createdAt, updatedAt)
+        VALUES (${data.userId}, ${data.subscriptionId}, ${data.stripeInvoiceId ?? null}, ${data.amount}, ${data.currency ?? "BRL"}, ${data.status ?? "open"}, ${data.paidAt ?? null}, ${data.dueDate ?? null}, ${data.invoiceUrl ?? null}, NOW(), NOW())`
+  );
+  return (result as any).insertId as number;
+}
+
+export async function updateSubscriptionInvoice(invoiceId: number, data: Partial<{
+  status: string;
+  paidAt: Date;
+}>) {
+  const db = await getDb();
+  await db.update(subscriptionInvoices).set({ ...data, updatedAt: new Date() }).where(eq(subscriptionInvoices.id, invoiceId));
+}
+
+// ─── Subscription Helpers ──────────────────────────────────────────────────────
+export async function hasActiveSubscription(userId: number): Promise<boolean> {
+  const sub = await getUserSubscription(userId);
+  return !!sub && (sub.status === "active" || sub.status === "trialing");
+}
+
+export async function isTrialPeriod(userId: number): Promise<boolean> {
+  const sub = await getUserSubscription(userId);
+  if (!sub || !sub.trialEndDate) return false;
+  return new Date() < sub.trialEndDate;
+}
+
+export async function getSubscriptionStatus(userId: number) {
+  const sub = await getUserSubscription(userId);
+  if (!sub) return { hasSubscription: false, status: "no_subscription", plan: null, daysRemaining: null };
+  
+  const plan = await getSubscriptionPlanById(sub.planId);
+  const now = new Date();
+  const daysRemaining = sub.currentPeriodEnd ? Math.ceil((sub.currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+  
+  return {
+    hasSubscription: true,
+    status: sub.status,
+    plan: plan?.name,
+    daysRemaining,
+    isTrialing: sub.status === "trialing",
+    trialEndsAt: sub.trialEndDate,
+  };
 }

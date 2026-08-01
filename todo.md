@@ -831,3 +831,20 @@
 - [ ] Frontend: criar eventos no Orbita que sincronizam com Google Calendar
 - [ ] Backend: refresh automático de tokens expirados
 - [ ] Backend: sincronização bidirecional de eventos (Google → Orbita e Orbita → Google)
+
+
+## v7.0 — Integração Wix + Stripe (Assinatura)
+- [ ] Configurar Stripe: criar produtos e planos (Starter R$29, Basic R$59, Pro R$89)
+- [ ] Backend: webhook Stripe para gerenciar assinaturas, cancelamentos, renovações
+- [ ] Backend: middleware de verificação de assinatura ativa
+- [ ] Backend: sistema de trial gratuito (15 dias)
+- [ ] Backend: limites por plano (usuários, projetos)
+- [ ] Frontend: página de pricing com 3 planos
+- [ ] Frontend: checkout integrado com Stripe
+- [ ] Frontend: portal do cliente (gerenciar assinatura, faturamento, cancelamento)
+- [ ] Frontend: integração com autenticação Google
+- [ ] Design: aplicar identidade visual LS Solutions (amarelo #FFC30D, preto, verde)
+- [ ] Design: adaptar cores e tipografia para combinar com Wix
+- [ ] Integração Wix: criar embed/iframe para Orbita no domínio LS Solutions
+- [ ] Testes: fluxo completo de compra e assinatura
+- [ ] Documentação: guia de integração Wix

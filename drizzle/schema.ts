@@ -425,3 +425,62 @@ export const googleCalendarEvents = mysqlTable("google_calendar_events", {
 });
 export type GoogleCalendarEvent = typeof googleCalendarEvents.$inferSelect;
 export type InsertGoogleCalendarEvent = typeof googleCalendarEvents.$inferInsert;
+
+
+// ─── Subscription Plans ────────────────────────────────────────────────────────
+export const subscriptionPlans = mysqlTable("subscription_plans", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 64 }).notNull(),  // "Starter", "Basic", "Pro"
+  stripePriceId: varchar("stripePriceId", { length: 256 }).notNull().unique(),
+  stripeProductId: varchar("stripeProductId", { length: 256 }).notNull(),
+  monthlyPrice: float("monthlyPrice").notNull(),  // 29, 59, 89
+  annualPrice: float("annualPrice").notNull(),  // desconto anual
+  maxUsers: int("maxUsers").notNull(),  // limite de usuários
+  maxProjects: int("maxProjects").notNull(),  // limite de projetos
+  features: text("features"),  // JSON array de features
+  description: text("description"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+
+// ─── User Subscriptions ────────────────────────────────────────────────────────
+export const userSubscriptions = mysqlTable("user_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  planId: int("planId").notNull(),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 256 }).unique(),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 256 }),
+  status: mysqlEnum("status", ["active", "trialing", "past_due", "canceled", "unpaid"]).default("trialing").notNull(),
+  currentPeriodStart: timestamp("currentPeriodStart"),
+  currentPeriodEnd: timestamp("currentPeriodEnd"),
+  trialEndDate: timestamp("trialEndDate"),  // 15 dias de trial
+  canceledAt: timestamp("canceledAt"),
+  cancelReason: text("cancelReason"),
+  billingCycle: mysqlEnum("billingCycle", ["monthly", "annual"]).default("monthly").notNull(),
+  autoRenew: boolean("autoRenew").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+export type InsertUserSubscription = typeof userSubscriptions.$inferInsert;
+
+// ─── Subscription Invoices ─────────────────────────────────────────────────────
+export const subscriptionInvoices = mysqlTable("subscription_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  subscriptionId: int("subscriptionId").notNull(),
+  stripeInvoiceId: varchar("stripeInvoiceId", { length: 256 }).unique(),
+  amount: float("amount").notNull(),
+  currency: varchar("currency", { length: 3 }).default("BRL").notNull(),
+  status: mysqlEnum("status", ["draft", "open", "paid", "void", "uncollectible"]).default("open").notNull(),
+  paidAt: timestamp("paidAt"),
+  dueDate: timestamp("dueDate"),
+  invoiceUrl: text("invoiceUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SubscriptionInvoice = typeof subscriptionInvoices.$inferSelect;
+export type InsertSubscriptionInvoice = typeof subscriptionInvoices.$inferInsert;

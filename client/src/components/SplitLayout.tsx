@@ -82,7 +82,7 @@ export function SplitPanelHeader({
       className={cn(
         "flex-shrink-0 px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2",
         className
-      )}
+      )} style={{backgroundColor: '#dedede'}}
     >
       <div className="min-w-0">
         <h2 className="text-sm font-semibold text-foreground truncate">{title}</h2>
@@ -152,7 +152,7 @@ export function SplitPanelContent({
         "flex-1 overflow-y-auto",
         !noPadding && "p-6",
         className
-      )}
+      )} style={{backgroundColor: '#dedede'}}
     >
       {children}
     </div>
