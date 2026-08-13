@@ -25,11 +25,25 @@ const quickCommands: QuickCommand[] = [
 
 export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [, navigate] = useLocation();
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState<AgentMessage[]>([
     { role: "assistant", content: "Olá! Posso te levar até tarefas, pesquisar projetos ou consultar sua agenda." },
   ]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleChange = () => setIsDesktop(mediaQuery.matches);
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  const compactMode = compact && isDesktop;
 
   const chatM = trpc.floatingAgent.chat.useMutation({
     onSuccess: (data) => {
@@ -58,16 +72,16 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     chatM.mutate({ message: trimmed });
   };
 
-  const agentPositionStyle = getFloatingAgentPlacement(compact);
+  const agentPositionStyle = getFloatingAgentPlacement(compactMode);
 
   return (
     <div
       className="fixed z-[70] flex flex-col items-end gap-3 transition duration-500 ease-out"
       style={{ ...agentPositionStyle, transitionProperty: FLOATING_AGENT_TRANSITION }}
-      data-sidebar-mode={compact ? "collapsed" : "expanded"}
+      data-sidebar-mode={compactMode ? "collapsed" : "expanded"}
     >
       {open && (
-        <div className={`${compact ? "absolute bottom-full left-full z-[80] mb-2 w-[min(400px,calc(100vw-6rem))]" : "w-[min(400px,calc(100vw-2rem))]"} overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compact ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}>
+        <div className={`${compactMode ? "absolute bottom-full left-[calc(100%+1rem)] z-[80] mb-2 w-[min(400px,calc(100vw-6rem))]" : "w-[min(400px,calc(100vw-2rem))]"} overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compactMode ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}>
           <div className="flex items-center gap-3 bg-black px-4 py-3 text-white">
             <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#ffc30d] text-black">
               <Sparkles className="h-5 w-5" />
@@ -141,11 +155,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`${compact ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition-[width,height,transform,box-shadow] duration-500 ease-out hover:scale-105 hover:ring-[#ffc30d]/60`}
+        className={`${compactMode ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition-[width,height,transform,box-shadow] duration-500 ease-out hover:scale-105 hover:ring-[#ffc30d]/60`}
         aria-label={open ? "Fechar Orbita AI" : "Abrir Orbita AI"}
         title="Abrir Orbita AI"
       >
-        {open ? <ChevronRight className="h-5 w-5" /> : <Bot className={`${compact ? "h-5 w-5" : "h-6 w-6"} transition group-hover:rotate-6`} />}
+        {open ? <ChevronRight className="h-5 w-5" /> : <Bot className={`${compactMode ? "h-5 w-5" : "h-6 w-6"} transition group-hover:rotate-6`} />}
       </button>
     </div>
   );
