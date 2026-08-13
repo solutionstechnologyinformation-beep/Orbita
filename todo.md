@@ -367,8 +367,8 @@
 - [x] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
 
 ## Logo Oficial LS Solutions v3.29
-- [ ] Upload da logo oficial PNG para CDN
-- [ ] Substituir "LS" texto na sidebar (AppLayout.tsx) pela logo oficial
+- [x] Upload da logo oficial PNG para o armazenamento persistente do projeto
+- [x] Substituir "LS" texto na sidebar (AppLayout.tsx) pela logo oficial
 - [ ] Substituir "LS" texto nos PDFs (Sprints, Dashboard, AIChat, Reports, Gantt) pela logo oficial
 
 ## Próximos Passos v3.30
@@ -800,7 +800,7 @@
 ## v6.5 — Componentes e Preparação para Itens Críticos
 
 - [x] FilePreviewModal criado (PDF via iframe, imagens via img, fallback para download)
-- [ ] admin.createUser com hash de senha (próxima sessão)
+- [x] admin.createUser com hash de senha (scrypt nativo)
 - [ ] Campo company nos usuários + filtro por empresa (próxima sessão)
 - [ ] Notificações e alertas automáticos (próxima sessão)
 - [x] Todos os 23 testes passando
@@ -830,7 +830,7 @@
 - [x] Frontend: exibir eventos sincronizados do Google Calendar no calendário
 - [x] Frontend: criar eventos no Orbita que sincronizam com Google Calendar
 - [x] Backend: refresh automático de tokens expirados
-- [ ] Backend: sincronização bidirecional de eventos (Google → Orbita e Orbita → Google)
+- [x] Backend: sincronização bidirecional de eventos (Google → Orbita e Orbita → Google)
 
 
 ## v7.0 — Integração Wix + Stripe (Assinatura)
@@ -927,7 +927,7 @@
 
 - [x] Remover o widget de Gantt da semana da aba principal do Dashboard
 
-- [ ] Revisar o Kanban para permitir marcar card como 100% concluído, movendo-o automaticamente para a coluna Concluído, removendo-o dos atrasados e aplicando estilo visual sombreado/apagado
+- [x] Revisar o Kanban para permitir marcar card como 100% concluído, movendo-o automaticamente para a coluna Concluído, removendo-o dos atrasados e aplicando estilo visual sombreado/apagado
 
 - [x] Remover os botões de PNG e PDF do mapa do Dashboard e anexar a captura do mapa ao relatório gerado por 'Exportar PDF'
 
@@ -944,7 +944,7 @@
 - [x] TeamChat: atualizar lastSeenAt por heartbeat e manter o ponto verde válido por cinco minutos
 - [x] Agente Orbita AI flutuante: bolha global para navegar até tarefas, pesquisar dados e consultar agenda
 - [x] Orbita AI: adicionar animação de digitação e sugestões de comandos rápidos ao abrir
-- [ ] TaskDetail: sugerir comentários contextuais por IA e permitir inserir a sugestão no campo de comentário
+- [x] TaskDetail: sugerir comentários contextuais por IA e permitir inserir a sugestão no campo de comentário
 - [x] Branding: substituir todas as logos Orbita pela logo enviada com fundo transparente na interface e nos relatórios
 - [x] Testes: validar que a interface e os relatórios usam o ativo PNG transparente compartilhado
 - [x] Logo sidebar: deixar somente o desenho sem fundo, aplicar hover suave e voltar ao Dashboard ao clicar
