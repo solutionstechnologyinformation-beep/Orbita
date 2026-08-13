@@ -2,7 +2,7 @@ import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte, or } fr
 import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
 import {
-  users, clients, crs, kanbanPhases, tasks, checklistItems,
+  users, clients, crs, kanbanPhases, tasks, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
@@ -319,7 +319,21 @@ export async function getTaskById(id: number) {
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(eq(tasks.id, id)).limit(1);
-  return r[0];
+  if (!r[0]) return undefined;
+  const attachments = await db.select({
+    id: taskAttachments.id,
+    taskId: taskAttachments.taskId,
+    filename: taskAttachments.filename,
+    fileKey: taskAttachments.fileKey,
+    fileUrl: taskAttachments.fileUrl,
+    mimeType: taskAttachments.mimeType,
+    fileSize: taskAttachments.fileSize,
+    uploadedById: taskAttachments.uploadedById,
+    createdAt: taskAttachments.createdAt,
+  }).from(taskAttachments)
+    .where(eq(taskAttachments.taskId, id))
+    .orderBy(asc(taskAttachments.createdAt));
+  return { ...r[0], attachments };
 }
 export async function createTask(data: {
   crsId: number; phaseId: number; title: string; description?: string;
@@ -831,6 +845,7 @@ export async function getUserConversations(userId: number) {
       otherUserId: otherUser.id,
       otherUserName: otherUser.name,
       otherUserAvatar: otherUser.avatarUrl,
+      otherUserLastSeenAt: otherUser.lastSeenAt,
     })
     .from(conversations)
     .innerJoin(conversationParticipants, and(eq(conversationParticipants.conversationId, conversations.id), eq(conversationParticipants.userId, userId)))

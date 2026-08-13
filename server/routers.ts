@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { eq, sql } from "drizzle-orm";
+import { users } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
+import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
 import {
   updateUser, getAllUsers, deleteUser, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
@@ -34,7 +37,7 @@ import {
   getMeetings, getMeetingById, createMeeting, updateMeeting, deleteMeeting,
   getCrsSegments, createCrsSegment, deleteCrsSegment,
 } from "./db";
-import { createGoogleCalendarMeeting, syncGoogleMeetReport } from "./google-calendar";
+import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalendarEvents, syncGoogleMeetReport } from "./google-calendar";
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
 import { notifyOwner } from "./_core/notification";
 import { createGoogleOAuthState } from "./_core/google-oauth-state";
@@ -96,6 +99,13 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+  // ─── Presence ─────────────────────────────────────────────────────────────────────
+  presence: router({
+    heartbeat: protectedProcedure.mutation(async ({ ctx }) => {
+      await updateUser(ctx.user.id, { lastSeenAt: new Date() });
+      return { success: true, lastSeenAt: new Date() };
+    }),
+  }),
   // ─── Users ────────────────────────────────────────────────────────────────────────
   users: router({
     list: protectedProcedure.query(async () => {
@@ -106,6 +116,35 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await updateUser(input.userId, { role: input.role as any });
         return { success: true };
+      }),
+    createUser: adminProcedure
+      .input(z.object({
+        name: z.string().trim().min(1).max(256),
+        email: z.string().trim().email(),
+        password: z.string().min(6).max(128),
+        role: z.enum(["user", "admin", "leader"]).default("user"),
+        company: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
+        if (existing.length > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail." });
+        }
+        const { scryptSync, randomBytes } = await import("crypto");
+        const salt = randomBytes(16).toString("hex");
+        const derivedKey = scryptSync(input.password, salt, 64).toString("hex");
+        const passwordHash = `scrypt$${salt}$${derivedKey}`;
+        const openId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const initials = input.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+        const [result] = await db.execute(
+          sql`INSERT INTO users (openId, name, email, loginMethod, role, company, passwordHash, avatarInitials, createdAt, updatedAt, lastSignedIn)
+              VALUES (${openId}, ${input.name}, ${input.email}, 'local', ${input.role}, ${input.company ?? null}, ${passwordHash}, ${initials}, NOW(), NOW(), NOW())`
+        );
+        const newUserId = (result as any).insertId as number;
+        await logActivity({ userId: ctx.user.id, action: "created_user_local", entityType: "user", entityId: newUserId, metadata: JSON.stringify({ email: input.email, role: input.role }) });
+        return { id: newUserId };
       }),
     // Disciplinas de responsabilidade do usuário
     getDisciplines: protectedProcedure
@@ -606,23 +645,40 @@ export const appRouter = router({
         return { success: true };
       }),
     movePhase: protectedProcedure
-      .input(z.object({ id: z.number(), phaseId: z.number(), position: z.number().optional() }))
+      .input(z.object({ id: z.number(), phaseId: z.number(), position: z.number().optional(), blockReason: z.string().trim().min(1).optional() }))
       .mutation(async ({ ctx, input }) => {
         const task = await getTaskById(input.id);
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+        let targetPhaseName = "";
         if (input.phaseId !== task.phaseId) {
           const { kanbanPhases } = await import("../drizzle/schema");
           const { eq: eq2 } = await import("drizzle-orm");
           const dbConn = await getDb();
           const [fromPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, task.phaseId)).limit(1);
           const [toPhase] = await dbConn.select({ name: kanbanPhases.name }).from(kanbanPhases).where(eq2(kanbanPhases.id, input.phaseId)).limit(1);
+          targetPhaseName = toPhase?.name ?? "Desconhecida";
           await recordPhaseChange({
             taskId: input.id, changedById: ctx.user.id,
             fromPhaseId: task.phaseId, fromPhaseName: fromPhase?.name,
-            toPhaseId: input.phaseId, toPhaseName: toPhase?.name ?? "Desconhecida",
+            toPhaseId: input.phaseId, toPhaseName: targetPhaseName,
           });
         }
-        await updateTask(input.id, { phaseId: input.phaseId, position: input.position ?? task.position });
+        const isBlockedPhase = isBlockedPhaseName(targetPhaseName);
+        await updateTask(input.id, {
+          phaseId: input.phaseId,
+          position: input.position ?? task.position,
+          status: isBlockedPhase ? "blocked" : task.status === "blocked" ? "in_progress" : task.status,
+          blockReason: isBlockedPhase ? normalizeBlockReason(input.blockReason) : null,
+        });
+        if (isBlockedPhase && input.blockReason && task.assigneeId && task.assigneeId !== ctx.user.id) {
+          await notifyUser({
+            userId: task.assigneeId,
+            title: `Tarefa bloqueada: "${task.title}"`,
+            message: `${ctx.user.name ?? "Um usuário"} informou: ${input.blockReason}`,
+            notificationType: "task_blocked",
+            relatedTaskId: task.id,
+          });
+        }
         return { success: true };
       }),
     delete: adminProcedure
@@ -1740,6 +1796,37 @@ export const appRouter = router({
     listEvents: protectedProcedure.query(async ({ ctx }) => {
       return await getGoogleCalendarEventsByUser(ctx.user.id);
     }),
+    syncEvents: protectedProcedure.mutation(async ({ ctx }) => {
+      return await syncGoogleCalendarEvents(ctx.user.id);
+    }),
+    createEvent: protectedProcedure
+      .input(z.object({
+        title: z.string().trim().min(1).max(256),
+        description: z.string().max(5000).optional(),
+        startDate: z.date(),
+        endDate: z.date(),
+        attendeeEmails: z.array(z.string().email()).max(50).default([]),
+        agendaEventId: z.number().int().positive().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.endDate <= input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O horário de término deve ser posterior ao início." });
+        }
+        const event = await createGoogleCalendarEvent({
+          userId: ctx.user.id,
+          title: input.title,
+          description: input.description,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          attendeeEmails: Array.from(new Set(input.attendeeEmails)),
+        });
+        await saveGoogleCalendarEvent(ctx.user.id, {
+          ...event,
+          agendaEventId: input.agendaEventId,
+          isSynced: true,
+        });
+        return event;
+      }),
   }),
 
   meetings: router({

@@ -11,6 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { trpc } from "@/lib/trpc";
 import { matchesKanbanTaskSearch } from "../../../shared/kanban-search";
 import { isCompletedKanbanPhase } from "../../../shared/kanban-completion";
+import { isBlockedPhaseName } from "../../../shared/kanban-block";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -327,6 +328,8 @@ export default function Kanban() {
 
   // DnD state
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [blockedMove, setBlockedMove] = useState<{ taskId: number; phaseId: number; title: string } | null>(null);
+  const [blockReason, setBlockReason] = useState("");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   // Dialogs
@@ -487,8 +490,27 @@ export default function Kanban() {
     }
 
     if (targetPhaseId && targetPhaseId !== task.phaseId) {
+      const targetPhase = phases.find((phase: any) => phase.id === targetPhaseId);
+      if (isBlockedPhaseName(targetPhase?.name)) {
+        setBlockedMove({ taskId, phaseId: targetPhaseId, title: task.title });
+        setBlockReason("");
+        return;
+      }
       moveTaskMut.mutate({ id: taskId, phaseId: targetPhaseId });
     }
+  }
+
+  function confirmBlockedMove() {
+    if (!blockedMove) return;
+    const reason = blockReason.trim();
+    if (!reason) {
+      toast.error("Informe o motivo do bloqueio.");
+      return;
+    }
+    moveTaskMut.mutate(
+      { id: blockedMove.taskId, phaseId: blockedMove.phaseId, blockReason: reason },
+      { onSuccess: () => { setBlockedMove(null); setBlockReason(""); } },
+    );
   }
 
   function openAddTask(phaseId: number) {
@@ -785,6 +807,31 @@ export default function Kanban() {
         ) : null}
       </DragOverlay>
       </DndContext>
+
+      {/* Block reason dialog */}
+      <Dialog open={!!blockedMove} onOpenChange={(open) => { if (!open && !moveTaskMut.isPending) setBlockedMove(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Motivo do bloqueio</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">Informe por que “{blockedMove?.title ?? "esta tarefa"}” não pode continuar.</p>
+            <Textarea
+              value={blockReason}
+              onChange={(event) => setBlockReason(event.target.value)}
+              placeholder="Descreva o impedimento..."
+              rows={4}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockedMove(null)} disabled={moveTaskMut.isPending}>Cancelar</Button>
+            <Button onClick={confirmBlockedMove} disabled={moveTaskMut.isPending || !blockReason.trim()}>
+              {moveTaskMut.isPending ? "Salvando..." : "Bloquear tarefa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Task Dialog */}
       <Dialog open={showCreateTask} onOpenChange={(o) => { if (!o) setShowCreateTask(false); }}>

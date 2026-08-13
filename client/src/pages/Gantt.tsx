@@ -281,14 +281,20 @@ export default function Gantt() {
   function exportTimeline() {
     const popup = window.open("", "_blank");
     if (!popup) return;
+    const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" }[character] ?? character));
     const rowsHtml = rows.map((row) => {
-      if (row.kind === "group") return `<tr class="group"><td colspan="2">${row.label}</td></tr>`;
-      if (row.kind === "subgroup") return `<tr class="subgroup"><td colspan="2">↳ ${row.label}</td></tr>`;
+      if (row.kind === "group") return `<tr class="group"><td colspan="5">${escapeHtml(row.label)}</td></tr>`;
+      if (row.kind === "subgroup") return `<tr class="subgroup"><td colspan="5">↳ ${escapeHtml(row.label)}</td></tr>`;
       const task = row.kind === "task" ? row.task : row.item;
       const range = getBar(task);
-      return `<tr><td>${row.kind === "task" ? row.index + ". " : "↳ "}${task.title}</td><td>${range ? `${formatShortDate(task.startDate)} → ${formatShortDate(task.endDate)}` : "Sem datas"}</td></tr>`;
+      const dueDate = asDate((task as TaskItem).dueDate);
+      const isTerminal = Boolean((task as TaskItem).phaseIsTerminal) || task.status === "published" || task.status === "archived";
+      const alert = !range ? "Sem datas" : dueDate && dueDate < today && !isTerminal ? "Atrasada" : isTerminal ? "Concluída" : "—";
+      const status = (task as TaskItem).phaseName ?? (isTerminal ? "Concluído" : "Em andamento");
+      const responsible = (task as TaskItem).assigneeName ?? "Sem responsável";
+      return `<tr><td>${row.kind === "task" ? row.index + ". " : "↳ "}${escapeHtml(task.title)}</td><td>${range ? `${formatShortDate(task.startDate)} → ${formatShortDate(task.endDate)}` : "Sem datas"}</td><td>${escapeHtml(responsible)}</td><td>${escapeHtml(status)}</td><td class="${alert === "Atrasada" ? "alert" : ""}">${alert}</td></tr>`;
     }).join("");
-    popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Timeline — Orbita</title><style>body{font-family:Arial,sans-serif;color:#172033;padding:24px}h1{color:#0f172a}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #e5e7eb;padding:8px}.group{background:#eaf2ff;font-weight:700}.subgroup{background:#f8fafc;font-weight:600}</style></head><body><h1>Timeline de atividades — Orbita</h1><p>Gerado em ${new Date().toLocaleString("pt-BR")}</p><table>${rowsHtml}</table></body></html>`);
+    popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Timeline — Orbita</title><style>body{font-family:Arial,sans-serif;color:#172033;padding:24px}h1{color:#0f172a}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left}th{background:#f1f5f9;font-size:11px;text-transform:uppercase;color:#475569}.group{background:#eaf2ff;font-weight:700}.subgroup{background:#f8fafc;font-weight:600}.alert{color:#b91c1c;font-weight:700}</style></head><body><h1>Timeline de atividades — Orbita</h1><p>Gerado em ${new Date().toLocaleString("pt-BR")}</p><table><thead><tr><th>Tarefa</th><th>Período</th><th>Responsável</th><th>Status</th><th>Alerta</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`);
     popup.document.close();
     popup.focus();
     setTimeout(() => popup.print(), 500);

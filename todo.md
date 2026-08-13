@@ -134,14 +134,14 @@
 
 ## Melhoria v3.8 — Visualizador de Arquivos
 - [x] Componente FilePreviewModal: PDF via iframe, imagens via img, outros via link de download
-- [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
+- [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 - [x] Suporte a PDF, imagens (jpg/png/gif/webp), e fallback para outros tipos
 
 ## Melhorias v3.8
 - [ ] Admin: botão e formulário para criar novo usuário (nome, e-mail, senha, papel)
-- [ ] Backend: procedure admin.createUser com hash de senha
+- [x] Backend: procedure admin.createUser com hash de senha
 - [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
-- [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
+- [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
 ## Melhorias v3.8 — Empresa, Admin e Visualizador
 - [ ] Schema: campo company (texto) na tabela users
@@ -159,7 +159,7 @@
 - [ ] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
 - [ ] Frontend Admin: botão excluir usuário com confirmação
 - [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
-- [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
+- [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
 ## Arquitetura Multi-Tenant v3.9
 - [ ] Schema: tabela companies (id, name, slug, color, createdAt)
@@ -299,8 +299,8 @@
 ## Correções e Melhorias v3.23
 - [ ] Quadro Branco: diagnosticar e corrigir erro de funcionamento
 - [ ] Projetos: campo de seleção de cliente ao criar/editar projeto
-- [ ] Kanban: modal de motivo ao mover tarefa para coluna Bloqueado
-- [ ] Sprints: botão exportar relatório de Sprint como PDF
+- [x] Kanban: modal de motivo ao mover tarefa para coluna Bloqueado
+- [x] Sprints: botão exportar relatório de Sprint como PDF
 
 ## Correções e Melhorias v3.23
 - [x] Quadro Branco: diagnosticar e corrigir erro de funcionamento (canvas init com requestAnimationFrame)
@@ -318,9 +318,9 @@
 - [ ] PDFs: atualizar identidade visual com cor #FFBE00, azul-marinho e logo LS no rodapé (Sprint PDF, AIChat PDF)
 - [x] Dashboard: botão "Exportar PDF" com KPIs, gráficos e tabelas
 - [x] Kanban: filtro por usuário/responsável (dropdown na barra de filtros)
-- [ ] TeamChat: chat privado 1-a-1 entre membros
-- [ ] TeamChat: criação de grupos de chat
-- [ ] Notificação automática ao bloquear tarefa (notificar criador e responsável com motivo)
+- [x] TeamChat: chat privado 1-a-1 entre membros
+- [x] TeamChat: criação de grupos de chat
+- [x] Notificação automática ao bloquear tarefa (notificar criador e responsável com motivo)
 - [ ] TaskDetail: visualizador inline de anexos (PDF via iframe, imagens via img, fallback download)
 
 ## Melhorias v3.25
@@ -351,9 +351,9 @@
 - [x] Relatórios: link "Relatórios" adicionado à barra lateral de navegação
 
 ## Melhorias v3.27
-- [ ] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
-- [ ] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
-- [ ] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
+- [x] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
+- [x] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
+- [x] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
 
 ## Revisão de Identidade Visual dos PDFs v3.27a
 - [x] Reports.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
@@ -362,9 +362,9 @@
 - [x] Dashboard.tsx: header amarelo #FFBE00 + texto preto + rodapé LS Solutions
 
 ## Melhorias v3.28
-- [ ] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
-- [ ] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
-- [ ] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
+- [x] Relatórios: card "Tarefas Bloqueadas" com motivo, responsável e projeto
+- [x] Chat: indicador de presença online (ponto verde) para usuários ativos nos últimos 5 min
+- [x] Gantt: botão "Exportar PDF" com tabela de tarefas, datas, responsáveis e alertas de conflito
 
 ## Logo Oficial LS Solutions v3.29
 - [ ] Upload da logo oficial PNG para CDN
@@ -827,9 +827,9 @@
 - [x] Frontend: botão "Conectar" que abre fluxo OAuth do Google
 - [x] Frontend: botão "Desconectar" para remover integração
 - [x] Testes: vitest para funções de Google Calendar (salvar, atualizar, deletar tokens)
-- [ ] Frontend: exibir eventos sincronizados do Google Calendar no calendário
-- [ ] Frontend: criar eventos no Orbita que sincronizam com Google Calendar
-- [ ] Backend: refresh automático de tokens expirados
+- [x] Frontend: exibir eventos sincronizados do Google Calendar no calendário
+- [x] Frontend: criar eventos no Orbita que sincronizam com Google Calendar
+- [x] Backend: refresh automático de tokens expirados
 - [ ] Backend: sincronização bidirecional de eventos (Google → Orbita e Orbita → Google)
 
 
@@ -843,7 +843,7 @@
 - [x] Frontend: checkout integrado com Stripe
 - [x] Frontend: portal do cliente (gerenciar assinatura, faturamento, cancelamento)
 - [x] Frontend: integração com autenticação Google
-- [x] Design: aplicar identidade visual LS Solutions (amarelo #FFC30D, preto, verde)
+- [x] Design: aplicar identidade visual LS Solutions (amarelo #FFC30D, preto, verde) na sidebar e cabeçalhos principais
 - [x] Design: adaptar cores e tipografia para combinar com Wix
 - [x] Integração Wix: criar embed/iframe para Orbita no domínio LS Solutions
 - [x] Testes: fluxo completo de compra e assinatura (7/7 testes passando)
@@ -938,3 +938,7 @@
 - [x] Adicionar gráfico proporcional de tarefas concluídas por responsável no relatório PDF exportado
 
 - [x] Implementar feedback visual e notificação de sucesso quando um card do Kanban for movido para a coluna Concluído
+- [x] TaskDetail: visualizar anexos PDF e imagens inline com fallback de download
+- [x] Backend: fazer tasks.get retornar anexos reais da tarefa (id, filename, fileUrl, mimeType)
+- [x] Testes: adicionar cobertura do fluxo de normalização e preview de anexos
+- [x] TeamChat: atualizar lastSeenAt por heartbeat e manter o ponto verde válido por cinco minutos

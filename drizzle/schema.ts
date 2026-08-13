@@ -22,6 +22,7 @@ export const users = mysqlTable("users", {
   avatarInitials: varchar("avatarInitials", { length: 4 }),
   company: varchar("company", { length: 256 }),
   companyId: int("companyId"),
+  passwordHash: varchar("passwordHash", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -135,6 +136,22 @@ export const tasks = mysqlTable("tasks", {
 });
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
+
+// ─── Task Attachments ─────────────────────────────────────────────────────────
+// A tabela já existe no banco; os bytes ficam no S3 e apenas os metadados são persistidos aqui.
+export const taskAttachments = mysqlTable("task_attachments", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId").notNull(),
+  uploadedById: int("uploadedById").notNull(),
+  filename: varchar("filename", { length: 512 }).notNull(),
+  fileKey: varchar("fileKey", { length: 1024 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  mimeType: varchar("mimeType", { length: 128 }),
+  fileSize: int("fileSize"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TaskAttachment = typeof taskAttachments.$inferSelect;
+export type InsertTaskAttachment = typeof taskAttachments.$inferInsert;
 
 // ─── Checklist Items (Subtarefas dentro de cada Tarefa) ───────────────────────
 export const checklistItems = mysqlTable("checklist_items", {

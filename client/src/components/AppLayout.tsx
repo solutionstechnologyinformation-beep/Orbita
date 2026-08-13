@@ -115,18 +115,16 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     <div className="flex flex-col h-full" style={{ backgroundColor: SIDEBAR_BG }}>
       {/* Logo / Brand */}
       <div
-        className="flex items-center gap-3 px-5 py-5"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", backgroundColor: '#ffc30d' }}
+        className="flex items-center gap-3 px-5 py-4"
+        style={{ borderBottom: "1px solid rgba(0,0,0,0.1)", backgroundColor: '#ffc30d' }}
       >
-        {/* Orbita icon — circular orbit */}
-        <div className="w-8 h-8 flex-shrink-0 relative">
-          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-            <circle cx="16" cy="16" r="14" stroke="#3b82f6" strokeWidth="2" fill="none" />
-            <circle cx="16" cy="16" r="4" fill="#3b82f6" />
-            <ellipse cx="16" cy="16" rx="14" ry="6" stroke="rgba(59,130,246,0.4)" strokeWidth="1.5" fill="none" transform="rotate(-30 16 16)" />
-          </svg>
+        <div className="w-9 h-9 flex-shrink-0 rounded-lg bg-black text-[#ffc30d] flex items-center justify-center font-extrabold text-lg shadow-sm">
+          LS
         </div>
-        <span className="font-bold text-xl tracking-tight text-white" style={{color: '#000000'}}>Orbita</span>
+        <div className="flex flex-col min-w-0">
+          <span className="font-black text-sm tracking-wide text-black uppercase">LS Solutions</span>
+          <span className="text-xs font-semibold text-black/70 truncate">Orbita GIS &amp; OS</span>
+        </div>
       </div>
 
       {/* Nav */}

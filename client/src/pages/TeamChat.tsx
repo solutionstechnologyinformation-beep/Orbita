@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Send, MessageSquare, Users, Search, Plus, Lock, Hash } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isRecentlyOnline } from "../../../shared/presence";
 import { toast } from "sonner";
 
 export default function TeamChat() {
@@ -36,6 +37,13 @@ export default function TeamChat() {
   );
   const usersQ = trpc.users.list.useQuery();
   const utils = trpc.useUtils();
+  const presenceM = trpc.presence.heartbeat.useMutation();
+
+  useEffect(() => {
+    presenceM.mutate();
+    const intervalId = window.setInterval(() => presenceM.mutate(), 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const getOrCreateM = trpc.messages.getOrCreate.useMutation({
     onSuccess: (data) => {
@@ -167,12 +175,15 @@ export default function TeamChat() {
                         className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-muted text-left"
                         onClick={() => { getOrCreateM.mutate({ otherUserId: u.id }); setSearchUser(""); }}
                       >
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={u.avatarUrl ?? ""} />
-                          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                            {(u.name ?? u.email).slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="relative shrink-0">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={u.avatarUrl ?? ""} />
+                            <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                              {(u.name ?? u.email).slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isRecentlyOnline(u.lastSeenAt) && <span className="absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-card" aria-label="Online" />}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">{u.name ?? u.email}</p>
                           <p className="text-xs text-muted-foreground capitalize">{u.role}</p>
@@ -203,12 +214,15 @@ export default function TeamChat() {
                       className={"w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors text-left " + (isSelected ? "bg-primary/10 border-r-2 border-primary" : "")}
                       onClick={() => setSelectedConvId(conv.id)}
                     >
-                      <Avatar className="h-9 w-9 shrink-0">
-                        <AvatarImage src={avatar} />
-                        <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                          {name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative shrink-0">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarImage src={avatar} />
+                          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                            {name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        {isRecentlyOnline(conv.otherUserLastSeenAt) && <span className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" aria-label="Online" />}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{name}</p>
                         {conv.lastMessage && (

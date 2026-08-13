@@ -17,10 +17,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   ArrowLeft, Edit2, Save, X, Plus, Trash2, MessageSquare,
-  CheckSquare, History, Loader2, User, Calendar, ChevronDown
+  CheckSquare, History, Loader2, User, Calendar, ChevronDown,
+  Paperclip, Eye, Download, FileText, Image as ImageIcon
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { FilePreviewModal } from "@/components/FilePreviewModal";
+import { normalizeTaskAttachments } from "../../../shared/attachments";
 
 const PRIORITY_LABELS: Record<string, string> = { low: "Baixa", medium: "Media", high: "Alta", urgent: "Urgente" };
 const PRIORITY_COLORS: Record<string, string> = {
@@ -64,6 +67,7 @@ export default function TaskDetail() {
   const [editDueDate, setEditDueDate] = useState("");
   const [editSetor, setEditSetor] = useState("");
   const [editCrsId, setEditCrsId] = useState("");
+  const [previewAttachment, setPreviewAttachment] = useState<any | null>(null);
 
   // tasks.get returns { ...task, comments, checklist, phaseHistory, checklistHistory }
   const taskQ = trpc.tasks.get.useQuery({ id: taskId }, { enabled: !!taskId });
@@ -139,6 +143,7 @@ export default function TaskDetail() {
   const comments = (task?.comments ?? []) as any[];
   const phaseHistory = (task?.phaseHistory ?? []) as any[];
   const checklistHistory = (task?.checklistHistory ?? []) as any[];
+  const attachments = normalizeTaskAttachments(task?.attachments);
   const phases = (phasesQ.data ?? []) as any[];
   const doneCount = checklist.filter((i: any) => i.status === "published" || i.status === "archived").length;
   const progress = checklist.length > 0 ? Math.round((doneCount / checklist.length) * 100) : task?.progress ?? 0;
@@ -337,6 +342,33 @@ export default function TaskDetail() {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {attachments.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Anexos ({attachments.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {attachments.map((attachment) => (
+                <div key={attachment.id ?? attachment.url} className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2">
+                  {attachment.kind === "image" ? <ImageIcon className="h-4 w-4 shrink-0 text-emerald-600" /> : attachment.kind === "pdf" ? <FileText className="h-4 w-4 shrink-0 text-red-600" /> : <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                  <span className="min-w-0 flex-1 truncate text-sm" title={attachment.name}>{attachment.name}</span>
+                  <Button size="sm" variant="outline" onClick={() => setPreviewAttachment(attachment)}>
+                    <Eye className="mr-1 h-3.5 w-3.5" /> Visualizar
+                  </Button>
+                  <Button size="icon" variant="ghost" asChild title="Baixar arquivo">
+                    <a href={attachment.url} download={attachment.name} target="_blank" rel="noreferrer">
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}
@@ -713,6 +745,11 @@ export default function TaskDetail() {
           </TabsContent>
         </Tabs>
       </div>
+      <FilePreviewModal
+        open={previewAttachment !== null}
+        onOpenChange={(open) => { if (!open) setPreviewAttachment(null); }}
+        file={previewAttachment}
+      />
       {/* Dialog de exclusão de item do checklist com motivo */}
       <Dialog open={deleteChecklistId !== null} onOpenChange={(o) => { if (!o) setDeleteChecklistId(null); }}>
         <DialogContent className="max-w-md">

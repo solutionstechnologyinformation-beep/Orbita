@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,19 +72,51 @@ export default function CalendarPage() {
     isPublic: true,
   });
 
-  // All events — shared calendar, all users see all events
+  // All local events — shared calendar, all users see all events
   const agendaQ = trpc.agenda.list.useQuery({});
+  const googleConnectedQ = trpc.googleCalendar.isConnected.useQuery();
+  const googleEventsQ = trpc.googleCalendar.listEvents.useQuery(undefined, { enabled: !!googleConnectedQ.data?.connected });
   // ALL tasks from contracts (not filtered by assignee)
   const allTasksQ = trpc.tasks.listForGantt.useQuery({});
 
   const utils = trpc.useUtils();
 
-  const createMut = trpc.agenda.create.useMutation({
+  const syncGoogleEventsM = trpc.googleCalendar.syncEvents.useMutation({
+    onSuccess: (result) => {
+      if (result.imported > 0) utils.googleCalendar.listEvents.invalidate();
+    },
+    onError: (error) => toast.error(`Não foi possível atualizar sua agenda Google: ${error.message}`),
+  });
+
+  useEffect(() => {
+    if (googleConnectedQ.data?.connected && !syncGoogleEventsM.isPending) {
+      syncGoogleEventsM.mutate();
+    }
+  }, [googleConnectedQ.data?.connected]);
+
+  const createGoogleEventM = trpc.googleCalendar.createEvent.useMutation({
     onSuccess: () => {
+      utils.googleCalendar.listEvents.invalidate();
+      toast.success("Compromisso sincronizado com o Google Calendar.");
+    },
+    onError: (error) => toast.error(`Compromisso local criado, mas não foi sincronizado com o Google: ${error.message}`),
+  });
+
+  const createMut = trpc.agenda.create.useMutation({
+    onSuccess: (data) => {
       utils.agenda.list.invalidate();
       setShowCreate(false);
       setForm({ title: "", type: "other", startDate: "", endDate: "", description: "", isPublic: true });
       toast.success("Compromisso criado!");
+      if (googleConnectedQ.data?.connected) {
+        createGoogleEventM.mutate({
+          title: form.title,
+          description: form.description || undefined,
+          startDate: new Date(new Date(form.startDate + "T00:00:00").getTime()),
+          endDate: new Date(new Date(form.endDate + "T23:59:59").getTime()),
+          agendaEventId: data.id,
+        });
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -95,7 +127,17 @@ export default function CalendarPage() {
     },
   });
 
-  const events = (agendaQ.data ?? []) as any[];
+  const events = useMemo(() => {
+    const localEvents = (agendaQ.data ?? []) as any[];
+    const googleEvents = ((googleEventsQ.data ?? []) as any[]).map((event) => ({
+      ...event,
+      type: "other",
+      source: "google",
+      creatorName: "Google Calendar",
+      isPublic: true,
+    }));
+    return [...localEvents, ...googleEvents].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  }, [agendaQ.data, googleEventsQ.data]);
   const allTasks = (allTasksQ.data ?? []) as any[];
 
   // Build calendar grid
@@ -250,7 +292,7 @@ export default function CalendarPage() {
                               {e.startDate !== e.endDate && ` – ${new Date(e.endDate).toLocaleDateString("pt-BR")}`}
                             </p>
                             <Badge variant="outline" className="text-xs mt-0.5" style={{ borderColor: EVENT_COLORS[e.type], color: EVENT_COLORS[e.type] }}>
-                              {EVENT_LABELS[e.type]}
+                              {e.source === "google" ? "Google Calendar" : EVENT_LABELS[e.type]}
                             </Badge>
                           </div>
                           {e.createdById === user?.id && (

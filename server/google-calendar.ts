@@ -1,4 +1,4 @@
-import { getGoogleCalendarToken, saveGoogleCalendarToken } from "./db";
+import { getGoogleCalendarToken, saveGoogleCalendarEvent, saveGoogleCalendarToken } from "./db";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -63,6 +63,66 @@ export function extractMeetingCode(meetUrl?: string | null) {
   if (!meetUrl) return undefined;
   const match = meetUrl.match(/meet\.google\.com\/([a-z0-9-]+)/i);
   return match?.[1];
+}
+
+export async function syncGoogleCalendarEvents(userId: number) {
+  const timeMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const url = `${CALENDAR_EVENTS_URL}?singleEvents=true&orderBy=startTime&showDeleted=false&maxResults=250&timeMin=${encodeURIComponent(timeMin)}`;
+  const response = await googleFetch(userId, url);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Não foi possível sincronizar o Google Calendar (${response.status}). ${detail.slice(0, 200)}`);
+  }
+  const payload = await response.json() as { items?: Array<Record<string, any>> };
+  let imported = 0;
+  for (const event of payload.items ?? []) {
+    const startValue = event.start?.dateTime ?? event.start?.date;
+    const endValue = event.end?.dateTime ?? event.end?.date;
+    if (!event.id || !startValue || !endValue || event.status === "cancelled") continue;
+    await saveGoogleCalendarEvent(userId, {
+      googleEventId: event.id,
+      title: event.summary || "(Sem título)",
+      description: event.description,
+      startDate: new Date(startValue),
+      endDate: new Date(endValue),
+      isSynced: true,
+    });
+    imported += 1;
+  }
+  return { imported };
+}
+
+export async function createGoogleCalendarEvent(input: {
+  userId: number;
+  title: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+  attendeeEmails?: string[];
+}) {
+  const eventPayload = {
+    summary: input.title,
+    description: input.description ?? "",
+    start: { dateTime: input.startDate.toISOString() },
+    end: { dateTime: input.endDate.toISOString() },
+    attendees: (input.attendeeEmails ?? []).map((email) => ({ email })),
+  };
+  const response = await googleFetch(input.userId, `${CALENDAR_EVENTS_URL}?sendUpdates=all`, {
+    method: "POST",
+    body: JSON.stringify(eventPayload),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`O Google Calendar recusou a criação do evento (${response.status}). ${detail.slice(0, 200)}`);
+  }
+  const event = await response.json() as any;
+  return {
+    googleEventId: event.id as string,
+    title: input.title,
+    description: input.description,
+    startDate: input.startDate,
+    endDate: input.endDate,
+  };
 }
 
 export async function createGoogleCalendarMeeting(input: {
