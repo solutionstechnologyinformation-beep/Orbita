@@ -160,7 +160,7 @@ function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete
             <Card className="border-border">
               <CardContent className="p-3 text-center">
                 <p className="text-xs text-muted-foreground">Perím. Urbanos</p>
-                <p className="text-lg font-bold text-foreground">{crs.perimetroUrbano}</p>
+                <p className="text-lg font-bold text-foreground">{crs.perimetroUrbano} Un.</p>
               </CardContent>
             </Card>
           )}

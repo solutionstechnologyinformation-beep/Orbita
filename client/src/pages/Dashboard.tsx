@@ -442,10 +442,10 @@ export default function Dashboard() {
 
   return (
     <AppLayout title="Dashboard">
-      <div className="p-6 space-y-6 bg-gray-50 min-h-full" style={{backgroundColor: '#ffffff', backgroundColor: '#ffffff'}}>
+      <div className="p-6 space-y-6 bg-gray-50 min-h-full" style={{ backgroundColor: '#ffffff' }}>
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900" style={{color: '#000000', color: '#000000'}}>Visão Geral</h1>
+          <h1 className="text-2xl font-bold text-gray-900" style={{ color: '#000000' }}>Visão Geral</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={exportDashboardPDF}
@@ -601,7 +601,7 @@ export default function Dashboard() {
                     />
                     <KpiCard
                       label="Perimetro Urbano"
-                      value={`${(stats?.totalPerimetroUrbano ?? 0).toLocaleString("pt-BR")} km`}
+                      value={`${(stats?.totalPerimetroUrbano ?? 0).toLocaleString("pt-BR")} Un.`}
                       icon={<Route className="w-5 h-5 text-orange-600" />}
                       iconBg="bg-orange-50"
                     />

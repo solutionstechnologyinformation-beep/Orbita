@@ -1650,7 +1650,9 @@ export const appRouter = router({
   googleCalendar: router({
     getAuthUrl: protectedProcedure.query(({ ctx }) => {
       const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
-      const redirectUri = `${process.env.OAUTH_SERVER_URL}/api/oauth/google/callback`;
+      const protocol = (ctx.req.headers['x-forwarded-proto'] as string) || 'https';
+      const host = (ctx.req.headers['x-forwarded-host'] as string) || (ctx.req.headers.host as string) || 'localhost:3000';
+      const redirectUri = `${protocol}://${host}/api/oauth/google/callback`;
       const scopes = [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/userinfo.email",

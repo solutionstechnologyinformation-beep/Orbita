@@ -27,6 +27,11 @@ export async function getUserByOpenId(openId: string) {
   const r = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return r[0];
 }
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  const r = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return r[0];
+}
 export async function createUser(data: { openId: string; name?: string; email?: string; loginMethod?: string; avatarUrl?: string }) {
   const db = await getDb();
   const [result] = await db.execute(

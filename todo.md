@@ -848,3 +848,17 @@
 - [x] Integração Wix: criar embed/iframe para Orbita no domínio LS Solutions
 - [x] Testes: fluxo completo de compra e assinatura (7/7 testes passando)
 - [x] Documentação: guia de integração Wix (WIX_INTEGRATION.md + STRIPE_SETUP.md)
+
+
+## v7.1 — Correções de publicação
+- [x] Alterar unidade do KPI Perímetro Urbano de km para Un. no Dashboard
+- [x] Alterar unidade do Perímetro Urbano para Un. na página de Projetos
+- [x] Corrigir callback OAuth do Google Calendar para salvar tokens por usuário
+- [x] Sincronizar eventos do calendário Google de cada usuário após a conexão
+- [x] Atualizar credenciais OAuth do Google Calendar
+- [x] Validar compilação e reiniciar o servidor
+
+## v7.2 — Publicação solicitada
+- [ ] Salvar checkpoint e publicar as correções no domínio Orbita
+- [ ] Validar o status do ambiente após a publicação
+- [ ] Confirmar a versão publicada ao usuário
