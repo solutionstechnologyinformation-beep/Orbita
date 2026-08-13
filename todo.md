@@ -897,3 +897,5 @@
 - [x] Corrigir cálculo da extensão total (km) no backend e frontend do Dashboard
 - [x] Separar a extensão total por tipo de obra (Implantação, Restauração, Aumento de Capacidade, Levantamento, Outro) no Dashboard
 - [x] Atualizar procedure de estatísticas do Dashboard para retornar extensão detalhada por tipo de obra
+
+- [x] Adicionar gráfico visual de barras e proporções para distribuição da extensão em km por tipo de obra no Dashboard

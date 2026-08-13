@@ -25,6 +25,13 @@ const TIPO_OBRA_MAP: Record<string, string> = {
   levantamento: "Levantamento",
   outro: "Outro",
 };
+const EXTENSION_COLORS: Record<string, string> = {
+  implementacao: "#2563eb",
+  restauracao: "#16a34a",
+  aumento_capacidade: "#f59e0b",
+  levantamento: "#8b5cf6",
+  outro: "#64748b",
+};
 function parseTipoObra(raw: any): string[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
@@ -314,6 +321,11 @@ export default function Dashboard() {
     return { entries, totalKm: Number(stats?.totalExtensaoKm ?? 0) };
   }, [stats]);
   const maxExtensao = useMemo(() => Math.max(1, ...extensaoByTipo.entries.map((e) => e.km)), [extensaoByTipo]);
+  const extensaoChartData = useMemo(() => extensaoByTipo.entries.map((entry) => ({
+    ...entry,
+    color: EXTENSION_COLORS[entry.key] ?? "#94a3b8",
+    percent: extensaoByTipo.totalKm > 0 ? (entry.km / extensaoByTipo.totalKm) * 100 : 0,
+  })), [extensaoByTipo]);
 
   // ── Donut data ────────────────────────────────────────────────────────────────
   const donutData = useMemo(() => {
@@ -599,6 +611,58 @@ export default function Dashboard() {
                       iconBg="bg-orange-50"
                     />
                   </>
+                )}
+              </div>
+
+              {/* Distribuição visual da extensão por tipo de obra */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800">Distribuição da Extensão</h3>
+                    <p className="text-xs text-gray-400">Quilômetros por tipo de obra</p>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800">{extensaoByTipo.totalKm.toLocaleString("pt-BR")} km</span>
+                </div>
+                {statsQ.isLoading ? (
+                  <Skeleton className="h-48 w-full" />
+                ) : extensaoChartData.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center text-sm text-gray-400">Sem extensão cadastrada</div>
+                ) : (
+                  <div className="grid grid-cols-5 gap-3 items-center" role="img" aria-label="Distribuição da extensão em quilômetros por tipo de obra">
+                    <div className="col-span-2 h-48 min-w-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={extensaoChartData}
+                            dataKey="km"
+                            nameKey="label"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={42}
+                            outerRadius={70}
+                            paddingAngle={2}
+                          >
+                            {extensaoChartData.map((entry) => (
+                              <Cell key={entry.key} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="col-span-3 space-y-2">
+                      {extensaoChartData.map((entry) => (
+                        <div key={entry.key} className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                          <span className="text-xs text-gray-600 truncate flex-1">{entry.label}</span>
+                          <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">{entry.km.toLocaleString("pt-BR")} km</span>
+                          <span className="text-[11px] text-gray-400 w-10 text-right">{Math.round(entry.percent)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
 
