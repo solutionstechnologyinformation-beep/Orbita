@@ -7,10 +7,10 @@ describe("Orbita AI sidebar transition", () => {
   });
 
   it("places the agent in the lower-right corner when expanded", () => {
-    expect(getFloatingAgentPlacement(false)).toEqual({ left: "calc(100vw - 4.75rem)", bottom: "1.25rem" });
+    expect(getFloatingAgentPlacement(false)).toEqual({ left: "calc(100vw - 420px)", bottom: "1.25rem" });
   });
 
   it("animates only the position properties during mode changes", () => {
-    expect(FLOATING_AGENT_TRANSITION).toBe("left,bottom");
+    expect(FLOATING_AGENT_TRANSITION).toBe("left,bottom,width");
   });
 });

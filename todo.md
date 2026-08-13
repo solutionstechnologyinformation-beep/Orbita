@@ -954,3 +954,4 @@
 - [x] Sidebar compacta: posicionar o botão do Orbita AI na parte inferior e ocultar o botão flutuante duplicado
 - [x] Orbita AI: animar suavemente a transição do ícone entre sidebar expandida e recolhida
 - [x] Testes: validar as posições expandida/recolhida e a duração da transição do Orbita AI
+- [x] Orbita AI: permitir arrastar e redimensionar o painel aberto com limites de viewport e acessibilidade

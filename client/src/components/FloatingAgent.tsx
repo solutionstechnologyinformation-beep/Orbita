@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
 import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Search, Send, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
@@ -23,13 +23,30 @@ const quickCommands: QuickCommand[] = [
   { label: "Pesquisar tarefas", prompt: "Pesquisar tarefas atrasadas", description: "Encontrar algo específico", icon: Search },
 ];
 
+const DEFAULT_PANEL_WIDTH = 400;
+const MIN_PANEL_WIDTH = 320;
+const MAX_PANEL_WIDTH = 560;
+
+type PanelInteraction =
+  | { type: "drag"; startX: number; startY: number; baseLeft: number; baseTop: number; width: number; height: number }
+  | { type: "resize"; startX: number; startY: number; originWidth: number };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [, navigate] = useLocation();
   const [isDesktop, setIsDesktop] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(min-width: 1024px)").matches;
   });
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1280 : window.innerWidth));
   const [open, setOpen] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const [panelOffset, setPanelOffset] = useState<{ x: number; y: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const interactionRef = useRef<PanelInteraction | null>(null);
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState<AgentMessage[]>([
     { role: "assistant", content: "Olá! Posso te levar até tarefas, pesquisar projetos ou consultar sua agenda." },
@@ -43,7 +60,17 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const compactMode = compact && isDesktop;
+  const responsiveMinPanelWidth = Math.min(MIN_PANEL_WIDTH, Math.max(260, viewportWidth - 32));
+  const maxAvailablePanelWidth = Math.max(responsiveMinPanelWidth, Math.min(MAX_PANEL_WIDTH, viewportWidth - 32));
+  const effectivePanelWidth = clamp(panelWidth, responsiveMinPanelWidth, maxAvailablePanelWidth);
 
   const chatM = trpc.floatingAgent.chat.useMutation({
     onSuccess: (data) => {
@@ -72,7 +99,81 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     chatM.mutate({ message: trimmed });
   };
 
-  const agentPositionStyle = getFloatingAgentPlacement(compactMode);
+  useEffect(() => {
+    setPanelOffset(null);
+  }, [compactMode]);
+
+  const beginDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("button, input")) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const currentOffset = panelOffset ?? { x: 0, y: 0 };
+    interactionRef.current = {
+      type: "drag",
+      startX: event.clientX,
+      startY: event.clientY,
+      baseLeft: rect.left - currentOffset.x,
+      baseTop: rect.top - currentOffset.y,
+      width: rect.width,
+      height: rect.height,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const interaction = interactionRef.current;
+    if (!interaction || interaction.type !== "drag") return;
+    const deltaX = event.clientX - interaction.startX;
+    const deltaY = event.clientY - interaction.startY;
+    const minX = 8 - interaction.baseLeft;
+    const maxX = window.innerWidth - interaction.width - 8 - interaction.baseLeft;
+    const minY = 8 - interaction.baseTop;
+    const maxY = window.innerHeight - interaction.height - 8 - interaction.baseTop;
+    setPanelOffset({
+      x: clamp(deltaX, minX, maxX),
+      y: clamp(deltaY, minY, maxY),
+    });
+  };
+
+  const finishInteraction = (event: PointerEvent<HTMLDivElement>) => {
+    interactionRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const beginResize = (event: PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    interactionRef.current = { type: "resize", startX: event.clientX, startY: event.clientY, originWidth: effectivePanelWidth };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveResize = (event: PointerEvent<HTMLDivElement>) => {
+    const interaction = interactionRef.current;
+    if (!interaction || interaction.type !== "resize") return;
+    const nextWidth = clamp(interaction.originWidth + event.clientX - interaction.startX, responsiveMinPanelWidth, maxAvailablePanelWidth);
+    setPanelWidth(nextWidth);
+  };
+
+  const resizeWithKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 40 : 16;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setPanelWidth((current) => clamp(current + step, responsiveMinPanelWidth, maxAvailablePanelWidth));
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setPanelWidth((current) => clamp(current - step, responsiveMinPanelWidth, maxAvailablePanelWidth));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setPanelWidth(responsiveMinPanelWidth);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setPanelWidth(maxAvailablePanelWidth);
+    }
+  };
+
+  const agentPositionStyle = getFloatingAgentPlacement(compactMode, effectivePanelWidth);
 
   return (
     <div
@@ -81,8 +182,24 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       data-sidebar-mode={compactMode ? "collapsed" : "expanded"}
     >
       {open && (
-        <div className={`${compactMode ? "absolute bottom-full left-[calc(100%+1rem)] z-[80] mb-2 w-[min(400px,calc(100vw-6rem))]" : "w-[min(400px,calc(100vw-2rem))]"} overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compactMode ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}>
-          <div className="flex items-center gap-3 bg-black px-4 py-3 text-white">
+        <div
+          ref={panelRef}
+          className={`${compactMode ? "absolute bottom-full left-[calc(100%+1rem)] z-[80] mb-2" : ""} relative overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compactMode ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}
+          style={{
+            width: effectivePanelWidth,
+            maxWidth: "calc(100vw - 32px)",
+            transform: panelOffset ? `translate(${panelOffset.x}px, ${panelOffset.y}px)` : undefined,
+            touchAction: "none",
+          }}
+          onPointerMove={moveDrag}
+          onPointerUp={finishInteraction}
+          onPointerCancel={finishInteraction}
+        >
+          <div
+            className="flex cursor-grab items-center gap-3 bg-black px-4 py-3 text-white active:cursor-grabbing"
+            onPointerDown={beginDrag}
+            aria-label="Arrastar painel do Orbita AI"
+          >
             <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#ffc30d] text-black">
               <Sparkles className="h-5 w-5" />
               <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" aria-label="Assistente disponível" />
@@ -149,6 +266,21 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
               </Button>
             </div>
           </div>
+          <div
+            className="absolute bottom-1 right-1 h-4 w-4 cursor-se-resize rounded-sm border-b-2 border-r-2 border-slate-300 transition-colors hover:border-[#ffc30d] focus-visible:border-[#ffc30d]"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Redimensionar painel do Orbita AI"
+            aria-valuemin={responsiveMinPanelWidth}
+            aria-valuemax={maxAvailablePanelWidth}
+            aria-valuenow={effectivePanelWidth}
+            tabIndex={0}
+            onPointerDown={beginResize}
+            onPointerMove={moveResize}
+            onPointerUp={finishInteraction}
+            onPointerCancel={finishInteraction}
+            onKeyDown={resizeWithKeyboard}
+          />
         </div>
       )}
 
