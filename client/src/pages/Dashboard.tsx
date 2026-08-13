@@ -66,9 +66,16 @@ interface ContractLocation {
   avgProgress: number;
   contracts?: ContractItem[];
 }
-function ContractsMap({ locations, onNavigate }: { locations: ContractLocation[]; onNavigate: (path: string) => void }) {
+interface SegmentOverlay {
+  id: number;
+  crsId: number;
+  name: string;
+  geometryJson: string;
+}
+function ContractsMap({ locations, segments, onNavigate }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -88,23 +95,49 @@ function ContractsMap({ locations, onNavigate }: { locations: ContractLocation[]
         { featureType: "transit", stylers: [{ visibility: "off" }] },
       ],
     });
-    if (locations.length === 0) return;
+    if (locations.length === 0 && segments.length === 0) return;
     placeMarkers(map);
-  }, [locations]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locations, segments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const placeMarkers = useCallback((map: google.maps.Map) => {
     const g = (window as any).google.maps;
-    // Clear old markers
+    // Clear old markers and imported route overlays
     markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
     markersRef.current = [];
+    segmentLinesRef.current.forEach((line) => { try { line.setMap(null); } catch {} });
+    segmentLinesRef.current = [];
     const geocoder = new g.Geocoder();
     const bounds = new g.LatLngBounds();
     let geocodedCount = 0;
+    let segmentPointCount = 0;
     let pending = locations.length;
 
+    segments.forEach((segment) => {
+      try {
+        const collection = JSON.parse(segment.geometryJson);
+        const features = Array.isArray(collection.features) ? collection.features : [];
+        features.forEach((feature: any) => {
+          const geometry = feature?.geometry;
+          const paths = geometry?.type === "LineString" ? [geometry.coordinates] : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
+          paths.forEach((coordinates: any[]) => {
+            const path = coordinates.map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) })).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+            if (path.length < 2) return;
+            path.forEach((point) => bounds.extend(point));
+            segmentPointCount += path.length;
+            const line = new g.Polyline({ map, path, geodesic: true, strokeColor: "#16a34a", strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
+            line.addListener("click", () => onNavigate(`/kanban?crs=${segment.crsId}`));
+            segmentLinesRef.current.push(line);
+          });
+        });
+      } catch {
+        // Segmentos inválidos são ignorados sem interromper os marcadores do mapa.
+      }
+    });
+
     const finish = () => {
-      if (geocodedCount > 0) {
-        if (geocodedCount === 1) {
+      const totalPoints = geocodedCount + segmentPointCount;
+      if (totalPoints > 0) {
+        if (totalPoints === 1) {
           map.setCenter(bounds.getCenter());
           map.setZoom(6);
         } else {
@@ -183,15 +216,15 @@ function ContractsMap({ locations, onNavigate }: { locations: ContractLocation[]
         });
       }, i * 150);
     });
-  }, [locations]);
+  }, [locations, segments, onNavigate]);
 
   useEffect(() => {
-    if (mapRef.current && locations.length > 0) {
+    if (mapRef.current && (locations.length > 0 || segments.length > 0)) {
       placeMarkers(mapRef.current);
     }
-  }, [locations, placeMarkers]);
+  }, [locations, segments, placeMarkers]);
 
-  if (locations.length === 0) {
+  if (locations.length === 0 && segments.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 bg-gray-50 rounded-xl border border-gray-100">
         <div className="text-center text-gray-400">
@@ -202,12 +235,20 @@ function ContractsMap({ locations, onNavigate }: { locations: ContractLocation[]
     );
   }
   return (
-    <MapView
-      className="rounded-xl overflow-hidden !h-80"
-      initialCenter={{ lat: -14.235, lng: -51.925 }}
-      initialZoom={4}
-      onMapReady={handleMapReady}
-    />
+    <div className="relative">
+      <MapView
+        className="rounded-xl overflow-hidden !h-[28rem]"
+        initialCenter={{ lat: -14.235, lng: -51.925 }}
+        initialZoom={4}
+        onMapReady={handleMapReady}
+      />
+      {segments.length > 0 && (
+        <div className="absolute left-3 bottom-3 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-gray-600 shadow-sm border border-gray-100">
+          <span className="inline-block w-3 h-1 rounded-full bg-green-600 align-middle mr-1.5" />
+          Trechos importados ({segments.length})
+        </div>
+      )}
+    </div>
   );
 }
 // ── KPI Card ───────────────────────────────────────────────────────────────────
@@ -281,6 +322,7 @@ export default function Dashboard() {
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
+  const segmentsQ = trpc.crs.segments.list.useQuery({});
   const weekTasksQ = trpc.dashboard.weekTasks.useQuery({ weekOffset });
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: slaPeriod });
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
@@ -487,7 +529,7 @@ export default function Dashboard() {
         {view === "geral" && (
           <div className="grid grid-cols-12 gap-5">
             {/* ── Coluna esquerda: Mapa + Stats ── */}
-            <div className="col-span-12 lg:col-span-5 space-y-4">
+            <div className="col-span-12 lg:col-span-6 space-y-4">
               {/* Mapa */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 {contractsByStateQ.isLoading ? (
@@ -495,6 +537,7 @@ export default function Dashboard() {
                 ) : (
                   <ContractsMap
                     locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0, contracts: s.contracts ?? [] }))}
+                    segments={(segmentsQ.data ?? []) as SegmentOverlay[]}
                     onNavigate={navigate}
                   />
                 )}
@@ -557,7 +600,7 @@ export default function Dashboard() {
             </div>
 
             {/* ── Coluna direita: KPIs + Burndown + Contratos por Estado + Atividade ── */}
-            <div className="col-span-12 lg:col-span-7 space-y-4">
+            <div className="col-span-12 lg:col-span-6 space-y-4">
               {/* KPI cards */}
               <div className="grid grid-cols-3 gap-3">
                 {isLoading ? (

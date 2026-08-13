@@ -7,7 +7,7 @@ import {
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
   conversations, conversationParticipants, directMessages,
   sprintChecklistItems, whiteboards, userDisciplines,
-  googleCalendarTokens, googleCalendarEvents, meetings,
+  googleCalendarTokens, googleCalendarEvents, meetings, crsSegments,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
 } from "../drizzle/schema";
 
@@ -124,6 +124,41 @@ export async function getAllCrs() {
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'active')).orderBy(asc(crs.name));
 }
+export async function getCrsSegments(crsId?: number) {
+  const db = await getDb();
+  const query = db.select().from(crsSegments);
+  return crsId == null ? query.orderBy(desc(crsSegments.createdAt)) : query.where(eq(crsSegments.crsId, crsId)).orderBy(desc(crsSegments.createdAt));
+}
+
+export async function createCrsSegment(data: {
+  crsId: number;
+  name: string;
+  fileName: string;
+  fileUrl: string;
+  geometryJson: string;
+  boundsJson?: string | null;
+  createdById: number;
+}) {
+  const db = await getDb();
+  const [result] = await db.insert(crsSegments).values({
+    crsId: data.crsId,
+    name: data.name,
+    fileName: data.fileName,
+    fileUrl: data.fileUrl,
+    geometryJson: data.geometryJson,
+    boundsJson: data.boundsJson ?? null,
+    createdById: data.createdById,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  return (result as any).insertId as number;
+}
+
+export async function deleteCrsSegment(id: number, crsId: number) {
+  const db = await getDb();
+  await db.delete(crsSegments).where(and(eq(crsSegments.id, id), eq(crsSegments.crsId, crsId)));
+}
+
 export async function getArchivedCrs() {
   const db = await getDb();
   return db.select({

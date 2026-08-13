@@ -71,6 +71,22 @@ export const crs = mysqlTable("crs", {
 export type Crs = typeof crs.$inferSelect;
 export type InsertCrs = typeof crs.$inferInsert;
 
+// ─── Trechos geográficos importados (KMZ/KML) ──────────────────────────────────
+export const crsSegments = mysqlTable("crs_segments", {
+  id: int("id").autoincrement().primaryKey(),
+  crsId: int("crsId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  fileName: varchar("fileName", { length: 256 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  geometryJson: text("geometryJson").notNull(),
+  boundsJson: text("boundsJson"),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CrsSegment = typeof crsSegments.$inferSelect;
+export type InsertCrsSegment = typeof crsSegments.$inferInsert;
+
 // ─── Kanban Phases (Fases customizáveis por CRS) ──────────────────────────────
 // Substitui os status fixos do Kanban — cada CRS pode ter suas próprias fases
 export const kanbanPhases = mysqlTable("kanban_phases", {

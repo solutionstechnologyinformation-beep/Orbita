@@ -899,3 +899,7 @@
 - [x] Atualizar procedure de estatísticas do Dashboard para retornar extensão detalhada por tipo de obra
 
 - [x] Adicionar gráfico visual de barras e proporções para distribuição da extensão em km por tipo de obra no Dashboard
+
+- [x] Aumentar a área de exibição do mapa no Dashboard principal
+- [x] Suportar upload e parsing de arquivos KMZ/KML (trechos geográficos) vinculados a contratos/OS
+- [x] Exibir os trechos importados em formato de polilinhas no mapa do Dashboard e na página de Projetos

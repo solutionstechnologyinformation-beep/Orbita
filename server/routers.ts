@@ -32,8 +32,10 @@ import {
   updateUserSubscription, cancelUserSubscription, getUserInvoices, hasActiveSubscription,
   getSubscriptionStatus, isTrialPeriod,
   getMeetings, getMeetingById, createMeeting, updateMeeting, deleteMeeting,
+  getCrsSegments, createCrsSegment, deleteCrsSegment,
 } from "./db";
 import { createGoogleCalendarMeeting, syncGoogleMeetReport } from "./google-calendar";
+import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
 import { notifyOwner } from "./_core/notification";
 import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
@@ -264,7 +266,58 @@ export const appRouter = router({
         await updateCrs(input.id, { status: "active" });
         return { success: true };
       }),
-     worldMap: protectedProcedure.query(async () => getWorldMapData()),
+    worldMap: protectedProcedure.query(async () => getWorldMapData()),
+    segments: router({
+      list: protectedProcedure
+        .input(z.object({ crsId: z.number().optional() }).optional())
+        .query(async ({ input }) => getCrsSegments(input?.crsId)),
+      upload: adminProcedure
+        .input(z.object({
+          crsId: z.number(),
+          name: z.string().trim().min(1).max(256),
+          fileName: z.string().trim().min(1).max(256),
+          mimeType: z.string().max(128),
+          base64: z.string().min(1),
+          geometryJson: z.string().min(2).max(2_000_000),
+          boundsJson: z.string().max(10_000).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          const extension = input.fileName.toLowerCase().split(".").pop();
+          if (extension !== "kmz" && extension !== "kml") {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Envie um arquivo .KMZ ou .KML." });
+          }
+          const buffer = Buffer.from(input.base64, "base64");
+          if (buffer.length > 15 * 1024 * 1024) {
+            throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "O arquivo deve ter no máximo 15 MB." });
+          }
+          let geometry: ReturnType<typeof validateSegmentGeometry>;
+          try {
+            geometry = validateSegmentGeometry(input.geometryJson);
+          } catch {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "O arquivo não contém geometria geográfica válida." });
+          }
+          const safeName = sanitizeSegmentFileName(input.fileName);
+          const { storagePut } = await import("./storage");
+          const contentType = getSegmentContentType(input.fileName);
+          const { url } = await storagePut(`crs-segments/${input.crsId}/${ctx.user.id}-${Date.now()}-${safeName}`, buffer, contentType);
+          const id = await createCrsSegment({
+            crsId: input.crsId,
+            name: input.name,
+            fileName: input.fileName,
+            fileUrl: url,
+            geometryJson: JSON.stringify(geometry),
+            boundsJson: input.boundsJson,
+            createdById: ctx.user.id,
+          });
+          return { id, url };
+        }),
+      delete: adminProcedure
+        .input(z.object({ id: z.number(), crsId: z.number() }))
+        .mutation(async ({ input }) => {
+          await deleteCrsSegment(input.id, input.crsId);
+          return { success: true };
+        }),
+    }),
     createInvite: adminProcedure
       .input(z.object({
         crsId: z.number(),

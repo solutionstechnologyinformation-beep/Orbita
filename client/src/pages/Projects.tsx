@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import JSZip from "jszip";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -17,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Plus, Search, Layers, Globe, MapPin, ArchiveRestore,
-  Archive, Trash2, ExternalLink, FolderOpen, Filter, Calendar,
+  Archive, Trash2, ExternalLink, FolderOpen, Filter, Calendar, Upload, MapPinned, Download, Loader2,
 } from "lucide-react";
 import { COUNTRIES, getStatesForCountry } from "@/lib/geoData";
 
@@ -46,6 +47,160 @@ function parseTipoObra(raw: string | null | undefined): TipoObraKey[] {
 function formatTipoObra(keys: TipoObraKey[]): string {
   if (keys.length === 0) return "—";
   return keys.map(k => TIPO_OBRA_OPTIONS.find(o => o.key === k)?.label ?? k).join(", ");
+}
+
+type ParsedSegment = {
+  geometryJson: string;
+  boundsJson: string;
+};
+
+function localElements(root: Element | Document, name: string): Element[] {
+  return Array.from(root.getElementsByTagName("*")).filter((node) => node.localName === name || node.tagName.endsWith(`:${name}`));
+}
+
+function parseKmlCoordinates(raw: string | null | undefined): number[][] {
+  return (raw ?? "").trim().split(/\s+/).map((pair) => {
+    const values = pair.split(",").map(Number);
+    return values.length >= 2 && Number.isFinite(values[0]) && Number.isFinite(values[1]) ? [values[0], values[1]] : null;
+  }).filter((point): point is number[] => point !== null);
+}
+
+function parseKmlToGeoJson(kml: string): ParsedSegment {
+  const document = new DOMParser().parseFromString(kml, "application/xml");
+  if (document.querySelector("parsererror")) throw new Error("O KML está malformado.");
+  const placemarks = localElements(document, "Placemark");
+  type KmlFeature = {
+    type: "Feature";
+    properties: { name: string };
+    geometry: { type: "LineString"; coordinates: number[][] } | { type: "MultiLineString"; coordinates: number[][][] };
+  };
+  const features: KmlFeature[] = [];
+
+  placemarks.forEach((placemark, index) => {
+    const name = localElements(placemark, "name")[0]?.textContent?.trim() || `Trecho ${index + 1}`;
+    const paths = [
+      ...localElements(placemark, "LineString").map((line) => parseKmlCoordinates(localElements(line, "coordinates")[0]?.textContent)),
+      ...localElements(placemark, "LinearRing").map((ring) => parseKmlCoordinates(localElements(ring, "coordinates")[0]?.textContent)),
+    ].filter((coordinates) => coordinates.length >= 2);
+    if (paths.length === 0) return;
+    features.push({
+      type: "Feature",
+      properties: { name },
+      geometry: paths.length === 1 ? { type: "LineString", coordinates: paths[0] } : { type: "MultiLineString", coordinates: paths },
+    });
+  });
+
+  if (features.length === 0) {
+    localElements(document, "LineString").forEach((line, index) => {
+      const coordinates = parseKmlCoordinates(localElements(line, "coordinates")[0]?.textContent);
+      if (coordinates.length >= 2) features.push({ type: "Feature", properties: { name: `Trecho ${index + 1}` }, geometry: { type: "LineString", coordinates } });
+    });
+  }
+  if (features.length === 0) throw new Error("Nenhum trecho linear foi encontrado no KMZ/KML.");
+
+  const allCoordinates: number[][] = [];
+  features.forEach((feature) => {
+    if (feature.geometry.type === "LineString") allCoordinates.push(...feature.geometry.coordinates);
+    else feature.geometry.coordinates.forEach((path) => allCoordinates.push(...path));
+  });
+  const lngs = allCoordinates.map(([lng]) => lng);
+  const lats = allCoordinates.map(([, lat]) => lat);
+  const bounds = { minLng: Math.min(...lngs), minLat: Math.min(...lats), maxLng: Math.max(...lngs), maxLat: Math.max(...lats) };
+  return { geometryJson: JSON.stringify({ type: "FeatureCollection", features }), boundsJson: JSON.stringify(bounds) };
+}
+
+async function extractKml(file: File): Promise<string> {
+  if (file.name.toLowerCase().endsWith(".kml")) return file.text();
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const entryName = Object.keys(zip.files).find((name) => name.toLowerCase().endsWith(".kml") && !zip.files[name].dir);
+  if (!entryName) throw new Error("O arquivo KMZ não contém um doc.kml válido.");
+  return zip.files[entryName].async("text");
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    reader.readAsDataURL(file);
+  });
+}
+
+type CrsSegmentItem = { id: number; crsId: number; name: string; fileName: string; fileUrl: string; geometryJson: string; boundsJson?: string | null; createdAt: Date | string };
+
+function CrsSegmentsPanel({ crsId, isAdmin }: { crsId: number; isAdmin: boolean }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [segmentName, setSegmentName] = useState("");
+  const [parsedSegment, setParsedSegment] = useState<ParsedSegment | null>(null);
+  const utils = trpc.useUtils();
+  const segmentsQ = trpc.crs.segments.list.useQuery({ crsId });
+  const uploadMut = trpc.crs.segments.upload.useMutation({
+    onSuccess: () => {
+      toast.success("Trecho importado e vinculado ao contrato.");
+      utils.crs.segments.list.invalidate({ crsId });
+      setSelectedFile(null);
+      setParsedSegment(null);
+      setSegmentName("");
+      if (inputRef.current) inputRef.current.value = "";
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const deleteMut = trpc.crs.segments.delete.useMutation({
+    onSuccess: () => { toast.success("Trecho removido."); utils.crs.segments.list.invalidate({ crsId }); },
+    onError: (error) => toast.error(error.message),
+  });
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) { toast.error("O arquivo deve ter no máximo 15 MB."); return; }
+    if (!/\\.(kmz|kml)$/i.test(file.name)) { toast.error("Selecione um arquivo .KMZ ou .KML."); return; }
+    try {
+      const parsed = parseKmlToGeoJson(await extractKml(file));
+      setSelectedFile(file);
+      setParsedSegment(parsed);
+      setSegmentName(file.name.replace(/\\.(kmz|kml)$/i, ""));
+      toast.success("Trecho lido. Confirme o nome para importar.");
+    } catch (error) {
+      setSelectedFile(null);
+      setParsedSegment(null);
+      toast.error(error instanceof Error ? error.message : "Não foi possível ler o trecho.");
+    }
+  }
+
+  async function handleUpload() {
+    if (!selectedFile || !parsedSegment || !segmentName.trim()) return;
+    uploadMut.mutate({
+      crsId,
+      name: segmentName.trim(),
+      fileName: selectedFile.name,
+      mimeType: selectedFile.type || (selectedFile.name.toLowerCase().endsWith(".kmz") ? "application/vnd.google-earth.kmz" : "application/vnd.google-earth.kml+xml"),
+      base64: await fileToBase64(selectedFile),
+      geometryJson: parsedSegment.geometryJson,
+      boundsJson: parsedSegment.boundsJson,
+    });
+  }
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-3"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">Trechos geográficos</p><p className="text-xs text-muted-foreground">Importe KMZ/KML para visualizar o traçado no mapa.</p></div><MapPinned className="w-4 h-4 text-primary" /></div></CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {isAdmin && (
+          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <input ref={inputRef} type="file" accept=".kmz,.kml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml" className="hidden" onChange={handleFileChange} />
+              <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploadMut.isPending} className="gap-2"><Upload className="w-3.5 h-3.5" /> Selecionar KMZ/KML</Button>
+              {selectedFile && <span className="text-xs text-muted-foreground truncate max-w-[220px]">{selectedFile.name}</span>}
+            </div>
+            {selectedFile && parsedSegment && <div className="flex flex-wrap items-end gap-2"><div className="min-w-[220px] flex-1"><Label className="text-xs">Nome do trecho</Label><Input className="mt-1 h-8" value={segmentName} onChange={(event) => setSegmentName(event.target.value)} /></div><Button type="button" size="sm" onClick={handleUpload} disabled={uploadMut.isPending || !segmentName.trim()} className="gap-2">{uploadMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} {uploadMut.isPending ? "Importando…" : "Importar trecho"}</Button></div>}
+            <p className="text-[11px] text-muted-foreground">Limite de 15 MB. O sistema preserva o arquivo original e armazena a geometria linear para o mapa.</p>
+          </div>
+        )}
+        {segmentsQ.isLoading ? <Skeleton className="h-12 w-full" /> : (segmentsQ.data ?? []).length === 0 ? <p className="text-xs text-muted-foreground">Nenhum trecho importado para este contrato.</p> : <div className="space-y-2">{(segmentsQ.data as CrsSegmentItem[]).map((segment) => <div key={segment.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"><MapPinned className="w-4 h-4 text-primary shrink-0" /><div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{segment.name}</p><p className="text-[11px] text-muted-foreground truncate">{segment.fileName}</p></div><a href={segment.fileUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary" title="Baixar arquivo original"><Download className="w-4 h-4" /></a>{isAdmin && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMut.mutate({ id: segment.id, crsId })} disabled={deleteMut.isPending} aria-label={`Excluir ${segment.name}`}><Trash2 className="w-3.5 h-3.5" /></Button>}</div>)}</div>}
+      </CardContent>
+    </Card>
+  );
 }
 
 type TechDataEntry = { extensaoKm?: number | null; areaHa?: number | null };
@@ -247,6 +402,8 @@ function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete
           </CardContent>
         </Card>
       )}
+
+      <CrsSegmentsPanel crsId={crs.id} isAdmin={isAdmin} />
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-2">
