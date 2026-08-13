@@ -911,3 +911,6 @@
 - [x] Adicionar painel de controle no mapa para ativar/desativar cada trecho KMZ importado
 - [x] Personalizar a cor das linhas no mapa de acordo com o tipo de obra do contrato correspondente
 - [x] Exibir pop-up do trecho com contrato/OS e extensão em km ao clicar na linha do mapa
+
+- [x] Criar marcadores numéricos amarelos centralizados em cada trecho KMZ importado no mapa
+- [x] Incluir lista suspensa com filtro no mapa para localizar e dar zoom rapidamente nos trechos importados

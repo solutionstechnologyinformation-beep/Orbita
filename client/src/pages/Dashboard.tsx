@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
+import { buildContractNumbers, filterVisibleSegments } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -81,8 +82,10 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
+  const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | "all">("all");
   const [segmentColors, setSegmentColors] = useState<Record<string, string>>(() => {
     if (typeof window === "undefined") return { ...EXTENSION_COLORS };
     try {
@@ -93,7 +96,9 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
     }
   });
   const [controlsOpen, setControlsOpen] = useState(true);
-  const visibleSegments = useMemo(() => segments.filter((segment) => segmentVisibility[segment.id] !== false), [segments, segmentVisibility]);
+  const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
+  const enabledSegmentCount = useMemo(() => segments.filter((segment) => segmentVisibility[segment.id] !== false).length, [segments, segmentVisibility]);
+  const contractNumbers = useMemo(() => buildContractNumbers(segments), [segments]);
   const segmentTypeKeys = useMemo(() => {
     const keys = new Set<string>();
     segments.forEach((segment) => {
@@ -147,11 +152,14 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
     markersRef.current = [];
     segmentLinesRef.current.forEach((line) => { try { line.setMap(null); } catch {} });
     segmentLinesRef.current = [];
+    segmentMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
+    segmentMarkersRef.current = [];
     const geocoder = new g.Geocoder();
     const bounds = new g.LatLngBounds();
     let geocodedCount = 0;
     let segmentPointCount = 0;
     let pending = locations.length;
+    const contractPoints = new Map<number, { latTotal: number; lngTotal: number; pointCount: number; name: string }>();
 
     visibleSegments.forEach((segment) => {
       try {
@@ -165,6 +173,9 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
             if (path.length < 2) return;
             path.forEach((point) => bounds.extend(point));
             segmentPointCount += path.length;
+            const currentCenter = contractPoints.get(segment.crsId) ?? { latTotal: 0, lngTotal: 0, pointCount: 0, name: segment.crsName ?? `Contrato #${segment.crsId}` };
+            path.forEach((point) => { currentCenter.latTotal += point.lat; currentCenter.lngTotal += point.lng; currentCenter.pointCount += 1; });
+            contractPoints.set(segment.crsId, currentCenter);
             const typeKey = getSegmentTypeKey(segment);
             const strokeColor = segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a";
             const extension = getSegmentExtensionKm(segment);
@@ -192,6 +203,23 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
       } catch {
         // Segmentos inválidos são ignorados sem interromper os marcadores do mapa.
       }
+    });
+
+    contractPoints.forEach((center, crsId) => {
+      if (center.pointCount === 0) return;
+      const position = { lat: center.latTotal / center.pointCount, lng: center.lngTotal / center.pointCount };
+      bounds.extend(position);
+      const number = contractNumbers[crsId] ?? "";
+      const marker = new g.Marker({
+        map,
+        position,
+        title: `${number} — ${center.name}`,
+        icon: { path: g.SymbolPath.CIRCLE, scale: 10, fillColor: "#facc15", fillOpacity: 1, strokeColor: "#92400e", strokeWeight: 1.5 },
+        label: { text: String(number), color: "#1f2937", fontWeight: "800", fontSize: "10px" },
+        zIndex: 20,
+      });
+      marker.addListener("click", () => onNavigate(`/kanban?crs=${crsId}`));
+      segmentMarkersRef.current.push(marker);
     });
 
     const finish = () => {
@@ -276,7 +304,7 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
         });
       }, i * 150);
     });
-  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm]);
+  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers]);
 
   useEffect(() => {
     if (mapRef.current) mapRef.current.setMapTypeId(mapType);
@@ -317,11 +345,22 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
       {segments.length > 0 && (
         <div className="absolute top-3 left-3 z-10 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
           <button type="button" onClick={() => setControlsOpen((open) => !open)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50" aria-expanded={controlsOpen}>
-            <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> Trechos importados <span className="text-gray-400 font-normal">{visibleSegments.length}/{segments.length}</span></span>
+            <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> Trechos importados <span className="text-gray-400 font-normal">{enabledSegmentCount}/{segments.length}</span></span>
             {controlsOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
           </button>
           {controlsOpen && (
             <div className="border-t border-gray-100 px-3 py-2.5 space-y-3 max-h-[22rem] overflow-y-auto">
+              <label className="block">
+                <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Localizar trecho</span>
+                <select value={selectedSegmentId} onChange={(event) => {
+                  const value = event.target.value === "all" ? "all" : Number(event.target.value);
+                  setSelectedSegmentId(value);
+                  if (value !== "all") setSegmentVisibility((current) => ({ ...current, [value]: true }));
+                }} className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Localizar trecho importado">
+                  <option value="all">Todos os trechos</option>
+                  {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.crsName ?? `Contrato #${segment.crsId}`} — {segment.name}</option>)}
+                </select>
+              </label>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Cores por tipo de obra</p>
                 <Palette className="w-3.5 h-3.5 text-gray-400" />
