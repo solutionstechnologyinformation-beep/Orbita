@@ -871,4 +871,11 @@
 - [x] Adicionar agrupamento/expansão de subtarefas e linhas de dependência quando disponíveis
 - [x] Exibir responsáveis, status e cores nas barras da timeline
 - [x] Validar responsividade, TypeScript e testes do Gantt (36/36 testes; TypeScript sem erros)
-- [ ] Salvar checkpoint da nova visualização do Gantt
+- [x] Salvar checkpoint da nova visualização do Gantt (versão 1a143f2b)
+
+
+## v7.4 — Organização e Publicação no GitHub
+- [x] Auditar arquivos do projeto, `.gitignore` e estrutura de pacotes
+- [x] Criar documentação completa de execução (`README.md`, orientações de ambiente e Stripe/Google OAuth)
+- [x] Validar testes unitários (Vitest 36/36) e compilação TypeScript (0 erros)
+- [ ] Salvar checkpoint e sincronizar o repositório com o GitHub (`user_github`)
