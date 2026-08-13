@@ -885,3 +885,7 @@
 - [x] Criar reunião no Google Calendar com link do Google Meet
 - [x] Sincronizar e exibir relatório de reuniões com data, duração e participantes
 - [x] Atualizar OAuth do Google com os escopos necessários para Calendar/Meet e validar associação por e-mail
+
+- [x] Garantir que cada usuário conecte sua própria conta Google sem restrição de administrador
+- [x] Atualizar callback OAuth para salvar tokens exclusivamente associados ao ID do usuário autenticado no Orbita
+- [x] Validar sincronização de eventos e agenda individual por usuário

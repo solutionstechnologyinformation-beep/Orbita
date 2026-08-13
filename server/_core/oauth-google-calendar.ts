@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { sdk } from "./sdk";
+import { verifyGoogleOAuthState } from "./google-oauth-state";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -10,6 +11,7 @@ function getQueryParam(req: Request, key: string): string | undefined {
 export function registerGoogleCalendarOAuthRoute(app: Express) {
   app.get("/api/oauth/google/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
+    const state = getQueryParam(req, "state");
 
     if (!code) {
       res.status(400).json({ error: "code is required" });
@@ -17,6 +19,8 @@ export function registerGoogleCalendarOAuthRoute(app: Express) {
     }
 
     try {
+      const oauthState = verifyGoogleOAuthState(state);
+
       // Exchange code for access token
       const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
@@ -59,6 +63,9 @@ export function registerGoogleCalendarOAuthRoute(app: Express) {
       const sessionUser = await sdk.authenticateRequest(req).catch(() => null);
       if (!sessionUser) {
         throw new Error("Sessão do Orbita não encontrada. Faça login novamente antes de conectar o Google.");
+      }
+      if (oauthState.userId !== sessionUser.id) {
+        throw new Error("A autorização Google foi iniciada por outro usuário do Orbita.");
       }
       if (sessionUser.email && userEmail && sessionUser.email.toLowerCase() !== userEmail.toLowerCase()) {
         throw new Error("Selecione no Google o mesmo e-mail usado para entrar no Orbita.");

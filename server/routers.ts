@@ -35,6 +35,7 @@ import {
 } from "./db";
 import { createGoogleCalendarMeeting, syncGoogleMeetReport } from "./google-calendar";
 import { notifyOwner } from "./_core/notification";
+import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
 import stripe from "stripe";
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
@@ -1665,7 +1666,9 @@ export const appRouter = router({
       authUrl.searchParams.append("redirect_uri", redirectUri);
       authUrl.searchParams.append("response_type", "code");
       authUrl.searchParams.append("scope", scopes.join(" "));
+      authUrl.searchParams.append("state", createGoogleOAuthState(ctx.user.id));
       authUrl.searchParams.append("access_type", "offline");
+      authUrl.searchParams.append("include_granted_scopes", "true");
       authUrl.searchParams.append("prompt", "consent");
       return { authUrl: authUrl.toString() };
     }),

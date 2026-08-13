@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb, getGoogleCalendarToken, saveGoogleCalendarToken, deleteGoogleCalendarToken } from "./db";
 import { extractMeetingCode } from "./google-calendar";
+import { createGoogleOAuthState, verifyGoogleOAuthState } from "./_core/google-oauth-state";
 
 describe("Google Calendar", () => {
   const testUserId = 999;
@@ -64,5 +65,15 @@ describe("Google Calendar", () => {
 
   it("should return undefined for an invalid Meet URL", () => {
     expect(extractMeetingCode("https://example.com/reuniao")).toBeUndefined();
+  });
+
+  it("should round-trip the OAuth state for the initiating user", () => {
+    const state = createGoogleOAuthState(42);
+    expect(verifyGoogleOAuthState(state).userId).toBe(42);
+  });
+
+  it("should reject a tampered OAuth state", () => {
+    const state = createGoogleOAuthState(42);
+    expect(() => verifyGoogleOAuthState(`${state}tampered`)).toThrow();
   });
 });
