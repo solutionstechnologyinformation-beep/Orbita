@@ -914,3 +914,11 @@
 
 - [x] Criar marcadores numéricos amarelos centralizados em cada trecho KMZ importado no mapa
 - [x] Incluir lista suspensa com filtro no mapa para localizar e dar zoom rapidamente nos trechos importados
+
+- [x] Aplicar zoom automático e destaque ao clicar nos marcadores amarelos dos trechos no mapa
+- [x] Implementar agrupamento automático (cluster) de marcadores amarelos em zoom afastado
+- [x] Incluir botão para exportar a visualização atual do mapa com trechos e marcadores em imagem (PNG) ou PDF
+- [x] Remover o bloco de 'Últimas atualizações' do Dashboard
+- [x] Reposicionar a caixa de 'Vencimentos próximos' para a coluna esquerda completando o espaço vazio
+- [x] Implementar agrupamento automático (cluster) de marcadores amarelos em zoom afastado
+- [x] Incluir botão para exportar a visualização atual do mapa com trechos e marcadores em imagem (PNG) ou PDF

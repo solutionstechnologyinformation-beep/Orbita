@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { useLocation } from "wouter";
@@ -10,12 +12,12 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
-  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal,
+  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
-import { buildContractNumbers, filterVisibleSegments } from "@/lib/segment-map";
+import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -78,11 +80,17 @@ interface SegmentOverlay {
   extensaoKm?: number | null;
   techDataByType?: string | null;
 }
+type ContractMarkerData = { crsId: number; name: string; number: number | string };
 function ContractsMap({ locations, segments, onNavigate }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
   const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
+  const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const highlightTimerRef = useRef<number | null>(null);
+  const mapExportRef = useRef<HTMLDivElement | null>(null);
+  const [isExportingMap, setIsExportingMap] = useState(false);
+  const [mapExportError, setMapExportError] = useState<string | null>(null);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | "all">("all");
@@ -160,6 +168,16 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
     let segmentPointCount = 0;
     let pending = locations.length;
     const contractPoints = new Map<number, { latTotal: number; lngTotal: number; pointCount: number; name: string }>();
+    const segmentLineMeta: Array<{ line: google.maps.Polyline; crsId: number; baseColor: string }> = [];
+
+    if (zoomListenerRef.current) {
+      zoomListenerRef.current.remove();
+      zoomListenerRef.current = null;
+    }
+    if (highlightTimerRef.current !== null) {
+      window.clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = null;
+    }
 
     visibleSegments.forEach((segment) => {
       try {
@@ -198,6 +216,7 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
               }, 200);
             });
             segmentLinesRef.current.push(line);
+            segmentLineMeta.push({ line, crsId: segment.crsId, baseColor: strokeColor });
           });
         });
       } catch {
@@ -205,22 +224,80 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
       }
     });
 
-    contractPoints.forEach((center, crsId) => {
-      if (center.pointCount === 0) return;
-      const position = { lat: center.latTotal / center.pointCount, lng: center.lngTotal / center.pointCount };
-      bounds.extend(position);
-      const number = contractNumbers[crsId] ?? "";
-      const marker = new g.Marker({
-        map,
-        position,
-        title: `${number} — ${center.name}`,
-        icon: { path: g.SymbolPath.CIRCLE, scale: 10, fillColor: "#facc15", fillOpacity: 1, strokeColor: "#92400e", strokeWeight: 1.5 },
-        label: { text: String(number), color: "#1f2937", fontWeight: "800", fontSize: "10px" },
-        zIndex: 20,
+    const focusContract = (crsId: number, position: google.maps.LatLngLiteral) => {
+      map.panTo(position);
+      map.setZoom(Math.max(map.getZoom() ?? 6, 10));
+      segmentLineMeta.forEach(({ line, crsId: lineCrsId, baseColor }) => {
+        line.setOptions({
+          strokeWeight: lineCrsId === crsId ? 9 : 3,
+          strokeOpacity: lineCrsId === crsId ? 1 : 0.2,
+          strokeColor: lineCrsId === crsId ? "#f59e0b" : baseColor,
+          zIndex: lineCrsId === crsId ? 100 : 1,
+        });
       });
-      marker.addListener("click", () => onNavigate(`/kanban?crs=${crsId}`));
-      segmentMarkersRef.current.push(marker);
-    });
+      if (highlightTimerRef.current !== null) window.clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = window.setTimeout(() => {
+        segmentLineMeta.forEach(({ line, baseColor }) => {
+          line.setOptions({ strokeWeight: 4, strokeOpacity: 0.9, strokeColor: baseColor, zIndex: 1 });
+        });
+        highlightTimerRef.current = null;
+      }, 3500);
+    };
+
+    const renderSegmentMarkers = (zoom: number) => {
+      segmentMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
+      segmentMarkersRef.current = [];
+      const points: MapPoint<ContractMarkerData>[] = Array.from(contractPoints.entries())
+        .filter(([, center]) => center.pointCount > 0)
+        .map(([crsId, center]) => {
+          const position = { lat: center.latTotal / center.pointCount, lng: center.lngTotal / center.pointCount };
+          bounds.extend(position);
+          return {
+            item: { crsId, name: center.name, number: contractNumbers[crsId] ?? "" },
+            position,
+          };
+        });
+
+      clusterMapPoints(points, zoom).forEach((cluster) => {
+        const first = cluster.points[0];
+        const isCluster = cluster.points.length > 1;
+        const marker = new g.Marker({
+          map,
+          position: cluster.center,
+          title: isCluster ? `${cluster.points.length} contratos agrupados` : `${first.item.number} — ${first.item.name}`,
+          icon: {
+            path: g.SymbolPath.CIRCLE,
+            scale: isCluster ? 15 : 10,
+            fillColor: isCluster ? "#111827" : "#facc15",
+            fillOpacity: 1,
+            strokeColor: isCluster ? "#ffffff" : "#92400e",
+            strokeWeight: isCluster ? 2 : 1.5,
+          },
+          label: {
+            text: isCluster ? String(cluster.points.length) : String(first.item.number),
+            color: isCluster ? "#ffffff" : "#1f2937",
+            fontWeight: "800",
+            fontSize: isCluster ? "11px" : "10px",
+          },
+          zIndex: isCluster ? 30 : 20,
+        });
+
+        if (isCluster) {
+          marker.addListener("click", () => {
+            const clusterBounds = new g.LatLngBounds();
+            cluster.points.forEach((point) => clusterBounds.extend(point.position));
+            map.fitBounds(clusterBounds, 80);
+            window.setTimeout(() => map.setZoom(Math.min((map.getZoom() ?? 6) + 2, 14)), 160);
+          });
+        } else {
+          marker.addListener("click", () => focusContract(first.item.crsId, first.position));
+        }
+        segmentMarkersRef.current.push(marker);
+      });
+    };
+
+    renderSegmentMarkers(map.getZoom() ?? 4);
+    zoomListenerRef.current = map.addListener("zoom_changed", () => renderSegmentMarkers(map.getZoom() ?? 4));
 
     const finish = () => {
       const totalPoints = geocodedCount + segmentPointCount;
@@ -306,6 +383,56 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
     });
   }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers]);
 
+  const exportMapView = useCallback(async (format: "png" | "pdf") => {
+    if (!mapExportRef.current || isExportingMap) return;
+    setIsExportingMap(true);
+    setMapExportError(null);
+    try {
+      const canvas = await html2canvas(mapExportRef.current, {
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        allowTaint: false,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        logging: false,
+        ignoreElements: (element) => element instanceof HTMLElement && element.dataset.mapControl === "true",
+      });
+      const imageData = canvas.toDataURL("image/png", 0.95);
+      const filename = `orbita-mapa-${new Date().toISOString().slice(0, 10)}`;
+
+      if (format === "png") {
+        const link = document.createElement("a");
+        link.download = `${filename}.png`;
+        link.href = imageData;
+        link.click();
+      } else {
+        const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const titleHeight = 10;
+        const availableWidth = pageWidth - margin * 2;
+        const availableHeight = pageHeight - margin * 2 - titleHeight;
+        const aspectRatio = canvas.width / canvas.height;
+        let imageWidth = availableWidth;
+        let imageHeight = imageWidth / aspectRatio;
+        if (imageHeight > availableHeight) {
+          imageHeight = availableHeight;
+          imageWidth = imageHeight * aspectRatio;
+        }
+        pdf.setFontSize(12);
+        pdf.setTextColor(31, 41, 55);
+        pdf.text(`Orbita — Visualização do mapa (${mapType === "satellite" ? "Satélite" : "Mapa"})`, margin, margin + 2);
+        pdf.addImage(imageData, "PNG", (pageWidth - imageWidth) / 2, margin + titleHeight, imageWidth, imageHeight);
+        pdf.save(`${filename}.pdf`);
+      }
+    } catch (error) {
+      console.error("Não foi possível exportar o mapa", error);
+      setMapExportError("Não foi possível exportar o mapa. Tente novamente.");
+    } finally {
+      setIsExportingMap(false);
+    }
+  }, [isExportingMap, mapType]);
+
   useEffect(() => {
     if (mapRef.current) mapRef.current.setMapTypeId(mapType);
   }, [mapType]);
@@ -315,6 +442,13 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
       placeMarkers(mapRef.current);
     }
   }, [locations, segments, placeMarkers]);
+
+  useEffect(() => () => {
+    zoomListenerRef.current?.remove();
+    zoomListenerRef.current = null;
+    if (highlightTimerRef.current !== null) window.clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = null;
+  }, []);
 
   if (locations.length === 0 && segments.length === 0) {
     return (
@@ -328,22 +462,32 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
   }
   return (
     <div className="relative">
-      <MapView
-        className="rounded-xl overflow-hidden !h-[28rem]"
-        initialCenter={{ lat: -14.235, lng: -51.925 }}
-        initialZoom={4}
-        onMapReady={handleMapReady}
-      />
-      <div className="absolute top-3 right-3 flex rounded-lg bg-white/95 p-1 shadow-sm border border-gray-100" role="group" aria-label="Tipo de visualização do mapa">
+      <div ref={mapExportRef} className="relative rounded-xl overflow-hidden">
+        <MapView
+          className="rounded-xl overflow-hidden !h-[28rem]"
+          initialCenter={{ lat: -14.235, lng: -51.925 }}
+          initialZoom={4}
+          onMapReady={handleMapReady}
+        />
+      </div>
+      <div data-map-control="true" className="absolute top-3 right-3 flex flex-wrap justify-end gap-1 rounded-lg bg-white/95 p-1 shadow-sm border border-gray-100" role="group" aria-label="Tipo de visualização e exportação do mapa">
         <button type="button" onClick={() => setMapType("roadmap")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "roadmap" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`} aria-pressed={mapType === "roadmap"}>
           <MapIcon className="w-3.5 h-3.5" /> Mapa
         </button>
         <button type="button" onClick={() => setMapType("satellite")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "satellite" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`} aria-pressed={mapType === "satellite"}>
           <Satellite className="w-3.5 h-3.5" /> Satélite
         </button>
+        <span className="mx-0.5 h-5 w-px bg-gray-200" aria-hidden="true" />
+        <button type="button" onClick={() => void exportMapView("png")} disabled={isExportingMap} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50" title="Exportar mapa como imagem PNG">
+          <FileDown className="w-3.5 h-3.5" /> PNG
+        </button>
+        <button type="button" onClick={() => void exportMapView("pdf")} disabled={isExportingMap} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50" title="Exportar mapa como PDF">
+          <FileDown className="w-3.5 h-3.5" /> PDF
+        </button>
       </div>
+      {mapExportError && <p data-map-control="true" className="absolute top-14 right-3 max-w-[18rem] rounded-md bg-red-50 px-2.5 py-2 text-[11px] text-red-700 shadow-sm border border-red-100">{mapExportError}</p>}
       {segments.length > 0 && (
-        <div className="absolute top-3 left-3 z-10 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
+        <div data-map-control="true" className="absolute top-3 left-3 z-10 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
           <button type="button" onClick={() => setControlsOpen((open) => !open)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50" aria-expanded={controlsOpen}>
             <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> Trechos importados <span className="text-gray-400 font-normal">{enabledSegmentCount}/{segments.length}</span></span>
             {controlsOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
@@ -399,7 +543,7 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
         </div>
       )}
       {segments.length > 0 && (
-        <div className="absolute left-3 bottom-3 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-gray-600 shadow-sm border border-gray-100">
+        <div data-map-control="true" className="absolute left-3 bottom-3 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-gray-600 shadow-sm border border-gray-100">
           <span className="inline-block w-3 h-1 rounded-full align-middle mr-1.5" style={{ backgroundColor: visibleSegments.length > 0 ? "#16a34a" : "#94a3b8" }} />
           Trechos visíveis: {visibleSegments.length}/{segments.length}
         </div>
@@ -473,7 +617,6 @@ export default function Dashboard() {
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
-  const recentQ = trpc.dashboard.recentActivity.useQuery({ limit: 6 });
   const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
@@ -482,7 +625,6 @@ export default function Dashboard() {
   const weekTasksQ = trpc.dashboard.weekTasks.useQuery({ weekOffset });
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: slaPeriod });
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
-  const recentFullQ = trpc.dashboard.recentActivity.useQuery({ limit: 10 });
   const weekTasks = (weekTasksQ.data ?? []) as any[];
   const crsQ = trpc.crs.list.useQuery();
   const stats = statsQ.data;
@@ -554,7 +696,6 @@ export default function Dashboard() {
     try {
       const sla = slaQ.data;
       const upcoming = upcomingQ.data;
-      const recent = recentFullQ.data ?? [];
       const stateRows = stateData;
       const periodLabel = slaPeriod === "month" ? "Mês Atual" : slaPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
       const now = new Date();
@@ -625,10 +766,6 @@ export default function Dashboard() {
     <div class="card"><div class="card-title">Próximos 30 dias</div><div class="card-value" style="color:#f59e0b">${upcoming?.counts?.next30 ?? 0}</div></div>
   </div>
   ${(upcoming?.tasks ?? []).length > 0 ? `<table><thead><tr><th>Tarefa</th><th>Contrato</th><th>Fase</th><th>Vencimento</th><th>Prioridade</th></tr></thead><tbody>${(upcoming?.tasks as any[] ?? []).map((t: any) => `<tr><td>${t.title}</td><td>${t.crsName ?? '—'}</td><td>${t.phaseName ?? '—'}</td><td>${t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-BR') : '—'}</td><td>${t.priority ?? '—'}</td></tr>`).join('')}</tbody></table>` : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa com vencimento próximo.</p>'}
-  <div class="section-title">Últimas Atualizações</div>
-  <table><thead><tr><th>Usuário</th><th>Ação</th><th>Data/Hora</th></tr></thead><tbody>
-    ${(recent as any[]).slice(0, 8).map((a: any) => `<tr><td>${a.userName ?? '—'}</td><td>${a.action ?? '—'} ${a.entityLabel ? '"' + a.entityLabel + '"' : ''}</td><td>${a.createdAt ? new Date(a.createdAt).toLocaleString('pt-BR') : '—'}</td></tr>`).join('')}
-  </tbody></table>
 </div>
 <div class="footer"><span>&#9679; Orbita — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
 </body></html>`;
@@ -641,7 +778,7 @@ export default function Dashboard() {
     } finally {
       setIsExporting(false);
     }
-  }, [slaQ.data, upcomingQ.data, recentFullQ.data, stateData, stats, slaPeriod]);
+  }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod]);
 
   return (
     <AppLayout title="Dashboard">
@@ -684,7 +821,7 @@ export default function Dashboard() {
         ══════════════════════════════════════════════════════════════════════ */}
         {view === "geral" && (
           <div className="grid grid-cols-12 gap-5">
-            {/* ── Coluna esquerda: Mapa + Stats ── */}
+            {/* ── Coluna esquerda: Mapa + Stats + Vencimentos ── */}
             <div className="col-span-12 lg:col-span-6 space-y-4">
               {/* Mapa */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -753,9 +890,61 @@ export default function Dashboard() {
                   </>
                 )}
               </div>
+              {/* ── Linha do Tempo de Vencimentos ──────────────────────────────── */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <CalendarClock className="w-4 h-4 text-orange-500" /> Vencimentos Próximos
+                  </h3>
+                </div>
+                {upcomingQ.isLoading ? (
+                  <Skeleton className="h-24 w-full" />
+                ) : (() => {
+                  const up = upcomingQ.data;
+                  const counts = up?.counts ?? { next7: 0, next15: 0, next30: 0 };
+                  const tasks = (up?.tasks ?? []) as any[];
+                  const bars = [
+                    { label: "7 dias", value: counts.next7, color: "bg-red-500" },
+                    { label: "15 dias", value: counts.next15, color: "bg-orange-400" },
+                    { label: "30 dias", value: counts.next30, color: "bg-yellow-400" },
+                  ];
+                  const maxVal = Math.max(...bars.map(b => b.value), 1);
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        {bars.map(b => (
+                          <div key={b.label} className="flex-1 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="w-full bg-gray-100 rounded h-16 flex flex-col-reverse overflow-hidden">
+                                <div
+                                  className={`${b.color} transition-all`}
+                                  style={{ height: `${Math.round((b.value / maxVal) * 100)}%`, minHeight: b.value > 0 ? "4px" : "0" }}
+                                />
+                              </div>
+                              <span className="text-lg font-bold text-gray-800">{b.value}</span>
+                              <span className="text-xs text-gray-400">{b.label}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-1 max-h-36 overflow-y-auto">
+                        {tasks.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-2">Nenhuma tarefa com prazo próximo</p>
+                        ) : tasks.map((t: any) => (
+                          <div key={t.id} className="flex items-center gap-2 py-1 border-b border-gray-50 last:border-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.phaseColor ?? "#94a3b8" }} />
+                            <span className="text-xs text-gray-700 flex-1 truncate">{t.title}</span>
+                            <span className="text-xs text-gray-400 shrink-0">{new Date(t.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
-            {/* ── Coluna direita: KPIs + Burndown + Contratos por Estado + Atividade ── */}
+            {/* ── Coluna direita: KPIs + Burndown + Contratos por Estado ── */}
             <div className="col-span-12 lg:col-span-6 space-y-4">
               {/* KPI cards */}
               <div className="grid grid-cols-3 gap-3">
@@ -1097,96 +1286,7 @@ export default function Dashboard() {
                 })()}
               </div>
 
-              {/* ── Linha do Tempo de Vencimentos ──────────────────────────────── */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                    <CalendarClock className="w-4 h-4 text-orange-500" /> Vencimentos Próximos
-                  </h3>
-                </div>
-                {upcomingQ.isLoading ? (
-                  <Skeleton className="h-24 w-full" />
-                ) : (() => {
-                  const up = upcomingQ.data;
-                  const counts = up?.counts ?? { next7: 0, next15: 0, next30: 0 };
-                  const tasks = (up?.tasks ?? []) as any[];
-                  const bars = [
-                    { label: "7 dias", value: counts.next7, color: "bg-red-500" },
-                    { label: "15 dias", value: counts.next15, color: "bg-orange-400" },
-                    { label: "30 dias", value: counts.next30, color: "bg-yellow-400" },
-                  ];
-                  const maxVal = Math.max(...bars.map(b => b.value), 1);
-                  return (
-                    <div className="space-y-3">
-                      <div className="flex gap-3">
-                        {bars.map(b => (
-                          <div key={b.label} className="flex-1 text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="w-full bg-gray-100 rounded h-16 flex flex-col-reverse overflow-hidden">
-                                <div
-                                  className={`${b.color} transition-all`}
-                                  style={{ height: `${Math.round((b.value / maxVal) * 100)}%`, minHeight: b.value > 0 ? "4px" : "0" }}
-                                />
-                              </div>
-                              <span className="text-lg font-bold text-gray-800">{b.value}</span>
-                              <span className="text-xs text-gray-400">{b.label}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-1 max-h-36 overflow-y-auto">
-                        {tasks.length === 0 ? (
-                          <p className="text-xs text-gray-400 text-center py-2">Nenhuma tarefa com prazo próximo</p>
-                        ) : tasks.map((t: any) => (
-                          <div key={t.id} className="flex items-center gap-2 py-1 border-b border-gray-50 last:border-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.phaseColor ?? "#94a3b8" }} />
-                            <span className="text-xs text-gray-700 flex-1 truncate">{t.title}</span>
-                            <span className="text-xs text-gray-400 shrink-0">{new Date(t.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
 
-              {/* ── Feed de Últimas Atualizações ───────────────────────────────── */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-purple-500" /> Últimas Atualizações
-                  </h3>
-                </div>
-                {recentFullQ.isLoading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
-                  </div>
-                ) : (recentFullQ.data ?? []).length === 0 ? (
-                  <p className="text-sm text-gray-400 py-4 text-center">Nenhuma atividade recente</p>
-                ) : (
-                  <div className="space-y-0 max-h-64 overflow-y-auto">
-                    {(recentFullQ.data ?? []).map((a: any) => {
-                      const meta = (() => { try { return JSON.parse(a.metadata ?? "{}"); } catch { return {}; } })();
-                      const entityLabel = meta.entityName ?? meta.crsName ?? meta.taskTitle ?? "";
-                      const actionIcon = a.action === "create" ? "🟢" : a.action === "delete" ? "🔴" : "🔵";
-                      const actionText = a.action === "create" ? "criou" : a.action === "update" ? "atualizou" : a.action === "delete" ? "excluiu" : a.action;
-                      const entityText = a.entityType === "crs" ? "contrato" : a.entityType === "task" ? "tarefa" : a.entityType === "checklist" ? "checklist" : a.entityType;
-                      return (
-                        <div key={a.id} className="flex items-start gap-2.5 py-2 border-b border-gray-50 last:border-0">
-                          <span className="text-sm mt-0.5">{actionIcon}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-gray-700 leading-snug">
-                              <span className="font-semibold">{a.userName}</span> {actionText} {entityText}
-                              {entityLabel && <span className="text-blue-600 font-medium"> "{entityLabel}"</span>}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5">{fmtTime(a.createdAt)}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}
