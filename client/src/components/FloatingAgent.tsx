@@ -304,7 +304,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           )}
 
           <div
-            className={`max-h-72 space-y-3 overflow-y-auto p-4 transition-opacity duration-200 ease-out ${isClearingHistory ? "opacity-0" : "opacity-100"}`}
+            className={`max-h-72 space-y-3 overflow-y-auto p-4 transition-opacity duration-200 ease-out ${isClearingHistory ? "opacity-0" : "opacity-100"} ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-2" : ""}`}
+            style={isInitialScreenEntering ? { animationDuration: `${INITIAL_SCREEN_ENTRY_DURATION_MS}ms` } : undefined}
             aria-live="polite"
             aria-busy={isClearingHistory}
           >
