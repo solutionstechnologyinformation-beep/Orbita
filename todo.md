@@ -922,3 +922,7 @@
 - [x] Reposicionar a caixa de 'Vencimentos próximos' para a coluna esquerda completando o espaço vazio
 - [x] Implementar agrupamento automático (cluster) de marcadores amarelos em zoom afastado
 - [x] Incluir botão para exportar a visualização atual do mapa com trechos e marcadores em imagem (PNG) ou PDF
+
+- [x] Adicionar botão para ampliar a tela do mapa (modo tela cheia / expandido) no Dashboard
+
+- [x] Remover o widget de Gantt da semana da aba principal do Dashboard
