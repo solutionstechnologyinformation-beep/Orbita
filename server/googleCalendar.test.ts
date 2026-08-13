@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb, getGoogleCalendarToken, saveGoogleCalendarToken, deleteGoogleCalendarToken } from "./db";
+import { extractMeetingCode } from "./google-calendar";
 
 describe("Google Calendar", () => {
   const testUserId = 999;
@@ -55,5 +56,13 @@ describe("Google Calendar", () => {
   it("should return undefined for non-existent token", async () => {
     const nonExistent = await getGoogleCalendarToken(99999);
     expect(nonExistent).toBeUndefined();
+  });
+
+  it("should extract the Google Meet code from a meeting URL", () => {
+    expect(extractMeetingCode("https://meet.google.com/abc-mnop-xyz")).toBe("abc-mnop-xyz");
+  });
+
+  it("should return undefined for an invalid Meet URL", () => {
+    expect(extractMeetingCode("https://example.com/reuniao")).toBeUndefined();
   });
 });

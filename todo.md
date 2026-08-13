@@ -878,4 +878,10 @@
 - [x] Auditar arquivos do projeto, `.gitignore` e estrutura de pacotes
 - [x] Criar documentação completa de execução (`README.md`, orientações de ambiente e Stripe/Google OAuth)
 - [x] Validar testes unitários (Vitest 36/36) e compilação TypeScript (0 erros)
-- [ ] Salvar checkpoint e sincronizar o repositório com o GitHub (`user_github`)
+- [x] Salvar checkpoint e sincronizar o repositório com o GitHub (`user_github`), confirmado em `main` no commit `fa4b1ec5`
+
+- [x] Criar aba Reuniões com acesso para todos os usuários autenticados
+- [x] Vincular cada reunião obrigatoriamente a um CRS, OS ou tarefa
+- [x] Criar reunião no Google Calendar com link do Google Meet
+- [x] Sincronizar e exibir relatório de reuniões com data, duração e participantes
+- [x] Atualizar OAuth do Google com os escopos necessários para Calendar/Meet e validar associação por e-mail

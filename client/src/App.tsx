@@ -19,6 +19,7 @@ import NotificationPreferences from "./pages/NotificationPreferences";
 import Gantt from "./pages/Gantt";
 import Sprints from "./pages/Sprints";
 import CalendarPage from "./pages/CalendarPage";
+import MeetingsPage from "./pages/MeetingsPage";
 import TeamChat from "./pages/TeamChat";
 import Whiteboard from "./pages/Whiteboard";
 import Scheduling from "./pages/Scheduling";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/gantt" component={Gantt} />
       <Route path="/sprints" component={Sprints} />
       <Route path="/calendar" component={CalendarPage} />
+      <Route path="/reunioes" component={MeetingsPage} />
       <Route path="/team-chat" component={TeamChat} />
       <Route path="/whiteboard" component={Whiteboard} />
       <Route path="/scheduling" component={Scheduling} />

@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
+import { sdk } from "./sdk";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -54,10 +55,20 @@ export function registerGoogleCalendarOAuthRoute(app: Express) {
       const userInfo = await userInfoResponse.json();
       const userEmail = userInfo.email;
 
-      // Find user by email
+      // Associate the Google account with the currently authenticated Orbita user.
+      const sessionUser = await sdk.authenticateRequest(req).catch(() => null);
+      if (!sessionUser) {
+        throw new Error("Sessão do Orbita não encontrada. Faça login novamente antes de conectar o Google.");
+      }
+      if (sessionUser.email && userEmail && sessionUser.email.toLowerCase() !== userEmail.toLowerCase()) {
+        throw new Error("Selecione no Google o mesmo e-mail usado para entrar no Orbita.");
+      }
       const userRecord = await db.getUserByEmail(userEmail);
+      if (!userRecord || userRecord.id !== sessionUser.id) {
+        throw new Error("O e-mail Google não corresponde ao usuário autenticado no Orbita.");
+      }
 
-      if (userRecord) {
+      {
         const userId = userRecord.id;
 
         // Calculate token expiration

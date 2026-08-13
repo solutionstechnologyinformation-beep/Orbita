@@ -426,6 +426,32 @@ export const googleCalendarEvents = mysqlTable("google_calendar_events", {
 export type GoogleCalendarEvent = typeof googleCalendarEvents.$inferSelect;
 export type InsertGoogleCalendarEvent = typeof googleCalendarEvents.$inferInsert;
 
+// ─── Meetings (reuniões do Orbita vinculadas ao Google Calendar/Meet) ───────────
+export const meetings = mysqlTable("meetings", {
+  id: int("id").autoincrement().primaryKey(),
+  createdById: int("createdById").notNull(),
+  crsId: int("crsId").notNull(),
+  taskId: int("taskId"),
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  googleEventId: varchar("googleEventId", { length: 256 }),
+  googleMeetUrl: varchar("googleMeetUrl", { length: 1024 }),
+  meetingCode: varchar("meetingCode", { length: 128 }),
+  participantIds: text("participantIds"),
+  participantEmails: text("participantEmails"),
+  actualParticipants: text("actualParticipants"),
+  actualStartDate: timestamp("actualStartDate"),
+  actualEndDate: timestamp("actualEndDate"),
+  status: mysqlEnum("status", ["scheduled", "completed", "canceled"]).default("scheduled").notNull(),
+  lastSyncedAt: timestamp("lastSyncedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Meeting = typeof meetings.$inferSelect;
+export type InsertMeeting = typeof meetings.$inferInsert;
+
 
 // ─── Subscription Plans ────────────────────────────────────────────────────────
 export const subscriptionPlans = mysqlTable("subscription_plans", {

@@ -1,4 +1,4 @@
-import { eq, and, desc, like, inArray, sql, asc, aliasedTable } from "drizzle-orm";
+import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte } from "drizzle-orm";
 import {
   users, clients, crs, kanbanPhases, tasks, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -6,7 +6,7 @@ import {
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
   conversations, conversationParticipants, directMessages,
   sprintChecklistItems, whiteboards, userDisciplines,
-  googleCalendarTokens, googleCalendarEvents,
+  googleCalendarTokens, googleCalendarEvents, meetings,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
 } from "../drizzle/schema";
 
@@ -1517,6 +1517,106 @@ export async function deleteGoogleCalendarEvent(eventId: number) {
   await db.delete(googleCalendarEvents).where(eq(googleCalendarEvents.id, eventId));
 }
 
+
+// ─── Meetings ───────────────────────────────────────────────────────────────────
+export async function getMeetings(filters?: { crsId?: number; taskId?: number; from?: Date; to?: Date }) {
+  const db = await getDb();
+  const conditions: any[] = [];
+  if (filters?.crsId) conditions.push(eq(meetings.crsId, filters.crsId));
+  if (filters?.taskId) conditions.push(eq(meetings.taskId, filters.taskId));
+  if (filters?.from) conditions.push(gte(meetings.startDate, filters.from));
+  if (filters?.to) conditions.push(lte(meetings.startDate, filters.to));
+  return db.select({
+    id: meetings.id,
+    createdById: meetings.createdById,
+    crsId: meetings.crsId,
+    taskId: meetings.taskId,
+    title: meetings.title,
+    description: meetings.description,
+    startDate: meetings.startDate,
+    endDate: meetings.endDate,
+    googleEventId: meetings.googleEventId,
+    googleMeetUrl: meetings.googleMeetUrl,
+    meetingCode: meetings.meetingCode,
+    participantIds: meetings.participantIds,
+    participantEmails: meetings.participantEmails,
+    actualParticipants: meetings.actualParticipants,
+    actualStartDate: meetings.actualStartDate,
+    actualEndDate: meetings.actualEndDate,
+    status: meetings.status,
+    lastSyncedAt: meetings.lastSyncedAt,
+    createdAt: meetings.createdAt,
+    updatedAt: meetings.updatedAt,
+    crsName: crs.name,
+    crsCode: crs.code,
+    taskTitle: tasks.title,
+    creatorName: users.name,
+    creatorAvatar: users.avatarUrl,
+  }).from(meetings)
+    .leftJoin(crs, eq(meetings.crsId, crs.id))
+    .leftJoin(tasks, eq(meetings.taskId, tasks.id))
+    .leftJoin(users, eq(meetings.createdById, users.id))
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(asc(meetings.startDate));
+}
+
+export async function getMeetingById(id: number) {
+  const rows = await getMeetings();
+  return rows.find((meeting: any) => meeting.id === id);
+}
+
+export async function createMeeting(data: {
+  createdById: number;
+  crsId: number;
+  taskId?: number;
+  title: string;
+  description?: string;
+  startDate: Date;
+  endDate: Date;
+  participantIds?: string;
+  participantEmails?: string;
+  googleEventId?: string;
+  googleMeetUrl?: string;
+  meetingCode?: string;
+}) {
+  const db = await getDb();
+  const [result] = await db.insert(meetings).values({
+    createdById: data.createdById,
+    crsId: data.crsId,
+    taskId: data.taskId ?? null,
+    title: data.title,
+    description: data.description ?? null,
+    startDate: data.startDate,
+    endDate: data.endDate,
+    participantIds: data.participantIds ?? null,
+    participantEmails: data.participantEmails ?? null,
+    googleEventId: data.googleEventId ?? null,
+    googleMeetUrl: data.googleMeetUrl ?? null,
+    meetingCode: data.meetingCode ?? null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  return (result as any).insertId as number;
+}
+
+export async function updateMeeting(id: number, data: Partial<{
+  googleEventId: string | null;
+  googleMeetUrl: string | null;
+  meetingCode: string | null;
+  actualParticipants: string | null;
+  actualStartDate: Date | null;
+  actualEndDate: Date | null;
+  status: "scheduled" | "completed" | "canceled";
+  lastSyncedAt: Date | null;
+}>) {
+  const db = await getDb();
+  await db.update(meetings).set({ ...data, updatedAt: new Date() }).where(eq(meetings.id, id));
+}
+
+export async function deleteMeeting(id: number) {
+  const db = await getDb();
+  await db.delete(meetings).where(eq(meetings.id, id));
+}
 
 // ─── Subscription Plans ────────────────────────────────────────────────────────
 export async function getSubscriptionPlans() {

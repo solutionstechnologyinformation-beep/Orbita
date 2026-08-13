@@ -31,7 +31,9 @@ import {
   getSubscriptionPlans, getSubscriptionPlanById, getUserSubscription, createUserSubscription,
   updateUserSubscription, cancelUserSubscription, getUserInvoices, hasActiveSubscription,
   getSubscriptionStatus, isTrialPeriod,
+  getMeetings, getMeetingById, createMeeting, updateMeeting, deleteMeeting,
 } from "./db";
+import { createGoogleCalendarMeeting, syncGoogleMeetReport } from "./google-calendar";
 import { notifyOwner } from "./_core/notification";
 import { invokeLLM } from "./_core/llm";
 import stripe from "stripe";
@@ -1656,6 +1658,7 @@ export const appRouter = router({
       const scopes = [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/meetings.space.created",
       ];
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.append("client_id", clientId!);
@@ -1677,6 +1680,93 @@ export const appRouter = router({
     listEvents: protectedProcedure.query(async ({ ctx }) => {
       return await getGoogleCalendarEventsByUser(ctx.user.id);
     }),
+  }),
+
+  meetings: router({
+    list: protectedProcedure
+      .input(z.object({ crsId: z.number().optional(), taskId: z.number().optional(), from: z.date().optional(), to: z.date().optional() }).optional())
+      .query(async ({ input }) => getMeetings(input ?? undefined)),
+
+    create: protectedProcedure
+      .input(z.object({
+        crsId: z.number().int().positive(),
+        taskId: z.number().int().positive().optional(),
+        title: z.string().trim().min(2).max(256),
+        description: z.string().max(5000).optional(),
+        startDate: z.date(),
+        endDate: z.date(),
+        participantEmails: z.array(z.string().email()).max(50).default([]),
+        participantIds: z.array(z.number().int().positive()).max(50).default([]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.endDate <= input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O horário de término deve ser posterior ao início." });
+        }
+        if (input.taskId) {
+          const task = await getTaskById(input.taskId);
+          if (!task || task.crsId !== input.crsId) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "A tarefa informada não pertence ao CRS selecionado." });
+          }
+        }
+        const googleMeeting = await createGoogleCalendarMeeting({
+          userId: ctx.user.id,
+          title: input.title,
+          description: input.description,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          attendeeEmails: Array.from(new Set(input.participantEmails)),
+          crsId: input.crsId,
+          taskId: input.taskId,
+        });
+        const id = await createMeeting({
+          createdById: ctx.user.id,
+          crsId: input.crsId,
+          taskId: input.taskId,
+          title: input.title,
+          description: input.description,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          participantIds: JSON.stringify(input.participantIds),
+          participantEmails: JSON.stringify(Array.from(new Set(input.participantEmails))),
+          ...googleMeeting,
+        });
+        return { id, ...googleMeeting };
+      }),
+
+    syncReport: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const meeting = await getMeetingById(input.id);
+        if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Reunião não encontrada." });
+        if (meeting.createdById !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Somente o criador pode sincronizar o relatório desta reunião." });
+        }
+        if (!meeting.meetingCode) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Esta reunião ainda não possui um código do Google Meet." });
+        }
+        const report = await syncGoogleMeetReport(ctx.user.id, meeting.meetingCode);
+        if (!report) return { found: false };
+        await updateMeeting(input.id, {
+          actualParticipants: JSON.stringify(report.participants),
+          actualStartDate: report.actualStartDate,
+          actualEndDate: report.actualEndDate,
+          status: "completed",
+          lastSyncedAt: new Date(),
+        });
+        return { found: true, ...report };
+      }),
+
+    remove: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const meeting = await getMeetingById(input.id);
+        if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Reunião não encontrada." });
+        if (meeting.createdById !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Somente o criador pode remover esta reunião." });
+        }
+        await deleteMeeting(input.id);
+        return { success: true };
+      }),
   }),
 
   subscription: router({
