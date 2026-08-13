@@ -949,3 +949,5 @@
 - [x] Testes: validar que a interface e os relatórios usam o ativo PNG transparente compartilhado
 - [x] Logo sidebar: deixar somente o desenho sem fundo, aplicar hover suave e voltar ao Dashboard ao clicar
 - [x] Testes: cobrir o destino Dashboard e a constante de interação da logo clicável da sidebar
+- [x] Sidebar: adicionar modo recolhido com apenas a nova logo visível e controle acessível de expandir/recolher
+- [x] Testes: validar o destino da logo e a chave de persistência do modo compacto da sidebar

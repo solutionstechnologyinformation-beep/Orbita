@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { ORBITA_LOGO_URL, ORBITA_BRAND_NAME, LS_SOLUTIONS_NAME, SIDEBAR_LOGO_TARGET } from "@/branding";
+import { ORBITA_LOGO_URL, ORBITA_BRAND_NAME, LS_SOLUTIONS_NAME, SIDEBAR_LOGO_TARGET, SIDEBAR_COLLAPSED_STORAGE_KEY } from "@/branding";
 import {
   Bell,
   BookOpen,
@@ -20,6 +20,8 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   PenSquare,
   Shield,
   Target,
@@ -83,6 +85,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location, navigate] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  });
   const [crsExpanded, setCrsExpanded] = useState(false);
 
   const { data: crsList = [] } = trpc.crs.list.useQuery(undefined, {
@@ -102,6 +108,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     }
   }, [loading, isAuthenticated]);
 
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
   if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: SIDEBAR_BG }}>
@@ -113,11 +123,11 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     );
   }
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ compact = false }: { compact?: boolean }) => (
     <div className="flex flex-col h-full" style={{ backgroundColor: SIDEBAR_BG }}>
       {/* Logo / Brand */}
       <div
-        className="flex items-center gap-3 px-5 py-4"
+        className={`flex items-center px-3 py-4 ${compact ? "justify-center" : "gap-3"}`}
         style={{ borderBottom: "1px solid rgba(0,0,0,0.1)", backgroundColor: '#ffc30d' }}
       >
         <button
@@ -133,14 +143,25 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:rotate-1"
           />
         </button>
-        <div className="flex min-w-0 flex-col">
-          <span className="font-black text-sm tracking-wide text-black uppercase">{LS_SOLUTIONS_NAME}</span>
-          <span className="text-xs font-semibold text-black/70 truncate">{ORBITA_BRAND_NAME}</span>
-        </div>
+        {!compact && (
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="font-black text-sm tracking-wide text-black uppercase">{LS_SOLUTIONS_NAME}</span>
+            <span className="text-xs font-semibold text-black/70 truncate">{ORBITA_BRAND_NAME}</span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((current) => !current)}
+          aria-label={compact ? "Expandir barra lateral" : "Recolher barra lateral"}
+          title={compact ? "Expandir barra lateral" : "Recolher barra lateral"}
+          className="hidden lg:inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-black/70 transition-colors hover:bg-black/10 hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
+        >
+          {compact ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto" style={{backgroundColor: '#ffc30d'}}>
+      <nav className={`flex-1 py-3 space-y-0.5 overflow-y-auto ${compact ? "px-2" : "px-3"}`} style={{backgroundColor: '#ffc30d'}}>
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = location === href || (href !== "/dashboard" && href !== "/kanban" && location.startsWith(href));
 
@@ -149,7 +170,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             return (
               <div key={href}>
                 <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer"
+                  className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+                  title={compact ? label : undefined}
                   style={{
                     color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                     backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
@@ -167,15 +189,15 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                   }}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1" style={{color: '#000000'}}>{label}</span>
-                  {crsList.length > 0 && (
+                  {!compact && <span className="flex-1" style={{color: '#000000'}}>{label}</span>}
+                  {!compact && crsList.length > 0 && (
                     crsExpanded
                       ? <ChevronDown className="w-3 h-3 opacity-60" />
                       : <ChevronRight className="w-3 h-3 opacity-60" />
                   )}
                 </div>
                 {/* Submenu de Contrato */}
-                {crsExpanded && crsList.length > 0 && (
+                {!compact && crsExpanded && crsList.length > 0 && (
                   <div className="ml-4 mt-0.5 space-y-0.5">
                     {(crsList as any[]).slice(0, 8).map((c: any) => {
                       const kanbanHref = `/kanban?crs=${c.id}`;
@@ -222,7 +244,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               key={href}
               href={href}
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
+              className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 w-full ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+              title={compact ? label : undefined}
               style={{
                 color: '#000000',
                 backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
@@ -235,8 +258,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               }}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              <span className="flex-1" style={{ color: '#000000' }}>{label}</span>
-              {label === "Notificações" && unreadCount > 0 && (
+              {!compact && <span className="flex-1" style={{ color: '#000000' }}>{label}</span>}
+              {!compact && label === "Notificações" && unreadCount > 0 && (
                 <Badge
                   className="text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center"
                   style={{ backgroundColor: "#ef4444", color: "white" }}
@@ -249,11 +272,13 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         })}
 
         {/* Ajuda */}
-        <div className="pt-4 pb-1 px-3">
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#000000' }}>
-            Ajuda
-          </p>
-        </div>
+        {!compact && (
+          <div className="pt-4 pb-1 px-3">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#000000' }}>
+              Ajuda
+            </p>
+          </div>
+        )}
         {helpItems.map(({ href, icon: Icon, label }) => {
           const active = location.startsWith(href);
           return (
@@ -261,7 +286,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               key={href}
               href={href}
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
+              className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 w-full ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+              title={compact ? label : undefined}
               style={{
                 color: '#000000',
                 backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
@@ -274,18 +300,20 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               }}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
+              {!compact && label}
             </Link>
           );
         })}
 
         {user?.role === "admin" && (
           <>
-            <div className="pt-4 pb-1 px-3">
-              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: SIDEBAR_SECTION_TEXT }}>
-                Admin
-              </p>
-            </div>
+            {!compact && (
+              <div className="pt-4 pb-1 px-3">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: SIDEBAR_SECTION_TEXT }}>
+                  Admin
+                </p>
+              </div>
+            )}
             {adminItems.map(({ href, icon: Icon, label }) => {
               const active = location.startsWith(href);
               return (
@@ -293,7 +321,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                   key={href}
                   href={href}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 w-full"
+                  className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 w-full ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+                  title={compact ? label : undefined}
                   style={{
                     color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                     backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
@@ -306,7 +335,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                   }}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
-                  {label}
+                  {!compact && label}
                 </Link>
               );
             })}
@@ -322,7 +351,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left"
+              className={`w-full flex items-center gap-3 rounded-lg transition-colors text-left ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+              title={compact ? "Abrir menu do usuário" : undefined}
               style={{ color: SIDEBAR_TEXT }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
@@ -336,14 +366,16 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                 }}
                 size="sm"
               />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: "#f1f5f9" }}>
-                  {user?.name ?? "Usuário"}
-                </p>
-                <p className="text-xs truncate" style={{ color: '#000000' }}>
-                  {user?.email ?? ""}
-                </p>
-              </div>
+              {!compact && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "#f1f5f9" }}>
+                    {user?.name ?? "Usuário"}
+                  </p>
+                  <p className="text-xs truncate" style={{ color: '#000000' }}>
+                    {user?.email ?? ""}
+                  </p>
+                </div>
+              )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -369,10 +401,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     <div className="h-screen overflow-hidden bg-background flex">
       {/* Desktop Sidebar */}
       <aside
-        className="hidden lg:flex flex-col w-60 fixed top-0 left-0 bottom-0 z-40"
+        className={`hidden lg:flex flex-col fixed top-0 left-0 bottom-0 z-40 transition-[width] duration-300 ease-out ${sidebarCollapsed ? "w-[4.5rem]" : "w-60"}`}
         style={{ backgroundColor: SIDEBAR_BG }}
       >
-        <SidebarContent />
+        <SidebarContent compact={sidebarCollapsed} />
       </aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -393,13 +425,13 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             >
               <X className="w-5 h-5" />
             </button>
-            <SidebarContent />
+            <SidebarContent compact={false} />
           </aside>
         </div>
       )}
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-60 flex flex-col h-screen overflow-hidden">
+      <div className={`flex-1 flex flex-col h-screen overflow-hidden transition-[margin] duration-300 ease-out ${sidebarCollapsed ? "lg:ml-[4.5rem]" : "lg:ml-60"}`}>
         {/* Top Header — only shown when title or backHref is provided */}
         {(title || backHref) && (
           <header className="flex-shrink-0 z-30 bg-white/95 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm" style={{ backgroundColor: '#ffc30d' }}>
