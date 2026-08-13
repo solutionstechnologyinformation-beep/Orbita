@@ -20,7 +20,7 @@ import {
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint,
   getSprintWithTasks, addTaskToSprint, removeTaskFromSprint,
-  getClientProgress, getCrsDisciplineProgress, getYearlyStats,
+  getClientProgress, getCrsDisciplineProgress, getYearlyStats, getCompletedTasksSummary,
   getWhiteboardsByUser, saveWhiteboard, deleteWhiteboard, renameWhiteboard,
   getUserDisciplines, setUserDisciplines, getActivityLogs, getTaskTrend,
   getAnnualReport,
@@ -885,6 +885,9 @@ export const appRouter = router({
     worldMap: protectedProcedure.query(async () => getWorldMapData()),
     weekDeliveries: protectedProcedure.query(async () => getWeekDeliveries()),
     myTasks: protectedProcedure.query(async ({ ctx }) => getMyTasks(ctx.user.id)),
+    completedTasksSummary: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(200).optional() }).optional())
+      .query(async ({ input }) => getCompletedTasksSummary(input?.limit ?? 100)),
     clientProgress: protectedProcedure.query(async () => getClientProgress()),
     yearlyStats: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))

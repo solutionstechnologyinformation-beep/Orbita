@@ -1,7 +1,6 @@
-import { useState, useMemo, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { useLocation } from "wouter";
@@ -81,10 +80,6 @@ interface SegmentOverlay {
   techDataByType?: string | null;
 }
 type ContractMarkerData = { crsId: number; name: string; number: number | string };
-export interface ContractsMapHandle {
-  captureMap: () => Promise<string>;
-}
-
   function ContractsMap({ locations, segments, onNavigate, mapExportRef }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null> }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -92,8 +87,6 @@ export interface ContractsMapHandle {
   const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
-  const [isExportingMap, setIsExportingMap] = useState(false);
-  const [mapExportError, setMapExportError] = useState<string | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
@@ -469,7 +462,6 @@ export interface ContractsMapHandle {
       </div>
 
 
-      {mapExportError && <p data-map-control="true" className="absolute top-14 right-3 z-20 max-w-[18rem] rounded-md bg-red-50 px-2.5 py-2 text-[11px] text-red-700 shadow-sm border border-red-100">{mapExportError}</p>}
       {segments.length > 0 && (
         <div data-map-control="true" className="absolute top-3 left-3 z-20 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
           <button type="button" onClick={() => setControlsOpen((open) => !open)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50" aria-expanded={controlsOpen}>
@@ -602,6 +594,7 @@ export default function Dashboard() {
   const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
   const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
+  const completedTasksQ = trpc.dashboard.completedTasksSummary.useQuery({ limit: 100 });
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
   const segmentsQ = trpc.crs.segments.list.useQuery({});
@@ -611,6 +604,7 @@ export default function Dashboard() {
   const stats = statsQ.data;
   const clientProgress = (clientProgressQ.data ?? []) as any[];
   const myTasks = (myTasksQ.data ?? []) as any[];
+  const completedTasks = (completedTasksQ.data ?? []) as any[];
   const activeSprint = activeSprintQ.data as any;
   const stateData = (contractsByStateQ.data ?? []) as any[];
   const crsItems = (crsQ.data ?? []) as any[];
@@ -692,6 +686,9 @@ export default function Dashboard() {
       const sla = slaQ.data;
       const upcoming = upcomingQ.data;
       const stateRows = stateData;
+      const completedRows = completedTasks.slice(0, 100);
+      const completedContracts = new Set(completedTasks.map((task: any) => task.crsName).filter(Boolean)).size;
+      const completedOnTime = completedTasks.filter((task: any) => task.completedAt && (!task.dueDate || new Date(task.completedAt) <= new Date(task.dueDate))).length;
       const periodLabel = slaPeriod === "month" ? "Mês Atual" : slaPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
       const now = new Date();
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -755,6 +752,13 @@ export default function Dashboard() {
   <table><thead><tr><th>Estado</th><th>Contratos</th><th>Progresso Médio</th><th>Status</th></tr></thead><tbody>
     ${stateRows.map((s: any) => `<tr><td>${s.state}</td><td>${s.count}</td><td>${s.avgProgress ?? 0}%</td><td><span class="badge" style="background:${(s.avgProgress ?? 0) >= 80 ? '#dcfce7;color:#16a34a' : (s.avgProgress ?? 0) >= 50 ? '#fef9c3;color:#d97706' : '#fee2e2;color:#dc2626'}">${(s.avgProgress ?? 0) >= 80 ? 'Em Dia' : (s.avgProgress ?? 0) >= 50 ? 'Atenção' : 'Crítico'}</span></td></tr>`).join('')}
   </tbody></table>
+  <div class="section-title">Tarefas Concluídas no Kanban</div>
+  <div class="grid3">
+    <div class="card"><div class="card-title">Cards concluídos</div><div class="card-value" style="color:#16a34a">${completedTasks.length}</div><div class="card-sub">Progresso de 100% ou fase terminal</div></div>
+    <div class="card"><div class="card-title">Contratos envolvidos</div><div class="card-value">${completedContracts}</div></div>
+    <div class="card"><div class="card-title">Concluídas no prazo</div><div class="card-value" style="color:#16a34a">${completedOnTime}</div></div>
+  </div>
+  ${completedRows.length > 0 ? `<table><thead><tr><th>Tarefa</th><th>Contrato</th><th>Responsável</th><th>Fase</th><th>Conclusão</th></tr></thead><tbody>${completedRows.map((t: any) => `<tr><td>${t.title}</td><td>${t.crsName ?? '—'}</td><td>${t.assigneeName ?? 'Não atribuído'}</td><td>${t.phaseName ?? 'Concluído'}</td><td>${t.completedAt ? new Date(t.completedAt).toLocaleDateString('pt-BR') : '—'}</td></tr>`).join('')}</tbody></table>` : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa concluída encontrada no Kanban.</p>'}
   <div class="section-title">Vencimentos Próximos</div>
   <div class="grid3">
     <div class="card"><div class="card-title">Próximos 7 dias</div><div class="card-value" style="color:#dc2626">${upcoming?.counts?.next7 ?? 0}</div></div>
@@ -774,11 +778,22 @@ export default function Dashboard() {
     } finally {
       setIsExporting(false);
     }
-  }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod]);
+  }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod, completedTasks]);
 
   return (
     <AppLayout title="Dashboard">
       <div className="p-6 space-y-6 bg-gray-50 min-h-full" style={{ backgroundColor: '#ffffff' }}>
+        {isExporting && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="Gerando relatório PDF">
+            <div className="flex min-w-[240px] flex-col items-center gap-3 rounded-2xl bg-white px-8 py-7 text-center shadow-2xl ring-1 ring-slate-200">
+              <span className="h-10 w-10 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Gerando relatório PDF</p>
+                <p className="mt-1 text-xs text-slate-500">Capturando o mapa e consolidando as tarefas concluídas...</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900" style={{ color: '#000000' }}>Visão Geral</h1>

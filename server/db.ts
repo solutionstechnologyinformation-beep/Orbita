@@ -1,4 +1,4 @@
-import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte } from "drizzle-orm";
+import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte, or } from "drizzle-orm";
 import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
 import {
@@ -1148,6 +1148,31 @@ export async function getMyTasks(userId: number) {
 }
 
 // ─── User Disciplines ─────────────────────────────────────────────────────────
+export async function getCompletedTasksSummary(limit = 100) {
+  const db = await getDb();
+  return db.select({
+    id: tasks.id,
+    title: tasks.title,
+    progress: tasks.progress,
+    completedAt: tasks.completedAt,
+    updatedAt: tasks.updatedAt,
+    dueDate: tasks.dueDate,
+    crsName: crs.name,
+    assigneeName: users.name,
+    phaseName: kanbanPhases.name,
+  })
+    .from(tasks)
+    .leftJoin(crs, eq(tasks.crsId, crs.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .leftJoin(kanbanPhases, eq(tasks.phaseId, kanbanPhases.id))
+    .where(and(
+      eq(crs.status, "active"),
+      or(gte(tasks.progress, 100), eq(kanbanPhases.isTerminal, true)),
+    ))
+    .orderBy(desc(tasks.completedAt), desc(tasks.updatedAt))
+    .limit(limit);
+}
+
 export async function getUserDisciplines(userId: number) {
   const db = await getDb();
   return db.select().from(userDisciplines).where(eq(userDisciplines.userId, userId));

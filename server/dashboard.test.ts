@@ -67,6 +67,27 @@ describe("dashboard.slaStats", () => {
   });
 });
 
+// ── Dashboard: Completed Tasks Summary ────────────────────────────────────
+describe("dashboard.completedTasksSummary", () => {
+  it("throws UNAUTHORIZED when not logged in", async () => {
+    const ctx = makeCtx({ user: null });
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.dashboard.completedTasksSummary()).rejects.toThrow();
+  });
+
+  it("returns an array with the requested report fields", async () => {
+    const ctx = makeCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.dashboard.completedTasksSummary({ limit: 10 });
+    expect(Array.isArray(result)).toBe(true);
+    for (const task of result) {
+      expect(typeof task.id).toBe("number");
+      expect(typeof task.title).toBe("string");
+      expect(typeof task.progress).toBe("number");
+    }
+  }, 15000);
+});
+
 // ── Dashboard: Upcoming Deadlines ─────────────────────────────────────────
 describe("dashboard.upcomingDeadlines", () => {
   it("throws UNAUTHORIZED when not logged in", async () => {

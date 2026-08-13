@@ -930,3 +930,7 @@
 - [ ] Revisar o Kanban para permitir marcar card como 100% concluído, movendo-o automaticamente para a coluna Concluído, removendo-o dos atrasados e aplicando estilo visual sombreado/apagado
 
 - [x] Remover os botões de PNG e PDF do mapa do Dashboard e anexar a captura do mapa ao relatório gerado por 'Exportar PDF'
+
+- [x] Adicionar animação de carregamento (spinner/feedback visual) durante a geração do relatório PDF completo no Dashboard
+- [x] Incluir resumo das tarefas marcadas como "Concluído" no Kanban dentro do relatório PDF exportado
+- [x] Adicionar barra de pesquisa no Kanban para facilitar a localização de cards específicos pelo nome ou responsável
