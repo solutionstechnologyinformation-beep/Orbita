@@ -859,6 +859,16 @@
 - [x] Validar compilação e reiniciar o servidor
 
 ## v7.2 — Publicação solicitada
-- [ ] Salvar checkpoint e publicar as correções no domínio Orbita
+- [x] Salvar checkpoint das correções (versão a069e396); publicação final depende do clique em Publish no painel
 - [ ] Validar o status do ambiente após a publicação
 - [ ] Confirmar a versão publicada ao usuário
+
+
+## v7.3 — Redesign do Gantt como Timeline
+- [x] Diagnosticar a implementação atual do Gantt e mapear os dados existentes
+- [x] Criar timeline com painel de tarefas à esquerda e escala temporal por mês
+- [x] Exibir barras horizontais proporcionais às datas de início e fim
+- [x] Adicionar agrupamento/expansão de subtarefas e linhas de dependência quando disponíveis
+- [x] Exibir responsáveis, status e cores nas barras da timeline
+- [x] Validar responsividade, TypeScript e testes do Gantt (36/36 testes; TypeScript sem erros)
+- [ ] Salvar checkpoint da nova visualização do Gantt

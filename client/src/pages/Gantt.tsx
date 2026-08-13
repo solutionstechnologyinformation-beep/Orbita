@@ -1,775 +1,417 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import AppLayout from "@/components/AppLayout";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import AppLayout from "@/components/AppLayout";
-import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
-import { AlertTriangle, Calendar, ZoomIn, ZoomOut, ChevronDown, ChevronRight as ChevronRightIcon, FileDown, Users, Layers, Filter } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Filter,
+  Link2,
+  MoreHorizontal,
+  Search,
+  SlidersHorizontal,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-const LEFT_WIDTH = 280; // px — fixed left panel
-const ROW_H = 44;       // px per row
-const HEADER_H = 56;    // px — date header height (month + day rows)
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function dayStart(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function diffDays(a: Date, b: Date) { return Math.round((dayStart(a).getTime() - dayStart(b).getTime()) / 86400000); }
-function initials(name: string | null) { return name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "?"; }
+const LEFT_WIDTH = 350;
+const GROUP_ROW_HEIGHT = 46;
+const TASK_ROW_HEIGHT = 50;
+const CHECKLIST_ROW_HEIGHT = 36;
+const MONTH_COUNT = 3;
 
 type GroupMode = "discipline" | "crs" | "user";
-type ViewMode = "project" | "custom";
-type ZoomLevel = "day" | "week" | "month";
+type ZoomLevel = "month" | "week" | "day";
 
-// ── Component ──────────────────────────────────────────────────────────────────
+type TaskItem = {
+  id: number;
+  title: string;
+  priority?: string | null;
+  status?: string | null;
+  phaseName?: string | null;
+  phaseColor?: string | null;
+  phaseIsTerminal?: boolean;
+  assigneeId?: number | null;
+  assigneeName?: string | null;
+  assigneeAvatar?: string | null;
+  projectName?: string | null;
+  setor?: string | null;
+  dueDate?: Date | string | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
+  checklistItems?: ChecklistItem[];
+  progress?: number | null;
+  predecessorId?: number | null;
+};
+
+type ChecklistItem = {
+  id: number;
+  title: string;
+  status?: string | null;
+  assigneeName?: string | null;
+  assigneeAvatar?: string | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
+};
+
+type TimelineGroup = {
+  key: string;
+  label: string;
+  subgroups: Array<{ key: string; label: string; tasks: TaskItem[] }>;
+};
+
+type TimelineRow =
+  | { kind: "group"; key: string; label: string }
+  | { kind: "subgroup"; key: string; label: string; parentKey: string }
+  | { kind: "task"; key: string; task: TaskItem; index: number }
+  | { kind: "checklist"; key: string; item: ChecklistItem; taskId: number };
+
+function asDate(value: unknown): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? new Date(value) : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function startOfMonth(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), 1);
+}
+
+function addDays(value: Date, amount: number) {
+  const result = new Date(value);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
+function addMonths(value: Date, amount: number) {
+  const result = new Date(value);
+  result.setMonth(result.getMonth() + amount);
+  return result;
+}
+
+function dayDistance(from: Date, to: Date) {
+  return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / 86400000);
+}
+
+function initials(name?: string | null) {
+  return name ? name.split(" ").map((part) => part[0]).join("").toUpperCase().slice(0, 2) : "?";
+}
+
+function formatMonth(value: Date) {
+  return value.toLocaleDateString("pt-BR", { month: "short", year: "numeric" }).replace(" de ", "/");
+}
+
+function formatShortDate(value: Date | string | null | undefined) {
+  const date = asDate(value);
+  return date ? date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "Sem data";
+}
+
+function taskRange(task: TaskItem | ChecklistItem) {
+  const start = asDate(task.startDate) ?? asDate(" ");
+  const end = asDate(task.endDate) ?? start;
+  return { start, end };
+}
+
+function getBarColor(task: TaskItem | ChecklistItem, today: Date) {
+  const maybeTask = task as TaskItem;
+  const dueDate = asDate(maybeTask.dueDate);
+  if (dueDate && dueDate < today && !maybeTask.phaseIsTerminal && maybeTask.phaseName !== "Concluído") return "#64748b";
+  if (task.status === "published" || task.status === "archived" || maybeTask.phaseIsTerminal) return "#35b779";
+  return maybeTask.phaseColor || "#2f80ed";
+}
+
 export default function Gantt() {
-  // ── Filters ────────────────────────────────────────────────────────────────
-  const [filterClientId, setFilterClientId] = useState<number | undefined>(undefined);
-  const [filterCrsId, setFilterCrsId] = useState<number | undefined>(undefined);
-  const [filterSetor, setFilterSetor] = useState<string | undefined>(undefined);
-  const [filterUserId, setFilterUserId] = useState<number | undefined>(undefined);
+  const [filterClientId, setFilterClientId] = useState<number | undefined>();
+  const [filterCrsId, setFilterCrsId] = useState<number | undefined>();
+  const [filterSetor, setFilterSetor] = useState<string | undefined>();
+  const [filterUserId, setFilterUserId] = useState<number | undefined>();
   const [groupMode, setGroupMode] = useState<GroupMode>("discipline");
-  const [viewMode, setViewMode] = useState<ViewMode>("project");
-  const [zoom, setZoom] = useState<ZoomLevel>("week");
-  const [colPx, setColPx] = useState(38);
-  const [customStart, setCustomStart] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
-  const [customEnd, setCustomEnd] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 2); d.setDate(0); return d.toISOString().slice(0, 10); });
+  const [zoom, setZoom] = useState<ZoomLevel>("month");
+  const [search, setSearch] = useState("");
+  const [timelineStart, setTimelineStart] = useState(() => startOfMonth(new Date()));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
+  const [autoAligned, setAutoAligned] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // ── Data queries ──────────────────────────────────────────────────────────
   const clientsQ = trpc.clients.list.useQuery();
   const crsQ = trpc.crs.list.useQuery();
   const usersQ = trpc.users.list.useQuery();
-  const ganttQ = trpc.tasks.listForGantt.useQuery({
+  const ganttInput = useMemo(() => ({
     clientId: filterClientId,
     crsId: filterCrsId,
     setor: filterSetor,
     assigneeId: filterUserId,
-  });
+  }), [filterClientId, filterCrsId, filterSetor, filterUserId]);
+  const ganttQ = trpc.tasks.listForGantt.useQuery(ganttInput);
+  const allTasks = useMemo(() => (ganttQ.data ?? []) as TaskItem[], [ganttQ.data]);
+  const today = useMemo(() => startOfDay(new Date()), []);
 
-  const allTasks = (ganttQ.data ?? []) as any[];
+  const filteredTasks = useMemo(() => {
+    const normalized = search.trim().toLocaleLowerCase();
+    if (!normalized) return allTasks;
+    return allTasks.filter((task) => [task.title, task.projectName, task.assigneeName, task.setor, task.phaseName]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase().includes(normalized)));
+  }, [allTasks, search]);
 
-  // ── Derived filter options ────────────────────────────────────────────────
-  const availableClients = useMemo(() => (clientsQ.data ?? []) as any[], [clientsQ.data]);
+  const availableClients = useMemo(() => (clientsQ.data ?? []) as Array<{ id: number; name: string }>, [clientsQ.data]);
   const availableCrs = useMemo(() => {
-    const all = (crsQ.data ?? []) as any[];
-    return filterClientId ? all.filter((c: any) => c.clientId === filterClientId) : all;
+    const contracts = (crsQ.data ?? []) as Array<{ id: number; name: string; clientId?: number | null }>;
+    return filterClientId ? contracts.filter((contract) => contract.clientId === filterClientId) : contracts;
   }, [crsQ.data, filterClientId]);
-  const availableSetores = useMemo(() => {
-    const s = new Set<string>();
-    allTasks.forEach((t: any) => { if (t.setor) s.add(t.setor); });
-    return Array.from(s).sort();
-  }, [allTasks]);
+  const availableSetores = useMemo(() => Array.from(new Set(allTasks.map((task) => task.setor).filter(Boolean))).sort() as string[], [allTasks]);
   const availableUsers = useMemo(() => {
-    const seen = new Map<number, string>();
-    allTasks.forEach((t: any) => { if (t.assigneeId && t.assigneeName) seen.set(t.assigneeId, t.assigneeName); });
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    const map = new Map<number, string>();
+    allTasks.forEach((task) => {
+      if (task.assigneeId && task.assigneeName) map.set(task.assigneeId, task.assigneeName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [allTasks]);
 
-  // ── Date range ────────────────────────────────────────────────────────────
-  const today = useMemo(() => dayStart(new Date()), []);
-
-  const { rangeStart, totalDays } = useMemo(() => {
-    if (viewMode === "custom") {
-      const s = dayStart(new Date(customStart));
-      const e = dayStart(new Date(customEnd));
-      return { rangeStart: s, totalDays: Math.max(1, diffDays(e, s) + 1) };
-    }
-    const dates = allTasks.flatMap((t: any) => [
-      t.startDate ? new Date(t.startDate) : null,
-      t.endDate ? new Date(t.endDate) : null,
-      t.dueDate ? new Date(t.dueDate) : null,
-    ]).filter(Boolean) as Date[];
-    if (dates.length === 0) return { rangeStart: addDays(today, -7), totalDays: 45 };
-    const min = new Date(Math.min(...dates.map(d => d.getTime())));
-    const max = new Date(Math.max(...dates.map(d => d.getTime())));
-    const s = addDays(dayStart(min), -3);
-    const e = addDays(dayStart(max), 5);
-    return { rangeStart: s, totalDays: Math.max(1, diffDays(e, s) + 1) };
-  }, [viewMode, customStart, customEnd, allTasks, today]);
-
-  const todayCol = diffDays(today, rangeStart);
-
-  // ── Scroll to today ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (scrollRef.current && todayCol > 0) {
-      scrollRef.current.scrollLeft = Math.max(0, todayCol * colPx - 200);
+    if (autoAligned || filteredTasks.length === 0) return;
+    const dates = filteredTasks.flatMap((task) => [asDate(task.startDate), asDate(task.endDate), asDate(task.dueDate)].filter(Boolean) as Date[]);
+    if (dates.length > 0) {
+      setTimelineStart(startOfMonth(new Date(Math.min(...dates.map((date) => date.getTime())))));
+      setAutoAligned(true);
     }
-  }, [todayCol, colPx, rangeStart]);
+  }, [autoAligned, filteredTasks]);
 
-  // ── Date header data ──────────────────────────────────────────────────────
-  const days = useMemo(() => Array.from({ length: totalDays }, (_, i) => addDays(rangeStart, i)), [rangeStart, totalDays]);
-  const months = useMemo(() => {
-    const groups: { label: string; colStart: number; count: number }[] = [];
-    let cur = "";
-    days.forEach((d, i) => {
-      const m = d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
-      if (m !== cur) { groups.push({ label: m, colStart: i, count: 1 }); cur = m; }
-      else groups[groups.length - 1].count++;
+  const dayWidth = zoom === "month" ? 14 : zoom === "week" ? 30 : 58;
+  const timelineEnd = addMonths(timelineStart, MONTH_COUNT);
+  const totalDays = Math.max(1, dayDistance(timelineStart, timelineEnd));
+  const days = useMemo(() => Array.from({ length: totalDays }, (_, index) => addDays(timelineStart, index)), [timelineStart, totalDays]);
+  const totalTimelineWidth = totalDays * dayWidth;
+  const todayColumn = dayDistance(timelineStart, today);
+
+  const monthGroups = useMemo(() => {
+    const groups: Array<{ label: string; start: number; count: number }> = [];
+    days.forEach((day, index) => {
+      const label = formatMonth(day);
+      const current = groups[groups.length - 1];
+      if (!current || current.label !== label) groups.push({ label, start: index, count: 1 });
+      else current.count += 1;
     });
     return groups;
   }, [days]);
 
-  // ── Group tasks ───────────────────────────────────────────────────────────
-  const grouped = useMemo(() => {
-    if (groupMode === "discipline") {
-      const disciplineMap = new Map<string, Map<string, any[]>>();
-      allTasks.forEach((t: any) => {
-        const disc = t.setor ?? "Sem Disciplina";
-        const user = t.assigneeName ?? "Sem Responsável";
-        if (!disciplineMap.has(disc)) disciplineMap.set(disc, new Map());
-        const userMap = disciplineMap.get(disc)!;
-        if (!userMap.has(user)) userMap.set(user, []);
-        userMap.get(user)!.push(t);
-      });
-      return Array.from(disciplineMap.entries()).map(([disc, userMap]) => ({
-        groupKey: disc,
-        groupLabel: disc,
-        subGroups: Array.from(userMap.entries()).map(([user, tasks]) => ({
-          subKey: `${disc}::${user}`,
-          subLabel: user,
-          tasks,
-        })),
-      }));
-    } else if (groupMode === "crs") {
-      const map = new Map<string, any[]>();
-      allTasks.forEach((t: any) => {
-        const key = t.projectName ?? "Sem Contrato";
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(t);
-      });
-      return Array.from(map.entries()).map(([name, tasks]) => ({
-        groupKey: name,
-        groupLabel: name,
-        subGroups: [{ subKey: name, subLabel: "", tasks }],
-      }));
-    } else {
-      const map = new Map<string, any[]>();
-      allTasks.forEach((t: any) => {
-        const key = t.assigneeName ?? "Sem Responsável";
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(t);
-      });
-      return Array.from(map.entries()).map(([name, tasks]) => ({
-        groupKey: name,
-        groupLabel: name,
-        subGroups: [{ subKey: name, subLabel: "", tasks }],
-      }));
-    }
-  }, [allTasks, groupMode]);
+  const grouped = useMemo<TimelineGroup[]>(() => {
+    const groups = new Map<string, Map<string, TaskItem[]>>();
+    filteredTasks.forEach((task) => {
+      const groupLabel = groupMode === "discipline" ? (task.setor || "Sem disciplina") : groupMode === "crs" ? (task.projectName || "Sem contrato") : (task.assigneeName || "Sem responsável");
+      const subgroupLabel = groupMode === "discipline" ? (task.assigneeName || "Sem responsável") : "";
+      if (!groups.has(groupLabel)) groups.set(groupLabel, new Map());
+      const subgroupMap = groups.get(groupLabel)!;
+      if (!subgroupMap.has(subgroupLabel)) subgroupMap.set(subgroupLabel, []);
+      subgroupMap.get(subgroupLabel)!.push(task);
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([groupLabel, subgroupMap]) => ({
+      key: groupLabel,
+      label: groupLabel,
+      subgroups: Array.from(subgroupMap.entries()).map(([subgroupLabel, tasks]) => ({
+        key: `${groupLabel}::${subgroupLabel}`,
+        label: subgroupLabel,
+        tasks: tasks.sort((a, b) => a.title.localeCompare(b.title)),
+      })),
+    }));
+  }, [filteredTasks, groupMode]);
 
-  // ── Flatten rows ──────────────────────────────────────────────────────────
-  type Row =
-    | { type: "group"; key: string; label: string }
-    | { type: "subgroup"; key: string; label: string; parentKey: string }
-    | { type: "task"; task: any; index: number }
-    | { type: "checklist"; item: any; taskId: number };
-
-  const rows = useMemo<Row[]>(() => {
-    const result: Row[] = [];
-    let taskIdx = 0;
-    grouped.forEach((g) => {
-      result.push({ type: "group", key: g.groupKey, label: g.groupLabel });
-      if (!collapsed.has(g.groupKey)) {
-        g.subGroups.forEach((sg) => {
-          const hasSubLabel = sg.subLabel !== "";
-          if (hasSubLabel) {
-            result.push({ type: "subgroup", key: sg.subKey, label: sg.subLabel, parentKey: g.groupKey });
-          }
-          if (!collapsed.has(sg.subKey)) {
-            sg.tasks.forEach((t) => {
-              result.push({ type: "task", task: t, index: ++taskIdx });
-              // Add checklist sub-rows if task is expanded
-              if (!collapsed.has(`checklist-${t.id}`) && t.checklistItems?.length > 0) {
-                t.checklistItems.forEach((ci: any) => {
-                  result.push({ type: "checklist", item: ci, taskId: t.id });
-                });
-              }
-            });
+  const rows = useMemo<TimelineRow[]>(() => {
+    const result: TimelineRow[] = [];
+    let index = 0;
+    grouped.forEach((group) => {
+      result.push({ kind: "group", key: group.key, label: group.label });
+      if (collapsed.has(group.key)) return;
+      group.subgroups.forEach((subgroup) => {
+        if (subgroup.label) result.push({ kind: "subgroup", key: subgroup.key, label: subgroup.label, parentKey: group.key });
+        if (collapsed.has(subgroup.key)) return;
+        subgroup.tasks.forEach((task) => {
+          result.push({ kind: "task", key: `task-${task.id}`, task, index: ++index });
+          const checklistKey = `checklist-${task.id}`;
+          if (task.checklistItems?.length && !collapsed.has(checklistKey)) {
+            task.checklistItems.forEach((item) => result.push({ kind: "checklist", key: `checklist-${item.id}`, item, taskId: task.id }));
           }
         });
-      }
-    });
-    return result;
-  }, [grouped, collapsed]);
-
-  const totalGridWidth = totalDays * colPx;
-
-  // ── Bar calculation ───────────────────────────────────────────────────────
-  function barProps(task: any): { left: number; width: number; valid: boolean } {
-    // Use dueDate as fallback for start when startDate is missing
-    const s = task.startDate ? dayStart(new Date(task.startDate))
-              : task.dueDate ? dayStart(new Date(task.dueDate)) : null;
-    const e = task.endDate ? dayStart(new Date(task.endDate))
-              : task.dueDate ? dayStart(new Date(task.dueDate)) : null;
-    if (!s || !e) return { left: 0, width: 0, valid: false };
-    const left = diffDays(s, rangeStart) * colPx;
-    const width = Math.max(colPx * 0.8, (diffDays(e, s) + 1) * colPx - 4);
-    return { left, width, valid: true };
-  }
-
-  // ── Export PDF (HTML Gantt chart) ─────────────────────────────────────────
-  function exportGanttPDF() {
-    const now = new Date().toLocaleString("pt-BR");
-    const BLUE = "#3b82f6";
-    const dayMs = 86400000;
-
-    // Build date range from tasks
-    const dates = allTasks.flatMap((t: any) => [
-      t.startDate ? new Date(t.startDate) : null,
-      t.endDate ? new Date(t.endDate) : null,
-      t.dueDate ? new Date(t.dueDate) : null,
-    ]).filter(Boolean) as Date[];
-    const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => d.getTime()))) : new Date();
-    const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))) : new Date();
-    const pdfStart = new Date(minDate); pdfStart.setDate(pdfStart.getDate() - 3);
-    const pdfEnd = new Date(maxDate); pdfEnd.setDate(pdfEnd.getDate() + 7);
-    const totalPdfDays = Math.max(1, Math.round((pdfEnd.getTime() - pdfStart.getTime()) / dayMs));
-
-    // Build month/week/day header data
-    const monthGroups: { label: string; days: number }[] = [];
-    let curMonth = "";
-    for (let i = 0; i < totalPdfDays; i++) {
-      const d = new Date(pdfStart.getTime() + i * dayMs);
-      const m = d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
-      if (m !== curMonth) { monthGroups.push({ label: m, days: 1 }); curMonth = m; }
-      else monthGroups[monthGroups.length - 1].days++;
-    }
-    const weekGroups: { label: string; days: number }[] = [];
-    let curWeek = -1;
-    for (let i = 0; i < totalPdfDays; i++) {
-      const d = new Date(pdfStart.getTime() + i * dayMs);
-      const week = Math.ceil((d.getDate() + new Date(d.getFullYear(), d.getMonth(), 1).getDay()) / 7);
-      const weekKey = d.getFullYear() * 1000 + d.getMonth() * 10 + week;
-      if (weekKey !== curWeek) { weekGroups.push({ label: `S${week}`, days: 1 }); curWeek = weekKey; }
-      else weekGroups[weekGroups.length - 1].days++;
-    }
-    // Build rows from grouped data
-    const pdfRows: { type: string; label: string; task?: any; depth: number }[] = [];
-    grouped.forEach(g => {
-      pdfRows.push({ type: "group", label: g.groupLabel, depth: 0 });
-      g.subGroups.forEach(sg => {
-        if (sg.subLabel) pdfRows.push({ type: "subgroup", label: sg.subLabel, depth: 1 });
-        sg.tasks.forEach(t => pdfRows.push({ type: "task", label: t.title ?? "", task: t, depth: sg.subLabel ? 2 : 1 }));
       });
     });
+    return result;
+  }, [collapsed, grouped]);
 
-    const COL_W = Math.max(16, Math.min(30, Math.floor(900 / totalPdfDays)));
-    const LEFT_W = 280;
-    const ROW_H_PDF = 26;
-    const totalChartW = totalPdfDays * COL_W;
-
-    const monthCells = monthGroups.map(m =>
-      `<td colspan="${m.days}" style="background:#3b82f6;color:#fff;font-size:10px;font-weight:700;padding:3px 4px;border-right:1px solid rgba(255,255,255,0.2);white-space:nowrap;overflow:hidden;text-align:center">${m.label}</td>`
-    ).join("");
-
-    const weekCells = weekGroups.map(w =>
-      `<td colspan="${w.days}" style="background:#0f172a;color:#93c5fd;font-size:9px;font-weight:600;padding:2px 4px;border-right:1px solid rgba(255,255,255,0.15);white-space:nowrap;overflow:hidden;text-align:center">${w.label}</td>`
-    ).join("");
-
-    // Today offset
-    const todayOffset = Math.round((new Date().getTime() - pdfStart.getTime()) / dayMs);
-
-    // Day cells for the third header row (days of month)
-    const dayHeaderCells: string[] = [];
-    for (let i = 0; i < totalPdfDays; i++) {
-      const d = new Date(pdfStart.getTime() + i * dayMs);
-      const isToday = i === todayOffset;
-      const isSun = d.getDay() === 0;
-      const isSat = d.getDay() === 6;
-      const bg = isToday ? "#ef4444" : isSun || isSat ? "#1e293b" : "#0f172a";
-      const color = isToday ? "#fff" : isSun || isSat ? "#64748b" : "#7dd3fc";
-      const fw = isToday ? "800" : "400";
-      dayHeaderCells.push(`<td style="width:${COL_W}px;min-width:${COL_W}px;background:${bg};color:${color};font-size:8px;font-weight:${fw};text-align:center;padding:1px 0;border-right:1px solid rgba(255,255,255,0.1);white-space:nowrap">${d.getDate()}</td>`);
-    }
-    const dayCellsRow = dayHeaderCells.join("");
-
-    const taskRowsHtml = pdfRows.map(row => {
-      const isGroup = row.type === "group";
-      const isSubgroup = row.type === "subgroup";
-      const bgColor = isGroup ? "#dbeafe" : isSubgroup ? "#f1f5f9" : "#ffffff";
-      const fontWeight = isGroup ? "700" : isSubgroup ? "600" : "400";
-      const fontSize = isGroup ? "11" : "10";
-      const paddingLeft = row.depth * 12 + 8;
-
-      // Build day cells for the chart
-      let dayCells = "";
-      for (let i = 0; i < totalPdfDays; i++) {
-        const d = new Date(pdfStart.getTime() + i * dayMs);
-        const isToday = i === todayOffset;
-        const isSun = d.getDay() === 0;
-        const isSat = d.getDay() === 6;
-        const bg = isToday ? "rgba(239,68,68,0.15)" : isSun || isSat ? "#f8fafc" : "transparent";
-        const borderR = isToday ? "2px solid #ef4444" : (i + 1) % 7 === 0 ? "1px solid #cbd5e1" : "1px solid #f1f5f9";
-        dayCells += `<td style="width:${COL_W}px;min-width:${COL_W}px;height:${ROW_H_PDF}px;background:${bg};border-right:${borderR};border-bottom:1px solid #e2e8f0;position:relative;padding:0"></td>`;
-      }
-
-      // Overlay bar for task rows
-      let barOverlay = "";
-      if (row.task) {
-        const t = row.task;
-        const s = t.startDate ? new Date(t.startDate) : null;
-        const e = t.endDate ? new Date(t.endDate) : t.dueDate ? new Date(t.dueDate) : null;
-        if (s && e) {
-          const leftPx = Math.max(0, Math.round((s.getTime() - pdfStart.getTime()) / dayMs) * COL_W);
-          const widthPx = Math.max(COL_W, Math.round((e.getTime() - s.getTime()) / dayMs + 1) * COL_W - 2);
-          const color = t.phaseColor ?? BLUE;
-          barOverlay = `<tr style="height:0"><td style="padding:0;border:none"></td><td colspan="${totalPdfDays}" style="padding:0;border:none;position:relative;height:0">
-            <div style="position:absolute;top:-${ROW_H_PDF - 5}px;left:${leftPx}px;width:${widthPx}px;height:16px;background:${color};border-radius:4px;display:flex;align-items:center;padding:0 6px;overflow:hidden;z-index:1">
-              <span style="color:#fff;font-size:8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(t.phaseName ?? "").slice(0, 20)}</span>
-            </div>
-          </td></tr>`;
-        }
-      }
-
-      return `<tr style="background:${bgColor}">
-        <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;padding:4px 8px 4px ${paddingLeft}px;font-size:${fontSize}px;font-weight:${fontWeight};border-bottom:1px solid #e2e8f0;border-right:2px solid #cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${LEFT_W}px">${row.label.slice(0, 42)}</td>
-        ${dayCells}
-      </tr>${barOverlay}`;
-    }).join("");
-
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Gantt — Orbita</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; }
-    .page-header { background: ${BLUE}; color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .page-header .title { font-size: 18px; font-weight: 800; }
-    .gantt-wrapper { overflow-x: auto; }
-    table { border-collapse: collapse; }
-    .footer { background: ${BLUE}; color: #fff; padding: 8px 20px; font-size: 10px; display: flex; justify-content: space-between; }
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .gantt-wrapper { overflow: visible; }
-      @page { size: A3 landscape; margin: 10mm; }
-    }
-  </style>
-</head>
-<body>
-  <div class="page-header">
-    <div>
-      <div class="title">Gráfico de Gantt — Orbita</div>
-      <div style="font-size:11px;opacity:0.8">Gerado em ${now} &nbsp;•&nbsp; ${allTasks.length} atividades</div>
-    </div>
-    <div style="text-align:right;font-size:11px;opacity:0.8">
-      ${new Date(pdfStart).toLocaleDateString("pt-BR")} — ${new Date(pdfEnd).toLocaleDateString("pt-BR")}
-    </div>
-  </div>
-  <div class="gantt-wrapper">
-    <table style="width:${LEFT_W + totalChartW}px">
-      <thead>
-        <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#3b82f6;border-right:2px solid #cbd5e1;height:22px"></td>
-          ${monthCells}
-        </tr>
-        <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#0f172a;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1">Semana</td>
-          ${weekCells}
-        </tr>
-        <tr>
-          <td style="width:${LEFT_W}px;min-width:${LEFT_W}px;background:#0f172a;color:#93c5fd;font-size:9px;font-weight:700;padding:2px 8px;border-right:2px solid #cbd5e1;border-bottom:2px solid #334155">Atividade</td>
-          ${dayCellsRow}
-        </tr>
-      </thead>
-      <tbody>
-        ${taskRowsHtml}
-      </tbody>
-    </table>
-  </div>
-  <div class="footer">
-    <span>Orbita — Gestão de Projetos de Infraestrutura</span>
-    <span>Gerado em ${now}</span>
-  </div>
-</body>
-</html>`;
-
-    const win = window.open("", "_blank");
-    if (!win) { alert("Popup bloqueado. Permita popups para exportar."); return; }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 600);
+  function toggle(key: string) {
+    setCollapsed((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
+  function moveTimeline(months: number) {
+    setTimelineStart((current) => addMonths(current, months));
+    setAutoAligned(true);
+  }
+
+  function resetToday() {
+    setTimelineStart(startOfMonth(new Date()));
+    setAutoAligned(true);
+  }
+
+  function getBar(task: TaskItem | ChecklistItem) {
+    const range = taskRange(task);
+    if (!range.start) return null;
+    const end = range.end ?? range.start;
+    const left = dayDistance(timelineStart, range.start) * dayWidth;
+    const width = Math.max(dayWidth * 0.9, (dayDistance(range.start, end) + 1) * dayWidth - 5);
+    return { left, width, color: getBarColor(task, today), milestone: dayDistance(range.start, end) === 0 };
+  }
+
+  function exportTimeline() {
+    const popup = window.open("", "_blank");
+    if (!popup) return;
+    const rowsHtml = rows.map((row) => {
+      if (row.kind === "group") return `<tr class="group"><td colspan="2">${row.label}</td></tr>`;
+      if (row.kind === "subgroup") return `<tr class="subgroup"><td colspan="2">↳ ${row.label}</td></tr>`;
+      const task = row.kind === "task" ? row.task : row.item;
+      const range = getBar(task);
+      return `<tr><td>${row.kind === "task" ? row.index + ". " : "↳ "}${task.title}</td><td>${range ? `${formatShortDate(task.startDate)} → ${formatShortDate(task.endDate)}` : "Sem datas"}</td></tr>`;
+    }).join("");
+    popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Timeline — Orbita</title><style>body{font-family:Arial,sans-serif;color:#172033;padding:24px}h1{color:#0f172a}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #e5e7eb;padding:8px}.group{background:#eaf2ff;font-weight:700}.subgroup{background:#f8fafc;font-weight:600}</style></head><body><h1>Timeline de atividades — Orbita</h1><p>Gerado em ${new Date().toLocaleString("pt-BR")}</p><table>${rowsHtml}</table></body></html>`);
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => popup.print(), 500);
+  }
+
+  const gridBackground = `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${dayWidth}px)`;
+
   return (
-    <AppLayout title="Gráfico de Gantt" fullHeight>
-      <SplitLayout
-        leftWidth="240px"
-        left={
-          <>
-            <SplitPanelHeader title="Filtros" />
-            <SplitPanelContent>
-      {/* ── Toolbar ── */}
-      <div className="space-y-3">
-        {/* Row 1: Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-
-          {/* Cliente */}
-          <Select value={filterClientId?.toString() ?? "_all"} onValueChange={v => {
-            setFilterClientId(v === "_all" ? undefined : Number(v));
-            setFilterCrsId(undefined);
-          }}>
-            <SelectTrigger className="w-44 h-9 text-sm">
-              <SelectValue placeholder="Todos os clientes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">Todos os clientes</SelectItem>
-              {availableClients.map((c: any) => (
-                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* CRS */}
-          <Select value={filterCrsId?.toString() ?? "_all"} onValueChange={v => setFilterCrsId(v === "_all" ? undefined : Number(v))}>
-            <SelectTrigger className="w-52 h-9 text-sm">
-              <SelectValue placeholder="Todos os Contratos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">Todos os Contratos</SelectItem>
-              {availableCrs.map((c: any) => (
-                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Disciplina */}
-          <Select value={filterSetor ?? "_all"} onValueChange={v => setFilterSetor(v === "_all" ? undefined : v)}>
-            <SelectTrigger className="w-44 h-9 text-sm">
-              <SelectValue placeholder="Todas as disciplinas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">Todas as disciplinas</SelectItem>
-              {availableSetores.map((s: string) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Usuário */}
-          <Select value={filterUserId?.toString() ?? "_all"} onValueChange={v => setFilterUserId(v === "_all" ? undefined : Number(v))}>
-            <SelectTrigger className="w-44 h-9 text-sm">
-              <SelectValue placeholder="Todos os usuários" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_all">Todos os usuários</SelectItem>
-              {availableUsers.map((u: any) => (
-                <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Row 2: View controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Group mode */}
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            {(["discipline", "crs", "user"] as GroupMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setGroupMode(m)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${groupMode === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
-              >
-                {m === "discipline" ? "Por Disciplina" : m === "crs" ? "Por Contrato" : "Por Usuário"}
-              </button>
-            ))}
-          </div>
-
-          {/* Zoom */}
-          <div className="flex items-center gap-1 ml-auto">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setColPx(p => Math.max(12, p - 6))}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <span className="text-xs text-muted-foreground w-10 text-center">{colPx}px</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setColPx(p => Math.min(80, p + 6))}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* View mode */}
-          <Select value={viewMode} onValueChange={v => setViewMode(v as ViewMode)}>
-            <SelectTrigger className="w-36 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="project">Período do projeto</SelectItem>
-              <SelectItem value="custom">Período personalizado</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {viewMode === "custom" && (
-            <>
-              <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="h-8 w-36 text-xs" />
-              <span className="text-xs text-muted-foreground">até</span>
-              <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="h-8 w-36 text-xs" />
-            </>
-          )}
-
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 ml-1" onClick={exportGanttPDF}>
-            <FileDown className="w-3.5 h-3.5" />
-            PDF
-          </Button>
-        </div>
-      </div>
-            </SplitPanelContent>
-          </>
-        }
-        right={
-          <SplitPanelContent noPadding>
-            <div className="p-4 overflow-x-auto h-full">
-      {/* ── Loading ── */}
-      {ganttQ.isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-11 w-full rounded-lg" />)}
-        </div>
-      )}
-
-      {/* ── Empty ── */}
-      {!ganttQ.isLoading && allTasks.length === 0 && (
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Nenhuma tarefa encontrada com os filtros selecionados. Selecione um Contrato ou ajuste os filtros.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* ── Gantt Chart ── */}
-      {!ganttQ.isLoading && allTasks.length > 0 && (
-        <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
-          <div className="flex" style={{ height: `${HEADER_H + rows.length * ROW_H}px`, minHeight: 200 }}>
-            {/* Left panel */}
-            <div className="shrink-0 border-r border-border bg-card z-10" style={{ width: LEFT_WIDTH }}>
-              {/* Header */}
-              <div className="flex items-end border-b border-border bg-muted/40 px-3" style={{ height: HEADER_H }}>
-                <span className="text-xs font-semibold text-muted-foreground pb-2">Atividade</span>
-              </div>
-              {/* Rows */}
-              {rows.map((row, i) => {
-                if (row.type === "group") {
-                  const isOpen = !collapsed.has(row.key);
-                  return (
-                    <div
-                      key={`${row.key}__${i}`}
-                      className="flex items-center gap-1.5 px-2 cursor-pointer select-none bg-primary/8 hover:bg-primary/12 border-b border-border"
-                      style={{ height: ROW_H }}
-                      onClick={() => setCollapsed(prev => { const n = new Set(prev); n.has(row.key) ? n.delete(row.key) : n.add(row.key); return n; })}
-                    >
-                      {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-primary shrink-0" /> : <ChevronRightIcon className="w-3.5 h-3.5 text-primary shrink-0" />}
-                      <Layers className="w-3 h-3 text-primary shrink-0" />
-                      <span className="text-xs font-bold text-primary truncate">{row.label}</span>
-                    </div>
-                  );
-                }
-                if (row.type === "subgroup") {
-                  const isOpen = !collapsed.has(row.key);
-                  return (
-                    <div
-                      key={`${row.key}__${i}`}
-                      className="flex items-center gap-1.5 pl-6 pr-2 cursor-pointer select-none bg-muted/30 hover:bg-muted/50 border-b border-border"
-                      style={{ height: ROW_H }}
-                      onClick={() => setCollapsed(prev => { const n = new Set(prev); n.has(row.key) ? n.delete(row.key) : n.add(row.key); return n; })}
-                    >
-                      {isOpen ? <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" /> : <ChevronRightIcon className="w-3 h-3 text-muted-foreground shrink-0" />}
-                      <Avatar className="w-5 h-5 shrink-0">
-                        <AvatarFallback className="text-[9px]">{initials(row.label)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs font-semibold truncate">{row.label}</span>
-                    </div>
-                  );
-                }
-                // checklist sub-row
-                if (row.type === "checklist") {
-                  const ci = row.item;
-                  const isDone = ci.status === "published" || ci.status === "archived";
-                  return (
-                    <div key={`ci-${ci.id}-${i}`} className="flex items-center gap-2 pl-14 pr-2 border-b border-border/50 hover:bg-muted/10 bg-muted/5" style={{ height: ROW_H - 8 }}>
-                      <div className={`w-2.5 h-2.5 rounded-sm shrink-0 border ${isDone ? "bg-green-500 border-green-500" : "border-muted-foreground/40"}`} />
-                      <span className={`text-[10px] truncate flex-1 ${isDone ? "line-through text-muted-foreground" : "text-foreground/80"}`}>{ci.title}</span>
-                      {ci.assigneeName && <span className="text-[9px] text-muted-foreground shrink-0">{ci.assigneeName.split(" ")[0]}</span>}
-                    </div>
-                  );
-                }
-                // task row
-                const t = (row as { type: "task"; task: any; index: number }).task;
-                const taskIdx2 = (row as { type: "task"; task: any; index: number }).index;
-                const hasChecklist = t.checklistItems?.length > 0;
-                const checklistExpanded = !collapsed.has(`checklist-${t.id}`);
-                return (
-                  <div key={`task-${t.id}-${i}`} className="flex items-center gap-1.5 pl-10 pr-2 border-b border-border hover:bg-muted/20" style={{ height: ROW_H }}>
-                    {hasChecklist && (
-                      <button
-                        className="shrink-0 p-0.5 hover:bg-muted rounded"
-                        onClick={() => setCollapsed(prev => { const n = new Set(prev); const k = `checklist-${t.id}`; n.has(k) ? n.delete(k) : n.add(k); return n; })}
-                      >
-                        {checklistExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRightIcon className="w-3 h-3 text-muted-foreground" />}
-                      </button>
-                    )}
-                    {!hasChecklist && <span className="w-4 shrink-0" />}
-                    <span className="text-[10px] text-muted-foreground shrink-0 w-4">{taskIdx2}</span>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-xs truncate flex-1 cursor-default">{t.title}</span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
-                        <p className="font-semibold">{t.title}</p>
-                        {t.assigneeName && <p className="text-xs text-muted-foreground">Responsável: {t.assigneeName}</p>}
-                        {t.phaseName && <p className="text-xs text-muted-foreground">Fase: {t.phaseName}</p>}
-                        {hasChecklist && <p className="text-xs text-muted-foreground">{t.checklistItems.filter((c: any) => c.status === 'published' || c.status === 'archived').length}/{t.checklistItems.length} itens concluídos</p>}
-                      </TooltipContent>
-                    </Tooltip>
-                    {t.priority === "urgent" && <Badge variant="destructive" className="text-[9px] px-1 py-0 shrink-0">!</Badge>}
-                  </div>
-                );
-              })}
+    <AppLayout title="Linha do tempo" fullHeight>
+      <div className="h-full min-h-0 bg-[#f6f8fb] p-4 lg:p-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500 font-semibold">Planejamento visual</p>
+              <h1 className="text-2xl font-bold text-slate-900">Linha do tempo</h1>
             </div>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={resetToday}><CalendarDays className="w-4 h-4" />Hoje</Button>
+              <Button variant="outline" size="sm" onClick={() => moveTimeline(-1)} aria-label="Período anterior"><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="outline" size="sm" onClick={() => moveTimeline(1)} aria-label="Próximo período"><ChevronRight className="w-4 h-4" /></Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={exportTimeline}><Download className="w-4 h-4" />PDF</Button>
+              <Button variant="ghost" size="icon" aria-label="Mais opções"><MoreHorizontal className="w-4 h-4" /></Button>
+            </div>
+          </div>
 
-            {/* Scrollable chart area */}
-            <div className="flex-1 overflow-x-auto overflow-y-hidden" ref={scrollRef}>
-              <div style={{ width: totalGridWidth, minWidth: totalGridWidth }}>
-                {/* Month header */}
-                <div className="flex border-b border-border bg-primary" style={{ height: HEADER_H / 2 }}>
-                  {months.map((m, i) => (
-                    <div key={i} className="shrink-0 flex items-center justify-center border-r border-primary-foreground/20 text-primary-foreground text-[10px] font-bold px-1 overflow-hidden" style={{ width: m.count * colPx }}>
-                      {m.label}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar tarefas" className="pl-9 bg-white" />
+            </div>
+            <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
+            <div className="flex items-center rounded-md border border-slate-200 bg-white p-0.5">
+              {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
+                <button key={level} onClick={() => setZoom(level)} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                  {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dia"}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 ml-auto text-xs text-slate-500"><ZoomOut className="w-3.5 h-3.5" />{dayWidth}px<ZoomIn className="w-3.5 h-3.5" /></div>
+          </div>
+
+          {showFilters && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <Filter className="w-4 h-4 text-slate-400" />
+              <Select value={filterClientId?.toString() ?? "_all"} onValueChange={(value) => { setFilterClientId(value === "_all" ? undefined : Number(value)); setFilterCrsId(undefined); }}>
+                <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Todos os clientes" /></SelectTrigger>
+                <SelectContent><SelectItem value="_all">Todos os clientes</SelectItem>{availableClients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={filterCrsId?.toString() ?? "_all"} onValueChange={(value) => setFilterCrsId(value === "_all" ? undefined : Number(value))}>
+                <SelectTrigger className="w-48 h-8 text-xs"><SelectValue placeholder="Todos os contratos" /></SelectTrigger>
+                <SelectContent><SelectItem value="_all">Todos os contratos</SelectItem>{availableCrs.map((contract) => <SelectItem key={contract.id} value={String(contract.id)}>{contract.name}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={filterSetor ?? "_all"} onValueChange={(value) => setFilterSetor(value === "_all" ? undefined : value)}>
+                <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="Todas as disciplinas" /></SelectTrigger>
+                <SelectContent><SelectItem value="_all">Todas as disciplinas</SelectItem>{availableSetores.map((setor) => <SelectItem key={setor} value={setor}>{setor}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={filterUserId?.toString() ?? "_all"} onValueChange={(value) => setFilterUserId(value === "_all" ? undefined : Number(value))}>
+                <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="Todos os usuários" /></SelectTrigger>
+                <SelectContent><SelectItem value="_all">Todos os usuários</SelectItem>{availableUsers.map((user) => <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>)}</SelectContent>
+              </Select>
+              <div className="flex items-center rounded-md border border-slate-200 overflow-hidden ml-auto">
+                {(["discipline", "crs", "user"] as GroupMode[]).map((mode) => <button key={mode} onClick={() => setGroupMode(mode)} className={`px-2.5 py-1.5 text-xs font-medium ${groupMode === mode ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>{mode === "discipline" ? "Disciplina" : mode === "crs" ? "Contrato" : "Usuário"}</button>)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {ganttQ.isLoading && <div className="space-y-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-64 w-full" /></div>}
+        {!ganttQ.isLoading && filteredTasks.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">Nenhuma tarefa encontrada para os filtros atuais.</div>}
+
+        {!ganttQ.isLoading && filteredTasks.length > 0 && (
+          <div className="flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div ref={timelineRef} className="h-full overflow-auto">
+              <div style={{ width: LEFT_WIDTH + totalTimelineWidth, minWidth: "100%" }}>
+                <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px` }}>
+                  <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
+                  <div className="relative overflow-hidden">
+                    <div className="flex h-12 bg-[#f8fafc]">
+                      {monthGroups.map((month) => <div key={month.label} className="flex items-center justify-center border-r border-slate-200 text-xs font-bold uppercase text-slate-500" style={{ width: month.count * dayWidth }}>{month.label}</div>)}
                     </div>
-                  ))}
+                    <div className="absolute inset-x-0 bottom-0 flex h-6 border-t border-slate-200" style={{ backgroundImage: gridBackground }}>
+                      {days.map((day, index) => <div key={index} className={`shrink-0 flex items-center justify-center text-[9px] ${day.getDay() === 0 || day.getDay() === 6 ? "text-slate-300" : "text-slate-500"}`} style={{ width: dayWidth }}>{zoom === "month" ? (day.getDate() === 1 || day.getDay() === 1 ? day.getDate() : "") : day.getDate()}</div>)}
+                    </div>
+                  </div>
                 </div>
-                {/* Week/day sub-header */}
-                <div className="flex border-b border-border bg-[#0f172a]" style={{ height: HEADER_H / 2 }}>
-                  {days.map((d, i) => {
-                    const isSun = d.getDay() === 0;
-                    const isToday = diffDays(d, today) === 0;
-                    const showLabel = colPx >= 20 ? true : d.getDay() === 1;
-                    return (
-                      <div
-                        key={i}
-                        className={`shrink-0 flex items-center justify-center border-r text-[9px] font-medium overflow-hidden ${isToday ? "bg-red-500/30 text-white" : isSun ? "text-blue-300/60" : "text-blue-300/80"} ${isSun ? "border-blue-300/20" : "border-blue-900/40"}`}
-                        style={{ width: colPx }}
-                      >
-                        {showLabel ? d.getDate() : ""}
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Task rows */}
-                {rows.map((row, i) => {
-                  if (row.type === "group") {
-                    return (
-                      <div key={`${row.key}__${i}`} className="flex bg-primary/5 border-b border-border" style={{ height: ROW_H, width: totalGridWidth }}>
-                        {days.map((d, j) => (
-                          <div key={j} className={`shrink-0 border-r ${d.getDay() === 0 ? "border-border" : "border-border/30"}`} style={{ width: colPx }} />
-                        ))}
-                      </div>
-                    );
-                  }
-                  if (row.type === "subgroup") {
-                    return (
-                      <div key={`${row.key}__${i}`} className="flex bg-muted/20 border-b border-border" style={{ height: ROW_H, width: totalGridWidth }}>
-                        {days.map((d, j) => (
-                          <div key={j} className={`shrink-0 border-r ${d.getDay() === 0 ? "border-border" : "border-border/30"}`} style={{ width: colPx }} />
-                        ))}
-                      </div>
-                    );
-                  }
-                  // checklist sub-row (right panel)
-                  if (row.type === "checklist") {
-                    const ci = row.item;
-                    const bp2 = barProps(ci);
-                    const isDone = ci.status === "published" || ci.status === "archived";
-                    return (
-                      <div key={`ci-right-${ci.id}-${i}`} className="relative flex border-b border-border/50 bg-muted/5" style={{ height: ROW_H - 8, width: totalGridWidth }}>
-                        {days.map((d, j) => (
-                          <div key={j} className={`shrink-0 border-r border-border/20`} style={{ width: colPx }} />
-                        ))}
-                        {bp2.valid && (
-                          <div
-                            className="absolute rounded flex items-center px-1.5 overflow-hidden"
-                            style={{
-                              left: bp2.left,
-                              width: bp2.width,
-                              height: ROW_H - 20,
-                              top: 4,
-                              background: isDone ? "#22c55e" : "#94a3b8",
-                              opacity: 0.85,
-                              zIndex: 5,
-                            }}
-                          >
-                            <span className="text-white text-[9px] truncate">{ci.title}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  // task row
-                  const t = (row as { type: "task"; task: any; index: number }).task;
-                  const bp = barProps(t);
-                  const isOverdue = t.dueDate && new Date(t.dueDate) < today && t.phaseName !== "Concluído";
+
+                {rows.map((row) => {
+                  const isGroup = row.kind === "group";
+                  const isSubgroup = row.kind === "subgroup";
+                  const rowHeight = isGroup ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT;
+                  const task = row.kind === "task" ? row.task : row.kind === "checklist" ? row.item : null;
+                  const bar = task ? getBar(task) : null;
+                  const isCollapsed = collapsed.has(row.key);
                   return (
-                    <div key={`task-${t.id}-${i}`} className="relative flex border-b border-border hover:bg-muted/10" style={{ height: ROW_H, width: totalGridWidth }}>
-                      {/* Grid columns */}
-                      {days.map((d, j) => {
-                        const isToday2 = diffDays(d, today) === 0;
-                        return (
-                          <div
-                            key={j}
-                            className={`shrink-0 border-r ${isToday2 ? "bg-red-500/10" : d.getDay() === 6 || d.getDay() === 0 ? "bg-muted/30" : ""} ${d.getDay() === 0 ? "border-border" : "border-border/30"}`}
-                            style={{ width: colPx }}
-                          />
-                        );
-                      })}
-                      {/* Today line */}
-                      {todayCol >= 0 && todayCol < totalDays && (
-                        <div className="absolute top-0 bottom-0 w-0.5 bg-red-500/50 z-10" style={{ left: todayCol * colPx }} />
-                      )}
-                      {/* Task bar */}
-                      {bp.valid && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="absolute top-2.5 rounded-md flex items-center px-2 overflow-hidden cursor-pointer hover:brightness-110 transition-all shadow-sm"
-                              style={{
-                                left: bp.left,
-                                width: bp.width,
-                                height: ROW_H - 20,
-                                background: isOverdue ? "#ef4444" : (t.phaseColor ?? "#3b82f6"),
-                                zIndex: 5,
-                              }}
-                            >
-                              <span className="text-white text-[10px] font-semibold truncate">{t.phaseName ?? ""}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="font-semibold">{t.title}</p>
-                            <p className="text-xs">{t.startDate ? new Date(t.startDate).toLocaleDateString("pt-BR") : "?"} → {t.endDate ? new Date(t.endDate).toLocaleDateString("pt-BR") : t.dueDate ? new Date(t.dueDate).toLocaleDateString("pt-BR") : "?"}</p>
-                            {t.assigneeName && <p className="text-xs text-muted-foreground">{t.assigneeName}</p>}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                    <div key={row.key} className="grid border-b border-slate-100" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px`, height: rowHeight }}>
+                      <div className={`sticky left-0 z-20 flex items-center gap-2 border-r border-slate-200 px-3 ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : row.kind === "checklist" ? "bg-white pl-14" : "bg-white pl-5"}`}>
+                        {isGroup && <button className="rounded p-1 hover:bg-blue-100" onClick={() => toggle(row.key)} aria-label={isCollapsed ? "Expandir grupo" : "Recolher grupo"}>{isCollapsed ? <ChevronRight className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-blue-600" />}</button>}
+                        {isSubgroup && <button className="rounded p-1 hover:bg-slate-200" onClick={() => toggle(row.key)} aria-label={isCollapsed ? "Expandir responsável" : "Recolher responsável"}>{isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}</button>}
+                        {isGroup && <span className="w-2 h-2 rounded-full bg-blue-500" />}
+                        {isSubgroup && <Avatar className="w-6 h-6"><AvatarFallback className="text-[9px] bg-slate-200 text-slate-700">{initials(row.label)}</AvatarFallback></Avatar>}
+                        {row.kind === "task" && <button className="rounded p-1 hover:bg-slate-100" onClick={() => row.task.checklistItems?.length && toggle(`checklist-${row.task.id}`)} aria-label={row.task.checklistItems?.length ? "Expandir checklist" : "Sem checklist"}>{row.task.checklistItems?.length ? (isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />) : <span className="w-3.5" />}</button>}
+                        {row.kind === "task" && <span className="flex h-4 w-4 items-center justify-center rounded border border-slate-300 text-[9px] text-slate-500">{row.index}</span>}
+                        {row.kind === "checklist" && <span className={`h-3 w-3 rounded-sm border ${row.item.status === "published" || row.item.status === "archived" ? "border-green-500 bg-green-500" : "border-slate-300 bg-white"}`} />}
+                        <Tooltip><TooltipTrigger asChild><span className={`${isGroup ? "text-sm font-bold text-slate-800" : isSubgroup ? "text-xs font-semibold text-slate-700" : row.kind === "checklist" ? "text-[11px] text-slate-500" : "text-xs text-slate-700"} truncate`}>{row.kind === "task" ? row.task.title : row.kind === "checklist" ? row.item.title : row.label}</span></TooltipTrigger><TooltipContent side="right">{row.kind === "task" ? <><p className="font-semibold">{row.task.title}</p><p className="text-xs text-muted-foreground">{row.task.projectName || "Sem contrato"}</p></> : <p>{row.kind === "checklist" ? row.item.title : row.label}</p>}</TooltipContent></Tooltip>
+                        {row.kind === "task" && <span className="ml-auto hidden shrink-0 text-[10px] text-slate-400 xl:inline">TBT-{row.task.id}</span>}
+                      </div>
+                      <div className={`relative overflow-hidden ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : "bg-white"}`} style={{ backgroundImage: gridBackground }}>
+                        {todayColumn >= 0 && todayColumn < totalDays && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayColumn * dayWidth + dayWidth / 2 }} />}
+                        {task && bar && <Tooltip><TooltipTrigger asChild><div className={`absolute z-20 flex items-center gap-1 overflow-hidden rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, dayWidth) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
+                          {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
+                          <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
+                          {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
+                        </div></TooltipTrigger><TooltipContent><p className="font-semibold">{task.title}</p><p className="text-xs">{formatShortDate(task.startDate)} → {formatShortDate(task.endDate)}</p>{row.kind === "task" && row.task.assigneeName && <p className="text-xs text-muted-foreground">{row.task.assigneeName}</p>}</TooltipContent></Tooltip>}
+                      </div>
                     </div>
                   );
                 })}
+                <div className="sticky left-0 flex h-10 items-center gap-2 border-t border-slate-100 bg-white px-4 text-xs font-semibold text-slate-500"><span className="text-lg leading-none">+</span> Adicionar tarefa</div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-            </div>
-          </SplitPanelContent>
-        }
-      />
+        )}
+      </div>
     </AppLayout>
   );
 }
