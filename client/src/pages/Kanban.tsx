@@ -167,6 +167,12 @@ function SortableTaskCard({
                 )}
               </div>
               <p className="text-sm font-medium text-foreground leading-tight">{task.title}</p>
+              {(task.crsName || task.crsCode) && (
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary truncate">OS: {task.crsName ?? "—"}</span>
+                  {task.crsCode && <span className="rounded bg-muted px-1.5 py-0.5 font-mono truncate">CRS: {task.crsCode}</span>}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
               <button onClick={() => onNavigate(task.id)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
@@ -328,7 +334,7 @@ export default function Kanban() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [taskForm, setTaskForm] = useState({
     title: "", description: "", priority: "medium", assigneeId: "",
-    dueDate: "", setor: "", phaseId: "",
+    dueDate: "", setor: "", phaseId: "", crsId: "",
   });
   const [prefillPhaseId, setPrefillPhaseId] = useState<number | null>(null);
 
@@ -395,7 +401,7 @@ export default function Kanban() {
       toast.success("Tarefa criada!");
       utils.tasks.listByCrsWithChecklist.invalidate();
       setShowCreateTask(false);
-      setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "", phaseId: "" });
+      setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: "", phaseId: "", crsId: "" });
     },
     onError: (e) => toast.error(e.message),
   });
@@ -489,17 +495,17 @@ export default function Kanban() {
     setPrefillPhaseId(phaseId);
     setTaskForm({
       title: "", description: "", priority: "medium", assigneeId: "",
-      dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: String(phaseId),
+      dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: String(phaseId), crsId: String(effectiveCrsId ?? ""),
     });
     setShowCreateTask(true);
   }
 
   function handleCreateTask() {
-    if (!effectiveCrsId) return toast.error("Selecione um Contrato.");
+    if (!taskForm.crsId) return toast.error("Selecione um CRS.");
     if (!taskForm.title.trim()) return toast.error("Título é obrigatório.");
     if (!taskForm.phaseId) return toast.error("Selecione uma fase.");
     createTaskMut.mutate({
-      crsId: effectiveCrsId,
+      crsId: parseInt(taskForm.crsId),
       phaseId: parseInt(taskForm.phaseId),
       title: taskForm.title.trim(),
       description: taskForm.description.trim() || undefined,
@@ -514,7 +520,7 @@ export default function Kanban() {
     setEditingTask(task);
     setTaskForm({
       title: task.title, description: task.description ?? "",
-      priority: task.priority, assigneeId: task.assigneeId ? String(task.assigneeId) : "",
+      priority: task.priority, assigneeId: task.assigneeId ? String(task.assigneeId) : "", crsId: String(task.crsId ?? effectiveCrsId ?? ""),
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "",
       setor: task.setor ?? "", phaseId: String(task.phaseId),
     });
@@ -693,7 +699,7 @@ export default function Kanban() {
                   )}
                   {isAdmin && effectiveCrsId && (
                     <Button size="sm" onClick={() => {
-                      setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: phases[0]?.id ? String(phases[0].id) : "" });
+                      setTaskForm({ title: "", description: "", priority: "medium", assigneeId: "", dueDate: "", setor: selectedDisciplines[0] ?? "", phaseId: phases[0]?.id ? String(phases[0].id) : "", crsId: String(effectiveCrsId ?? "") });
                       setPrefillPhaseId(null);
                       setShowCreateTask(true);
                     }} className="gap-1.5 h-8">
@@ -794,6 +800,17 @@ export default function Kanban() {
             <div>
               <Label>Descrição</Label>
               <Textarea className="mt-1" rows={2} value={taskForm.description} onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div>
+              <Label>CRS *</Label>
+              <Select value={taskForm.crsId} onValueChange={(v) => setTaskForm((f) => ({ ...f, crsId: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o CRS" /></SelectTrigger>
+                <SelectContent>
+                  {crsItems.map((crs: any) => (
+                    <SelectItem key={crs.id} value={String(crs.id)}>{crs.code ? `${crs.code} — ${crs.name}` : crs.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

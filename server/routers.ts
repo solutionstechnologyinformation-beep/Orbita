@@ -530,6 +530,7 @@ export const appRouter = router({
       .input(z.object({
         id: z.number(),
         phaseId: z.number().optional(),
+        crsId: z.number().optional(),
         title: z.string().optional(),
         description: z.string().optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional(),

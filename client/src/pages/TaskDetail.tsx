@@ -63,11 +63,13 @@ export default function TaskDetail() {
   const [editAssigneeId, setEditAssigneeId] = useState<string>("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editSetor, setEditSetor] = useState("");
+  const [editCrsId, setEditCrsId] = useState("");
 
   // tasks.get returns { ...task, comments, checklist, phaseHistory, checklistHistory }
   const taskQ = trpc.tasks.get.useQuery({ id: taskId }, { enabled: !!taskId });
   const usersQ = trpc.users.list.useQuery();
   const disciplinesQ = trpc.disciplines.list.useQuery();
+  const crsQ = trpc.crs.list.useQuery();
   const phasesQ = trpc.kanbanPhases.list.useQuery(
     { crsId: (taskQ.data as any)?.crsId! },
     { enabled: !!(taskQ.data as any)?.crsId }
@@ -148,6 +150,7 @@ export default function TaskDetail() {
     setEditAssigneeId(task?.assigneeId ? String(task.assigneeId) : "");
     setEditDueDate(task?.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "");
     setEditSetor(task?.setor ?? "");
+    setEditCrsId(task?.crsId ? String(task.crsId) : "");
     setEditMode(true);
   };
 
@@ -160,6 +163,7 @@ export default function TaskDetail() {
       assigneeId: editAssigneeId ? Number(editAssigneeId) : null,
       dueDate: editDueDate ? new Date(editDueDate) : null,
       setor: editSetor || null,
+      crsId: editCrsId ? Number(editCrsId) : undefined,
     });
   };
 
@@ -278,6 +282,18 @@ export default function TaskDetail() {
               <div>
                 <label className="text-sm font-medium mb-1 block">Descricao</label>
                 <Textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={3} />
+              </div>
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-1 block">OS / CRS</label>
+                <Select value={editCrsId || "_none"} onValueChange={(v) => setEditCrsId(v === "_none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar CRS" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Sem CRS</SelectItem>
+                    {crsQ.data?.map((crs: any) => (
+                      <SelectItem key={crs.id} value={String(crs.id)}>{crs.code ? `${crs.code} — ${crs.name}` : crs.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

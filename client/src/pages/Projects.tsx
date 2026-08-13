@@ -256,8 +256,8 @@ function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete
               {crs.clientName}
             </div>
           )}
-          <h2 className="text-xl font-bold text-foreground">{crs.name}</h2>
-          {crs.code && <p className="text-sm text-muted-foreground mt-0.5">#{crs.code}</p>}
+          <h2 className="text-xl font-bold text-foreground">OS: {crs.name}</h2>
+          {crs.code && <p className="text-sm text-muted-foreground mt-0.5">CRS: {crs.code}</p>}
         </div>
         {crs.status === "archived" && <Badge variant="secondary">Arquivado</Badge>}
       </div>
@@ -699,7 +699,8 @@ export default function Projects() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 mb-0.5">
                             {crs.clientColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: crs.clientColor }} />}
-                            <p className="text-sm font-semibold text-foreground truncate">{crs.name}</p>
+                            <p className="text-sm font-semibold text-foreground truncate">OS: {crs.name}</p>
+                              {crs.code && <p className="text-xs text-muted-foreground truncate">CRS: {crs.code}</p>}
                           </div>
                           {crs.clientName && <p className="text-xs text-muted-foreground truncate">{crs.clientName}</p>}
                           {crs.state && <p className="text-xs text-muted-foreground">{crs.state}</p>}

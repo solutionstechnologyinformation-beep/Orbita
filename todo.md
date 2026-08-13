@@ -133,14 +133,14 @@
 - [x] Frontend: badge "Arquivado" no cabeçalho do projeto quando arquivado
 
 ## Melhoria v3.8 — Visualizador de Arquivos
-- [ ] Componente FilePreviewModal: PDF via iframe, imagens via img, outros via link de download
+- [x] Componente FilePreviewModal: PDF via iframe, imagens via img, outros via link de download
 - [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
-- [ ] Suporte a PDF, imagens (jpg/png/gif/webp), e fallback para outros tipos
+- [x] Suporte a PDF, imagens (jpg/png/gif/webp), e fallback para outros tipos
 
 ## Melhorias v3.8
 - [ ] Admin: botão e formulário para criar novo usuário (nome, e-mail, senha, papel)
 - [ ] Backend: procedure admin.createUser com hash de senha
-- [ ] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
+- [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
 - [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
 ## Melhorias v3.8 — Empresa, Admin e Visualizador
@@ -158,7 +158,7 @@
 - [ ] Frontend: campo empresa no perfil do usuário (página Profile)
 - [ ] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
 - [ ] Frontend Admin: botão excluir usuário com confirmação
-- [ ] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
+- [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
 - [ ] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
 ## Arquitetura Multi-Tenant v3.9
@@ -316,8 +316,8 @@
 
 ## Melhorias v3.25
 - [ ] PDFs: atualizar identidade visual com cor #FFBE00, azul-marinho e logo LS no rodapé (Sprint PDF, AIChat PDF)
-- [ ] Dashboard: botão "Exportar PDF" com KPIs, gráficos e tabelas
-- [ ] Kanban: filtro por usuário/responsável (dropdown na barra de filtros)
+- [x] Dashboard: botão "Exportar PDF" com KPIs, gráficos e tabelas
+- [x] Kanban: filtro por usuário/responsável (dropdown na barra de filtros)
 - [ ] TeamChat: chat privado 1-a-1 entre membros
 - [ ] TeamChat: criação de grupos de chat
 - [ ] Notificação automática ao bloquear tarefa (notificar criador e responsável com motivo)
@@ -410,16 +410,16 @@
 - [x] Onboarding: botão "Pular" e persistência do estado (não mostrar novamente após concluir)
 
 ## Melhorias v3.34 — Campo CRS nas Tarefas
-- [ ] Schema: criar tabela `crs` (id, name, code, description, status: active/archived, createdAt)
-- [ ] Schema: adicionar coluna `crsId` na tabela `tasks` (FK opcional para crs.id)
+- [x] Schema: criar tabela `crs` (id, name, code, description, status: active/archived, createdAt)
+- [x] Schema: adicionar coluna `crsId` na tabela `tasks` (FK opcional para crs.id)
 - [ ] Migrar banco de dados com pnpm db:push
-- [ ] Backend: rotas crs.list, crs.create, crs.update, crs.archive, crs.restore, crs.delete
-- [ ] Backend: incluir crsId no tasks.create e tasks.update
-- [ ] Backend: retornar crsName junto com as tarefas nas queries
-- [ ] Kanban: adicionar select dinâmico de CRS no formulário de criação de tarefa
-- [ ] Kanban: exibir badge CRS no card da tarefa
-- [ ] TaskDetail: adicionar campo CRS editável na seção de detalhes
-- [ ] Admin: adicionar aba "CRS" com CRUD completo (criar, arquivar, restaurar, excluir)
+- [x] Backend: rotas crs.list, crs.create, crs.update, crs.archive, crs.restore, crs.delete
+- [x] Backend: incluir crsId no tasks.create e tasks.update
+- [x] Backend: retornar crsName junto com as tarefas nas queries
+- [x] Kanban: adicionar select dinâmico de CRS no formulário de criação de tarefa
+- [x] Kanban: exibir badge CRS no card da tarefa
+- [x] TaskDetail: adicionar campo CRS editável na seção de detalhes
+- [x] Admin: adicionar aba "CRS" com CRUD completo (criar, arquivar, restaurar, excluir)
 
 ## Refatoração v4.0 — Nova Arquitetura Cliente→CRS→Kanban
 
@@ -717,8 +717,8 @@
 ## v5.18 — PDF Dashboard + Kanban por Setor
 - [ ] PDF Dashboard: mapa com manchas azuis por estado + número de contratos no centro
 - [ ] PDF Dashboard: detalhamento de cada contrato (tipos de obra, extensões, tarefas e checklist em cascata por disciplina)
-- [ ] Kanban: filtrar colunas para mostrar apenas a disciplina do setor do usuário logado
-- [ ] Kanban: usuários sem setor definido veem todas as colunas (admin/fallback)
+- [x] Kanban: filtrar colunas para mostrar apenas a disciplina do setor do usuário logado
+- [x] Kanban: usuários sem setor definido veem todas as colunas (admin/fallback)
 
 ## v5.18 — PDF Dashboard com Detalhamento + Kanban Filtro Obrigatório
 - [x] Dashboard PDF: query contractsForPdf integrada (tarefas por disciplina + checklist em cascata)
@@ -765,18 +765,18 @@
 - [ ] PDF Dashboard: incluir imagem do mapa de contratos por estado (via staticMapUrl)
 
 ## v6.3 — 4 Melhorias CRS/OS/Dashboard
-- [ ] Schema: campo crsCode (varchar 64) na tabela clients
-- [ ] Migrar banco: ALTER TABLE clients ADD COLUMN crsCode
-- [ ] Admin: campo "Código CRS" no formulário de cliente (ex: Seinfra)
-- [ ] Admin: exibir crsCode na lista de clientes
-- [ ] Projects/Kanban: ao criar CRS, seletor mostra "Código CRS - Nome do Cliente" (ex: Seinfra)
-- [ ] Projects: renomear label "Nome" → "OS" no formulário de criação/edição de CRS
-- [ ] Projects: renomear label "Código" → "Código CRS" no formulário
-- [ ] Projects: lista de contratos exibe "OS: {name}" e "CRS: {code}"
-- [ ] Mapa Dashboard: marcadores exibem "ClienteCrsCode-UF" (ex: Seinfra-BA) em vez de contagem
-- [ ] staticMapUrl: incluir clientCrsCode no retorno dos contratos
-- [ ] Dashboard: cards de totais (Extensão Total km, Área Total ha, Perímetros Urbanos)
-- [ ] Backend: getDashboardStats retorna totalExtensaoKm, totalAreaHa, totalPerimetroUrbano
+- [x] Schema: campo crsCode (varchar 64) na tabela clients
+- [x] Migrar banco: ALTER TABLE clients ADD COLUMN crsCode
+- [x] Admin: campo "Código CRS" no formulário de cliente (ex: Seinfra)
+- [x] Admin: exibir crsCode na lista de clientes
+- [x] Projects/Kanban: ao criar CRS, seletor mostra "Código CRS - Nome do Cliente" (ex: Seinfra)
+- [x] Projects: renomear label "Nome" → "OS" no formulário de criação/edição de CRS
+- [x] Projects: renomear label "Código" → "Código CRS" no formulário
+- [x] Projects: lista de contratos exibe "OS: {name}" e "CRS: {code}"
+- [x] Mapa Dashboard: marcadores exibem "ClienteCrsCode-UF" (ex: Seinfra-BA) em vez de contagem
+- [x] staticMapUrl: incluir clientCrsCode no retorno dos contratos
+- [x] Dashboard: cards de totais (Extensão Total km, Área Total ha, Perímetros Urbanos)
+- [x] Backend: getDashboardStats retorna totalExtensaoKm, totalAreaHa, totalPerimetroUrbano
 
 ## v6.2 — 4 Melhorias CRS/OS
 
