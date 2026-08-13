@@ -947,3 +947,5 @@
 - [ ] TaskDetail: sugerir comentários contextuais por IA e permitir inserir a sugestão no campo de comentário
 - [x] Branding: substituir todas as logos Orbita pela logo enviada com fundo transparente na interface e nos relatórios
 - [x] Testes: validar que a interface e os relatórios usam o ativo PNG transparente compartilhado
+- [x] Logo sidebar: deixar somente o desenho sem fundo, aplicar hover suave e voltar ao Dashboard ao clicar
+- [x] Testes: cobrir o destino Dashboard e a constante de interação da logo clicável da sidebar
