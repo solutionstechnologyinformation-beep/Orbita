@@ -955,3 +955,4 @@
 - [x] Orbita AI: animar suavemente a transição do ícone entre sidebar expandida e recolhida
 - [x] Testes: validar as posições expandida/recolhida e a duração da transição do Orbita AI
 - [x] Orbita AI: permitir arrastar e redimensionar o painel aberto com limites de viewport e acessibilidade
+- [x] Orbita AI: adicionar botão no cabeçalho para limpar o histórico da conversa e restaurar a mensagem inicial

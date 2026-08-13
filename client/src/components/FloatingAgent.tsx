@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
-import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Search, Send, Sparkles, X } from "lucide-react";
+import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Search, Send, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FLOATING_AGENT_TRANSITION, getFloatingAgentPlacement } from "./agent-transition";
+import { createInitialAgentHistory, type AgentHistoryEntry } from "./agent-history";
 
-type AgentMessage = { role: "user" | "assistant"; content: string };
+type AgentMessage = AgentHistoryEntry;
 
 type QuickCommand = {
   label: string;
@@ -47,10 +48,9 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [panelOffset, setPanelOffset] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const interactionRef = useRef<PanelInteraction | null>(null);
+  const ignoreNextResponseRef = useRef(false);
   const [message, setMessage] = useState("");
-  const [history, setHistory] = useState<AgentMessage[]>([
-    { role: "assistant", content: "Olá! Posso te levar até tarefas, pesquisar projetos ou consultar sua agenda." },
-  ]);
+  const [history, setHistory] = useState<AgentMessage[]>(createInitialAgentHistory);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -74,6 +74,10 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
 
   const chatM = trpc.floatingAgent.chat.useMutation({
     onSuccess: (data) => {
+      if (ignoreNextResponseRef.current) {
+        ignoreNextResponseRef.current = false;
+        return;
+      }
       setHistory((items) => [...items, { role: "assistant", content: data.reply }]);
       const action = data.action;
       if (action?.type === "navigate" && action.targetUrl) {
@@ -87,9 +91,21 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       }
     },
     onError: (error) => {
+      if (ignoreNextResponseRef.current) {
+        ignoreNextResponseRef.current = false;
+        return;
+      }
       setHistory((items) => [...items, { role: "assistant", content: `Não consegui concluir: ${error.message}` }]);
     },
   });
+
+  const clearHistory = () => {
+    ignoreNextResponseRef.current = chatM.isPending;
+    chatM.reset();
+    setHistory(createInitialAgentHistory());
+    setMessage("");
+    toast.success("Histórico da conversa limpo");
+  };
 
   const sendMessage = (nextMessage = message) => {
     const trimmed = nextMessage.trim();
@@ -208,6 +224,16 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
               <p className="font-semibold">Orbita AI</p>
               <p className="text-xs text-white/70">Navegação e consulta inteligente</p>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
+              onClick={clearHistory}
+              aria-label="Limpar histórico da conversa"
+              title="Limpar histórico"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Fechar assistente">
               <X className="h-4 w-4" />
             </Button>
