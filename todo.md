@@ -905,3 +905,5 @@
 - [x] Exibir os trechos importados em formato de polilinhas no mapa do Dashboard e na página de Projetos
 
 - [x] Adicionar botão de alternância entre visualização Padrão e Satélite no mapa do Dashboard
+
+- [x] Corrigir parser e validação do importador de trechos para aceitar arquivos KMZ/KML como BHShopping.kmz

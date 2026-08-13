@@ -21,6 +21,7 @@ import {
   Archive, Trash2, ExternalLink, FolderOpen, Filter, Calendar, Upload, MapPinned, Download, Loader2,
 } from "lucide-react";
 import { COUNTRIES, getStatesForCountry } from "@/lib/geoData";
+import { getSegmentBaseName, isSupportedSegmentFileName } from "@/lib/segment-files";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const TIPO_OBRA_OPTIONS = [
@@ -155,12 +156,12 @@ function CrsSegmentsPanel({ crsId, isAdmin }: { crsId: number; isAdmin: boolean 
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > 15 * 1024 * 1024) { toast.error("O arquivo deve ter no máximo 15 MB."); return; }
-    if (!/\\.(kmz|kml)$/i.test(file.name)) { toast.error("Selecione um arquivo .KMZ ou .KML."); return; }
+    if (!isSupportedSegmentFileName(file.name)) { toast.error("Selecione um arquivo .KMZ ou .KML."); return; }
     try {
       const parsed = parseKmlToGeoJson(await extractKml(file));
       setSelectedFile(file);
       setParsedSegment(parsed);
-      setSegmentName(file.name.replace(/\\.(kmz|kml)$/i, ""));
+      setSegmentName(getSegmentBaseName(file.name));
       toast.success("Trecho lido. Confirme o nome para importar.");
     } catch (error) {
       setSelectedFile(null);
