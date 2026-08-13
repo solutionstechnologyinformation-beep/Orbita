@@ -956,3 +956,4 @@
 - [x] Testes: validar as posições expandida/recolhida e a duração da transição do Orbita AI
 - [x] Orbita AI: permitir arrastar e redimensionar o painel aberto com limites de viewport e acessibilidade
 - [x] Orbita AI: adicionar botão no cabeçalho para limpar o histórico da conversa e restaurar a mensagem inicial
+- [x] Orbita AI: adicionar fade-out suave às mensagens durante a limpeza do histórico antes de restaurar a tela inicial

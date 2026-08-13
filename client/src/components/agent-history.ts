@@ -3,6 +3,8 @@ export type AgentHistoryEntry = {
   content: string;
 };
 
+export const HISTORY_CLEAR_DURATION_MS = 220;
+
 export const INITIAL_AGENT_MESSAGE: AgentHistoryEntry = {
   role: "assistant",
   content: "Olá! Posso te levar até tarefas, pesquisar projetos ou consultar sua agenda.",

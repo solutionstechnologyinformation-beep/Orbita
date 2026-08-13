@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FLOATING_AGENT_TRANSITION, getFloatingAgentPlacement } from "./agent-transition";
-import { createInitialAgentHistory, type AgentHistoryEntry } from "./agent-history";
+import { createInitialAgentHistory, HISTORY_CLEAR_DURATION_MS, type AgentHistoryEntry } from "./agent-history";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -48,9 +48,19 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [panelOffset, setPanelOffset] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const interactionRef = useRef<PanelInteraction | null>(null);
+  const clearHistoryTimeoutRef = useRef<number | null>(null);
   const ignoreNextResponseRef = useRef(false);
   const [message, setMessage] = useState("");
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [history, setHistory] = useState<AgentMessage[]>(createInitialAgentHistory);
+
+  useEffect(() => {
+    return () => {
+      if (clearHistoryTimeoutRef.current !== null) {
+        window.clearTimeout(clearHistoryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -100,11 +110,21 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   });
 
   const clearHistory = () => {
+    if (isClearingHistory) return;
     ignoreNextResponseRef.current = chatM.isPending;
     chatM.reset();
-    setHistory(createInitialAgentHistory());
     setMessage("");
+    setIsClearingHistory(true);
     toast.success("Histórico da conversa limpo");
+
+    if (clearHistoryTimeoutRef.current !== null) {
+      window.clearTimeout(clearHistoryTimeoutRef.current);
+    }
+    clearHistoryTimeoutRef.current = window.setTimeout(() => {
+      setHistory(createInitialAgentHistory());
+      setIsClearingHistory(false);
+      clearHistoryTimeoutRef.current = null;
+    }, HISTORY_CLEAR_DURATION_MS);
   };
 
   const sendMessage = (nextMessage = message) => {
@@ -229,10 +249,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
               size="icon"
               className="text-white hover:bg-white/10"
               onClick={clearHistory}
+              disabled={isClearingHistory}
               aria-label="Limpar histórico da conversa"
               title="Limpar histórico"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className={`h-4 w-4 transition-transform duration-200 ${isClearingHistory ? "rotate-[-20deg]" : ""}`} />
             </Button>
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Fechar assistente">
               <X className="h-4 w-4" />
@@ -264,7 +285,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             </div>
           )}
 
-          <div className="max-h-72 space-y-3 overflow-y-auto p-4" aria-live="polite">
+          <div
+            className={`max-h-72 space-y-3 overflow-y-auto p-4 transition-opacity duration-200 ease-out ${isClearingHistory ? "opacity-0" : "opacity-100"}`}
+            aria-live="polite"
+            aria-busy={isClearingHistory}
+          >
             {history.map((item, index) => (
               <div key={`${item.role}-${index}`} className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${item.role === "user" ? "rounded-br-sm bg-[#ffc30d] text-black" : "rounded-bl-sm bg-slate-100 text-slate-800"}`}>
@@ -284,10 +309,10 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                 onChange={(event) => setMessage(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") sendMessage(); }}
                 placeholder="Ex.: ir para a tarefa 12"
-                disabled={chatM.isPending}
+                disabled={chatM.isPending || isClearingHistory}
                 aria-label="Mensagem para o Orbita AI"
               />
-              <Button type="button" size="icon" onClick={() => sendMessage()} disabled={!message.trim() || chatM.isPending} aria-label="Enviar comando">
+              <Button type="button" size="icon" onClick={() => sendMessage()} disabled={!message.trim() || chatM.isPending || isClearingHistory} aria-label="Enviar comando">
                 <Send className="h-4 w-4" />
               </Button>
             </div>
