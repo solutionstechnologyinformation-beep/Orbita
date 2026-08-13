@@ -22,7 +22,7 @@ const quickCommands: QuickCommand[] = [
   { label: "Pesquisar tarefas", prompt: "Pesquisar tarefas atrasadas", description: "Encontrar algo específico", icon: Search },
 ];
 
-export function FloatingAgent() {
+export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -58,9 +58,9 @@ export function FloatingAgent() {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3">
+    <div className={compact ? "relative flex w-full justify-center pb-2" : "fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3"}>
       {open && (
-        <div className="w-[min(400px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className={`${compact ? "absolute bottom-full left-full z-[80] mb-2 w-[min(400px,calc(100vw-6rem))]" : "w-[min(400px,calc(100vw-2rem))]"} overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compact ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}>
           <div className="flex items-center gap-3 bg-black px-4 py-3 text-white">
             <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#ffc30d] text-black">
               <Sparkles className="h-5 w-5" />
@@ -134,11 +134,11 @@ export function FloatingAgent() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="group flex h-14 w-14 items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition hover:scale-105 hover:ring-[#ffc30d]/60"
+        className={`${compact ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition hover:scale-105 hover:ring-[#ffc30d]/60`}
         aria-label={open ? "Fechar Orbita AI" : "Abrir Orbita AI"}
         title="Abrir Orbita AI"
       >
-        {open ? <ChevronRight className="h-6 w-6" /> : <Bot className="h-6 w-6 transition group-hover:rotate-6" />}
+        {open ? <ChevronRight className="h-5 w-5" /> : <Bot className={`${compact ? "h-5 w-5" : "h-6 w-6"} transition group-hover:rotate-6`} />}
       </button>
     </div>
   );
