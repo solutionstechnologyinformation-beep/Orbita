@@ -943,3 +943,4 @@
 - [x] Testes: adicionar cobertura do fluxo de normalização e preview de anexos
 - [x] TeamChat: atualizar lastSeenAt por heartbeat e manter o ponto verde válido por cinco minutos
 - [x] Agente Orbita AI flutuante: bolha global para navegar até tarefas, pesquisar dados e consultar agenda
+- [x] Orbita AI: adicionar animação de digitação e sugestões de comandos rápidos ao abrir
