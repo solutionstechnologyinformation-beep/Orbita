@@ -907,3 +907,7 @@
 - [x] Adicionar botão de alternância entre visualização Padrão e Satélite no mapa do Dashboard
 
 - [x] Corrigir parser e validação do importador de trechos para aceitar arquivos KMZ/KML como BHShopping.kmz
+
+- [x] Adicionar painel de controle no mapa para ativar/desativar cada trecho KMZ importado
+- [x] Personalizar a cor das linhas no mapa de acordo com o tipo de obra do contrato correspondente
+- [x] Exibir pop-up do trecho com contrato/OS e extensão em km ao clicar na linha do mapa

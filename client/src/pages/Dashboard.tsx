@@ -10,7 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
-  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite,
+  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
@@ -70,13 +70,53 @@ interface SegmentOverlay {
   id: number;
   crsId: number;
   name: string;
+  fileName?: string;
   geometryJson: string;
+  crsName?: string | null;
+  tipoObra?: string | null;
+  extensaoKm?: number | null;
+  techDataByType?: string | null;
 }
 function ContractsMap({ locations, segments, onNavigate }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
+  const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
+  const [segmentColors, setSegmentColors] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return { ...EXTENSION_COLORS };
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("orbita-map-segment-colors") ?? "{}");
+      return { ...EXTENSION_COLORS, ...(saved && typeof saved === "object" ? saved : {}) };
+    } catch {
+      return { ...EXTENSION_COLORS };
+    }
+  });
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const visibleSegments = useMemo(() => segments.filter((segment) => segmentVisibility[segment.id] !== false), [segments, segmentVisibility]);
+  const segmentTypeKeys = useMemo(() => {
+    const keys = new Set<string>();
+    segments.forEach((segment) => {
+      const types = parseTipoObra(segment.tipoObra);
+      if (types.length === 0) keys.add("outro");
+      types.forEach((key) => keys.add(key));
+    });
+    return Array.from(keys).filter((key) => TIPO_OBRA_MAP[key]);
+  }, [segments]);
+  const getSegmentTypeKey = useCallback((segment: SegmentOverlay) => parseTipoObra(segment.tipoObra)[0] ?? "outro", []);
+  const getSegmentExtensionKm = useCallback((segment: SegmentOverlay) => {
+    if (typeof segment.extensaoKm === "number" && Number.isFinite(segment.extensaoKm)) return segment.extensaoKm;
+    try {
+      const technical = JSON.parse(segment.techDataByType ?? "{}");
+      const total = Object.values(technical as Record<string, { extensaoKm?: number | null }>).reduce((sum, entry) => sum + (Number(entry?.extensaoKm) || 0), 0);
+      return total > 0 ? total : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  useEffect(() => {
+    window.localStorage.setItem("orbita-map-segment-colors", JSON.stringify(segmentColors));
+  }, [segmentColors]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -113,7 +153,7 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
     let segmentPointCount = 0;
     let pending = locations.length;
 
-    segments.forEach((segment) => {
+    visibleSegments.forEach((segment) => {
       try {
         const collection = JSON.parse(segment.geometryJson);
         const features = Array.isArray(collection.features) ? collection.features : [];
@@ -125,8 +165,27 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
             if (path.length < 2) return;
             path.forEach((point) => bounds.extend(point));
             segmentPointCount += path.length;
-            const line = new g.Polyline({ map, path, geodesic: true, strokeColor: "#16a34a", strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
-            line.addListener("click", () => onNavigate(`/kanban?crs=${segment.crsId}`));
+            const typeKey = getSegmentTypeKey(segment);
+            const strokeColor = segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a";
+            const extension = getSegmentExtensionKm(segment);
+            const infoWindow = new g.InfoWindow({
+              content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:190px;max-width:260px;">
+                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:5px;">${segment.crsName ?? `Contrato #${segment.crsId}`}</div>
+                <div style="font-size:12px;color:#475569;margin-bottom:3px;">Trecho: <strong>${segment.name}</strong></div>
+                <div style="font-size:12px;color:#475569;margin-bottom:3px;">Tipo: <strong>${TIPO_OBRA_MAP[typeKey] ?? typeKey}</strong></div>
+                <div style="font-size:12px;color:#475569;">Extensão: <strong>${extension !== null ? `${extension.toLocaleString("pt-BR")} km` : "Não informada"}</strong></div>
+                <button data-segment-crs="${segment.crsId}" style="margin-top:8px;border:0;border-radius:6px;background:#2563eb;color:#fff;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;">Abrir contrato</button>
+              </div>`,
+            });
+            const line = new g.Polyline({ map, path, geodesic: true, strokeColor, strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
+            line.addListener("click", () => {
+              infoWindow.setPosition(path[Math.floor(path.length / 2)]);
+              infoWindow.open({ map });
+              setTimeout(() => {
+                const button = document.querySelector(`[data-segment-crs="${segment.crsId}"]`);
+                button?.addEventListener("click", () => { infoWindow.close(); onNavigate(`/kanban?crs=${segment.crsId}`); });
+              }, 200);
+            });
             segmentLinesRef.current.push(line);
           });
         });
@@ -217,7 +276,7 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
         });
       }, i * 150);
     });
-  }, [locations, segments, onNavigate]);
+  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm]);
 
   useEffect(() => {
     if (mapRef.current) mapRef.current.setMapTypeId(mapType);
@@ -256,9 +315,54 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
         </button>
       </div>
       {segments.length > 0 && (
+        <div className="absolute top-3 left-3 z-10 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
+          <button type="button" onClick={() => setControlsOpen((open) => !open)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50" aria-expanded={controlsOpen}>
+            <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> Trechos importados <span className="text-gray-400 font-normal">{visibleSegments.length}/{segments.length}</span></span>
+            {controlsOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+          </button>
+          {controlsOpen && (
+            <div className="border-t border-gray-100 px-3 py-2.5 space-y-3 max-h-[22rem] overflow-y-auto">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Cores por tipo de obra</p>
+                <Palette className="w-3.5 h-3.5 text-gray-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                {segmentTypeKeys.map((typeKey) => (
+                  <label key={typeKey} className="flex items-center gap-2 text-[11px] text-gray-600 cursor-pointer">
+                    <input type="color" value={segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a"} onChange={(event) => setSegmentColors((current) => ({ ...current, [typeKey]: event.target.value }))} className="w-5 h-5 rounded border-0 p-0 cursor-pointer" aria-label={`Cor de ${TIPO_OBRA_MAP[typeKey]}`} />
+                    <span className="truncate">{TIPO_OBRA_MAP[typeKey]}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Arquivos KMZ/KML</p>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => setSegmentVisibility(Object.fromEntries(segments.map((segment) => [segment.id, true])))} className="text-[10px] text-blue-600 hover:underline">Mostrar todos</button>
+                  <button type="button" onClick={() => setSegmentVisibility(Object.fromEntries(segments.map((segment) => [segment.id, false])))} className="text-[10px] text-gray-500 hover:underline">Ocultar todos</button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {segments.map((segment) => {
+                  const typeKey = getSegmentTypeKey(segment);
+                  const visible = segmentVisibility[segment.id] !== false;
+                  const extension = getSegmentExtensionKm(segment);
+                  return (
+                    <button key={segment.id} type="button" onClick={() => setSegmentVisibility((current) => ({ ...current, [segment.id]: !visible }))} className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${visible ? "bg-gray-50 hover:bg-gray-100" : "bg-gray-50/50 opacity-55 hover:opacity-80"}`} aria-pressed={visible}>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a" }} />
+                      {visible ? <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <EyeOff className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+                      <span className="min-w-0 flex-1"><span className="block truncate text-[11px] font-medium text-gray-700">{segment.name}</span><span className="block truncate text-[10px] text-gray-400">{segment.crsName ?? `Contrato #${segment.crsId}`} · {TIPO_OBRA_MAP[typeKey] ?? typeKey}{extension !== null ? ` · ${extension.toLocaleString("pt-BR")} km` : ""}</span></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {segments.length > 0 && (
         <div className="absolute left-3 bottom-3 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-gray-600 shadow-sm border border-gray-100">
-          <span className="inline-block w-3 h-1 rounded-full bg-green-600 align-middle mr-1.5" />
-          Trechos importados ({segments.length})
+          <span className="inline-block w-3 h-1 rounded-full align-middle mr-1.5" style={{ backgroundColor: visibleSegments.length > 0 ? "#16a34a" : "#94a3b8" }} />
+          Trechos visíveis: {visibleSegments.length}/{segments.length}
         </div>
       )}
     </div>

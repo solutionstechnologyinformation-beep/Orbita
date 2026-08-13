@@ -1,5 +1,6 @@
 import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte } from "drizzle-orm";
 import { aggregateExtensionByType } from "./extension-summary";
+import { getSegmentExtensionKmValue } from "./segment-display";
 import {
   users, clients, crs, kanbanPhases, tasks, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -126,8 +127,24 @@ export async function getAllCrs() {
 }
 export async function getCrsSegments(crsId?: number) {
   const db = await getDb();
-  const query = db.select().from(crsSegments);
-  return crsId == null ? query.orderBy(desc(crsSegments.createdAt)) : query.where(eq(crsSegments.crsId, crsId)).orderBy(desc(crsSegments.createdAt));
+  const query = db.select({
+    id: crsSegments.id,
+    crsId: crsSegments.crsId,
+    name: crsSegments.name,
+    fileName: crsSegments.fileName,
+    fileUrl: crsSegments.fileUrl,
+    geometryJson: crsSegments.geometryJson,
+    boundsJson: crsSegments.boundsJson,
+    createdById: crsSegments.createdById,
+    createdAt: crsSegments.createdAt,
+    updatedAt: crsSegments.updatedAt,
+    crsName: crs.name,
+    tipoObra: crs.tipoObra,
+    extensaoKm: crs.extensaoKm,
+    techDataByType: crs.techDataByType,
+  }).from(crsSegments).innerJoin(crs, eq(crsSegments.crsId, crs.id));
+  const rows = crsId == null ? await query.orderBy(desc(crsSegments.createdAt)) : await query.where(eq(crsSegments.crsId, crsId)).orderBy(desc(crsSegments.createdAt));
+  return rows.map((row: typeof rows[number]) => ({ ...row, extensionKm: getSegmentExtensionKmValue(row.extensaoKm, row.techDataByType) }));
 }
 
 export async function createCrsSegment(data: {
