@@ -903,3 +903,5 @@
 - [x] Aumentar a área de exibição do mapa no Dashboard principal
 - [x] Suportar upload e parsing de arquivos KMZ/KML (trechos geográficos) vinculados a contratos/OS
 - [x] Exibir os trechos importados em formato de polilinhas no mapa do Dashboard e na página de Projetos
+
+- [x] Adicionar botão de alternância entre visualização Padrão e Satélite no mapa do Dashboard

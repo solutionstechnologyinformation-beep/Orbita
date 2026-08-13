@@ -10,7 +10,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
   MapPin, Activity, Users, FolderOpen, ChevronRight, ChevronLeft,
-  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter, Route,
+  Target, CalendarClock, Zap, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
@@ -76,12 +76,13 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
+  const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
     // Configure map style
     map.setOptions({
-      mapTypeId: "roadmap",
+      mapTypeId: mapType,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -219,6 +220,10 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
   }, [locations, segments, onNavigate]);
 
   useEffect(() => {
+    if (mapRef.current) mapRef.current.setMapTypeId(mapType);
+  }, [mapType]);
+
+  useEffect(() => {
     if (mapRef.current && (locations.length > 0 || segments.length > 0)) {
       placeMarkers(mapRef.current);
     }
@@ -242,6 +247,14 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
         initialZoom={4}
         onMapReady={handleMapReady}
       />
+      <div className="absolute top-3 right-3 flex rounded-lg bg-white/95 p-1 shadow-sm border border-gray-100" role="group" aria-label="Tipo de visualização do mapa">
+        <button type="button" onClick={() => setMapType("roadmap")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "roadmap" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`} aria-pressed={mapType === "roadmap"}>
+          <MapIcon className="w-3.5 h-3.5" /> Mapa
+        </button>
+        <button type="button" onClick={() => setMapType("satellite")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "satellite" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`} aria-pressed={mapType === "satellite"}>
+          <Satellite className="w-3.5 h-3.5" /> Satélite
+        </button>
+      </div>
       {segments.length > 0 && (
         <div className="absolute left-3 bottom-3 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-gray-600 shadow-sm border border-gray-100">
           <span className="inline-block w-3 h-1 rounded-full bg-green-600 align-middle mr-1.5" />
