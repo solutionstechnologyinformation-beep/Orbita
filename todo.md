@@ -958,3 +958,4 @@
 - [x] Orbita AI: adicionar botão no cabeçalho para limpar o histórico da conversa e restaurar a mensagem inicial
 - [x] Orbita AI: adicionar fade-out suave às mensagens durante a limpeza do histórico antes de restaurar a tela inicial
 - [x] Orbita AI: animar a entrada da saudação e das sugestões rápidas após o fade-out do histórico
+- [x] Orbita AI: mostrar spinner ou skeleton imediatamente no cartão da sugestão rápida selecionada durante o processamento

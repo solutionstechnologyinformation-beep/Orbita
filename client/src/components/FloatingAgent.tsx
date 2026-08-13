@@ -12,6 +12,7 @@ import {
   INITIAL_SCREEN_ENTRY_DURATION_MS,
   type AgentHistoryEntry,
 } from "./agent-history";
+import { getQuickCommandVisualState } from "./quick-command-state";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -58,6 +59,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [message, setMessage] = useState("");
   const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [isInitialScreenEntering, setIsInitialScreenEntering] = useState(false);
+  const [activeQuickCommand, setActiveQuickCommand] = useState<string | null>(null);
   const [history, setHistory] = useState<AgentMessage[]>(createInitialAgentHistory);
 
   useEffect(() => {
@@ -92,8 +94,10 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     onSuccess: (data) => {
       if (ignoreNextResponseRef.current) {
         ignoreNextResponseRef.current = false;
+        setActiveQuickCommand(null);
         return;
       }
+      setActiveQuickCommand(null);
       setHistory((items) => [...items, { role: "assistant", content: data.reply }]);
       const action = data.action;
       if (action?.type === "navigate" && action.targetUrl) {
@@ -109,8 +113,10 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     onError: (error) => {
       if (ignoreNextResponseRef.current) {
         ignoreNextResponseRef.current = false;
+        setActiveQuickCommand(null);
         return;
       }
+      setActiveQuickCommand(null);
       setHistory((items) => [...items, { role: "assistant", content: `Não consegui concluir: ${error.message}` }]);
     },
   });
@@ -119,6 +125,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     if (isClearingHistory) return;
     ignoreNextResponseRef.current = chatM.isPending;
     chatM.reset();
+    setActiveQuickCommand(null);
     setMessage("");
     setIsClearingHistory(true);
     toast.success("Histórico da conversa limpo");
@@ -274,7 +281,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             </Button>
           </div>
 
-          {history.length === 1 && !chatM.isPending && (
+          {(history.length === 1 || activeQuickCommand !== null) && !isClearingHistory && (
             <div
               className={`border-b bg-gradient-to-br from-[#fff9dc] to-white px-4 py-3 ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-2" : ""}`}
               style={isInitialScreenEntering ? { animationDuration: `${INITIAL_SCREEN_ENTRY_DURATION_MS}ms` } : undefined}
@@ -284,21 +291,29 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                 Sugestões rápidas
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {quickCommands.map(({ label, prompt, description, icon: Icon }, index) => (
+                {quickCommands.map(({ label, prompt, description, icon: Icon }, index) => {
+                  const visualState = getQuickCommandVisualState(label, activeQuickCommand, chatM.isPending, isClearingHistory, description);
+                  return (
                   <button
                     key={label}
                     type="button"
-                    className={`group rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ffc30d] hover:shadow-sm ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-1" : ""}`}
+                    className={`group rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ffc30d] hover:shadow-sm disabled:cursor-wait disabled:opacity-70 ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-1" : ""}`}
                     style={isInitialScreenEntering ? { animationDelay: `${(index + 1) * 45}ms`, animationDuration: `${INITIAL_SCREEN_ENTRY_DURATION_MS}ms`, animationFillMode: "both" } : undefined}
-                    onClick={() => sendMessage(prompt)}
+                    onClick={() => {
+                      setActiveQuickCommand(label);
+                      sendMessage(prompt);
+                    }}
+                    disabled={visualState.isDisabled}
+                    aria-busy={visualState.isLoading}
                   >
                     <span className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-                      <Icon className="h-3.5 w-3.5 text-slate-500 transition group-hover:text-black" />
-                      {label}
+                      {visualState.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d99b00]" aria-hidden="true" /> : <Icon className="h-3.5 w-3.5 text-slate-500 transition group-hover:text-black" />}
+                      {visualState.title}
                     </span>
-                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">{description}</span>
+                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">{visualState.description}</span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
