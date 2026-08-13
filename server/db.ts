@@ -1,4 +1,5 @@
 import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte } from "drizzle-orm";
+import { aggregateExtensionByType } from "./extension-summary";
 import {
   users, clients, crs, kanbanPhases, tasks, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -118,6 +119,7 @@ export async function getAllCrs() {
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
     state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
     tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
+    techDataByType: crs.techDataByType,
     createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'active')).orderBy(asc(crs.name));
@@ -137,6 +139,7 @@ export async function getCrsById(id: number) {
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
     state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
     tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
+    techDataByType: crs.techDataByType,
     createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.id, id)).limit(1);
@@ -145,8 +148,8 @@ export async function getCrsById(id: number) {
 export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; tipoObra?: string; extensaoKm?: number; areaHa?: number; perimetroUrbano?: number; techDataByType?: string; createdById: number }) {
   const db = await getDb();
   const [result] = await db.execute(
-    sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, tipoObra, extensaoKm, areaHa, perimetroUrbano, status, progress, createdById, createdAt, updatedAt)
-        VALUES (${data.clientId}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, ${data.tipoObra ?? null}, ${data.extensaoKm ?? null}, ${data.areaHa ?? null}, ${data.perimetroUrbano ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
+    sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, tipoObra, extensaoKm, areaHa, perimetroUrbano, techDataByType, status, progress, createdById, createdAt, updatedAt)
+        VALUES (${data.clientId}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, ${data.tipoObra ?? null}, ${data.extensaoKm ?? null}, ${data.areaHa ?? null}, ${data.perimetroUrbano ?? null}, ${data.techDataByType ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
   );
   const crsId = (result as any).insertId as number;
   // Create default phases for the new CRS
@@ -573,11 +576,17 @@ export async function getDashboardStats(clientId?: number) {
   const checklistProgress = totalChecklist > 0 ? Math.round((completedChecklist / totalChecklist) * 100) : 0;
   // Totais de extensao, area e perimetro urbano dos contratos
   const crsStats = await db.select({
-    totalExtensao: sql<number>`COALESCE(SUM(extensaoKm), 0)`,
     totalArea: sql<number>`COALESCE(SUM(areaHa), 0)`,
     totalPerimetro: sql<number>`COALESCE(SUM(perimetroUrbano), 0)`,
   }).from(crs).where(crsConditions);
-  const totalExtensaoKm = crsStats[0]?.totalExtensao ?? 0;
+  const extensionRows = await db.select({
+    tipoObra: crs.tipoObra,
+    extensaoKm: crs.extensaoKm,
+    techDataByType: crs.techDataByType,
+  }).from(crs).where(crsConditions);
+  const extensionSummary = aggregateExtensionByType(extensionRows);
+  const totalExtensaoKm = extensionSummary.totalExtensaoKm;
+  const extensaoByTipo = extensionSummary.extensaoByTipo;
   const totalAreaHa = crsStats[0]?.totalArea ?? 0;
   const totalPerimetroUrbano = crsStats[0]?.totalPerimetro ?? 0;
   return {
@@ -596,7 +605,8 @@ export async function getDashboardStats(clientId?: number) {
     overdueChecklist,
     checklistProgress,
     // Totais de extensao, area e perimetro urbano
-    totalExtensaoKm: Math.round(totalExtensaoKm * 100) / 100,
+    totalExtensaoKm,
+    extensaoByTipo,
     totalAreaHa: Math.round(totalAreaHa * 100) / 100,
     totalPerimetroUrbano: Math.round(totalPerimetroUrbano * 100) / 100,
   };

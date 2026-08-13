@@ -893,3 +893,7 @@
 - [x] Diagnosticar aviso "O Google não verificou este app" na tela de consentimento OAuth
 - [x] Explicar ao usuário que o aviso ocorre porque o app está em modo "Em testes" (Testing) no Google Cloud Console
 - [x] Orientar como adicionar os e-mails dos usuários na lista de Test Users ou publicar o app no Google Cloud Console
+
+- [x] Corrigir cálculo da extensão total (km) no backend e frontend do Dashboard
+- [x] Separar a extensão total por tipo de obra (Implantação, Restauração, Aumento de Capacidade, Levantamento, Outro) no Dashboard
+- [x] Atualizar procedure de estatísticas do Dashboard para retornar extensão detalhada por tipo de obra

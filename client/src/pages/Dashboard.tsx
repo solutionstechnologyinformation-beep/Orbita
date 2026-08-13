@@ -304,22 +304,15 @@ export default function Dashboard() {
   const maxTipoObra = useMemo(() => Math.max(1, ...tipoObraStats.map((t) => t.count)), [tipoObraStats]);
 
   // ── Extensão por tipo de obra ─────────────────────────────────────────────────
+  // A fonte oficial é dashboard.stats, que consolida techDataByType e dados legados.
   const extensaoByTipo = useMemo(() => {
-    const map: Record<string, number> = {};
-    let totalKm = 0;
-    crsItems.forEach((c: any) => {
-      const km = c.extensaoKm ?? 0;
-      totalKm += km;
-      if (km === 0) return;
-      const types = parseTipoObra(c.tipoObra);
-      if (types.length === 0) { map["outro"] = (map["outro"] ?? 0) + km; return; }
-      types.forEach((t) => { map[t] = (map[t] ?? 0) + km / types.length; });
-    });
+    const map = (stats?.extensaoByTipo ?? {}) as Record<string, number>;
     const entries = Object.entries(map)
-      .map(([key, km]) => ({ key, label: TIPO_OBRA_MAP[key] ?? key, km: Math.round(km * 10) / 10 }))
+      .map(([key, km]) => ({ key, label: TIPO_OBRA_MAP[key] ?? key, km: Number(km) }))
+      .filter((entry) => Number.isFinite(entry.km) && entry.km > 0)
       .sort((a, b) => b.km - a.km);
-    return { entries, totalKm: Math.round(totalKm * 10) / 10 };
-  }, [crsItems]);
+    return { entries, totalKm: Number(stats?.totalExtensaoKm ?? 0) };
+  }, [stats]);
   const maxExtensao = useMemo(() => Math.max(1, ...extensaoByTipo.entries.map((e) => e.km)), [extensaoByTipo]);
 
   // ── Donut data ────────────────────────────────────────────────────────────────
