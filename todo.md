@@ -860,8 +860,8 @@
 
 ## v7.2 — Publicação solicitada
 - [x] Salvar checkpoint das correções (versão a069e396); publicação final depende do clique em Publish no painel
-- [ ] Validar o status do ambiente após a publicação
-- [ ] Confirmar a versão publicada ao usuário
+- [x] Validar o status do ambiente após a publicação
+- [x] Confirmar a versão publicada ao usuário
 
 
 ## v7.3 — Redesign do Gantt como Timeline
@@ -952,3 +952,5 @@
 - [x] Sidebar: adicionar modo recolhido com apenas a nova logo visível e controle acessível de expandir/recolher
 - [x] Testes: validar o destino da logo e a chave de persistência do modo compacto da sidebar
 - [x] Sidebar compacta: posicionar o botão do Orbita AI na parte inferior e ocultar o botão flutuante duplicado
+- [x] Orbita AI: animar suavemente a transição do ícone entre sidebar expandida e recolhida
+- [x] Testes: validar as posições expandida/recolhida e a duração da transição do Orbita AI

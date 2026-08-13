@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FLOATING_AGENT_TRANSITION, getFloatingAgentPlacement } from "./agent-transition";
 
 type AgentMessage = { role: "user" | "assistant"; content: string };
 
@@ -57,8 +58,14 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     chatM.mutate({ message: trimmed });
   };
 
+  const agentPositionStyle = getFloatingAgentPlacement(compact);
+
   return (
-    <div className={compact ? "relative flex w-full justify-center pb-2" : "fixed bottom-5 right-5 z-[70] flex flex-col items-end gap-3"}>
+    <div
+      className="fixed z-[70] flex flex-col items-end gap-3 transition duration-500 ease-out"
+      style={{ ...agentPositionStyle, transitionProperty: FLOATING_AGENT_TRANSITION }}
+      data-sidebar-mode={compact ? "collapsed" : "expanded"}
+    >
       {open && (
         <div className={`${compact ? "absolute bottom-full left-full z-[80] mb-2 w-[min(400px,calc(100vw-6rem))]" : "w-[min(400px,calc(100vw-2rem))]"} overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compact ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}>
           <div className="flex items-center gap-3 bg-black px-4 py-3 text-white">
@@ -134,7 +141,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`${compact ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition hover:scale-105 hover:ring-[#ffc30d]/60`}
+        className={`${compact ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition-[width,height,transform,box-shadow] duration-500 ease-out hover:scale-105 hover:ring-[#ffc30d]/60`}
         aria-label={open ? "Fechar Orbita AI" : "Abrir Orbita AI"}
         title="Abrir Orbita AI"
       >

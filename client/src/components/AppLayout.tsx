@@ -343,8 +343,6 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         )}
       </nav>
 
-      {compact && <FloatingAgent compact />}
-
       {/* User Profile */}
       <div
         className="p-3"
@@ -489,7 +487,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
           {children}
         </main>
       </div>
-      {!sidebarCollapsed && <FloatingAgent />}
+      <FloatingAgent compact={sidebarCollapsed} />
     </div>
   );
 }
