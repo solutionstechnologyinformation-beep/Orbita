@@ -39,6 +39,8 @@ import {
 } from "./db";
 import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalendarEvents, syncGoogleMeetReport } from "./google-calendar";
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
+import { summarizePdfAttachment } from "./pdf-summary";
+import { processFloatingAgentCommand } from "./floating-agent";
 import { notifyOwner } from "./_core/notification";
 import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
@@ -413,6 +415,20 @@ export const appRouter = router({
 
   // ─── Tasks ─────────────────────────────────────────────────────────────────
   tasks: router({
+    summarizePdfAttachment: protectedProcedure
+      .input(z.object({ taskId: z.number().int().positive(), attachmentId: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const task = await getTaskById(input.taskId);
+        const attachment = (task as any)?.attachments?.find((item: any) => item.id === input.attachmentId);
+        if (!attachment) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Anexo não encontrado para esta tarefa." });
+        }
+        const isPdf = attachment.mimeType?.toLowerCase() === "application/pdf" || /\.pdf(?:$|\?)/i.test(attachment.filename ?? "");
+        if (!isPdf) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O resumo automático está disponível apenas para arquivos PDF." });
+        }
+        return await summarizePdfAttachment(attachment.fileUrl);
+      }),
     listForGantt: protectedProcedure
       .input(z.object({
         clientId: z.number().optional(),
@@ -1826,6 +1842,14 @@ export const appRouter = router({
           isSynced: true,
         });
         return event;
+      }),
+  }),
+
+  floatingAgent: router({
+    chat: protectedProcedure
+      .input(z.object({ message: z.string().trim().min(1).max(1000) }))
+      .mutation(async ({ ctx, input }) => {
+        return await processFloatingAgentCommand(ctx.user.id, input.message);
       }),
   }),
 

@@ -28,6 +28,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { UserAvatar } from "./UserAvatar";
+import { FloatingAgent } from "./FloatingAgent";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -443,6 +444,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
           {children}
         </main>
       </div>
+      <FloatingAgent />
     </div>
   );
 }

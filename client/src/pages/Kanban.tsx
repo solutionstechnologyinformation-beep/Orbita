@@ -316,9 +316,14 @@ export default function Kanban() {
     return v ? parseInt(v, 10) : null;
   }, [queryString]);
   const [selectedCrsId, setSelectedCrsId] = useState<number | null>(null);
+  const urlSearch = useMemo(() => {
+    const params = new URLSearchParams(queryString);
+    return params.get("search") ?? "";
+  }, [queryString]);
   useEffect(() => { if (urlCrsId) setSelectedCrsId(urlCrsId); }, [urlCrsId]);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(urlSearch);
+  useEffect(() => { if (urlSearch) setSearch(urlSearch); }, [urlSearch]);
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
 

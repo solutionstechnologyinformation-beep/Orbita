@@ -942,3 +942,4 @@
 - [x] Backend: fazer tasks.get retornar anexos reais da tarefa (id, filename, fileUrl, mimeType)
 - [x] Testes: adicionar cobertura do fluxo de normalização e preview de anexos
 - [x] TeamChat: atualizar lastSeenAt por heartbeat e manter o ponto verde válido por cinco minutos
+- [x] Agente Orbita AI flutuante: bolha global para navegar até tarefas, pesquisar dados e consultar agenda
