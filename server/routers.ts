@@ -41,6 +41,7 @@ import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalen
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
 import { summarizePdfAttachment } from "./pdf-summary";
 import { processFloatingAgentCommand } from "./floating-agent";
+import { generateTaskContextSuggestions } from "./task-ai-suggestions";
 import { notifyOwner } from "./_core/notification";
 import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
@@ -428,6 +429,11 @@ export const appRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "O resumo automático está disponível apenas para arquivos PDF." });
         }
         return await summarizePdfAttachment(attachment.fileUrl);
+      }),
+    contextSuggestions: protectedProcedure
+      .input(z.object({ taskId: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        return { suggestions: await generateTaskContextSuggestions(input.taskId) };
       }),
     listForGantt: protectedProcedure
       .input(z.object({

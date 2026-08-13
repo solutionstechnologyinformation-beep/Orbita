@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
+import { ORBITA_LOGO_URL } from "@/branding";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
 
@@ -18,10 +19,8 @@ function pdfHeader(title: string, subtitle?: string) {
   return `
     <div style="background:${BLUE};color:${WHITE};padding:28px 36px 20px;border-radius:10px 10px 0 0;">
       <div style="display:flex;align-items:center;gap:16px;">
-        <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${WHITE}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
-          </svg>
+        <div style="width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:4px;">
+          <img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:100%;height:100%;object-fit:contain;" />
         </div>
         <div>
           <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:2px;">Orbita — Gerenciamento de Projetos</div>
@@ -38,7 +37,7 @@ function pdfHeader(title: string, subtitle?: string) {
 function pdfFooter() {
   return `
     <div style="margin-top:40px;padding:14px 36px;background:${BLUE};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:13px;font-weight:700;color:${WHITE};">Orbita</span>
+      <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:${WHITE};"><img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Orbita GIS &amp; OS</span>
       <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.55);">Relatório gerado automaticamente</span>
     </div>`;
 }

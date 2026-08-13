@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { ORBITA_LOGO_URL, ORBITA_BRAND_NAME, LS_SOLUTIONS_NAME } from "@/branding";
 import {
   Bell,
   BookOpen,
@@ -119,12 +120,12 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         className="flex items-center gap-3 px-5 py-4"
         style={{ borderBottom: "1px solid rgba(0,0,0,0.1)", backgroundColor: '#ffc30d' }}
       >
-        <div className="w-9 h-9 flex-shrink-0 rounded-lg bg-black text-[#ffc30d] flex items-center justify-center font-extrabold text-lg shadow-sm">
-          LS
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/80 p-1 shadow-sm">
+          <img src={ORBITA_LOGO_URL} alt="Logo Orbita" className="h-full w-full object-contain" />
         </div>
-        <div className="flex flex-col min-w-0">
-          <span className="font-black text-sm tracking-wide text-black uppercase">LS Solutions</span>
-          <span className="text-xs font-semibold text-black/70 truncate">Orbita GIS &amp; OS</span>
+        <div className="flex min-w-0 flex-col">
+          <span className="font-black text-sm tracking-wide text-black uppercase">{LS_SOLUTIONS_NAME}</span>
+          <span className="text-xs font-semibold text-black/70 truncate">{ORBITA_BRAND_NAME}</span>
         </div>
       </div>
 

@@ -17,6 +17,7 @@ import {
 import { Plus, Target, Calendar, CheckCircle2, Trash2, ChevronRight, FileDown, ListChecks, X, User, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ORBITA_LOGO_URL } from "@/branding";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "bg-gray-100 text-gray-700",
@@ -245,7 +246,7 @@ export default function Sprints() {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; }
     .header { display: flex; align-items: center; justify-content: space-between; background: #3b82f6; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
-    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff; }
+    .logo { width: 48px; height: 48px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
     .logo span { color: #ffffff; }
     .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
     h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
@@ -272,7 +273,7 @@ export default function Sprints() {
   <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
       <div>
-        <div class="logo">Orbita</div>
+        <img class="logo" src="${ORBITA_LOGO_URL}" alt="Logo Orbita" />
         <div class="subtitle">Sistema de Gerenciamento de Projetos</div>
       </div>
     </div>
@@ -371,7 +372,7 @@ export default function Sprints() {
       })() : ''}
 
   <div style="margin-top:32px;padding:12px 24px;background:#3b82f6;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
-    <span style="font-size:13px;font-weight:700;color:#ffffff;">Orbita</span>
+    <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#ffffff;"><img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Orbita GIS &amp; OS</span>
     <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>

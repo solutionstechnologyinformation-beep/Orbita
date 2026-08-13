@@ -944,3 +944,6 @@
 - [x] TeamChat: atualizar lastSeenAt por heartbeat e manter o ponto verde válido por cinco minutos
 - [x] Agente Orbita AI flutuante: bolha global para navegar até tarefas, pesquisar dados e consultar agenda
 - [x] Orbita AI: adicionar animação de digitação e sugestões de comandos rápidos ao abrir
+- [ ] TaskDetail: sugerir comentários contextuais por IA e permitir inserir a sugestão no campo de comentário
+- [x] Branding: substituir todas as logos Orbita pela logo enviada com fundo transparente na interface e nos relatórios
+- [x] Testes: validar que a interface e os relatórios usam o ativo PNG transparente compartilhado

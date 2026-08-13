@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   ArrowLeft, Edit2, Save, X, Plus, Trash2, MessageSquare,
   CheckSquare, History, Loader2, User, Calendar, ChevronDown,
-  Paperclip, Eye, Download, FileText, Image as ImageIcon
+  Paperclip, Eye, Download, FileText, Image as ImageIcon, Sparkles
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -58,6 +58,9 @@ export default function TaskDetail() {
   const [showChecklistDates, setShowChecklistDates] = useState(false);
   const [newChecklistAssigneeId, setNewChecklistAssigneeId] = useState<string>("_none");
   const [newComment, setNewComment] = useState("");
+  const [activeTab, setActiveTab] = useState("checklist");
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const suggestionsForTaskRef = useRef<number | null>(null);
   const [deleteChecklistId, setDeleteChecklistId] = useState<number | null>(null);
   const [deleteChecklistReason, setDeleteChecklistReason] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -124,8 +127,13 @@ export default function TaskDetail() {
   });
 
   const addCommentM = trpc.tasks.addComment.useMutation({
-    onSuccess: () => { invalidateTask(); setNewComment(""); },
+    onSuccess: () => { invalidateTask(); setNewComment(""); toast.success("Comentário adicionado!"); },
     onError: (e) => toast.error(e.message),
+  });
+
+  const contextSuggestionsM = trpc.tasks.contextSuggestions.useMutation({
+    onSuccess: (data) => setAiSuggestions(data.suggestions),
+    onError: (e) => toast.error("Não foi possível gerar sugestões: " + e.message),
   });
 
   const deleteCommentM = trpc.tasks.deleteComment.useMutation({
@@ -147,6 +155,19 @@ export default function TaskDetail() {
   const phases = (phasesQ.data ?? []) as any[];
   const doneCount = checklist.filter((i: any) => i.status === "published" || i.status === "archived").length;
   const progress = checklist.length > 0 ? Math.round((doneCount / checklist.length) * 100) : task?.progress ?? 0;
+
+  useEffect(() => {
+    if (task?.id && suggestionsForTaskRef.current !== task.id) {
+      suggestionsForTaskRef.current = task.id;
+      contextSuggestionsM.mutate({ taskId: task.id });
+    }
+  }, [task?.id]);
+
+  const useSuggestion = (suggestion: string) => {
+    setNewComment(suggestion);
+    setActiveTab("comments");
+    toast.info("Sugestão inserida no campo de comentário. Revise antes de publicar.");
+  };
 
   const startEdit = () => {
     setEditTitle(task?.title ?? "");
@@ -373,7 +394,54 @@ export default function TaskDetail() {
           </Card>
         )}
 
-        <Tabs defaultValue="checklist">
+        <Card className="mb-6 border-amber-200 bg-gradient-to-br from-amber-50/80 to-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                Sugestões da IA para esta tarefa
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => contextSuggestionsM.mutate({ taskId })}
+                disabled={contextSuggestionsM.isPending}
+              >
+                {contextSuggestionsM.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+                Atualizar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {contextSuggestionsM.isPending && (
+              <div className="space-y-2" aria-live="polite">
+                {[1, 2, 3].map((item) => <div key={item} className="h-10 animate-pulse rounded-lg bg-amber-100/70" />)}
+              </div>
+            )}
+            {!contextSuggestionsM.isPending && aiSuggestions.length === 0 && (
+              <p className="text-sm text-muted-foreground">As sugestões contextuais aparecerão aqui.</p>
+            )}
+            {!contextSuggestionsM.isPending && aiSuggestions.length > 0 && (
+              <div className="space-y-2">
+                {aiSuggestions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion}-${index}`}
+                    type="button"
+                    className="group flex w-full items-start gap-3 rounded-lg border border-amber-100 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-sm"
+                    onClick={() => useSuggestion(suggestion)}
+                  >
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">{index + 1}</span>
+                    <span className="flex-1 text-sm leading-5 text-slate-700">{suggestion}</span>
+                    <span className="text-xs font-medium text-amber-700 opacity-0 transition group-hover:opacity-100">Usar</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground">Clique em uma sugestão para inseri-la no campo de comentário. Revise o texto antes de publicar.</p>
+          </CardContent>
+        </Card>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4">
             <TabsTrigger value="checklist">
               <CheckSquare className="h-4 w-4 mr-1" />
