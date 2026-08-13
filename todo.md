@@ -889,3 +889,7 @@
 - [x] Garantir que cada usuário conecte sua própria conta Google sem restrição de administrador
 - [x] Atualizar callback OAuth para salvar tokens exclusivamente associados ao ID do usuário autenticado no Orbita
 - [x] Validar sincronização de eventos e agenda individual por usuário
+
+- [x] Diagnosticar aviso "O Google não verificou este app" na tela de consentimento OAuth
+- [x] Explicar ao usuário que o aviso ocorre porque o app está em modo "Em testes" (Testing) no Google Cloud Console
+- [x] Orientar como adicionar os e-mails dos usuários na lista de Test Users ou publicar o app no Google Cloud Console
