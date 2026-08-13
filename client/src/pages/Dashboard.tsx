@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { trpc } from "@/lib/trpc";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -81,14 +81,17 @@ interface SegmentOverlay {
   techDataByType?: string | null;
 }
 type ContractMarkerData = { crsId: number; name: string; number: number | string };
-function ContractsMap({ locations, segments, onNavigate }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void }) {
+export interface ContractsMapHandle {
+  captureMap: () => Promise<string>;
+}
+
+  function ContractsMap({ locations, segments, onNavigate, mapExportRef }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null> }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
   const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
-  const mapExportRef = useRef<HTMLDivElement | null>(null);
   const [isExportingMap, setIsExportingMap] = useState(false);
   const [mapExportError, setMapExportError] = useState<string | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -384,55 +387,7 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
     });
   }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers]);
 
-  const exportMapView = useCallback(async (format: "png" | "pdf") => {
-    if (!mapExportRef.current || isExportingMap) return;
-    setIsExportingMap(true);
-    setMapExportError(null);
-    try {
-      const canvas = await html2canvas(mapExportRef.current, {
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        allowTaint: false,
-        scale: Math.min(window.devicePixelRatio || 1, 2),
-        logging: false,
-        ignoreElements: (element) => element instanceof HTMLElement && element.dataset.mapControl === "true",
-      });
-      const imageData = canvas.toDataURL("image/png", 0.95);
-      const filename = `orbita-mapa-${new Date().toISOString().slice(0, 10)}`;
 
-      if (format === "png") {
-        const link = document.createElement("a");
-        link.download = `${filename}.png`;
-        link.href = imageData;
-        link.click();
-      } else {
-        const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const margin = 10;
-        const titleHeight = 10;
-        const availableWidth = pageWidth - margin * 2;
-        const availableHeight = pageHeight - margin * 2 - titleHeight;
-        const aspectRatio = canvas.width / canvas.height;
-        let imageWidth = availableWidth;
-        let imageHeight = imageWidth / aspectRatio;
-        if (imageHeight > availableHeight) {
-          imageHeight = availableHeight;
-          imageWidth = imageHeight * aspectRatio;
-        }
-        pdf.setFontSize(12);
-        pdf.setTextColor(31, 41, 55);
-        pdf.text(`Orbita — Visualização do mapa (${mapType === "satellite" ? "Satélite" : "Mapa"})`, margin, margin + 2);
-        pdf.addImage(imageData, "PNG", (pageWidth - imageWidth) / 2, margin + titleHeight, imageWidth, imageHeight);
-        pdf.save(`${filename}.pdf`);
-      }
-    } catch (error) {
-      console.error("Não foi possível exportar o mapa", error);
-      setMapExportError("Não foi possível exportar o mapa. Tente novamente.");
-    } finally {
-      setIsExportingMap(false);
-    }
-  }, [isExportingMap, mapType]);
 
   useEffect(() => {
     if (mapRef.current) mapRef.current.setMapTypeId(mapType);
@@ -461,6 +416,8 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
       placeMarkers(mapRef.current);
     }
   }, [locations, segments, placeMarkers]);
+
+
 
   useEffect(() => () => {
     zoomListenerRef.current?.remove();
@@ -508,13 +465,10 @@ function ContractsMap({ locations, segments, onNavigate }: { locations: Contract
           <Satellite className="w-3.5 h-3.5" /> Satélite
         </button>
         <span className="mx-0.5 h-5 w-px bg-gray-200" aria-hidden="true" />
-        <button type="button" onClick={() => void exportMapView("png")} disabled={isExportingMap} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50" title="Exportar mapa como imagem PNG">
-          <FileDown className="w-3.5 h-3.5" /> PNG
-        </button>
-        <button type="button" onClick={() => void exportMapView("pdf")} disabled={isExportingMap} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50" title="Exportar mapa como PDF">
-          <FileDown className="w-3.5 h-3.5" /> PDF
-        </button>
+
       </div>
+
+
       {mapExportError && <p data-map-control="true" className="absolute top-14 right-3 z-20 max-w-[18rem] rounded-md bg-red-50 px-2.5 py-2 text-[11px] text-red-700 shadow-sm border border-red-100">{mapExportError}</p>}
       {segments.length > 0 && (
         <div data-map-control="true" className="absolute top-3 left-3 z-20 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
@@ -718,8 +672,22 @@ export default function Dashboard() {
   const isLoading = statsQ.isLoading;
 
   // ── Export Dashboard PDF ─────────────────────────────────────────────────────
+  const mapExportRef = useRef<HTMLDivElement | null>(null);
+
   const exportDashboardPDF = useCallback(async () => {
     setIsExporting(true);
+    let mapDataUrl = "";
+    try {
+      if (mapExportRef.current) {
+        const controls = mapExportRef.current.querySelectorAll('[data-map-control="true"]');
+        controls.forEach((el: Element) => { (el as HTMLElement).style.display = "none"; });
+        const canvas = await html2canvas(mapExportRef.current, { scale: 1.5, useCORS: true, logging: false });
+        mapDataUrl = canvas.toDataURL("image/png");
+        controls.forEach((el: Element) => { (el as HTMLElement).style.display = ""; });
+      }
+    } catch {
+      // Falha na captura do mapa não bloqueia o relatório
+    }
     try {
       const sla = slaQ.data;
       const upcoming = upcomingQ.data;
@@ -782,7 +750,8 @@ export default function Dashboard() {
       </div>
     </div>
   </div>
-  <div class="section-title">Contratos por Estado</div>
+  <div class="section-title">Visão Geral do Mapa e Contratos por Estado</div>
+  ${mapDataUrl ? `<div style="margin-bottom:16px;text-align:center;"><img src="${mapDataUrl}" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #e2e8f0;" /></div>` : ''}
   <table><thead><tr><th>Estado</th><th>Contratos</th><th>Progresso Médio</th><th>Status</th></tr></thead><tbody>
     ${stateRows.map((s: any) => `<tr><td>${s.state}</td><td>${s.count}</td><td>${s.avgProgress ?? 0}%</td><td><span class="badge" style="background:${(s.avgProgress ?? 0) >= 80 ? '#dcfce7;color:#16a34a' : (s.avgProgress ?? 0) >= 50 ? '#fef9c3;color:#d97706' : '#fee2e2;color:#dc2626'}">${(s.avgProgress ?? 0) >= 80 ? 'Em Dia' : (s.avgProgress ?? 0) >= 50 ? 'Atenção' : 'Crítico'}</span></td></tr>`).join('')}
   </tbody></table>
@@ -859,6 +828,7 @@ export default function Dashboard() {
                     locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0, contracts: s.contracts ?? [] }))}
                     segments={(segmentsQ.data ?? []) as SegmentOverlay[]}
                     onNavigate={navigate}
+                    mapExportRef={mapExportRef}
                   />
                 )}
               </div>

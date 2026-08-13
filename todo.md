@@ -926,3 +926,7 @@
 - [x] Adicionar botão para ampliar a tela do mapa (modo tela cheia / expandido) no Dashboard
 
 - [x] Remover o widget de Gantt da semana da aba principal do Dashboard
+
+- [ ] Revisar o Kanban para permitir marcar card como 100% concluído, movendo-o automaticamente para a coluna Concluído, removendo-o dos atrasados e aplicando estilo visual sombreado/apagado
+
+- [x] Remover os botões de PNG e PDF do mapa do Dashboard e anexar a captura do mapa ao relatório gerado por 'Exportar PDF'
