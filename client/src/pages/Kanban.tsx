@@ -10,6 +10,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { trpc } from "@/lib/trpc";
 import { matchesKanbanTaskSearch } from "../../../shared/kanban-search";
+import { isCompletedKanbanPhase } from "../../../shared/kanban-completion";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -369,12 +370,23 @@ export default function Kanban() {
 
   // Mutations
   const moveTaskMut = trpc.tasks.movePhase.useMutation({
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       utils.tasks.listByCrsWithChecklist.invalidate();
-      toast.success('Tarefa movida com sucesso!', {
-        duration: 2000,
-        icon: '✓',
-      });
+      const targetPhase = phases.find((phase: any) => phase.id === variables.phaseId);
+      const isCompletedPhase = isCompletedKanbanPhase(targetPhase);
+      const movedTask = allTasks.find((task) => task.id === variables.id);
+      if (isCompletedPhase) {
+        toast.success("Card concluído!", {
+          description: movedTask?.title ? `“${movedTask.title}” foi movido para a etapa Concluído.` : "O card foi movido para a etapa Concluído.",
+          duration: 3500,
+          icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
+        });
+      } else {
+        toast.success("Tarefa movida com sucesso!", {
+          duration: 2000,
+          icon: "✓",
+        });
+      }
     },
     onError: (e) => { toast.error(e.message); utils.tasks.listByCrsWithChecklist.invalidate(); },
   });

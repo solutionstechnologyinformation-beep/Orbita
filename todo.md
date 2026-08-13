@@ -936,3 +936,5 @@
 - [x] Adicionar barra de pesquisa no Kanban para facilitar a localização de cards específicos pelo nome ou responsável
 
 - [x] Adicionar gráfico proporcional de tarefas concluídas por responsável no relatório PDF exportado
+
+- [x] Implementar feedback visual e notificação de sucesso quando um card do Kanban for movido para a coluna Concluído
