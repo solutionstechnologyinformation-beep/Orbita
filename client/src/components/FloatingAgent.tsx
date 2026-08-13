@@ -6,7 +6,12 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FLOATING_AGENT_TRANSITION, getFloatingAgentPlacement } from "./agent-transition";
-import { createInitialAgentHistory, HISTORY_CLEAR_DURATION_MS, type AgentHistoryEntry } from "./agent-history";
+import {
+  createInitialAgentHistory,
+  HISTORY_CLEAR_DURATION_MS,
+  INITIAL_SCREEN_ENTRY_DURATION_MS,
+  type AgentHistoryEntry,
+} from "./agent-history";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -52,6 +57,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const ignoreNextResponseRef = useRef(false);
   const [message, setMessage] = useState("");
   const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const [isInitialScreenEntering, setIsInitialScreenEntering] = useState(false);
   const [history, setHistory] = useState<AgentMessage[]>(createInitialAgentHistory);
 
   useEffect(() => {
@@ -123,6 +129,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     clearHistoryTimeoutRef.current = window.setTimeout(() => {
       setHistory(createInitialAgentHistory());
       setIsClearingHistory(false);
+      setIsInitialScreenEntering(true);
       clearHistoryTimeoutRef.current = null;
     }, HISTORY_CLEAR_DURATION_MS);
   };
@@ -130,6 +137,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const sendMessage = (nextMessage = message) => {
     const trimmed = nextMessage.trim();
     if (!trimmed || chatM.isPending) return;
+    setIsInitialScreenEntering(false);
     setHistory((items) => [...items, { role: "user", content: trimmed }]);
     setMessage("");
     chatM.mutate({ message: trimmed });
@@ -138,6 +146,12 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     setPanelOffset(null);
   }, [compactMode]);
+
+  useEffect(() => {
+    if (!isInitialScreenEntering) return;
+    const timeout = window.setTimeout(() => setIsInitialScreenEntering(false), INITIAL_SCREEN_ENTRY_DURATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [isInitialScreenEntering]);
 
   const beginDrag = (event: PointerEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest("button, input")) return;
@@ -261,17 +275,21 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           </div>
 
           {history.length === 1 && !chatM.isPending && (
-            <div className="border-b bg-gradient-to-br from-[#fff9dc] to-white px-4 py-3">
+            <div
+              className={`border-b bg-gradient-to-br from-[#fff9dc] to-white px-4 py-3 ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-2" : ""}`}
+              style={isInitialScreenEntering ? { animationDuration: `${INITIAL_SCREEN_ENTRY_DURATION_MS}ms` } : undefined}
+            >
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                 Sugestões rápidas
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {quickCommands.map(({ label, prompt, description, icon: Icon }) => (
+                {quickCommands.map(({ label, prompt, description, icon: Icon }, index) => (
                   <button
                     key={label}
                     type="button"
-                    className="group rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ffc30d] hover:shadow-sm"
+                    className={`group rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ffc30d] hover:shadow-sm ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-1" : ""}`}
+                    style={isInitialScreenEntering ? { animationDelay: `${(index + 1) * 45}ms`, animationDuration: `${INITIAL_SCREEN_ENTRY_DURATION_MS}ms`, animationFillMode: "both" } : undefined}
                     onClick={() => sendMessage(prompt)}
                   >
                     <span className="flex items-center gap-2 text-xs font-semibold text-slate-800">

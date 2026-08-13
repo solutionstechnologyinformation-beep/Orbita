@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createInitialAgentHistory, HISTORY_CLEAR_DURATION_MS, INITIAL_AGENT_MESSAGE } from "./agent-history";
+import { createInitialAgentHistory, HISTORY_CLEAR_DURATION_MS, INITIAL_AGENT_MESSAGE, INITIAL_SCREEN_ENTRY_DURATION_MS } from "./agent-history";
 
 describe("Orbita AI agent history", () => {
-  it("uses a short, consistent fade-out duration", () => {
+  it("uses short, consistent transition durations", () => {
     expect(HISTORY_CLEAR_DURATION_MS).toBe(220);
+    expect(INITIAL_SCREEN_ENTRY_DURATION_MS).toBe(300);
+    expect(INITIAL_SCREEN_ENTRY_DURATION_MS).toBeGreaterThan(HISTORY_CLEAR_DURATION_MS);
   });
 
   it("creates the initial assistant message", () => {

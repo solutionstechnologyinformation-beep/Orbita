@@ -4,6 +4,7 @@ export type AgentHistoryEntry = {
 };
 
 export const HISTORY_CLEAR_DURATION_MS = 220;
+export const INITIAL_SCREEN_ENTRY_DURATION_MS = 300;
 
 export const INITIAL_AGENT_MESSAGE: AgentHistoryEntry = {
   role: "assistant",
