@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import html2canvas from "html2canvas";
+import { aggregateCompletedTasksByAssignee } from "../../../shared/report-summary";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { useLocation } from "wouter";
@@ -687,8 +688,10 @@ export default function Dashboard() {
       const upcoming = upcomingQ.data;
       const stateRows = stateData;
       const completedRows = completedTasks.slice(0, 100);
+      const completedByAssignee = aggregateCompletedTasksByAssignee(completedTasks);
       const completedContracts = new Set(completedTasks.map((task: any) => task.crsName).filter(Boolean)).size;
       const completedOnTime = completedTasks.filter((task: any) => task.completedAt && (!task.dueDate || new Date(task.completedAt) <= new Date(task.dueDate))).length;
+      const assigneeChartColors = ["#2563eb", "#16a34a", "#f59e0b", "#9333ea", "#0891b2", "#e11d48", "#64748b"];
       const periodLabel = slaPeriod === "month" ? "Mês Atual" : slaPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
       const now = new Date();
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -716,6 +719,12 @@ export default function Dashboard() {
   td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; }
   tr:nth-child(even) td { background: #f8fafc; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .assignee-chart { padding: 18px; }
+  .assignee-chart-row { display: grid; grid-template-columns: 150px 1fr 82px; align-items: center; gap: 12px; margin: 10px 0; }
+  .assignee-chart-label { color: #334155; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .assignee-chart-track { background: #e2e8f0; border-radius: 999px; height: 12px; overflow: hidden; }
+  .assignee-chart-fill { height: 100%; border-radius: 999px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .assignee-chart-value { color: #475569; font-size: 11px; text-align: right; white-space: nowrap; }
   .footer { background: #0f172a; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
@@ -757,6 +766,10 @@ export default function Dashboard() {
     <div class="card"><div class="card-title">Cards concluídos</div><div class="card-value" style="color:#16a34a">${completedTasks.length}</div><div class="card-sub">Progresso de 100% ou fase terminal</div></div>
     <div class="card"><div class="card-title">Contratos envolvidos</div><div class="card-value">${completedContracts}</div></div>
     <div class="card"><div class="card-title">Concluídas no prazo</div><div class="card-value" style="color:#16a34a">${completedOnTime}</div></div>
+  </div>
+  <div class="section-title">Proporção de Concluídas por Responsável</div>
+  <div class="card assignee-chart">
+    ${completedByAssignee.length > 0 ? completedByAssignee.map((row, index) => `<div class="assignee-chart-row"><div class="assignee-chart-label" title="${row.assigneeName}">${row.assigneeName}</div><div class="assignee-chart-track"><div class="assignee-chart-fill" style="width:${row.percentage}%;background:${assigneeChartColors[index % assigneeChartColors.length]}"></div></div><div class="assignee-chart-value">${row.count} (${row.percentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)</div></div>`).join('') : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa concluída encontrada para distribuir por responsável.</p>'}
   </div>
   ${completedRows.length > 0 ? `<table><thead><tr><th>Tarefa</th><th>Contrato</th><th>Responsável</th><th>Fase</th><th>Conclusão</th></tr></thead><tbody>${completedRows.map((t: any) => `<tr><td>${t.title}</td><td>${t.crsName ?? '—'}</td><td>${t.assigneeName ?? 'Não atribuído'}</td><td>${t.phaseName ?? 'Concluído'}</td><td>${t.completedAt ? new Date(t.completedAt).toLocaleDateString('pt-BR') : '—'}</td></tr>`).join('')}</tbody></table>` : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa concluída encontrada no Kanban.</p>'}
   <div class="section-title">Vencimentos Próximos</div>

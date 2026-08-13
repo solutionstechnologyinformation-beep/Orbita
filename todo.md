@@ -934,3 +934,5 @@
 - [x] Adicionar animação de carregamento (spinner/feedback visual) durante a geração do relatório PDF completo no Dashboard
 - [x] Incluir resumo das tarefas marcadas como "Concluído" no Kanban dentro do relatório PDF exportado
 - [x] Adicionar barra de pesquisa no Kanban para facilitar a localização de cards específicos pelo nome ou responsável
+
+- [x] Adicionar gráfico proporcional de tarefas concluídas por responsável no relatório PDF exportado
