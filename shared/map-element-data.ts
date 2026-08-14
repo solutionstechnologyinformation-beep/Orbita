@@ -29,6 +29,21 @@ function centerFromCoordinates(coordinates: number[][]): { lat: number; lng: num
   return { lat: totals.lat / valid.length, lng: totals.lng / valid.length };
 }
 
+export type MapElementAttribute = { key: string; value: string };
+
+export function parseMapElementAttributes(input: unknown): MapElementAttribute[] {
+  if (input == null || input === "") return [];
+  let value: unknown = input;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch { return [{ key: "Atributos", value: String(value) }]; }
+  }
+  if (Array.isArray(value)) return value.map((item, index) => ({ key: String(index + 1), value: typeof item === "string" ? item : JSON.stringify(item) }));
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value).map(([key, item]) => ({ key, value: typeof item === "string" ? item : JSON.stringify(item) }));
+  }
+  return [{ key: "Atributos", value: String(value) }];
+}
+
 export function extractMapElementRecords(segments: Array<any>): MapElementRecord[] {
   const records: MapElementRecord[] = [];
   for (const segment of segments) {

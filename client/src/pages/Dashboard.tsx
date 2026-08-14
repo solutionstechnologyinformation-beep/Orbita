@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -70,6 +70,14 @@ function getImportedPointStyle(name: string) {
   if (normalized.includes("FIM")) return { fillColor: "#dc2626", strokeColor: "#7f1d1d", scale: 7 };
   if (/\\bKM\\s*\\d/.test(normalized)) return { fillColor: "#facc15", strokeColor: "#92400e", scale: 5 };
   return { fillColor: "#a855f7", strokeColor: "#581c87", scale: 6 };
+}
+function escapeInfoWindowHtml(value: unknown) {
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
+}
+function renderElementAttributesHtml(rawAttributes: unknown) {
+  const attributes = parseMapElementAttributes(rawAttributes);
+  if (attributes.length === 0) return `<div style="font-size:11px;color:#64748b;margin-top:6px;">Atributos: <strong>Não informados</strong></div>`;
+  return `<div style="margin-top:7px;border-top:1px solid #e2e8f0;padding-top:6px;"><div style="font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Atributos</div>${attributes.map(({ key, value }) => `<div style="display:flex;gap:6px;font-size:11px;color:#475569;margin:2px 0;"><span style="font-weight:600;color:#64748b;min-width:72px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeInfoWindowHtml(key)}</span><span style="word-break:break-word;">${escapeInfoWindowHtml(value)}</span></div>`).join("")}</div>`;
 }
 
 // ── Google Maps de Contratos ──────────────────────────────────────────────────
@@ -266,6 +274,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           const featureKey = `${segment.id}:${featureIndex}`;
           const featName = feature?.properties?.name || segment.name;
           const featDesc = feature?.properties?.description;
+          const attributesHtml = renderElementAttributesHtml(feature?.properties?.attributes);
 
           if (geometry?.type === "LineString" || geometry?.type === "MultiLineString") {
             const paths = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
@@ -282,10 +291,11 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               const extension = getSegmentExtensionKm(segment);
               const infoWindow = new g.InfoWindow({
                 content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:190px;max-width:280px;">
-                  <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:5px;">${segment.crsName ?? `Contrato #${segment.crsId}`}</div>
-                  <div style="font-size:12px;color:#475569;margin-bottom:3px;">Elemento: <strong>${featName}</strong></div>
-                  ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${featDesc}</div>` : ""}
-                  <div style="font-size:12px;color:#475569;margin-bottom:3px;">Tipo: <strong>${TIPO_OBRA_MAP[typeKey] ?? typeKey}</strong></div>
+                  <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:5px;">${escapeInfoWindowHtml(segment.crsName ?? `Contrato #${segment.crsId}`)}</div>
+                  <div style="font-size:12px;color:#475569;margin-bottom:3px;">Elemento: <strong>${escapeInfoWindowHtml(featName)}</strong></div>
+                  ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${escapeInfoWindowHtml(featDesc)}</div>` : ""}
+                  <div style="font-size:12px;color:#475569;margin-bottom:3px;">Tipo: <strong>${escapeInfoWindowHtml(TIPO_OBRA_MAP[typeKey] ?? typeKey)}</strong></div>
+                  ${attributesHtml}
                   <div style="font-size:12px;color:#475569;">Extensão: <strong>${extension !== null ? `${extension.toLocaleString("pt-BR")} km` : "Não informada"}</strong></div>
                   <button data-segment-crs="${segment.crsId}" style="margin-top:8px;border:0;border-radius:6px;background:#2563eb;color:#fff;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;">Abrir contrato</button>
                 </div>`,
@@ -316,9 +326,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               bounds.extend(position);
               const infoWindow = new g.InfoWindow({
                 content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:180px;max-width:260px;">
-                  <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px;">${featName}</div>
-                  ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${featDesc}</div>` : ""}
-                  <div style="font-size:11px;color:#64748b;">Arquivo: ${segment.name}</div>
+                  <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px;">${escapeInfoWindowHtml(featName)}</div>
+                  ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${escapeInfoWindowHtml(featDesc)}</div>` : ""}
+                  <div style="font-size:11px;color:#64748b;">Arquivo: ${escapeInfoWindowHtml(segment.name)}</div>
+                  ${attributesHtml}
                 </div>`,
               });
               const pointStyle = getImportedPointStyle(featName);

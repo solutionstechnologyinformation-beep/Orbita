@@ -133,3 +133,16 @@ describe("map element panel state", () => {
     expect(getMapElementPanelState(false, 0)).toBe("empty");
   });
 });
+
+
+describe("map element attributes", () => {
+  it("normaliza objetos JSON e valores não JSON em pares exibíveis", async () => {
+    const { parseMapElementAttributes } = await import("../shared/map-element-data");
+    expect(parseMapElementAttributes('{"codigo":"A-100","extensao":12.5}')).toEqual([
+      { key: "codigo", value: "A-100" },
+      { key: "extensao", value: "12.5" },
+    ]);
+    expect(parseMapElementAttributes("texto livre")).toEqual([{ key: "Atributos", value: "texto livre" }]);
+    expect(parseMapElementAttributes(null)).toEqual([]);
+  });
+});

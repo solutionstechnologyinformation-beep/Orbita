@@ -1003,3 +1003,5 @@
 - [x] Mapa KML/KMZ: implementar rolagem interna e carregamento progressivo na lista lateral de resultados
 
 - [x] Mapa KML/KMZ: exibir skeleton loader enquanto os elementos importados são processados inicialmente
+
+- [x] Mapa KML/KMZ: exibir atributos completos em balão de informação ao clicar em ponto ou trecho
