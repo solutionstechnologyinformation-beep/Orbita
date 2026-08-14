@@ -1127,6 +1127,7 @@ export const appRouter = router({
         startDate: t.startDate, endDate: t.endDate, dueDate: t.dueDate,
         progress: t.progress, setor: t.setor,
         assigneeName: u.name,
+        assigneeCompany: u.company,
         crsName: c.name, crsId: t.crsId,
         phaseName: kp.name, phaseColor: kp.color, phaseIsTerminal: kp.isTerminal,
       }).from(t)
@@ -1686,6 +1687,7 @@ export const appRouter = router({
           endDate: ci.endDate,
           assigneeId: ci.assigneeId,
           assigneeName: u.name,
+          assigneeCompany: u.company,
           taskId: ci.taskId,
           taskTitle: t.title,
           taskSetor: t.setor,

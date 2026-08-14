@@ -411,7 +411,7 @@ export async function getChecklistItems(taskId: number) {
     startDate: checklistItems.startDate, endDate: checklistItems.endDate,
     completedAt: checklistItems.completedAt,
     createdAt: checklistItems.createdAt, updatedAt: checklistItems.updatedAt,
-    assigneeName: users.name, assigneeAvatar: users.avatarUrl,
+    assigneeName: users.name, assigneeCompany: users.company, assigneeAvatar: users.avatarUrl,
   }).from(checklistItems)
     .leftJoin(users, eq(checklistItems.assigneeId, users.id))
     .where(eq(checklistItems.taskId, taskId))
@@ -732,7 +732,7 @@ export async function getWeekDeliveries() {
   return db.select({
     id: tasks.id, title: tasks.title, dueDate: tasks.dueDate,
     progress: tasks.progress, phaseId: tasks.phaseId, crsId: tasks.crsId,
-    assigneeName: users.name, assigneeAvatar: users.avatarUrl,
+    assigneeName: users.name, assigneeCompany: users.company, assigneeAvatar: users.avatarUrl,
     crsName: crs.name,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
