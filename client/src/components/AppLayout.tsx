@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { ORBITA_LOGO_URL, ORBITA_BRAND_NAME, LS_SOLUTIONS_NAME, SIDEBAR_LOGO_TARGET, SIDEBAR_COLLAPSED_STORAGE_KEY } from "@/branding";
+import { ORBITA_BRAND_NAME, ORBITA_NAME, SIDEBAR_LOGO_TARGET, SIDEBAR_COLLAPSED_STORAGE_KEY, getOrbitaLogoUrl } from "@/branding";
 import {
   Bell,
   BookOpen,
@@ -166,14 +166,14 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
           className="group flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg p-0.5 outline-none transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-105 hover:drop-shadow-[0_5px_12px_rgba(15,23,42,0.28)] focus-visible:ring-2 focus-visible:ring-black/60"
         >
           <img
-            src={ORBITA_LOGO_URL}
-            alt="Logo Orbita — voltar ao Dashboard"
+            src={getOrbitaLogoUrl(isDark ? "dark" : "light")}
+            alt="Logo Órbita — voltar ao Dashboard"
             className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:rotate-1"
           />
         </button>
         {!compact && (
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="font-black text-sm tracking-wide text-black uppercase">{LS_SOLUTIONS_NAME}</span>
+            <span className="font-black text-sm tracking-wide text-black uppercase">{ORBITA_NAME}</span>
             <span className="text-xs font-semibold text-black/70 truncate">{ORBITA_BRAND_NAME}</span>
           </div>
         )}

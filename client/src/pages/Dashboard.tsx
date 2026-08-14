@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import { aggregateCompletedTasksByAssignee } from "../../../shared/report-summary";
 import { resolvePrintWindow } from "./report-export-utils";
-import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
+import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE } from "./report-palette";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -1042,7 +1042,7 @@ export default function Dashboard() {
 	  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 	</style></head><body>
 <div class="header">
-  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /><div><h1>LS Solutions · Orbita GIS &amp; OS</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" /><div><h1>Órbita GIS &amp; OS</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
   <div style="text-align:right"><p style="font-size:13px;font-weight:700">Visão Geral</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
 </div>
 <div class="body">
@@ -1107,7 +1107,7 @@ export default function Dashboard() {
   </div>
   ${(upcoming?.tasks ?? []).length > 0 ? `<table><thead><tr><th>Tarefa</th><th>Contrato</th><th>Fase</th><th>Vencimento</th><th>Prioridade</th></tr></thead><tbody>${(upcoming?.tasks as any[] ?? []).map((t: any) => `<tr><td>${t.title}</td><td>${t.crsName ?? '—'}</td><td>${t.phaseName ?? '—'}</td><td>${t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-BR') : '—'}</td><td>${t.priority ?? '—'}</td></tr>`).join('')}</tbody></table>` : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa com vencimento próximo.</p>'}
 </div>
-<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /> LS Solutions · Orbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
+<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" /> Órbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
 </body></html>`;
       printWindow.document.open();
       printWindow.document.write(html);
@@ -1169,7 +1169,7 @@ export default function Dashboard() {
   @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
 <div class="header">
-  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /><div><h1>LS Solutions · Orbita GIS &amp; OS</h1><p>Relatório de Atividade do Chat e Presença — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" /><div><h1>Órbita GIS &amp; OS</h1><p>Relatório de Atividade do Chat e Presença — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
   <div style="text-align:right"><p style="font-size:13px;font-weight:700">Equipes &amp; Comunicação</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
 </div>
 <div class="body">
@@ -1202,7 +1202,7 @@ export default function Dashboard() {
     </tbody>
   </table>
 </div>
-<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /> LS Solutions · Orbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
+<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" /> Órbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
 </body></html>`;
     printWindow.document.open();
     printWindow.document.write(html);

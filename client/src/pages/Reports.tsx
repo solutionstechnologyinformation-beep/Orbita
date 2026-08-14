@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter, CalendarDays, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
+import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE, getReportRateColor } from "./report-palette";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
@@ -24,10 +24,10 @@ function pdfHeader(title: string, subtitle?: string) {
     <div style="background:${BLUE};color:${WHITE};padding:28px 36px 20px;border-radius:10px 10px 0 0;border-bottom:4px solid ${YELLOW};">
       <div style="display:flex;align-items:center;gap:16px;">
         <div style="width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:4px;">
-          <img src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" style="width:100%;height:100%;object-fit:contain;" />
+          <img src="${ORBITA_LOGO_URL}" alt="Logo Órbita" style="width:100%;height:100%;object-fit:contain;" />
         </div>
         <div>
-          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:2px;">Orbita — Gerenciamento de Projetos</div>
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:2px;">Órbita — Gerenciamento de Projetos</div>
           <div style="font-size:20px;font-weight:800;color:${WHITE};">${title}</div>
           ${subtitle ? `<div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;">${subtitle}</div>` : ""}
         </div>
@@ -41,7 +41,7 @@ function pdfHeader(title: string, subtitle?: string) {
 function pdfFooter() {
   return `
     <div style="margin-top:40px;padding:14px 36px;background:${BLUE};border-top:4px solid ${YELLOW};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
-      <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:${WHITE};"><img src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> LS Solutions · Orbita GIS &amp; OS</span>
+      <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:${WHITE};"><img src="${ORBITA_LOGO_URL}" alt="Logo Órbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Órbita GIS &amp; OS</span>
       <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.55);">Relatório gerado automaticamente</span>
     </div>`;
 }
@@ -327,7 +327,7 @@ function exportBlockedReport(blockedTasks: any[], clientName?: string) {
     </tr>`).join("");
 
   const html = `
-    ${pdfHeader("Relatório de Tarefas Bloqueadas", clientName ? `Cliente: ${clientName}` : "Orbita — Plataforma de Gestão de Projetos")}
+    ${pdfHeader("Relatório de Tarefas Bloqueadas", clientName ? `Cliente: ${clientName}` : "Órbita — Plataforma de Gestão de Projetos")}
     <div style="padding:28px 36px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
         <div style="background:#fee2e2;color:#ef4444;border-radius:8px;padding:12px 20px;font-size:24px;font-weight:800;">${blockedTasks.length}</div>
@@ -353,7 +353,7 @@ function exportBlockedReport(blockedTasks: any[], clientName?: string) {
       </table>`}
     </div>
     ${pdfFooter()}`;
-  openPrint(html, "Tarefas Bloqueadas — Orbita");
+  openPrint(html, "Tarefas Bloqueadas — Órbita");
 }
 
 // ─── Member Performance Report ────────────────────────────────────────────────
@@ -476,7 +476,7 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
       </table>
     </div>
     ${pdfFooter()}`;
-  openPrint(html, "Desempenho por Membro — Orbita");
+  openPrint(html, "Desempenho por Membro — Órbita");
 }
 
 // ──// ─── Annual Report ──────────────────────────────────────────────────────
@@ -591,7 +591,7 @@ function exportAnnualReport(data: any, clientName?: string) {
       </table>` : ''}
     </div>
     ${pdfFooter()}`;
-  openPrint(html, `Relatório Anual ${year} — Orbita`);
+  openPrint(html, `Relatório Anual ${year} — Órbita`);
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────

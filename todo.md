@@ -1058,3 +1058,10 @@
 - [x] Incluir online, mensagens 24h, conversas ativas, digitação, não lidas e última atividade
 - [x] Preservar navegação para o TeamChat e atualização periódica
 - [x] Cobrir o painel detalhado com testes e validação TypeScript
+
+## Branding — Órbita e logo no tema escuro
+- [x] Substituir o texto junto à logo LS Solutions por Órbita na interface
+- [x] Aplicar o desenho da logo em branco no modo escuro
+- [x] Atualizar relatórios e títulos relacionados ao branding sem quebrar a marca oficial
+- [x] Adicionar testes de branding e validação dos dois temas
+- [x] Manter exclusivamente a logo atual da Órbita e não usar a logo LS Solutions na variante do tema escuro

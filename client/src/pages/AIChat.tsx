@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import jsPDF from "jspdf";
-import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
+import { ORBITA_LOGO_URL } from "@/branding";
 
 // ── Export last AI response as PDF ───────────────────────────────────────────
 async function loadPdfLogoDataUrl(url: string): Promise<string | null> {
@@ -45,7 +45,7 @@ async function exportLastResponseToPDF(history: any[], projectName?: string) {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
   const maxW = pageW - margin * 2;
-  const logoDataUrl = await loadPdfLogoDataUrl(LS_SOLUTIONS_LOGO_URL);
+  const logoDataUrl = await loadPdfLogoDataUrl(ORBITA_LOGO_URL);
 
   doc.setFillColor(16, 44, 45);
   doc.rect(0, 0, pageW, 20, "F");
@@ -53,7 +53,7 @@ async function exportLastResponseToPDF(history: any[], projectName?: string) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita GIS & OS", margin + 13, 11.5);
+  doc.text("Órbita GIS & OS", margin + 13, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(180, 220, 218);
@@ -95,7 +95,7 @@ async function exportLastResponseToPDF(history: any[], projectName?: string) {
     if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, footerY + 1.5, 7, 7);
     doc.setTextColor(180, 220, 218);
     doc.setFontSize(7);
-    doc.text("LS Solutions · Orbita — Plataforma de Gestão de Projetos", margin + 9, footerY + 6.5);
+    doc.text("Órbita — Plataforma de Gestão de Projetos", margin + 9, footerY + 6.5);
     doc.setTextColor(180, 220, 218);
     doc.text(`Pág. ${pg}/${totalPages}`, pageW - margin, doc.internal.pageSize.getHeight() - 3.5, { align: "right" });
   }

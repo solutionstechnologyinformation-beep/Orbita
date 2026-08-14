@@ -1,6 +1,11 @@
 export const ORBITA_LOGO_URL = "/manus-storage/orbita-logo-transparent-clean_79119bcb.png";
-export const LS_SOLUTIONS_LOGO_URL = "/ls-logo.png";
-export const ORBITA_BRAND_NAME = "Orbita GIS & OS";
-export const LS_SOLUTIONS_NAME = "LS Solutions";
+export const ORBITA_LOGO_DARK_URL = "/manus-storage/orbita-logo-dark-white_25e3eaf3.png";
+export const ORBITA_NAME = "Órbita";
+export const ORBITA_BRAND_NAME = "Órbita GIS & OS";
+export const ORBITA_SUBTITLE = "GIS & OS";
 export const SIDEBAR_LOGO_TARGET = "/dashboard";
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = "orbita.sidebarCollapsed";
+
+export function getOrbitaLogoUrl(theme: "light" | "dark"): string {
+  return theme === "dark" ? ORBITA_LOGO_DARK_URL : ORBITA_LOGO_URL;
+}

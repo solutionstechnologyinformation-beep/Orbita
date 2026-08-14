@@ -17,7 +17,7 @@ import {
 import { Plus, Target, Calendar, CheckCircle2, Trash2, ChevronRight, FileDown, ListChecks, X, User, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
+import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE } from "./report-palette";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -274,7 +274,7 @@ export default function Sprints() {
   <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
       <div>
-        <img class="logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" />
+        <img class="logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" />
         <div class="subtitle">Sistema de Gerenciamento de Projetos</div>
       </div>
     </div>
@@ -373,8 +373,8 @@ export default function Sprints() {
       })() : ''}
 
   <div style="margin-top:32px;padding:12px 24px;background:${REPORT_PALETTE.navy};border-top:4px solid ${REPORT_PALETTE.yellow};border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
-    <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#ffffff;"><img src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> LS Solutions · Orbita GIS &amp; OS</span>
-    <span style="margin-left:auto;font-size:11px;color:${REPORT_PALETTE.yellowSoft};">LS Solutions · Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
+    <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#ffffff;"><img src="${ORBITA_LOGO_URL}" alt="Logo Órbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Órbita GIS &amp; OS</span>
+    <span style="margin-left:auto;font-size:11px;color:${REPORT_PALETTE.yellowSoft};">Órbita · Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>
 </html>`;
