@@ -1141,3 +1141,9 @@
 - [x] Aplicar transição global a fundos, textos, bordas, sombras e SVG
 - [x] Respeitar prefers-reduced-motion e evitar animação em mudanças estruturais
 - [x] Adicionar testes de transição e validar TypeScript e preview
+
+## Configurações — Duração da transição de tema
+- [x] Auditar a página de configurações e a persistência atual de preferências visuais
+- [x] Implementar duração configurável sincronizada entre ThemeContext, timer e CSS
+- [x] Adicionar controle acessível com opções de duração e indicação de movimento reduzido
+- [x] Adicionar testes de persistência, aplicação da duração, acessibilidade e TypeScript

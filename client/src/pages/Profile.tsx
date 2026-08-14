@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Camera, Palette, Save, X } from "lucide-react";
+import { Loader2, User, Camera, Palette, Save, X, Settings2, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 import AppLayout from "@/components/AppLayout";
 import { getProfileFormValues } from "./profile-utils";
+import { useTheme } from "@/contexts/ThemeContext";
+import {
+  getThemeTransitionDurationLabel,
+  normalizeThemeTransitionDuration,
+  THEME_TRANSITION_DURATION_OPTIONS,
+} from "@/contexts/theme-utils";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -20,6 +26,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Profile() {
   const { user } = useAuth();
+  const { transitionDuration, setTransitionDuration } = useTheme();
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -28,7 +35,16 @@ export default function Profile() {
   const [avatarColor, setAvatarColor] = useState(user?.avatarColor ?? "#3b82f6");
   const [avatarInitials, setAvatarInitials] = useState(user?.avatarInitials ?? "");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState<"info" | "avatar">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "avatar" | "preferences">("info");
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotionPreference = () => setPrefersReducedMotion(mediaQuery.matches);
+    syncMotionPreference();
+    mediaQuery.addEventListener?.("change", syncMotionPreference);
+    return () => mediaQuery.removeEventListener?.("change", syncMotionPreference);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -160,6 +176,16 @@ export default function Profile() {
           >
             Avatar
           </button>
+          <button
+            onClick={() => setActiveTab("preferences")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+              activeTab === "preferences"
+                ? "bg-background shadow text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Preferências
+          </button>
         </div>
 
         {/* Tab: Informações */}
@@ -203,6 +229,47 @@ export default function Profile() {
                   Salvar Alterações
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tab: Preferências */}
+        {activeTab === "preferences" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings2 className="w-4 h-4 text-primary" />
+                Preferências de interface
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="theme-transition-duration" className="flex items-center gap-2">
+                  <Clock3 className="h-4 w-4 text-muted-foreground" />
+                  Duração da transição de tema
+                </Label>
+                <select
+                  id="theme-transition-duration"
+                  value={String(transitionDuration)}
+                  onChange={(event) => setTransitionDuration?.(normalizeThemeTransitionDuration(event.target.value))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-describedby="theme-transition-duration-help"
+                >
+                  {THEME_TRANSITION_DURATION_OPTIONS.map((duration) => (
+                    <option key={duration} value={duration}>
+                      {getThemeTransitionDurationLabel(duration)}
+                    </option>
+                  ))}
+                </select>
+                <p id="theme-transition-duration-help" className="text-xs text-muted-foreground">
+                  A escolha é aplicada imediatamente e fica salva neste navegador para o seu usuário.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm" role="status" aria-live="polite">
+                {prefersReducedMotion
+                  ? "O sistema solicitou movimento reduzido; a transição será exibida sem animação."
+                  : `Transição atual: ${getThemeTransitionDurationLabel(transitionDuration)}.`}
+              </div>
             </CardContent>
           </Card>
         )}

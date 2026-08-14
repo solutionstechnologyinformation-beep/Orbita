@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { getSystemTheme, getThemeToggleCopy, normalizeThemePreference, THEME_TRANSITION_DURATION_MS, LIGHT_THEME_ACCENT, DARK_THEME_ACCENT } from "./theme-utils";
+import {
+  getSystemTheme,
+  getThemeToggleCopy,
+  normalizeThemePreference,
+  normalizeThemeTransitionDuration,
+  getThemeTransitionDurationLabel,
+  THEME_TRANSITION_DURATION_MS,
+  THEME_TRANSITION_DURATION_OPTIONS,
+  LIGHT_THEME_ACCENT,
+  DARK_THEME_ACCENT,
+} from "./theme-utils";
 
 describe("theme utilities", () => {
   it("resolves the system preference when no manual value exists", () => {
@@ -32,5 +42,18 @@ describe("theme utilities", () => {
   it("keeps the theme transition short and consistent", () => {
     expect(THEME_TRANSITION_DURATION_MS).toBe(260);
     expect(THEME_TRANSITION_DURATION_MS).toBeLessThan(400);
+  });
+
+  it("normalizes supported transition durations and rejects invalid values", () => {
+    expect(THEME_TRANSITION_DURATION_OPTIONS).toEqual([0, 160, 260, 400, 600]);
+    expect(normalizeThemeTransitionDuration("160")).toBe(160);
+    expect(normalizeThemeTransitionDuration(0)).toBe(0);
+    expect(normalizeThemeTransitionDuration("999")).toBe(260);
+    expect(normalizeThemeTransitionDuration(null, 400)).toBe(400);
+  });
+
+  it("provides accessible labels for instant and timed transitions", () => {
+    expect(getThemeTransitionDurationLabel(0)).toBe("Instantânea");
+    expect(getThemeTransitionDurationLabel(400)).toBe("400 ms");
   });
 });

@@ -18,7 +18,8 @@ describe("global theme transition", () => {
   });
 
   it("keeps the transition synchronized with the ThemeContext timer", () => {
-    expect(stylesheet).toContain(`transition-duration: ${THEME_TRANSITION_DURATION_MS}ms;`);
+    expect(stylesheet).toContain("transition-duration: var(--theme-transition-duration, 260ms);");
+    expect(stylesheet).toContain("--theme-transition-duration");
     expect(THEME_TRANSITION_DURATION_MS).toBe(260);
   });
 

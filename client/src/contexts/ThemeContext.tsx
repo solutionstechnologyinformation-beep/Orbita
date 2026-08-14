@@ -1,10 +1,20 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { getSystemTheme, normalizeThemePreference, THEME_TRANSITION_DURATION_MS, type Theme } from "./theme-utils";
+import {
+  getSystemTheme,
+  normalizeThemePreference,
+  normalizeThemeTransitionDuration,
+  THEME_TRANSITION_DURATION_MS,
+  THEME_TRANSITION_DURATION_STORAGE_KEY,
+  type Theme,
+  type ThemeTransitionDuration,
+} from "./theme-utils";
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme?: () => void;
   switchable: boolean;
+  transitionDuration: ThemeTransitionDuration;
+  setTransitionDuration?: (duration: ThemeTransitionDuration) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -28,6 +38,10 @@ export function ThemeProvider({
     }
     return defaultTheme;
   });
+  const [transitionDuration, setTransitionDurationState] = useState<ThemeTransitionDuration>(() => {
+    if (typeof window === "undefined") return THEME_TRANSITION_DURATION_MS;
+    return normalizeThemeTransitionDuration(window.localStorage.getItem(THEME_TRANSITION_DURATION_STORAGE_KEY));
+  });
   const previousThemeRef = useRef(theme);
 
   useEffect(() => {
@@ -38,15 +52,26 @@ export function ThemeProvider({
       root.classList.remove("dark");
     }
 
+    root.style.setProperty("--theme-transition-duration", `${transitionDuration}ms`);
+
     if (previousThemeRef.current !== theme) {
       root.classList.add("theme-transition");
-      const transitionTimer = window.setTimeout(() => root.classList.remove("theme-transition"), THEME_TRANSITION_DURATION_MS);
+      const transitionTimer = window.setTimeout(() => root.classList.remove("theme-transition"), transitionDuration);
       previousThemeRef.current = theme;
       return () => window.clearTimeout(transitionTimer);
     }
 
     previousThemeRef.current = theme;
-  }, [theme, switchable]);
+  }, [theme, switchable, transitionDuration]);
+
+  const setTransitionDuration = switchable
+    ? (duration: ThemeTransitionDuration) => {
+        setTransitionDurationState(duration);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(THEME_TRANSITION_DURATION_STORAGE_KEY, String(duration));
+        }
+      }
+    : undefined;
 
   const toggleTheme = switchable
     ? () => {
@@ -59,7 +84,7 @@ export function ThemeProvider({
     : undefined;
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, switchable, transitionDuration, setTransitionDuration }}>
       {children}
     </ThemeContext.Provider>
   );
