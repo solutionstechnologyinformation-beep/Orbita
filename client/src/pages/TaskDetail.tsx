@@ -227,7 +227,18 @@ export default function TaskDetail() {
             {editMode ? (
               <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="text-xl font-bold h-10" />
             ) : (
-              <h1 className="text-xl font-bold truncate">{task.title}</h1>
+              <>
+                <h1 className="text-xl font-bold truncate">{task.title}</h1>
+                {(task.assigneeName || task.assigneeCompany) && (
+                  <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground" title={task.assigneeCompany ? `${task.assigneeName ?? "Responsável"} · ${task.assigneeCompany}` : task.assigneeName ?? "Responsável"}>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <User className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{task.assigneeName ?? "Responsável"}</span>
+                    </span>
+                    {task.assigneeCompany && <span className="max-w-[16rem] truncate text-muted-foreground/80">{task.assigneeCompany}</span>}
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">

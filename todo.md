@@ -152,7 +152,7 @@
 - [x] Backend: procedure profile.update aceitar campo company
 - [ ] Backend: listTasks e getProjectMembers retornar company do responsável
 - [x] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
-- [ ] Frontend: TaskDetail exibir empresa do responsável
+- [x] Frontend: TaskDetail exibir empresa do responsável
 - [ ] Frontend: filtro por empresa no Kanban (chips na barra superior)
 - [ ] Frontend: filtro por empresa no Dashboard
 - [x] Frontend: campo empresa no perfil do usuário (página Profile)
