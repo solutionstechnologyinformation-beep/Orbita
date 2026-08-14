@@ -1,6 +1,7 @@
 import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte, or, isNotNull } from "drizzle-orm";
 import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
+import { normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import {
   users, clients, crs, kanbanPhases, tasks, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -10,7 +11,7 @@ import {
   sprintChecklistItems, whiteboards, userDisciplines,
   googleCalendarTokens, googleCalendarEvents, meetings, crsSegments,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
-  companies,
+  companies, notificationPreferences,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -636,6 +637,31 @@ export async function markNotificationRead(id: number) {
 export async function markAllNotificationsRead(userId: number) {
   const db = await getDb();
   await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+}
+
+export async function getNotificationPreferences(userId: number) {
+  const db = await getDb();
+  return db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+}
+
+export async function getDeadlineAlertDays(userId: number): Promise<number> {
+  const db = await getDb();
+  const result = await db.execute(sql`SELECT deadlineAlertDays FROM notification_preferences WHERE userId = ${userId} ORDER BY CASE WHEN notificationType = 'task_due' THEN 0 ELSE 1 END, id LIMIT 1`);
+  const row = ((result as any)[0] as any[] | undefined)?.[0] as { deadlineAlertDays?: number } | undefined;
+  return normalizeDeadlineAlertDays(row?.deadlineAlertDays);
+}
+
+export async function updateDeadlineAlertDays(userId: number, days: number) {
+  const normalizedDays = normalizeDeadlineAlertDays(days);
+  const db = await getDb();
+  const existing = await db.execute(sql`SELECT id FROM notification_preferences WHERE userId = ${userId} LIMIT 1`);
+  const existingRows = ((existing as any)[0] as any[]) ?? [];
+  if (existingRows.length === 0) {
+    await db.execute(sql`INSERT INTO notification_preferences (userId, notificationType, inApp, email, deadlineAlertDays, updatedAt) VALUES (${userId}, 'task_due', 1, 1, ${normalizedDays}, NOW())`);
+  } else {
+    await db.execute(sql`UPDATE notification_preferences SET deadlineAlertDays = ${normalizedDays}, updatedAt = NOW() WHERE userId = ${userId}`);
+  }
+  return normalizedDays;
 }
 
 // ─── Activity Logs ─────────────────────────────────────────────────────────────

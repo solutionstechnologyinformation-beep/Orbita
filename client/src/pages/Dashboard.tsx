@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import { aggregateCompletedTasksByAssignee } from "../../../shared/report-summary";
 import { resolvePrintWindow } from "./report-export-utils";
@@ -688,7 +689,7 @@ export default function Dashboard() {
       checkDeadlineAlertsMut.mutate(undefined, {
         onSuccess: (data) => {
           if (data.alertsSent > 0) {
-            console.log(`[Orbita] ${data.alertsSent} alerta(s) de prazo enviado(s) para ${data.tasksChecked} tarefa(s).`);
+            toast.success(`${data.alertsSent} alerta${data.alertsSent === 1 ? "" : "s"} de prazo enviado${data.alertsSent === 1 ? "" : "s"}.`, { description: `${data.tasksChecked} tarefa${data.tasksChecked === 1 ? "" : "s"} dentro da janela de ${data.alertDays} dia${data.alertDays === 1 ? "" : "s"}.` });
           }
         },
       });

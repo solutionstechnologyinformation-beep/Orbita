@@ -16,7 +16,7 @@ import {
   getChecklistItemComments, createChecklistItemComment,
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
-  notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead,
+  notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
   getCompanies, createCompany, updateCompany, deleteCompany,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
@@ -41,6 +41,7 @@ import {
 } from "./db";
 import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalendarEvents, syncGoogleMeetReport } from "./google-calendar";
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
+import { getDeadlineAlertWindow, normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import { summarizePdfAttachment } from "./pdf-summary";
 import { processFloatingAgentCommand } from "./floating-agent";
 import { generateTaskContextSuggestions } from "./task-ai-suggestions";
@@ -1308,8 +1309,9 @@ export const appRouter = router({
       const db = await getDb();
       const { sql: sqlExpr3 } = await import('drizzle-orm');
       const now = new Date();
-      const in3 = new Date(now.getTime() + 3 * 86400000);
-      // Buscar tarefas com vencimento nos próximos 3 dias que ainda não foram concluídas
+      const alertDays = await getDeadlineAlertDays(ctx.user.id);
+      const alertWindow = getDeadlineAlertWindow(now, alertDays);
+      // Buscar tarefas com vencimento dentro da janela configurada que ainda não foram concluídas
       // e que ainda não receberam alerta de prazo hoje
       const tasksToAlert = await db.execute(
         sqlExpr3`SELECT t.id, t.title, t.dueDate, t.assigneeId, t.crsId,
@@ -1320,7 +1322,7 @@ export const appRouter = router({
           LEFT JOIN users u ON u.id = t.assigneeId
           WHERE t.dueDate IS NOT NULL
             AND t.dueDate >= ${now}
-            AND t.dueDate <= ${in3}
+            AND t.dueDate <= ${alertWindow}
             AND NOT EXISTS (
               SELECT 1 FROM notifications n
               WHERE n.relatedTaskId = t.id
@@ -1360,7 +1362,7 @@ export const appRouter = router({
           alertCount++;
         }
       }
-      return { alertsSent: alertCount, tasksChecked: rows.length };
+      return { alertsSent: alertCount, tasksChecked: rows.length, alertDays };
     }),
   }),
   // ─── Notifications ──────────────────────────────────────────────────────────
@@ -1376,6 +1378,14 @@ export const appRouter = router({
       await markAllNotificationsRead(ctx.user.id);
       return { success: true };
     }),
+  }),
+
+  notificationPreferences: router({
+    list: protectedProcedure.query(async ({ ctx }) => getNotificationPreferences(ctx.user.id)),
+    deadlineAlertDays: protectedProcedure.query(async ({ ctx }) => ({ days: await getDeadlineAlertDays(ctx.user.id) })),
+    updateDeadlineAlertDays: protectedProcedure
+      .input(z.object({ days: z.union([z.literal(1), z.literal(3), z.literal(7)]) }))
+      .mutation(async ({ ctx, input }) => ({ days: normalizeDeadlineAlertDays(await updateDeadlineAlertDays(ctx.user.id, input.days)) })),
   }),
 
   // ─── Disciplines ────────────────────────────────────────────────────────────

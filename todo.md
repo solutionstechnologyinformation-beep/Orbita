@@ -757,11 +757,11 @@
 - [x] Zero erros TypeScript confirmados
 
 ## v6.2 — 3 Sugestões do Dashboard
-- [ ] Toast visual quando alertas de prazo são enviados (ex: "⏰ 3 tarefas vencem em menos de 3 dias")
-- [ ] Configuração do prazo de alerta nas preferências de notificação (1, 3 ou 7 dias)
-- [ ] Backend: campo deadlineAlertDays em notification_preferences (default 3)
-- [ ] Backend: procedure notificationPreferences.update aceita deadlineAlertDays
-- [ ] Backend: checkDeadlineAlerts usa deadlineAlertDays do usuário
+- [x] Toast visual quando alertas de prazo são enviados com a janela configurada
+- [x] Configuração do prazo de alerta nas preferências de notificação (1, 3 ou 7 dias)
+- [x] Backend: campo deadlineAlertDays em notification_preferences (default 3)
+- [x] Backend: procedures notificationPreferences.deadlineAlertDays e updateDeadlineAlertDays persistem a preferência
+- [x] Backend: checkDeadlineAlerts usa deadlineAlertDays do usuário
 - [ ] PDF Dashboard: incluir imagem do mapa de contratos por estado (via staticMapUrl)
 
 ## v6.3 — 4 Melhorias CRS/OS/Dashboard
