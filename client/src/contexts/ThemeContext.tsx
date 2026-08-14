@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { normalizeThemePreference, THEME_TRANSITION_DURATION_MS, type Theme } from "./theme-utils";
+import { getSystemTheme, normalizeThemePreference, THEME_TRANSITION_DURATION_MS, type Theme } from "./theme-utils";
 
 interface ThemeContextType {
   theme: Theme;
@@ -23,7 +23,8 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(() => {
     if (switchable && typeof window !== "undefined") {
       const stored = window.localStorage.getItem("theme");
-      return normalizeThemePreference(stored, defaultTheme);
+      if (stored === "dark" || stored === "light") return normalizeThemePreference(stored, defaultTheme);
+      return getSystemTheme(window.matchMedia?.bind(window), defaultTheme);
     }
     return defaultTheme;
   });
@@ -35,10 +36,6 @@ export function ThemeProvider({
       root.classList.add("dark");
     } else {
       root.classList.remove("dark");
-    }
-
-    if (switchable) {
-      window.localStorage.setItem("theme", theme);
     }
 
     if (previousThemeRef.current !== theme) {
@@ -53,7 +50,11 @@ export function ThemeProvider({
 
   const toggleTheme = switchable
     ? () => {
-        setTheme(prev => (prev === "light" ? "dark" : "light"));
+        setTheme(prev => {
+          const nextTheme = prev === "light" ? "dark" : "light";
+          if (typeof window !== "undefined") window.localStorage.setItem("theme", nextTheme);
+          return nextTheme;
+        });
       }
     : undefined;
 

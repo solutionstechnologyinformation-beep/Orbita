@@ -961,3 +961,4 @@
 - [x] Orbita AI: mostrar spinner ou skeleton imediatamente no cartão da sugestão rápida selecionada durante o processamento
 - [x] Orbita AI: adicionar efeito de hover suave e acessível aos cartões de sugestão rápida
 - [x] Orbita: adicionar botão global de tema claro/escuro, persistência da preferência e transição suave de cores
+- [x] Orbita: detectar prefers-color-scheme do sistema para definir o tema inicial quando não houver preferência manual salva

@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { getThemeToggleCopy, normalizeThemePreference, THEME_TRANSITION_DURATION_MS } from "./theme-utils";
+import { getSystemTheme, getThemeToggleCopy, normalizeThemePreference, THEME_TRANSITION_DURATION_MS } from "./theme-utils";
 
 describe("theme utilities", () => {
+  it("resolves the system preference when no manual value exists", () => {
+    expect(getSystemTheme(() => ({ matches: true }), "light")).toBe("dark");
+    expect(getSystemTheme(() => ({ matches: false }), "dark")).toBe("light");
+    expect(getSystemTheme(undefined, "dark")).toBe("dark");
+  });
+  it("keeps a persisted manual preference ahead of the system fallback", () => {
+    expect(normalizeThemePreference("dark", getSystemTheme(() => ({ matches: false }), "light"))).toBe("dark");
+    expect(normalizeThemePreference(null, getSystemTheme(() => ({ matches: true }), "light"))).toBe("dark");
+  });
+
   it("accepts only supported persisted theme values", () => {
     expect(normalizeThemePreference("dark", "light")).toBe("dark");
     expect(normalizeThemePreference("light", "dark")).toBe("light");
