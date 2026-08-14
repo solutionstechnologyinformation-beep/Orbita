@@ -240,6 +240,16 @@ html.theme-transition body * {
   color: var(--popover-foreground);
 }
 
+.dashboard-trend-tooltip svg {
+  display: block;
+  max-width: 100%;
+}
+
+.dashboard-trend-tooltip circle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 .dark .dashboard-trend-positive {
   background: color-mix(in srgb, #22c55e 20%, var(--card));
   color: #86efac;
@@ -251,6 +261,12 @@ html.theme-transition body * {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dashboard-trend-tooltip svg,
+  .dashboard-trend-tooltip circle {
+    animation: none !important;
+    transition: none !important;
+  }
+
   html.theme-transition,
   html.theme-transition body,
   html.theme-transition body * {

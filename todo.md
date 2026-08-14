@@ -1106,3 +1106,9 @@
 - [x] Atualizar o período exibido nos indicadores e tooltips com dados reais
 - [x] Persistir a preferência de período por usuário e widget
 - [x] Cobrir seletor, acessibilidade, persistência e cálculos com testes
+
+## Dashboard — Sparklines nos tooltips
+- [x] Criar componente Sparkline SVG compacto para visualização de séries históricas
+- [x] Integrar sparklines aos tooltips de tendência flutuantes
+- [x] Conectar dados reais de série histórica por período aos sparklines
+- [x] Adicionar testes de renderização, temas e acessibilidade

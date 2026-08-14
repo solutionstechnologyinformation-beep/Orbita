@@ -1023,6 +1023,7 @@ export default function Dashboard() {
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(dashboardDataInput);
   const segmentsQ = trpc.crs.segments.list.useQuery(dashboardDataInput);
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: trendComparisonPeriod });
+  const slaSparklineData = useMemo(() => [slaQ.data?.slaLast, slaQ.data?.slaThis].filter((value): value is number => typeof value === "number" && Number.isFinite(value)), [slaQ.data?.slaLast, slaQ.data?.slaThis]);
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
   const crsQ = trpc.crs.list.useQuery(dashboardDataInput);
   const stats = statsQ.data;
@@ -2020,7 +2021,7 @@ export default function Dashboard() {
                         <span className={`text-4xl font-bold ${colorMap[color]}`}>
                           {pct !== null && pct !== undefined ? `${pct}%` : "—"}
                         </span>
-                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} />
+                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} series={slaSparklineData} />
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
                         <div

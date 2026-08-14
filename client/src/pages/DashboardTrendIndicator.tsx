@@ -1,6 +1,7 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { formatTrendDescription, getTrendPresentation } from "./dashboard-trend-utils";
 import { TREND_COMPARISON_PERIOD_LABELS, TREND_COMPARISON_PERIODS, type TrendComparisonPeriod } from "./dashboard-trend-period";
+import { DashboardSparkline } from "./DashboardSparkline";
 
 type DashboardTrendIndicatorProps = {
   value?: number | null;
@@ -8,6 +9,7 @@ type DashboardTrendIndicatorProps = {
   period?: string;
   label: string;
   positiveWhenUp?: boolean;
+  series?: number[];
 };
 
 type DashboardTrendPeriodSelectProps = {
@@ -40,6 +42,7 @@ export function DashboardTrendIndicator({
   period = "período anterior",
   label,
   positiveWhenUp = true,
+  series = [],
 }: DashboardTrendIndicatorProps) {
   const presentation = getTrendPresentation(value, positiveWhenUp);
   const description = formatTrendDescription(value, suffix, period);
@@ -62,10 +65,17 @@ export function DashboardTrendIndicator({
       </span>
       <span
         role="tooltip"
-        className="dashboard-trend-tooltip pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-52 -translate-x-1/2 rounded-lg px-3 py-2 text-[11px] font-medium opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+        className="dashboard-trend-tooltip pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-56 -translate-x-1/2 rounded-lg px-3 py-2 text-[11px] font-medium opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
       >
         <span className="block text-[10px] uppercase tracking-wide opacity-70">Tendência · {label}</span>
         <span className="mt-0.5 block">{description}</span>
+        {series.length >= 2 ? (
+          <span className="mt-2 block" aria-label={`Série histórica de ${label}`}>
+            <DashboardSparkline data={series} color={presentation.tone === "negative" ? "#ef4444" : presentation.tone === "positive" ? "#22c55e" : "#94a3b8"} />
+          </span>
+        ) : (
+          <span className="mt-2 block text-[10px] opacity-70">Série histórica insuficiente.</span>
+        )}
       </span>
     </span>
   );
