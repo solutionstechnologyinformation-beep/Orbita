@@ -959,3 +959,4 @@
 - [x] Orbita AI: adicionar fade-out suave às mensagens durante a limpeza do histórico antes de restaurar a tela inicial
 - [x] Orbita AI: animar a entrada da saudação e das sugestões rápidas após o fade-out do histórico
 - [x] Orbita AI: mostrar spinner ou skeleton imediatamente no cartão da sugestão rápida selecionada durante o processamento
+- [x] Orbita AI: adicionar efeito de hover suave e acessível aos cartões de sugestão rápida

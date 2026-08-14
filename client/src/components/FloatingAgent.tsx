@@ -12,7 +12,7 @@ import {
   INITIAL_SCREEN_ENTRY_DURATION_MS,
   type AgentHistoryEntry,
 } from "./agent-history";
-import { getQuickCommandVisualState } from "./quick-command-state";
+import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -297,7 +297,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                   <button
                     key={label}
                     type="button"
-                    className={`group rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-[#ffc30d] hover:shadow-sm disabled:cursor-wait disabled:opacity-70 ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-1" : ""}`}
+                    className={`group rounded-xl border border-slate-200 bg-white px-3 py-2 text-left ${QUICK_COMMAND_HOVER_CLASSES} disabled:cursor-wait disabled:opacity-70 ${isInitialScreenEntering ? "animate-in fade-in slide-in-from-bottom-1" : ""}`}
                     style={isInitialScreenEntering ? { animationDelay: `${(index + 1) * 45}ms`, animationDuration: `${INITIAL_SCREEN_ENTRY_DURATION_MS}ms`, animationFillMode: "both" } : undefined}
                     onClick={() => {
                       setActiveQuickCommand(label);
