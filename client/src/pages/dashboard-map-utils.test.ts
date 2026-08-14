@@ -56,7 +56,8 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("totalImportedExtensionKm");
     expect(dashboardSource).toContain("visibleExtensionKm");
     expect(dashboardSource).toContain("filteredSummarySegments");
-    expect(dashboardSource).toContain("setSelectedSegmentId(segment.id)");
+    expect(dashboardSource).toContain("onClick={() => focusSegment(segment.id)}");
+    expect(dashboardSource).toContain("map.fitBounds(bounds, 56)");
   });
 
   it("animates opening and retracting the summary panel while respecting reduced motion", () => {

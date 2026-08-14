@@ -1175,3 +1175,9 @@
 - [x] Criar resumo rápido com métricas e lista de trechos importados
 - [x] Implementar recolhimento, busca, seleção e integração com o destaque do mapa
 - [x] Adicionar testes de interação, tema, acessibilidade e validar TypeScript
+
+## Mapa — Centralização automática de trechos
+- [x] Auditar a geometria e os pontos centrais disponíveis para cada trecho importado
+- [x] Implementar centralização e zoom automático ao selecionar um trecho no painel lateral
+- [x] Preservar destaque, visibilidade, acessibilidade e fallback para geometrias sem centro
+- [x] Adicionar testes de seleção, zoom e validação TypeScript

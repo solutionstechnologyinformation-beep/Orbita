@@ -199,6 +199,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const mapPanelMuted = isDark ? "text-slate-400" : "text-gray-500";
   const mapPanelInput = isDark ? "border-slate-600 bg-slate-800 text-slate-100" : "border-gray-200 bg-white text-gray-700";
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
+  const allMapElementRecords = useMemo(() => extractMapElementRecords(segments), [segments]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
   const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, Math.max(mapElementRecords.length, 1), elementSort), [elementSearch, elementSort, mapElementRecords]);
   const visibleElementRecords = useMemo(() => filteredElementRecords.slice(0, visibleElementCount), [filteredElementRecords, visibleElementCount]);
@@ -236,12 +237,38 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   }, [applyElementHover]);
   const focusElement = useCallback((record: MapElementRecord) => {
     setSelectedElementKey(record.key);
+    setSelectedSegmentId(record.segmentId);
     setSegmentVisibility((current) => ({ ...current, [record.segmentId]: true }));
     if (record.center && mapRef.current) {
       mapRef.current.panTo(record.center);
-      mapRef.current.setZoom(Math.max(mapRef.current.getZoom() ?? 6, record.geometryType === "Point" ? 12 : 10));
+      mapRef.current.setZoom(record.geometryType === "Point" ? 12 : 10);
     }
   }, []);
+  const focusSegment = useCallback((segmentId: number) => {
+    setSelectedSegmentId(segmentId);
+    setSegmentVisibility((current) => ({ ...current, [segmentId]: true }));
+    const relatedRecords = allMapElementRecords.filter((record) => record.segmentId === segmentId && record.center);
+    const map = mapRef.current;
+    if (!map || relatedRecords.length === 0) return;
+    const hasPoint = relatedRecords.some((record) => record.geometryType === "Point");
+    if (hasPoint || !window.google?.maps?.LatLngBounds) {
+      const center = relatedRecords.reduce((sum, record) => ({ lat: sum.lat + (record.center?.lat ?? 0), lng: sum.lng + (record.center?.lng ?? 0) }), { lat: 0, lng: 0 });
+      map.panTo({ lat: center.lat / relatedRecords.length, lng: center.lng / relatedRecords.length });
+      map.setZoom(12);
+      return;
+    }
+    const bounds = new window.google.maps.LatLngBounds();
+    relatedRecords.forEach((record) => record.coordinates.forEach(([lng, lat]) => {
+      if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) bounds.extend({ lat: Number(lat), lng: Number(lng) });
+    }));
+    if (bounds.isEmpty()) return;
+    map.fitBounds(bounds, 56);
+    window.setTimeout(() => {
+      if (mapRef.current !== map) return;
+      const zoom = map.getZoom();
+      if (typeof zoom === "number" && zoom > 14) map.setZoom(14);
+    }, 180);
+  }, [allMapElementRecords]);
   const exportElementsCsv = useCallback(() => {
     if (mapElementRecords.length === 0) return;
     const csv = buildMapElementsCsv(mapElementRecords);
@@ -741,7 +768,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   { label: "Trechos", value: segments.length },
                   { label: "Visíveis", value: visibleSegments.length },
                   { label: "Contratos", value: new Set(segments.map((segment) => segment.crsId)).size },
-                  { label: "Elementos", value: mapElementRecords.length },
+                  { label: "Elementos", value: allMapElementRecords.length },
                 ].map((metric) => (
                   <div key={metric.label} className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
                     <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>{metric.label}</p>
@@ -789,10 +816,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                         <button
                           key={segment.id}
                           type="button"
-                          onClick={() => {
-                            setSelectedSegmentId(segment.id);
-                            setSegmentVisibility((current) => ({ ...current, [segment.id]: true }));
-                          }}
+                          onClick={() => focusSegment(segment.id)}
                           className={`w-full rounded-lg border px-2.5 py-2 text-left transition-colors ${selectedSegmentId === segment.id ? (isDark ? "border-blue-700 bg-blue-950/60" : "border-blue-200 bg-blue-50") : (isDark ? "border-slate-700 bg-slate-800/70 hover:bg-slate-700" : "border-gray-100 bg-gray-50 hover:bg-gray-100")}`}
                         >
                           <span className="flex items-start gap-2">
