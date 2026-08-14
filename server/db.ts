@@ -292,7 +292,7 @@ export async function getTasksByCrs(crsId: number, filters?: { phaseId?: number;
     blockReason: tasks.blockReason, openedAt: tasks.openedAt,
     completedAt: tasks.completedAt, statusChangedAt: tasks.statusChangedAt,
     createdAt: tasks.createdAt, updatedAt: tasks.updatedAt,
-    assigneeName: users.name, assigneeAvatarUrl: users.avatarUrl,
+    assigneeName: users.name, assigneeCompany: users.company, assigneeAvatarUrl: users.avatarUrl,
     projectName: crs.name,
     phaseName: kanbanPhases.name,
     phaseColor: kanbanPhases.color,
@@ -315,7 +315,7 @@ export async function getTaskById(id: number) {
     setor: tasks.setor, progress: tasks.progress, blockReason: tasks.blockReason,
     openedAt: tasks.openedAt, completedAt: tasks.completedAt, statusChangedAt: tasks.statusChangedAt,
     createdAt: tasks.createdAt, updatedAt: tasks.updatedAt,
-    assigneeName: users.name,
+    assigneeName: users.name, assigneeCompany: users.company,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(eq(tasks.id, id)).limit(1);

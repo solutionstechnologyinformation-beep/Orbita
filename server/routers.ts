@@ -457,6 +457,7 @@ export const appRouter = router({
           startDate: t.startDate, endDate: t.endDate,
           setor: t.setor, progress: t.progress,
           assigneeName: u.name,
+          assigneeCompany: u.company,
           projectName: c.name,
           clientId: c.clientId,
           phaseName: kp.name, phaseColor: kp.color, phaseIsTerminal: kp.isTerminal,
@@ -507,7 +508,7 @@ export const appRouter = router({
       const db = await getDb();
       const [rows] = await (db as any).$client.query(`
         SELECT t.id, t.title, t.priority, t.blockReason, t.statusChangedAt,
-          t.dueDate, t.crsId, t.assigneeId, u.name as assigneeName, c.name as projectName
+          t.dueDate, t.crsId, t.assigneeId, u.name as assigneeName, u.company as assigneeCompany, c.name as projectName
         FROM tasks t
         LEFT JOIN users u ON u.id = t.assigneeId
         LEFT JOIN crs c ON c.id = t.crsId
