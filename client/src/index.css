@@ -205,6 +205,37 @@ html.theme-transition body * {
   transition: background-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out;
 }
 
+.dashboard-trend-positive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.dashboard-trend-negative {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.dashboard-trend-neutral {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.dashboard-trend-tooltip {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+}
+
+.dark .dashboard-trend-positive {
+  background: color-mix(in srgb, #22c55e 20%, var(--card));
+  color: #86efac;
+}
+
+.dark .dashboard-trend-negative {
+  background: color-mix(in srgb, #ef4444 20%, var(--card));
+  color: #fca5a5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.theme-transition,
   html.theme-transition body,

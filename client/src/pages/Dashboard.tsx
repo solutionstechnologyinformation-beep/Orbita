@@ -17,7 +17,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
     MapPin, Activity, Users, FolderOpen, ChevronRight,
-  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2, MessageSquare, UserCheck, GripVertical, RotateCcw,
+  Target, CalendarClock, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2, MessageSquare, UserCheck, GripVertical, RotateCcw,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -30,6 +30,7 @@ import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords,
 import { buildChatActivityChartData, buildChatActivityDisciplineDetails, buildUnreadBadgeAnimationKey, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
 import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 import { DEFAULT_DASHBOARD_WIDGET_ORDERS, getDashboardWidgetStorageKey, moveDashboardWidget, readDashboardWidgetOrders, type DashboardWidgetGroup, type DashboardWidgetId, type DashboardWidgetOrders } from "./dashboard-widget-order";
+import { DashboardTrendIndicator } from "./DashboardTrendIndicator";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -786,14 +787,17 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   );
 }
 // ── KPI Card ───────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, icon, iconBg, trend }: {
-  label: string; value: string | number; icon: React.ReactNode; iconBg: string; trend?: string;
+function KpiCard({ label, value, icon, iconBg, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true }: {
+  label: string; value: string | number; icon: React.ReactNode; iconBg: string; trend?: number | null; trendSuffix?: string; trendPeriod?: string; positiveWhenUp?: boolean;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start justify-between shadow-sm">
       <div>
         <p className="text-sm text-gray-500 mb-1">{label}</p>
-        <p className="text-3xl font-bold text-gray-900">{value}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
+          <DashboardTrendIndicator label={label} value={trend} suffix={trendSuffix} period={trendPeriod} positiveWhenUp={positiveWhenUp} />
+        </div>
       </div>
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconBg}`}>
         {icon}
@@ -803,8 +807,8 @@ function KpiCard({ label, value, icon, iconBg, trend }: {
 }
 
 // ── Stat Row (mapa lateral) ────────────────────────────────────────────────────
-function StatRow({ icon, label, value, valueColor }: {
-  icon: React.ReactNode; label: string; value: string | number; valueColor?: string;
+function StatRow({ icon, label, value, valueColor, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true }: {
+  icon: React.ReactNode; label: string; value: string | number; valueColor?: string; trend?: number | null; trendSuffix?: string; trendPeriod?: string; positiveWhenUp?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -814,7 +818,10 @@ function StatRow({ icon, label, value, valueColor }: {
         </div>
         <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
-      <span className={`text-base font-bold ${valueColor ?? "text-gray-900"}`}>{value}</span>
+      <div className="flex items-center gap-2">
+        <span className={`text-base font-bold ${valueColor ?? "text-gray-900"}`}>{value}</span>
+        <DashboardTrendIndicator label={label} value={trend} suffix={trendSuffix} period={trendPeriod} positiveWhenUp={positiveWhenUp} />
+      </div>
     </div>
   );
 }
@@ -2017,12 +2024,7 @@ export default function Dashboard() {
                         <span className={`text-4xl font-bold ${colorMap[color]}`}>
                           {pct !== null && pct !== undefined ? `${pct}%` : "—"}
                         </span>
-                        {trend !== null && trend !== undefined && (
-                          <div className={`flex items-center gap-0.5 text-sm mb-1 ${trend >= 0 ? "text-green-600" : "text-red-500"}`}>
-                            {trend >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                            <span>{trend >= 0 ? "+" : ""}{trend}pp</span>
-                          </div>
-                        )}
+                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period="período anterior" />
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
                         <div

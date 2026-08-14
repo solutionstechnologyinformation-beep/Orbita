@@ -1094,3 +1094,9 @@
 - [x] Destacar visualmente o widget arrastado e o alvo da soltura
 - [x] Respeitar prefers-reduced-motion e preservar teclado e persistência
 - [x] Adicionar testes de estados e transições da reordenação
+
+## Dashboard — Indicadores de tendência flutuantes
+- [x] Criar componente acessível de tendência com direção, variação e período
+- [x] Aplicar indicadores aos KPIs e estatísticas dos widgets
+- [x] Adicionar suporte a hover, foco por teclado e temas claro/escuro
+- [x] Adicionar testes de conteúdo, estados e acessibilidade
