@@ -95,6 +95,11 @@ export function filterMapElementRecords(records: MapElementRecord[], query: stri
   }).slice(0, limit);
 }
 
+export function getNextMapElementVisibleCount(currentCount: number, totalCount: number, pageSize = 8): number {
+  if (totalCount <= 0) return 0;
+  return Math.min(Math.max(currentCount, 0) + Math.max(pageSize, 1), totalCount);
+}
+
 export function getMapElementHighlightStyle(isHovered: boolean, baseColor: string): { strokeColor: string; strokeOpacity: number; strokeWeight: number; zIndex: number } {
   return {
     strokeColor: isHovered ? "#f59e0b" : baseColor,

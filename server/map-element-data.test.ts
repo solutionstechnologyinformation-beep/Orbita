@@ -110,3 +110,15 @@ describe("map element hover", () => {
     expect(getMapElementHighlightStyle(false, "#2563eb")).toEqual({ strokeColor: "#2563eb", strokeOpacity: 0.9, strokeWeight: 4, zIndex: 1 });
   });
 });
+
+
+describe("map element progressive list", () => {
+  it("avança em lotes e nunca ultrapassa o total disponível", async () => {
+    const { getNextMapElementVisibleCount } = await import("../shared/map-element-data");
+    expect(getNextMapElementVisibleCount(0, 24)).toBe(8);
+    expect(getNextMapElementVisibleCount(8, 24)).toBe(16);
+    expect(getNextMapElementVisibleCount(20, 24)).toBe(24);
+    expect(getNextMapElementVisibleCount(8, 24, 5)).toBe(13);
+    expect(getNextMapElementVisibleCount(8, 0)).toBe(0);
+  });
+});

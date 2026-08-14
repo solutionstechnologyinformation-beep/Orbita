@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, getNextMapElementVisibleCount, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -122,9 +122,22 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const [elementSort, setElementSort] = useState<MapElementSort>("alphabetical");
   const [hoveredElementKey, setHoveredElementKey] = useState<string | null>(null);
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
+  const [visibleElementCount, setVisibleElementCount] = useState(8);
+  const elementListRef = useRef<HTMLDivElement | null>(null);
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
-  const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, 30, elementSort), [elementSearch, elementSort, mapElementRecords]);
+  const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, Math.max(mapElementRecords.length, 1), elementSort), [elementSearch, elementSort, mapElementRecords]);
+  const visibleElementRecords = useMemo(() => filteredElementRecords.slice(0, visibleElementCount), [filteredElementRecords, visibleElementCount]);
+  useEffect(() => {
+    setVisibleElementCount((current) => Math.min(Math.max(current, 8), filteredElementRecords.length || 8));
+  }, [filteredElementRecords.length]);
+  const handleElementListScroll = useCallback(() => {
+    const elementList = elementListRef.current;
+    if (!elementList || visibleElementCount >= filteredElementRecords.length) return;
+    if (elementList.scrollTop + elementList.clientHeight >= elementList.scrollHeight - 24) {
+      setVisibleElementCount((current) => getNextMapElementVisibleCount(current, filteredElementRecords.length));
+    }
+  }, [filteredElementRecords.length, visibleElementCount]);
   const selectedElement = useMemo(() => findMapElementRecord(mapElementRecords, selectedElementKey), [mapElementRecords, selectedElementKey]);
   const applyElementHover = useCallback((key: string | null) => {
     elementOverlayMetaRef.current.forEach((meta, overlayKey) => {
@@ -630,8 +643,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   </select>
                 </label>
               </div>
-              <div className="space-y-1.5">
-                {filteredElementRecords.length === 0 ? <p className="rounded-md bg-gray-50 px-2 py-2 text-[10px] text-gray-500">Nenhum elemento encontrado.</p> : filteredElementRecords.slice(0, 8).map((record) => {
+              <div ref={elementListRef} onScroll={handleElementListScroll} className="max-h-64 space-y-1.5 overflow-y-auto pr-1" role="list" aria-label="Resultados dos elementos KML/KMZ">
+                {filteredElementRecords.length === 0 ? <p className="rounded-md bg-gray-50 px-2 py-2 text-[10px] text-gray-500">Nenhum elemento encontrado.</p> : visibleElementRecords.map((record) => {
                   const pointStyle = record.geometryType === "Point" ? getImportedPointStyle(record.elementName) : null;
                   const accent = pointStyle?.fillColor ?? "#2563eb";
                   return <button key={record.key} type="button" onClick={() => focusElement(record)} onMouseEnter={() => setElementHover(record.key)} onMouseLeave={() => setElementHover(null)} onFocus={() => setElementHover(record.key)} onBlur={() => setElementHover(null)} data-map-element-key={record.key} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? "bg-blue-50 ring-1 ring-blue-200" : hoveredElementKey === record.key ? "bg-amber-50 ring-1 ring-amber-200" : "bg-gray-50 hover:bg-gray-100"}`}>
@@ -639,7 +652,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                     <span className="mt-0.5 block truncate pl-4 text-[10px] text-gray-400">{record.description || record.crsName}</span>
                   </button>;
                 })}
-                {filteredElementRecords.length > 8 && <p className="text-[10px] text-gray-400">Mostrando 8 de {filteredElementRecords.length} resultados.</p>}
+                {filteredElementRecords.length > visibleElementRecords.length && <p className="sticky bottom-0 rounded-md bg-white/95 px-2 py-1 text-center text-[10px] text-gray-400">Role para carregar mais ({visibleElementRecords.length} de {filteredElementRecords.length})</p>}
+                {filteredElementRecords.length > 0 && visibleElementRecords.length === filteredElementRecords.length && filteredElementRecords.length > 8 && <p className="px-2 py-1 text-center text-[10px] text-gray-400">Todos os {filteredElementRecords.length} resultados carregados.</p>}
               </div>
               <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
                 <span className="text-[10px] text-gray-400">{mapElementRecords.length} elemento(s) disponível(is)</span>
