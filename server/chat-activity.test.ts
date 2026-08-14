@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChatActivityChartData, buildUnreadBadgeAnimationKey, formatUnreadBadgeLabel, normalizeChatActivitySnapshot } from "../shared/chat-activity";
+import { buildChatActivityChartData, buildChatActivityDisciplineDetails, buildUnreadBadgeAnimationKey, formatUnreadBadgeLabel, normalizeChatActivitySnapshot } from "../shared/chat-activity";
 
 describe("chat activity snapshot", () => {
   it("normalizes discipline rows and aggregates totals", () => {
@@ -42,6 +42,34 @@ describe("chat activity snapshot", () => {
     expect(buildChatActivityChartData([], "onlineCount")).toEqual([]);
     expect(formatUnreadBadgeLabel(3)).toBe("● 3");
     expect(formatUnreadBadgeLabel(0)).toBe("");
+  });
+
+  it("normalizes detailed discipline metrics for the detailed Dashboard panel", () => {
+    const details = buildChatActivityDisciplineDetails([
+      {
+        discipline: "Obras",
+        memberCount: 3,
+        onlineCount: 2,
+        typingCount: 1,
+        messagesLast24h: 7,
+        messagesLast7d: 15,
+        activeConversationsLast24h: 2,
+        unreadCount: 4,
+        lastActivityAt: "2026-08-14T15:00:00.000Z",
+      },
+      {
+        discipline: "Projetos",
+        memberCount: 0,
+        onlineCount: 2,
+        unreadCount: -2,
+        lastActivityAt: null,
+      },
+    ]);
+
+    expect(details).toEqual([
+      expect.objectContaining({ discipline: "Obras", onlinePercent: 67, messagesLast24h: 7, activeConversationsLast24h: 2, unreadCount: 4 }),
+      expect.objectContaining({ discipline: "Projetos", onlinePercent: 0, unreadCount: 0 }),
+    ]);
   });
 
   it("changes the badge animation key when unread counts appear or update", () => {

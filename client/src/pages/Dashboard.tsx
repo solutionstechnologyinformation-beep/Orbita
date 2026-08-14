@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
-import { buildChatActivityChartData, buildUnreadBadgeAnimationKey, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
+import { buildChatActivityChartData, buildChatActivityDisciplineDetails, buildUnreadBadgeAnimationKey, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
 import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -884,6 +884,7 @@ export default function Dashboard() {
   const crsItems = (crsQ.data ?? []) as any[];
   const contractDetails = (contractDetailsQ.data ?? []) as any[];
   const chatActivity = chatActivityQ.data;
+  const chatActivityDisciplineDetails = useMemo(() => buildChatActivityDisciplineDetails((chatActivity?.disciplines ?? []) as any[]), [chatActivity?.disciplines]);
   const chatActivityChartData = useMemo(() => buildChatActivityChartData(chatActivity?.disciplines ?? [], chatMetric), [chatActivity?.disciplines, chatMetric]);
   const unreadBadgeAnimationKey = useMemo(() => buildUnreadBadgeAnimationKey(chatActivityChartData), [chatActivityChartData]);
   const chatMetricLabel = CHAT_ACTIVITY_METRICS.find((metric) => metric.key === chatMetric)?.label ?? "Métrica";
@@ -1988,12 +1989,89 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Row 2: D + E */}
+            {/* Row 2: Atividade detalhada do chat */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5" aria-labelledby="detailed-chat-activity-title">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-teal-50 flex items-center justify-center text-xs font-bold text-teal-700">D</span>
+                  <div>
+                    <h3 id="detailed-chat-activity-title" className="text-sm font-semibold text-gray-800">Atividade do Chat por Disciplina</h3>
+                    <p className="text-xs text-gray-400">Presença, mensagens, conversas ativas e pendências de leitura</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {chatActivity?.generatedAt && (
+                    <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                      Atualizado às {new Date(chatActivity.generatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={exportChatActivityPDF}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-[#ffbe00] hover:bg-[#eab000] rounded-md shadow-xs transition-all"
+                    title="Exportar estatísticas do chat em PDF"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    PDF
+                  </button>
+                </div>
+              </div>
+              {chatActivityQ.isLoading ? (
+                <div className="space-y-2.5" aria-label="Carregando atividade do chat">
+                  {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-20 w-full rounded-lg" />)}
+                </div>
+              ) : chatActivityDisciplineDetails.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-400">
+                  Nenhuma disciplina com membros ou atividade de chat disponível.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {chatActivityDisciplineDetails.map((row) => {
+                    const lastActivity = row.lastActivityAt
+                      ? new Date(row.lastActivityAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                      : "Sem atividade recente";
+                    return (
+                      <button
+                        key={row.discipline}
+                        type="button"
+                        className="w-full rounded-lg border border-gray-100 px-3 py-2.5 text-left transition-all hover:border-teal-200 hover:bg-teal-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                        onClick={() => navigate(buildTeamChatDisciplineUrl(row.discipline))}
+                        aria-label={`Abrir chat da disciplina ${row.discipline}; ${row.unreadCount} mensagens não lidas`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${row.onlineCount > 0 ? "bg-emerald-500" : "bg-gray-300"}`} aria-hidden="true" />
+                            <span className="truncate text-xs font-semibold text-gray-700">{row.discipline}</span>
+                            {row.unreadCount > 0 && (
+                              <span className="chat-unread-badge inline-flex shrink-0 items-center rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600" aria-label={`${row.unreadCount} mensagens não lidas`}>
+                                ● {row.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          <span className="shrink-0 text-[10px] text-gray-400">{row.onlineCount}/{row.memberCount} online</span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100" aria-label={`${row.onlinePercent}% da disciplina online`}>
+                          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${row.onlinePercent}%` }} />
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-gray-500">
+                          <span>{row.messagesLast24h} mensagens em 24h</span>
+                          <span>{row.activeConversationsLast24h} conversa{row.activeConversationsLast24h === 1 ? "" : "s"} ativa{row.activeConversationsLast24h === 1 ? "" : "s"}</span>
+                          {row.typingCount > 0 && <span className="font-medium text-violet-600">{row.typingCount} digitando agora</span>}
+                          <span className="ml-auto text-gray-400">{lastActivity}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Row 3: E + F */}
             <div className="grid grid-cols-12 gap-5">
               {/* D — Minhas Tarefas */}
               <div className="col-span-12 lg:col-span-7 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">D</span>
+                  <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">E</span>
                   <h3 className="text-sm font-semibold text-gray-800">Minhas Tarefas</h3>
                 </div>
                 {myTasksQ.isLoading ? (
@@ -2033,7 +2111,7 @@ export default function Dashboard() {
               {/* E — Projetos Ativos */}
               <div className="col-span-12 lg:col-span-5 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">E</span>
+                  <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">F</span>
                   <h3 className="text-sm font-semibold text-gray-800">Projetos Ativos</h3>
                 </div>
                 {crsQ.isLoading ? (

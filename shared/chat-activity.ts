@@ -24,6 +24,36 @@ export type ChatActivityChartDatum = {
   unreadCount: number;
 };
 
+export type ChatActivityDisciplineDetail = {
+  discipline: string;
+  memberCount: number;
+  onlineCount: number;
+  onlinePercent: number;
+  typingCount: number;
+  messagesLast24h: number;
+  activeConversationsLast24h: number;
+  unreadCount: number;
+  lastActivityAt: Date | string | null;
+};
+
+export function buildChatActivityDisciplineDetails(rows: ChatActivityDiscipline[]): ChatActivityDisciplineDetail[] {
+  return rows.map((row) => {
+    const memberCount = Number(row.memberCount ?? 0);
+    const onlineCount = Number(row.onlineCount ?? 0);
+    return {
+      discipline: row.discipline,
+      memberCount,
+      onlineCount,
+      onlinePercent: memberCount > 0 ? Math.round((onlineCount / memberCount) * 100) : 0,
+      typingCount: Number(row.typingCount ?? 0),
+      messagesLast24h: Number(row.messagesLast24h ?? 0),
+      activeConversationsLast24h: Number(row.activeConversationsLast24h ?? 0),
+      unreadCount: Math.max(0, Number(row.unreadCount ?? 0)),
+      lastActivityAt: row.lastActivityAt ?? null,
+    };
+  });
+}
+
 export function formatUnreadBadgeLabel(unreadCount: number): string {
   const count = Number(unreadCount ?? 0);
   return count > 0 ? `● ${count}` : "";

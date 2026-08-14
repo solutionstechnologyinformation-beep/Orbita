@@ -1052,3 +1052,9 @@
 - [x] Incluir mensagens não lidas, presença, digitação e conversas ativas no relatório
 - [x] Adicionar botão de exportação, loading e feedback de sucesso no Dashboard
 - [x] Adicionar testes para dados, conteúdo e estados da exportação
+
+## Dashboard — Atividade do Chat na aba Detalhada
+- [x] Exibir presença e atividade por disciplina na aba Detalhada
+- [x] Incluir online, mensagens 24h, conversas ativas, digitação, não lidas e última atividade
+- [x] Preservar navegação para o TeamChat e atualização periódica
+- [x] Cobrir o painel detalhado com testes e validação TypeScript
