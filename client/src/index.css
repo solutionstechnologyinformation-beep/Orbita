@@ -52,6 +52,9 @@
   --brand-accent: #ffc30d;
   --brand-accent-foreground: #111827;
   --brand-accent-soft: #fff7d6;
+  --brand-highlight: #ffc30d;
+  --brand-highlight-soft: #ffe9a3;
+  --brand-highlight-foreground: #111827;
 
   /* Backgrounds */
   --background:             oklch(0.97 0.003 240);
@@ -106,6 +109,9 @@
   --brand-accent:           #102C2D;
   --brand-accent-foreground: #f4ffff;
   --brand-accent-soft:      #173f40;
+  --brand-highlight:         #ffc30d;
+  --brand-highlight-soft:    #ffe9a3;
+  --brand-highlight-foreground: #111827;
   --background:             oklch(0.16 0.025 264.7);
   --foreground:             oklch(0.96 0.008 240);
   --card:                   oklch(0.205 0.028 264.7);
@@ -259,6 +265,26 @@ html.theme-transition body * {
     @apply flex flex-col gap-3 min-h-[200px] rounded-xl p-3;
     background: oklch(0.97 0.003 240);
     border: 1px solid oklch(0.91 0.005 240);
+  }
+
+  /* Dark theme: preserve the yellow identity for text that needs emphasis and contrast. */
+  .dark .chat-activity-panel .text-gray-700,
+  .dark .chat-activity-panel .text-gray-800,
+  .dark .chat-activity-panel .chat-activity-title,
+  .dark .chat-activity-panel .chat-discipline-name {
+    color: var(--brand-highlight) !important;
+  }
+
+  .dark .chat-activity-panel .text-gray-400,
+  .dark .chat-activity-panel .text-gray-500,
+  .dark .chat-activity-panel .text-violet-600 {
+    color: var(--brand-highlight-soft) !important;
+  }
+
+  .dark .chat-activity-panel .orbita-logo-transparent,
+  .dark .orbita-logo-transparent {
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   /* Dark theme: replace yellow/amber presentation accents with the reference teal. */

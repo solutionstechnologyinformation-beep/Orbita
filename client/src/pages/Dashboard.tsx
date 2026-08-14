@@ -1563,7 +1563,7 @@ export default function Dashboard() {
               </div>
 
               {/* Atividade do chat e presença por disciplina */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4" aria-live="polite">
+              <div className="chat-activity-panel bg-white rounded-xl border border-gray-100 shadow-sm p-4" aria-live="polite">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-start gap-2.5">
                     <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center text-teal-700 shrink-0">
@@ -1700,7 +1700,7 @@ export default function Dashboard() {
                               <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0 flex items-center gap-2">
                                   <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${row.onlineCount > 0 ? "bg-emerald-500" : "bg-gray-300"}`} />
-                                  <span className="truncate text-xs font-semibold text-gray-700">{row.discipline}</span>
+                                  <span className="chat-discipline-name truncate text-xs font-semibold text-gray-700">{row.discipline}</span>
                                 </div>
                                 <span className="shrink-0 text-[10px] text-gray-400">{row.onlineCount}/{row.memberCount} online</span>
                               </div>
@@ -1990,7 +1990,7 @@ export default function Dashboard() {
             </div>
 
             {/* Row 2: Atividade detalhada do chat */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5" aria-labelledby="detailed-chat-activity-title">
+            <div className="chat-activity-panel bg-white rounded-xl border border-gray-100 shadow-sm p-5" aria-labelledby="detailed-chat-activity-title">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-teal-50 flex items-center justify-center text-xs font-bold text-teal-700">D</span>
@@ -2041,7 +2041,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0 flex items-center gap-2">
                             <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${row.onlineCount > 0 ? "bg-emerald-500" : "bg-gray-300"}`} aria-hidden="true" />
-                            <span className="truncate text-xs font-semibold text-gray-700">{row.discipline}</span>
+                            <span className="chat-discipline-name truncate text-xs font-semibold text-gray-700">{row.discipline}</span>
                             {row.unreadCount > 0 && (
                               <span className="chat-unread-badge inline-flex shrink-0 items-center rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600" aria-label={`${row.unreadCount} mensagens não lidas`}>
                                 ● {row.unreadCount}

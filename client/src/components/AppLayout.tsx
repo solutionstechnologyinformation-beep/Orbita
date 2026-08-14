@@ -168,7 +168,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
           <img
             src={getOrbitaLogoUrl(isDark ? "dark" : "light")}
             alt="Logo Órbita — voltar ao Dashboard"
-            className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:rotate-1"
+            className="orbita-logo-transparent h-full w-full object-contain bg-transparent transition-transform duration-300 ease-out group-hover:rotate-1"
           />
         </button>
         {!compact && (
