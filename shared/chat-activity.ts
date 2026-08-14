@@ -29,6 +29,18 @@ export function formatUnreadBadgeLabel(unreadCount: number): string {
   return count > 0 ? `● ${count}` : "";
 }
 
+/**
+ * Produces a stable key for the unread labels rendered inside the chart.
+ * Changing a discipline's unread count remounts only the labels, allowing
+ * their CSS entrance animation to replay without animating the whole chart.
+ */
+export function buildUnreadBadgeAnimationKey(rows: Pick<ChatActivityChartDatum, "discipline" | "unreadCount">[]): string {
+  return rows
+    .map((row) => `${row.discipline}:${Math.max(0, Number(row.unreadCount ?? 0))}`)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .join("|");
+}
+
 export function buildChatActivityChartData(rows: ChatActivityDiscipline[], metric: ChatActivityMetric): ChatActivityChartDatum[] {
   return rows
     .map((row) => ({ discipline: row.discipline, value: Number(row[metric] ?? 0), unreadCount: Number(row.unreadCount ?? 0) }))

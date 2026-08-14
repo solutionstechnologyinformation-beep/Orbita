@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChatActivityChartData, formatUnreadBadgeLabel, normalizeChatActivitySnapshot } from "../shared/chat-activity";
+import { buildChatActivityChartData, buildUnreadBadgeAnimationKey, formatUnreadBadgeLabel, normalizeChatActivitySnapshot } from "../shared/chat-activity";
 
 describe("chat activity snapshot", () => {
   it("normalizes discipline rows and aggregates totals", () => {
@@ -42,5 +42,29 @@ describe("chat activity snapshot", () => {
     expect(buildChatActivityChartData([], "onlineCount")).toEqual([]);
     expect(formatUnreadBadgeLabel(3)).toBe("● 3");
     expect(formatUnreadBadgeLabel(0)).toBe("");
+  });
+
+  it("changes the badge animation key when unread counts appear or update", () => {
+    const initial = [
+      { discipline: "Obras", unreadCount: 0 },
+      { discipline: "Projetos", unreadCount: 2 },
+    ];
+    const updated = [
+      { discipline: "Obras", unreadCount: 1 },
+      { discipline: "Projetos", unreadCount: 3 },
+    ];
+
+    expect(buildUnreadBadgeAnimationKey(initial)).not.toBe(buildUnreadBadgeAnimationKey(updated));
+    expect(buildUnreadBadgeAnimationKey(initial)).toBe("Obras:0|Projetos:2");
+    expect(buildUnreadBadgeAnimationKey([{ discipline: "Obras", unreadCount: -4 }])).toBe("Obras:0");
+  });
+
+  it("keeps the badge animation key stable when only the selected metric changes the bar order", () => {
+    const unreadRows = [
+      { discipline: "Obras", unreadCount: 2 },
+      { discipline: "Projetos", unreadCount: 0 },
+    ];
+
+    expect(buildUnreadBadgeAnimationKey(unreadRows)).toBe(buildUnreadBadgeAnimationKey([...unreadRows].reverse()));
   });
 });

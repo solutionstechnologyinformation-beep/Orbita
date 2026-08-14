@@ -1041,3 +1041,8 @@
 - [x] Backend: calcular mensagens não lidas por disciplina com isolamento por companyId
 - [x] Dashboard: exibir indicador visual de não lidas em cada barra e no tooltip
 - [x] Testes: cobrir contagem, destaque e estado sem mensagens não lidas
+
+## Widget de atividade — Animação de não lidas
+- [x] Adicionar transição suave quando o indicador de mensagens não lidas aparecer ou atualizar
+- [x] Respeitar prefers-reduced-motion na animação do indicador
+- [x] Adicionar testes para entrada, atualização e acessibilidade da animação

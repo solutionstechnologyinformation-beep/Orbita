@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
-import { buildChatActivityChartData, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
+import { buildChatActivityChartData, buildUnreadBadgeAnimationKey, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
 import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -885,6 +885,7 @@ export default function Dashboard() {
   const contractDetails = (contractDetailsQ.data ?? []) as any[];
   const chatActivity = chatActivityQ.data;
   const chatActivityChartData = useMemo(() => buildChatActivityChartData(chatActivity?.disciplines ?? [], chatMetric), [chatActivity?.disciplines, chatMetric]);
+  const unreadBadgeAnimationKey = useMemo(() => buildUnreadBadgeAnimationKey(chatActivityChartData), [chatActivityChartData]);
   const chatMetricLabel = CHAT_ACTIVITY_METRICS.find((metric) => metric.key === chatMetric)?.label ?? "Métrica";
 
   // ── Tipo de Obra stats ────────────────────────────────────────────────────────
@@ -1566,8 +1567,10 @@ export default function Dashboard() {
                               }}
                             >
                               <LabelList
+                                key={unreadBadgeAnimationKey}
                                 dataKey="unreadCount"
                                 position="right"
+                                className="chat-unread-badge"
                                 formatter={(value: number) => formatUnreadBadgeLabel(value)}
                                 style={{ fill: "#dc2626", fontSize: 10, fontWeight: 700 }}
                               />
