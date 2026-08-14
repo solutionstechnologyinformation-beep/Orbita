@@ -50,6 +50,20 @@ const EXTENSION_COLORS: Record<string, string> = {
   levantamento: "#8b5cf6",
   outro: "#64748b",
 };
+const MAP_MARKER_SYMBOL_NAMES: Record<string, string> = {
+  implementacao: "CIRCLE",
+  restauracao: "BACKWARD_CLOSED_ARROW",
+  aumento_capacidade: "FORWARD_CLOSED_ARROW",
+  levantamento: "FORWARD_OPEN_ARROW",
+  outro: "OPEN_CIRCLE",
+};
+const MAP_MARKER_SYMBOL_LABELS: Record<string, string> = {
+  implementacao: "●",
+  restauracao: "◀",
+  aumento_capacidade: "▶",
+  levantamento: "▷",
+  outro: "○",
+};
 const LIGHT_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
   { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
@@ -93,10 +107,16 @@ function getStatusLabel(progress: number) {
 }
 function getImportedPointStyle(name: string) {
   const normalized = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase();
-  if (normalized.includes("INICIO")) return { fillColor: "#16a34a", strokeColor: "#14532d", scale: 7 };
-  if (normalized.includes("FIM")) return { fillColor: "#dc2626", strokeColor: "#7f1d1d", scale: 7 };
-  if (/\\bKM\\s*\\d/.test(normalized)) return { fillColor: "#facc15", strokeColor: "#92400e", scale: 5 };
-  return { fillColor: "#a855f7", strokeColor: "#581c87", scale: 6 };
+  if (normalized.includes("INICIO")) return { scale: 7 };
+  if (normalized.includes("FIM")) return { scale: 7 };
+  if (/\\bKM\\s*\\d/.test(normalized)) return { scale: 5 };
+  return { scale: 6 };
+}
+function getMapMarkerVisual(typeKey: string, segmentColors: Record<string, string>, googleMaps: any) {
+  const fillColor = segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? EXTENSION_COLORS.outro;
+  const symbolName = MAP_MARKER_SYMBOL_NAMES[typeKey] ?? MAP_MARKER_SYMBOL_NAMES.outro;
+  const path = googleMaps.SymbolPath?.[symbolName] ?? googleMaps.SymbolPath?.CIRCLE;
+  return { path, fillColor, fillOpacity: 0.96, strokeColor: "#172033", strokeWeight: 1.8 };
 }
 function escapeInfoWindowHtml(value: unknown) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
@@ -484,7 +504,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 </div>`,
               });
               const pointStyle = getImportedPointStyle(featName);
-              const baseIcon: google.maps.Symbol = { path: g.SymbolPath.CIRCLE, scale: pointStyle.scale, fillColor: pointStyle.fillColor, fillOpacity: 0.95, strokeColor: pointStyle.strokeColor, strokeWeight: 1.5 };
+              const markerVisual = getMapMarkerVisual(getSegmentTypeKey(segment), segmentColors, g);
+              const baseIcon: google.maps.Symbol = { ...markerVisual, scale: pointStyle.scale };
               const previewSurface = isDark ? "#0f172a" : "#ffffff";
               const previewText = isDark ? "#f8fafc" : "#1e293b";
               const previewMuted = isDark ? "#cbd5e1" : "#64748b";
@@ -555,6 +576,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         const first = cluster.points[0];
         const isCluster = cluster.points.length > 1;
         const contractSegments = segments.filter((segment) => segment.crsId === first.item.crsId);
+        const contractTypeKey = contractSegments.length > 0 ? getSegmentTypeKey(contractSegments[0]) : "outro";
+        const contractMarkerVisual = getMapMarkerVisual(contractTypeKey, segmentColors, g);
         const contractExtension = contractSegments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0);
         const contractTypes = Array.from(new Set(contractSegments.flatMap((segment) => parseTipoObra(segment.tipoObra).map((typeKey) => TIPO_OBRA_MAP[typeKey] ?? typeKey))));
         const previewSurface = isDark ? "#0f172a" : "#ffffff";
@@ -567,13 +590,16 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           map,
           position: cluster.center,
           title: isCluster ? `${cluster.points.length} contratos agrupados` : `${first.item.number} — ${first.item.name}`,
-          icon: {
+          icon: isCluster ? {
             path: g.SymbolPath.CIRCLE,
-            scale: isCluster ? 15 : 10,
-            fillColor: isCluster ? "#111827" : "#facc15",
+            scale: 15,
+            fillColor: "#111827",
             fillOpacity: 1,
-            strokeColor: isCluster ? "#ffffff" : "#92400e",
-            strokeWeight: isCluster ? 2 : 1.5,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          } : {
+            ...contractMarkerVisual,
+            scale: 10,
           },
           label: {
             text: isCluster ? String(cluster.points.length) : String(first.item.number),
@@ -962,8 +988,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               </div>
               <div ref={elementListRef} onScroll={handleElementListScroll} className="max-h-64 space-y-1.5 overflow-y-auto pr-1" role="list" aria-label="Resultados dos elementos KML/KMZ">
                 {filteredElementRecords.length === 0 ? <p className={`rounded-md ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-50 text-gray-500"} px-2 py-2 text-[10px]`}>Nenhum elemento encontrado.</p> : visibleElementRecords.map((record) => {
-                  const pointStyle = record.geometryType === "Point" ? getImportedPointStyle(record.elementName) : null;
-                  const accent = pointStyle?.fillColor ?? "#2563eb";
+                  const typeKey = parseTipoObra(record.workType)[0] ?? "outro";
+                  const accent = segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#2563eb";
                   return <button key={record.key} type="button" onClick={() => focusElement(record)} onMouseEnter={() => setElementHover(record.key)} onMouseLeave={() => setElementHover(null)} onFocus={() => setElementHover(record.key)} onBlur={() => setElementHover(null)} data-map-element-key={record.key} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? (isDark ? "bg-blue-950/70 ring-1 ring-blue-700" : "bg-blue-50 ring-1 ring-blue-200") : hoveredElementKey === record.key ? (isDark ? "bg-amber-950/70 ring-1 ring-amber-700" : "bg-amber-50 ring-1 ring-amber-200") : (isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100")}`}>
                     <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} /><span className={`min-w-0 flex-1 truncate text-[11px] font-medium ${isDark ? "text-slate-100" : "text-gray-700"}`}>{record.elementName}</span><span className={`text-[9px] uppercase ${mapPanelMuted}`}>{record.geometryType === "Point" ? "ponto" : "trecho"}</span></span>
                     <span className={`mt-0.5 block truncate pl-4 text-[10px] ${mapPanelMuted}`}>{record.description || record.crsName}</span>
@@ -984,6 +1010,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 {segmentTypeKeys.map((typeKey) => (
                   <label key={typeKey} className={`flex items-center gap-2 text-[11px] ${isDark ? "text-slate-200" : "text-gray-600"} cursor-pointer`}>
                     <input type="color" value={segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a"} onChange={(event) => setSegmentColors((current) => ({ ...current, [typeKey]: event.target.value }))} className="w-5 h-5 rounded border-0 p-0 cursor-pointer" aria-label={`Cor de ${TIPO_OBRA_MAP[typeKey]}`} />
+                    <span className="text-base leading-none font-bold" style={{ color: segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a" }} aria-hidden="true">{MAP_MARKER_SYMBOL_LABELS[typeKey] ?? MAP_MARKER_SYMBOL_LABELS.outro}</span>
                     <span className="truncate">{TIPO_OBRA_MAP[typeKey]}</span>
                   </label>
                 ))}

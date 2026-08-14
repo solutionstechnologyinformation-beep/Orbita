@@ -80,4 +80,15 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("Clique para destacar o contrato");
     expect(dashboardSource).toContain("closeMarkerPreview();");
   });
+
+  it("maps work types to configurable colors and semantic marker symbols", () => {
+    expect(dashboardSource).toContain("MAP_MARKER_SYMBOL_NAMES");
+    expect(dashboardSource).toContain("MAP_MARKER_SYMBOL_LABELS");
+    expect(dashboardSource).toContain("getMapMarkerVisual");
+    expect(dashboardSource).toContain("segmentColors[typeKey]");
+    expect(dashboardSource).toContain("BACKWARD_CLOSED_ARROW");
+    expect(dashboardSource).toContain("FORWARD_CLOSED_ARROW");
+    expect(dashboardSource).toContain("MAP_MARKER_SYMBOL_LABELS[typeKey]");
+    expect(dashboardSource).toContain("orbita-map-segment-colors");
+  });
 });

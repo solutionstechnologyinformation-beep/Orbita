@@ -1187,3 +1187,9 @@
 - [x] Implementar tooltip ou prévia rápida no hover e no foco por teclado
 - [x] Preservar clique, painel completo, temas e fechamento ao sair do marcador
 - [x] Adicionar testes de conteúdo, acessibilidade e validar TypeScript
+
+## Mapa — Marcadores por tipo de obra
+- [x] Auditar tipos de obra e marcadores existentes
+- [x] Implementar paleta e ícones semânticos por tipo de obra
+- [x] Integrar legenda, hover, seleção, clusters, tema escuro e persistência
+- [x] Adicionar testes de mapeamento visual e validar TypeScript
