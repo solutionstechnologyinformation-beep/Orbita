@@ -1181,3 +1181,9 @@
 - [x] Implementar centralização e zoom automático ao selecionar um trecho no painel lateral
 - [x] Preservar destaque, visibilidade, acessibilidade e fallback para geometrias sem centro
 - [x] Adicionar testes de seleção, zoom e validação TypeScript
+
+## Mapa — Prévia dos marcadores
+- [x] Auditar marcadores, eventos e dados de contratos/trechos disponíveis
+- [x] Implementar tooltip ou prévia rápida no hover e no foco por teclado
+- [x] Preservar clique, painel completo, temas e fechamento ao sair do marcador
+- [x] Adicionar testes de conteúdo, acessibilidade e validar TypeScript

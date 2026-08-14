@@ -68,4 +68,16 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(stylesheet).toContain(".map-summary-panel");
     expect(stylesheet).toContain(".map-summary-panel-open {");
   });
+
+  it("shows a quick preview on marker hover and focus before opening full details", () => {
+    expect(dashboardSource).toContain("markerPreviewRef");
+    expect(dashboardSource).toContain("showMarkerPreview");
+    expect(dashboardSource).toContain('marker.addListener("mouseover"');
+    expect(dashboardSource).toContain('marker.addListener("mouseout"');
+    expect(dashboardSource).toContain('marker.addListener("focus"');
+    expect(dashboardSource).toContain('marker.addListener("blur"');
+    expect(dashboardSource).toContain("Clique para ver detalhes");
+    expect(dashboardSource).toContain("Clique para destacar o contrato");
+    expect(dashboardSource).toContain("closeMarkerPreview();");
+  });
 });

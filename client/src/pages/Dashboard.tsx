@@ -140,6 +140,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
   const mapAnimationTimerRef = useRef<number | null>(null);
+  const markerPreviewRef = useRef<google.maps.InfoWindow | null>(null);
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -364,6 +365,16 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
 
   const placeMarkers = useCallback((map: google.maps.Map) => {
     const g = (window as any).google.maps;
+    const closeMarkerPreview = () => {
+      markerPreviewRef.current?.close();
+      markerPreviewRef.current = null;
+    };
+    const showMarkerPreview = (anchor: google.maps.Marker, content: string) => {
+      closeMarkerPreview();
+      const preview = new g.InfoWindow({ content, disableAutoPan: true });
+      preview.open({ map, anchor });
+      markerPreviewRef.current = preview;
+    };
     // Clear old markers and imported route overlays
     markersRef.current.forEach((m) => { try { m.setMap(null); } catch {} });
     markersRef.current = [];
@@ -371,6 +382,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     segmentLinesRef.current = [];
     segmentMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
     segmentMarkersRef.current = [];
+    closeMarkerPreview();
     elementOverlayMetaRef.current.clear();
     const geocoder = new g.Geocoder();
     const bounds = new g.LatLngBounds();
@@ -473,6 +485,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               });
               const pointStyle = getImportedPointStyle(featName);
               const baseIcon: google.maps.Symbol = { path: g.SymbolPath.CIRCLE, scale: pointStyle.scale, fillColor: pointStyle.fillColor, fillOpacity: 0.95, strokeColor: pointStyle.strokeColor, strokeWeight: 1.5 };
+              const previewSurface = isDark ? "#0f172a" : "#ffffff";
+              const previewText = isDark ? "#f8fafc" : "#1e293b";
+              const previewMuted = isDark ? "#cbd5e1" : "#64748b";
+              const markerPreview = `<div style="font-family:Inter,sans-serif;background:${previewSurface};color:${previewText};padding:7px 8px;min-width:190px;max-width:250px;border-radius:8px;"><div style="font-size:12px;font-weight:800;margin-bottom:4px;">${escapeInfoWindowHtml(featName)}</div><div style="font-size:11px;color:${previewMuted};margin-bottom:3px;">Contrato: ${escapeInfoWindowHtml(segment.crsName ?? `Contrato #${segment.crsId}`)}</div><div style="font-size:11px;color:${previewMuted};">Tipo: ${escapeInfoWindowHtml(TIPO_OBRA_MAP[getSegmentTypeKey(segment)] ?? getSegmentTypeKey(segment))}</div>${getSegmentExtensionKm(segment) !== null ? `<div style="font-size:11px;color:${previewMuted};margin-top:3px;">Extensão: ${getSegmentExtensionKm(segment)!.toLocaleString("pt-BR")} km</div>` : ""}<div style="font-size:10px;color:${previewMuted};margin-top:6px;">Clique para ver detalhes</div></div>`;
               const marker = new g.Marker({
                 map,
                 position,
@@ -480,7 +496,12 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 icon: baseIcon,
               });
               elementOverlayMetaRef.current.set(featureKey, { lines: [], marker, baseIcon });
+              marker.addListener("mouseover", () => showMarkerPreview(marker, markerPreview));
+              marker.addListener("mouseout", closeMarkerPreview);
+              marker.addListener("focus", () => showMarkerPreview(marker, markerPreview));
+              marker.addListener("blur", closeMarkerPreview);
               marker.addListener("click", () => {
+                closeMarkerPreview();
                 setSelectedElementKey(featureKey);
                 map.panTo(position);
                 map.setZoom(Math.max(map.getZoom() ?? 6, 12));
@@ -533,6 +554,15 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       clusterMapPoints(points, zoom).forEach((cluster) => {
         const first = cluster.points[0];
         const isCluster = cluster.points.length > 1;
+        const contractSegments = segments.filter((segment) => segment.crsId === first.item.crsId);
+        const contractExtension = contractSegments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0);
+        const contractTypes = Array.from(new Set(contractSegments.flatMap((segment) => parseTipoObra(segment.tipoObra).map((typeKey) => TIPO_OBRA_MAP[typeKey] ?? typeKey))));
+        const previewSurface = isDark ? "#0f172a" : "#ffffff";
+        const previewText = isDark ? "#f8fafc" : "#1e293b";
+        const previewMuted = isDark ? "#cbd5e1" : "#64748b";
+        const markerPreview = isCluster
+          ? `<div style="font-family:Inter,sans-serif;background:${previewSurface};color:${previewText};padding:7px 8px;min-width:180px;border-radius:8px;"><div style="font-size:12px;font-weight:800;margin-bottom:4px;">${cluster.points.length} contratos agrupados</div><div style="font-size:11px;color:${previewMuted};">Clique para aproximar e separar os marcadores.</div></div>`
+          : `<div style="font-family:Inter,sans-serif;background:${previewSurface};color:${previewText};padding:7px 8px;min-width:190px;max-width:250px;border-radius:8px;"><div style="font-size:12px;font-weight:800;margin-bottom:4px;">${escapeInfoWindowHtml(first.item.number)} — ${escapeInfoWindowHtml(first.item.name)}</div><div style="font-size:11px;color:${previewMuted};margin-bottom:3px;">Trechos: ${contractSegments.length}</div>${contractTypes.length > 0 ? `<div style="font-size:11px;color:${previewMuted};margin-bottom:3px;">Obra: ${escapeInfoWindowHtml(contractTypes.join(", "))}</div>` : ""}<div style="font-size:11px;color:${previewMuted};">Extensão: ${contractExtension > 0 ? `${contractExtension.toLocaleString("pt-BR")} km` : "Não informada"}</div><div style="font-size:10px;color:${previewMuted};margin-top:6px;">Clique para destacar o contrato</div></div>`;
         const marker = new g.Marker({
           map,
           position: cluster.center,
@@ -554,15 +584,23 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           zIndex: isCluster ? 30 : 20,
         });
 
+        marker.addListener("mouseover", () => showMarkerPreview(marker, markerPreview));
+        marker.addListener("mouseout", closeMarkerPreview);
+        marker.addListener("focus", () => showMarkerPreview(marker, markerPreview));
+        marker.addListener("blur", closeMarkerPreview);
         if (isCluster) {
           marker.addListener("click", () => {
+            closeMarkerPreview();
             const clusterBounds = new g.LatLngBounds();
             cluster.points.forEach((point) => clusterBounds.extend(point.position));
             map.fitBounds(clusterBounds, 80);
             window.setTimeout(() => map.setZoom(Math.min((map.getZoom() ?? 6) + 2, 14)), 160);
           });
         } else {
-          marker.addListener("click", () => focusContract(first.item.crsId, first.position));
+          marker.addListener("click", () => {
+            closeMarkerPreview();
+            focusContract(first.item.crsId, first.position);
+          });
         }
         segmentMarkersRef.current.push(marker);
       });
