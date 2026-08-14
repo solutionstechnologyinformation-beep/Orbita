@@ -153,7 +153,7 @@
 - [ ] Backend: listTasks e getProjectMembers retornar company do responsável
 - [x] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
 - [x] Frontend: TaskDetail exibir empresa do responsável
-- [ ] Frontend: filtro por empresa no Kanban (chips na barra superior)
+- [x] Frontend: filtro por empresa no Kanban (chips na barra superior)
 - [ ] Frontend: filtro por empresa no Dashboard
 - [x] Frontend: campo empresa no perfil do usuário (página Profile)
 - [x] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel

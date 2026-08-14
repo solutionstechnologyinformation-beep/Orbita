@@ -10,6 +10,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { trpc } from "@/lib/trpc";
 import { matchesKanbanTaskSearch } from "../../../shared/kanban-search";
+import { getKanbanCompanyOptions, matchesKanbanCompanyFilter } from "../../../shared/kanban-company-filter";
 import { isCompletedKanbanPhase } from "../../../shared/kanban-completion";
 import { isBlockedPhaseName } from "../../../shared/kanban-block";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -332,6 +333,7 @@ export default function Kanban() {
   useEffect(() => { if (urlSearch) setSearch(urlSearch); }, [urlSearch]);
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
+  const [filterCompany, setFilterCompany] = useState("all");
 
   // Discipline selectors (max 2)
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
@@ -428,15 +430,18 @@ export default function Kanban() {
     onError: (e) => toast.error(e.message),
   });
 
+  const companyOptions = useMemo(() => getKanbanCompanyOptions(allTasks), [allTasks]);
+
   // Filter tasks
   const filteredTasks = useMemo(() => {
     return allTasks.filter((t) => {
       if (!matchesKanbanTaskSearch(t, search)) return false;
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterAssignee !== "all" && String(t.assigneeId) !== filterAssignee) return false;
+      if (!matchesKanbanCompanyFilter(t, filterCompany)) return false;
       return true;
     });
-  }, [allTasks, search, filterPriority, filterAssignee]);
+  }, [allTasks, search, filterPriority, filterAssignee, filterCompany]);
 
   // Tasks grouped by discipline then by phase
   const tasksByDiscAndPhase = useMemo(() => {
@@ -724,6 +729,17 @@ export default function Kanban() {
                     ))}
                   </SelectContent>
                 </Select>
+                {companyOptions.length > 0 && (
+                  <div className="flex max-w-full flex-wrap items-center gap-1" role="group" aria-label="Filtrar por empresa">
+                    <span className="mr-1 text-xs text-muted-foreground">Empresa:</span>
+                    <Button type="button" size="sm" variant={filterCompany === "all" ? "default" : "outline"} className="h-7 rounded-full px-2.5 text-xs" onClick={() => setFilterCompany("all")}>Todas</Button>
+                    {companyOptions.map((company) => (
+                      <Button key={company} type="button" size="sm" variant={filterCompany === company ? "default" : "outline"} className="h-7 max-w-40 rounded-full px-2.5 text-xs" onClick={() => setFilterCompany(company)} title={company}>
+                        <span className="truncate">{company}</span>
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 <div className="ml-auto flex items-center gap-2">
                   {selectedCrs?.tipoObra && (
                     <span className="text-xs px-2 py-1 rounded-full border border-border text-muted-foreground">

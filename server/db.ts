@@ -65,7 +65,7 @@ export async function deleteUser(id: number) {
 }
 export async function getAllUsers() {
   const db = await getDb();
-  const userRows = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role, avatarUrl: users.avatarUrl, avatarColor: users.avatarColor, avatarInitials: users.avatarInitials, createdAt: users.createdAt }).from(users).orderBy(asc(users.name));
+  const userRows = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role, company: users.company, avatarUrl: users.avatarUrl, avatarColor: users.avatarColor, avatarInitials: users.avatarInitials, createdAt: users.createdAt }).from(users).orderBy(asc(users.name));
   // Fetch all user disciplines in one query
   const allDiscs = await db.select({ userId: userDisciplines.userId, disciplineName: userDisciplines.disciplineName }).from(userDisciplines);
   const discByUser = new Map<number, string[]>();
