@@ -1215,7 +1215,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout title="Dashboard">
-      <div className="p-6 space-y-6 bg-gray-50 min-h-full" style={{ backgroundColor: '#ffffff' }}>
+      <div className="dashboard-page p-6 space-y-6 bg-background min-h-full">
         {isExporting && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="Gerando relatório PDF">
             <div className="flex min-w-[240px] flex-col items-center gap-3 rounded-2xl bg-white px-8 py-7 text-center shadow-2xl ring-1 ring-slate-200">

@@ -1077,3 +1077,8 @@
 - [x] Aplicar o amarelo predominante do tema claro aos textos e títulos de baixa legibilidade
 - [x] Ajustar textos e indicadores de disciplina no modo escuro com contraste acessível
 - [x] Adicionar testes de tokens, logo e contraste dos dois temas
+
+## Dashboard — Caixas no tema escuro
+- [x] Aplicar fundo escuro aos cartões e caixas de informação do Dashboard
+- [x] Ajustar caixas internas, métricas, bordas e estados vazios para o tema escuro
+- [x] Adicionar testes de tema para os cartões do Dashboard

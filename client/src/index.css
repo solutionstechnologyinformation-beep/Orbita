@@ -267,6 +267,60 @@ html.theme-transition body * {
     border: 1px solid oklch(0.91 0.005 240);
   }
 
+  /* Dark Dashboard cards use the same semantic surfaces as the active theme. */
+  .dark .dashboard-page .bg-white {
+    background-color: var(--card) !important;
+    color: var(--card-foreground);
+  }
+
+  .dark .dashboard-page .bg-gray-50,
+  .dark .dashboard-page .bg-gray-100,
+  .dark .dashboard-page .bg-slate-100,
+  .dark .dashboard-page .bg-blue-50,
+  .dark .dashboard-page .bg-emerald-50,
+  .dark .dashboard-page .bg-violet-50,
+  .dark .dashboard-page .bg-teal-50,
+  .dark .dashboard-page .bg-yellow-50,
+  .dark .dashboard-page .bg-amber-50,
+  .dark .dashboard-page .bg-red-50 {
+    background-color: color-mix(in srgb, var(--brand-accent) 18%, var(--card)) !important;
+  }
+
+  .dark .dashboard-page .border-gray-50,
+  .dark .dashboard-page .border-gray-100,
+  .dark .dashboard-page .border-gray-200,
+  .dark .dashboard-page .border-slate-200,
+  .dark .dashboard-page .border-teal-200,
+  .dark .dashboard-page .border-blue-200 {
+    border-color: var(--border) !important;
+  }
+
+  .dark .dashboard-page .text-gray-900,
+  .dark .dashboard-page .text-gray-800,
+  .dark .dashboard-page .text-gray-700,
+  .dark .dashboard-page .text-gray-600,
+  .dark .dashboard-page .text-slate-800,
+  .dark .dashboard-page .text-slate-700 {
+    color: var(--foreground) !important;
+  }
+
+  .dark .dashboard-page .text-gray-500,
+  .dark .dashboard-page .text-gray-400,
+  .dark .dashboard-page .text-slate-500,
+  .dark .dashboard-page .text-slate-400 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .dark .dashboard-page .text-emerald-800,
+  .dark .dashboard-page .text-blue-800,
+  .dark .dashboard-page .text-violet-800 {
+    color: var(--foreground) !important;
+  }
+
+  .dark .dashboard-page .hover\\:bg-gray-50:hover {
+    background-color: color-mix(in srgb, var(--brand-accent) 25%, var(--card)) !important;
+  }
+
   /* Dark theme: preserve the yellow identity for text that needs emphasis and contrast. */
   .dark .chat-activity-panel .text-gray-700,
   .dark .chat-activity-panel .text-gray-800,
