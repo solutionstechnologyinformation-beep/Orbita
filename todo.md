@@ -1257,3 +1257,8 @@
 - [x] Auditar a área de controles e as cores usadas pelos status das obras
 - [x] Implementar legenda compacta sincronizada com os status e o tema ativo
 - [x] Adicionar testes de cores e acessibilidade e validar TypeScript
+
+## Mapa — Legenda clicável como filtro
+- [x] Auditar o estado atual do filtro e da legenda visual
+- [x] Tornar os itens de status clicáveis e sincronizados com o filtro lateral e os marcadores
+- [x] Adicionar destaque ativo, suporte a teclado, aria-pressed e testes

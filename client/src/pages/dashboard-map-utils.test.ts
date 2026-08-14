@@ -196,6 +196,9 @@ describe("dashboard map work-status legend", () => {
   it("renders a labeled visual legend with the same colors used by contract markers", () => {
     expect(dashboardSource).toContain('data-map-status-legend="true"');
     expect(dashboardSource).toContain('aria-label="Legenda de status das obras"');
+    expect(dashboardSource).toContain("data-map-status-legend-filter={option.value}");
+    expect(dashboardSource).toContain("aria-pressed={active}");
+    expect(dashboardSource).toContain("onClick={() => setWorkStatusFilter(option.value)}");
     expect(dashboardSource).toContain("MAP_WORK_STATUS_COLORS");
     expect(dashboardSource).toContain('"in-progress": { color: "#2563eb"');
     expect(dashboardSource).toContain('completed: { color: "#16a34a"');
