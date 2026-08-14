@@ -841,6 +841,20 @@ type WidgetFrameProps = {
 function DashboardWidgetFrame({ group, id, label, order, draggedWidget, dragOverWidget, onDragStart, onDragOver, onDrop, onDragEnd, onKeyDown, children, className = "" }: WidgetFrameProps) {
   const isDragging = draggedWidget?.group === group && draggedWidget.id === id;
   const isDragOver = dragOverWidget?.group === group && dragOverWidget.id === id && !isDragging;
+  const [isSettling, setIsSettling] = useState(false);
+  const hasRendered = useRef(false);
+  const orderKey = order.join("|");
+
+  useEffect(() => {
+    if (!hasRendered.current) {
+      hasRendered.current = true;
+      return;
+    }
+    setIsSettling(true);
+    const timeout = window.setTimeout(() => setIsSettling(false), 280);
+    return () => window.clearTimeout(timeout);
+  }, [orderKey]);
+
   return (
     <div
       draggable
@@ -854,7 +868,7 @@ function DashboardWidgetFrame({ group, id, label, order, draggedWidget, dragOver
       onDragEnd={onDragEnd}
       onKeyDown={(event) => onKeyDown(group, id, event)}
       style={{ order: order.indexOf(id) }}
-      className={`dashboard-widget-frame relative min-w-0 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] ${isDragging ? "opacity-50" : ""} ${isDragOver ? "ring-2 ring-[#ffc30d] ring-offset-2" : ""} ${className}`}
+      className={`dashboard-widget-frame relative min-w-0 rounded-xl transition-[transform,opacity,box-shadow] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] ${isDragging ? "dashboard-widget-dragging opacity-55 scale-[0.985] shadow-lg" : ""} ${isDragOver ? "dashboard-widget-drop-target ring-2 ring-[#ffc30d] ring-offset-2" : ""} ${isSettling ? "dashboard-widget-reordered" : ""} ${className}`}
     >
       <button
         type="button"

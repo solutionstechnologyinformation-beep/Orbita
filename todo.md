@@ -1088,3 +1088,9 @@
 - [x] Exibir feedback visual e controles acessíveis durante a reordenação
 - [x] Persistir a ordem por usuário e permitir restaurar a ordem padrão
 - [x] Adicionar testes para reordenação, persistência e teclado
+
+## Dashboard — Animação da reordenação
+- [ ] Adicionar transições fluidas de posição ao mover widgets
+- [ ] Destacar visualmente o widget arrastado e o alvo da soltura
+- [ ] Respeitar prefers-reduced-motion e preservar teclado e persistência
+- [ ] Adicionar testes de estados e transições da reordenação
