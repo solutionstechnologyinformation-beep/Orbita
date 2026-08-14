@@ -336,8 +336,8 @@
 - [x] 0 erros TypeScript, 14/14 testes passando
 
 ## Próximos Passos v3.26
-- [ ] Kanban: filtro por cliente (dropdown na barra de filtros, filtra projetos e tarefas do cliente)
-- [ ] Dashboard: filtro por cliente (seletor no cabeçalho, filtra KPIs e gráficos)
+- [x] Kanban: filtro por cliente (dropdown na barra de filtros, filtra contratos e tarefas do cliente)
+- [x] Dashboard: filtro por cliente (seletor no cabeçalho, filtra KPIs e gráficos)
 - [ ] Chat: polling otimizado (refetchInterval 2s quando aba ativa, 10s em background) + indicador "digitando..."
 - [ ] Página /relatorios: painel consolidado com todos os PDFs disponíveis (Sprint, Dashboard, Chat IA)
 - [ ] /relatorios: filtros de período e projeto, prévia dos dados antes de exportar

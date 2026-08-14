@@ -16,6 +16,7 @@ import { isBlockedPhaseName } from "../../../shared/kanban-block";
 import { getKanbanPhaseDropId, parseKanbanPhaseDropId } from "../../../shared/kanban-dnd";
 import { getKanbanPhaseDisplayName } from "../../../shared/kanban-labels";
 import { isKanbanTaskCompleted, isKanbanTaskOverdue } from "../../../shared/kanban-card-state";
+import { filterKanbanCrsByClient, getKanbanClientOptions } from "../../../shared/kanban-client-filter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -343,6 +344,7 @@ export default function Kanban() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterCompany, setFilterCompany] = useState("all");
+  const [filterClient, setFilterClient] = useState("all");
 
   // Discipline selectors (max 2)
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
@@ -367,7 +369,17 @@ export default function Kanban() {
 
   // Queries
   const crsQ = trpc.crs.list.useQuery();
-  const crsItems = crsQ.data ?? [];
+  const allCrsItems: any[] = crsQ.data ?? [];
+  const clientOptions = useMemo(() => getKanbanClientOptions(allCrsItems), [allCrsItems]);
+  const crsItems = useMemo(
+    () => filterKanbanCrsByClient(allCrsItems, filterClient),
+    [allCrsItems, filterClient],
+  );
+  useEffect(() => {
+    if (selectedCrsId != null && !crsItems.some((crs) => crs.id === selectedCrsId)) {
+      setSelectedCrsId(crsItems[0]?.id ?? null);
+    }
+  }, [crsItems, selectedCrsId]);
   const selectedCrs = crsItems.find((c: any) => c.id === selectedCrsId) ?? (crsItems[0] ?? null);
   const effectiveCrsId = selectedCrs?.id ?? null;
 
@@ -650,7 +662,7 @@ export default function Kanban() {
           <>
             <SplitPanelHeader
               title="Contratos"
-              subtitle={`${crsItems.length} contrato${crsItems.length !== 1 ? 's' : ''}`}
+              subtitle={`${crsItems.length} contrato${crsItems.length !== 1 ? 's' : ''}${filterClient !== "all" ? " filtrado(s)" : ""}`}
             />
             <SplitPanelList>
               {crsQ.isLoading ? (
@@ -738,6 +750,25 @@ export default function Kanban() {
                     ))}
                   </SelectContent>
                 </Select>
+                {clientOptions.length > 0 && (
+                  <Select value={filterClient} onValueChange={setFilterClient}>
+                    <SelectTrigger className="w-44 h-8 text-sm" aria-label="Filtrar por cliente">
+                      <FolderKanban className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                      <SelectValue placeholder="Cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os clientes</SelectItem>
+                      {clientOptions.map((client) => (
+                        <SelectItem key={client.id} value={String(client.id)}>
+                          <span className="flex items-center gap-2">
+                            {client.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: client.color }} />}
+                            <span className="truncate">{client.name}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {companyOptions.length > 0 && (
                   <div className="flex max-w-full flex-wrap items-center gap-1" role="group" aria-label="Filtrar por empresa">
                     <span className="mr-1 text-xs text-muted-foreground">Empresa:</span>
