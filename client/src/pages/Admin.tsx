@@ -156,7 +156,7 @@ export default function Admin() {
 
   // Users state
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
-  const [createUserForm, setCreateUserForm] = useState({ name: "", email: "", password: "", role: "user" });
+  const [createUserForm, setCreateUserForm] = useState({ name: "", email: "", password: "", role: "user", company: "" });
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
   const [editingUserDisc, setEditingUserDisc] = useState<any>(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState<any>(null);
@@ -220,7 +220,7 @@ export default function Admin() {
     onSuccess: () => {
       utils.users.list.invalidate();
       setShowCreateUserDialog(false);
-      setCreateUserForm({ name: "", email: "", password: "", role: "user" });
+      setCreateUserForm({ name: "", email: "", password: "", role: "user", company: "" });
       toast.success("Usuário criado com senha segura.");
     },
     onError: (e) => toast.error("Erro ao criar usuário: " + e.message),
@@ -300,6 +300,7 @@ export default function Admin() {
       email,
       password: createUserForm.password,
       role: createUserForm.role as "user" | "admin" | "leader",
+      company: createUserForm.company.trim() || undefined,
     });
   };
 
@@ -471,7 +472,7 @@ export default function Admin() {
           <TabsContent value="users">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Usuários ({users.length})</h2>
-              <Button size="sm" onClick={() => { setCreateUserForm({ name: "", email: "", password: "", role: "user" }); setShowCreateUserDialog(true); }}>
+              <Button size="sm" onClick={() => { setCreateUserForm({ name: "", email: "", password: "", role: "user", company: "" }); setShowCreateUserDialog(true); }}>
                 <Plus className="w-4 h-4 mr-1" />Novo Usuário
               </Button>
             </div>
@@ -620,6 +621,10 @@ export default function Admin() {
             <div>
               <Label htmlFor="admin-user-email">E-mail *</Label>
               <Input id="admin-user-email" type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })} placeholder="usuario@empresa.com" autoComplete="email" />
+            </div>
+            <div>
+              <Label htmlFor="admin-user-company">Empresa</Label>
+              <Input id="admin-user-company" value={createUserForm.company} onChange={(e) => setCreateUserForm({ ...createUserForm, company: e.target.value })} placeholder="Nome da empresa (opcional)" autoComplete="organization" />
             </div>
             <div>
               <Label htmlFor="admin-user-password">Senha provisória *</Label>

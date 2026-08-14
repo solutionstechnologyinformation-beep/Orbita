@@ -144,10 +144,10 @@
 - [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
 ## Melhorias v3.8 — Empresa, Admin e Visualizador
-- [ ] Schema: campo company (texto) na tabela users
-- [ ] Backend: migrar banco (ALTER TABLE users ADD COLUMN company)
+- [x] Schema: campo company (texto) na tabela users
+- [x] Backend: migrar banco (ALTER TABLE users ADD COLUMN company)
 - [ ] Backend: importar upsertUser e deleteUser no routers.ts
-- [ ] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
+- [x] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
 - [ ] Backend: procedure admin.deleteUser
 - [ ] Backend: procedure profile.update aceitar campo company
 - [ ] Backend: listTasks e getProjectMembers retornar company do responsável
@@ -156,7 +156,7 @@
 - [ ] Frontend: filtro por empresa no Kanban (chips na barra superior)
 - [ ] Frontend: filtro por empresa no Dashboard
 - [ ] Frontend: campo empresa no perfil do usuário (página Profile)
-- [ ] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
+- [x] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
 - [x] Frontend Admin: botão excluir usuário com confirmação
 - [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
 - [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
