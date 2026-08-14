@@ -9,15 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { ORBITA_LOGO_URL } from "@/branding";
+import { REPORT_PALETTE, getReportRateColor } from "./report-palette";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
 
-const BLUE = "#3b82f6";
+const BLUE = REPORT_PALETTE.navy;
+const YELLOW = REPORT_PALETTE.yellow;
+const INK = REPORT_PALETTE.ink;
 const WHITE = "#ffffff";
 
 function pdfHeader(title: string, subtitle?: string) {
   return `
-    <div style="background:${BLUE};color:${WHITE};padding:28px 36px 20px;border-radius:10px 10px 0 0;">
+    <div style="background:${BLUE};color:${WHITE};padding:28px 36px 20px;border-radius:10px 10px 0 0;border-bottom:4px solid ${YELLOW};">
       <div style="display:flex;align-items:center;gap:16px;">
         <div style="width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:4px;">
           <img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:100%;height:100%;object-fit:contain;" />
@@ -36,16 +39,16 @@ function pdfHeader(title: string, subtitle?: string) {
 
 function pdfFooter() {
   return `
-    <div style="margin-top:40px;padding:14px 36px;background:${BLUE};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
+    <div style="margin-top:40px;padding:14px 36px;background:${BLUE};border-top:4px solid ${YELLOW};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
       <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:${WHITE};"><img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Orbita GIS &amp; OS</span>
       <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.55);">Relatório gerado automaticamente</span>
     </div>`;
 }
 
-function kpiBox(label: string, value: string | number, color = BLUE) {
-  return `<div style="background:#f8fafc;border-radius:8px;padding:16px 20px;text-align:center;border:1px solid #e2e8f0;">
+function kpiBox(label: string, value: string | number, color: string = BLUE) {
+  return `<div style="background:#ffffff;border-radius:8px;padding:16px 20px;text-align:center;border:1px solid #dbe3ea;box-shadow:0 2px 8px rgba(15,23,42,0.06);">
     <div style="font-size:28px;font-weight:800;color:${color};">${value}</div>
-    <div style="font-size:11px;color:#64748b;margin-top:4px;">${label}</div>
+    <div style="font-size:11px;color:#475569;margin-top:4px;">${label}</div>
   </div>`;
 }
 
@@ -54,17 +57,17 @@ function openPrint(html: string, title: string) {
   if (!w) { toast.error("Pop-up bloqueado. Permita pop-ups para exportar."); return; }
   w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
     <style>
-      body{font-family:Inter,sans-serif;margin:0;padding:24px;background:#f0f2f5;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      body{font-family:Inter,sans-serif;margin:0;padding:24px;background:#f7f8fa;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
       *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
       table{border-collapse:collapse;width:100%;}
-      th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:12px;}
-      th{background:#f1f5f9;font-weight:600;color:#475569;}
+      th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #dbe3ea;font-size:12px;}
+      th{background:#eef2f7;font-weight:700;color:#0f172a;}
       @media print{body{padding:0;background:#fff;}button{display:none!important;}}
     </style></head><body>
     <div style="max-width:960px;margin:0 auto;">
       ${html}
       <div style="text-align:center;margin-top:20px;">
-        <button onclick="window.print()" style="background:${BLUE};color:${WHITE};border:none;padding:10px 28px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;">Imprimir / Salvar PDF</button>
+        <button onclick="window.print()" style="background:${YELLOW};color:${INK};border:none;padding:10px 28px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;">Imprimir / Salvar PDF</button>
       </div>
     </div></body></html>`);
   w.document.close();
@@ -80,9 +83,9 @@ function barChartSvg(items: { label: string; value: number; color: string }[], m
     const barW = maxVal > 0 ? Math.round((item.value / maxVal) * barAreaW) : 0;
     const y = i * rowH + 4;
     return `
-      <text x="0" y="${y + barH - 5}" font-size="11" fill="#475569" font-family="Inter,sans-serif">${item.label.length > 22 ? item.label.slice(0, 22) + "…" : item.label}</text>
+      <text x="0" y="${y + barH - 5}" font-size="11" fill="#334155" font-family="Inter,sans-serif">${item.label.length > 22 ? item.label.slice(0, 22) + "…" : item.label}</text>
       <rect x="${labelW}" y="${y}" width="${Math.max(barW, 2)}" height="${barH}" rx="4" fill="${item.color}" opacity="0.85"/>
-      <text x="${labelW + barW + 6}" y="${y + barH - 5}" font-size="11" fill="#1d4ed8" font-weight="700" font-family="Inter,sans-serif">${item.value}%</text>`;
+      <text x="${labelW + barW + 6}" y="${y + barH - 5}" font-size="11" fill="#0f3b5f" font-weight="700" font-family="Inter,sans-serif">${item.value}%</text>`;
   }).join("");
   return `<svg width="${width}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">${rows}</svg>`;
 }
@@ -121,22 +124,22 @@ function burndownSvg(dataPoints: { date: string; remaining: number; ideal: numbe
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <!-- Grid lines -->
     ${[0, Math.round(totalTasks / 2), totalTasks].map(v =>
-      `<line x1="${padL}" y1="${yScale(v).toFixed(1)}" x2="${padL + w}" y2="${yScale(v).toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`
+      `<line x1="${padL}" y1="${yScale(v).toFixed(1)}" x2="${padL + w}" y2="${yScale(v).toFixed(1)}" stroke="#dbe3ea" stroke-width="1"/>`
     ).join("")}
     <!-- Ideal line (dashed) -->
     <path d="${idealPath}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,4" fill="none"/>
     <!-- Remaining line -->
-    <path d="${remainPath}" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+    <path d="${remainPath}" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
     <!-- Axes -->
-    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + h}" stroke="#cbd5e1" stroke-width="1"/>
-    <line x1="${padL}" y1="${padT + h}" x2="${padL + w}" y2="${padT + h}" stroke="#cbd5e1" stroke-width="1"/>
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + h}" stroke="#b8c4d0" stroke-width="1"/>
+    <line x1="${padL}" y1="${padT + h}" x2="${padL + w}" y2="${padT + h}" stroke="#b8c4d0" stroke-width="1"/>
     ${xLabels}
     ${yLabels}
     <!-- Legend -->
     <rect x="${padL + w - 180}" y="${padT}" width="12" height="3" rx="1" fill="#94a3b8"/>
     <text x="${padL + w - 164}" y="${padT + 7}" font-size="10" fill="#94a3b8" font-family="Inter,sans-serif">Ideal</text>
-    <rect x="${padL + w - 110}" y="${padT}" width="12" height="3" rx="1" fill="#1d4ed8"/>
-    <text x="${padL + w - 94}" y="${padT + 7}" font-size="10" fill="#1d4ed8" font-family="Inter,sans-serif">Real</text>
+    <rect x="${padL + w - 110}" y="${padT}" width="12" height="3" rx="1" fill="#0f3b5f"/>
+    <text x="${padL + w - 94}" y="${padT + 7}" font-size="10" fill="#0f3b5f" font-family="Inter,sans-serif">Real</text>
   </svg>`;
 }
 
@@ -173,7 +176,7 @@ function exportDashboardReport(projects: any[], stats: any, sprints: any[], clie
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
         ${kpiBox("Em Andamento", inprog, "#2563eb")}
         ${kpiBox("Bloqueadas", blocked, "#dc2626")}
-        ${kpiBox("Sprints Ativas", sprints.filter((s: any) => s.status === "active").length, "#7c3aed")}
+        ${kpiBox("Sprints Ativas", sprints.filter((s: any) => s.status === "active").length, "#0f172a")}
       </div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:12px;">Projetos</h3>
       <table>
@@ -197,7 +200,7 @@ function exportProjectsReport(projects: any[], clients: any[], clientName?: stri
     return {
       label: p.name,
       value: rate,
-      color: rate >= 80 ? "#16a34a" : rate >= 50 ? "#f59e0b" : "#ef4444",
+      color: getReportRateColor(rate),
     };
   }).sort((a, b) => b.value - a.value);
 
@@ -236,7 +239,7 @@ function exportProjectsReport(projects: any[], clients: any[], clientName?: stri
       </div>
 
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:16px;">Taxa de Conclusão por Projeto</h3>
-      <div style="background:#f8fafc;border-radius:10px;padding:20px 16px;border:1px solid #e2e8f0;margin-bottom:28px;overflow-x:auto;">
+      <div style="background:#ffffff;border-radius:10px;padding:20px 16px;border:1px solid #dbe3ea;margin-bottom:28px;overflow-x:auto;">
         ${barChartSvg(chartItems, 100)}
       </div>
 
@@ -289,9 +292,9 @@ function exportSprintReport(sprint: any, tasks: any[], dataPoints: any[]) {
       </div>
 
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:16px;">Burndown Chart</h3>
-      <div style="background:#f8fafc;border-radius:10px;padding:20px 16px;border:1px solid #e2e8f0;margin-bottom:28px;overflow-x:auto;">
+      <div style="background:#ffffff;border-radius:10px;padding:20px 16px;border:1px solid #dbe3ea;margin-bottom:28px;overflow-x:auto;">
         ${burndownSvg(dataPoints, total)}
-        <div style="display:flex;gap:20px;margin-top:8px;font-size:11px;color:#64748b;">
+        <div style="display:flex;gap:20px;margin-top:8px;font-size:11px;color:#475569;">
           <span>— — Linha Ideal</span>
           <span style="color:${BLUE};font-weight:600;">—— Progresso Real</span>
         </div>
@@ -310,16 +313,16 @@ function exportSprintReport(sprint: any, tasks: any[], dataPoints: any[]) {
 // ─── Blocked Tasks Report ─────────────────────────────────────────────────────
 function exportBlockedReport(blockedTasks: any[], clientName?: string) {
   const priorityLabel: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", urgent: "Urgente" };
-  const priorityColor: Record<string, string> = { low: "#64748b", medium: "#f59e0b", high: "#ef4444", urgent: "#7c3aed" };
+  const priorityColor: Record<string, string> = { low: "#475569", medium: "#ffbe00", high: "#ef4444", urgent: "#0f172a" };
 
   const rows = blockedTasks.map(t => `
     <tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:500">${t.title}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.projectName ?? "—"}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${t.assigneeName ?? "Não atribuído"}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:${priorityColor[t.priority] ?? BLUE};font-weight:600">${priorityLabel[t.priority] ?? t.priority}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#ef4444">${t.blockReason ?? "Motivo não informado"}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#94a3b8;font-size:11px">${t.statusChangedAt ? new Date(t.statusChangedAt).toLocaleDateString("pt-BR") : "—"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #dbe3ea;font-weight:500">${t.title}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #dbe3ea;color:#475569">${t.projectName ?? "—"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #dbe3ea;color:#475569">${t.assigneeName ?? "Não atribuído"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #dbe3ea;color:${priorityColor[t.priority] ?? BLUE};font-weight:600">${priorityLabel[t.priority] ?? t.priority}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #dbe3ea;color:#ef4444">${t.blockReason ?? "Motivo não informado"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #dbe3ea;color:#94a3b8;font-size:11px">${t.statusChangedAt ? new Date(t.statusChangedAt).toLocaleDateString("pt-BR") : "—"}</td>
     </tr>`).join("");
 
   const html = `
@@ -329,20 +332,20 @@ function exportBlockedReport(blockedTasks: any[], clientName?: string) {
         <div style="background:#fee2e2;color:#ef4444;border-radius:8px;padding:12px 20px;font-size:24px;font-weight:800;">${blockedTasks.length}</div>
         <div>
           <div style="font-size:16px;font-weight:700;color:${BLUE}">Tarefas Bloqueadas</div>
-          <div style="font-size:12px;color:#64748b">Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</div>
+          <div style="font-size:12px;color:#475569">Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</div>
         </div>
       </div>
       ${blockedTasks.length === 0
-        ? `<div style="text-align:center;padding:40px;color:#64748b;">Nenhuma tarefa bloqueada no momento.</div>`
+        ? `<div style="text-align:center;padding:40px;color:#475569;">Nenhuma tarefa bloqueada no momento.</div>`
         : `<table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
-          <tr style="background:#f1f5f9;">
-            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Tarefa</th>
-            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Projeto</th>
-            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Responsável</th>
-            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Prioridade</th>
-            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Motivo do Bloqueio</th>
-            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0">Bloqueado em</th>
+          <tr style="background:#eef2f7;">
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea">Tarefa</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea">Projeto</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea">Responsável</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea">Prioridade</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea">Motivo do Bloqueio</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea">Bloqueado em</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -365,11 +368,11 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
   const chartW = 820, labelW = 180, barAreaW = chartW - labelW - 70, barH = 22, gap = 10;
   const chartRows = members.map((m, i) => {
     const bw = Math.max(Math.round((m.completionRate / 100) * barAreaW), 2);
-    const color = m.completionRate >= 80 ? "#16a34a" : m.completionRate >= 50 ? "#f59e0b" : "#ef4444";
+    const color = m.completionRate >= 80 ? "#16a34a" : m.completionRate >= 50 ? "#ffbe00" : "#ef4444";
     const y = i * (barH + gap) + 4;
     const label = (m.userName ?? "?").length > 22 ? (m.userName ?? "?").slice(0, 22) + "…" : (m.userName ?? "?");
     return `
-      <text x="0" y="${y + barH - 5}" font-size="11" fill="#475569" font-family="Inter,sans-serif">${label}</text>
+      <text x="0" y="${y + barH - 5}" font-size="11" fill="#334155" font-family="Inter,sans-serif">${label}</text>
       <rect x="${labelW}" y="${y}" width="${bw}" height="${barH}" rx="4" fill="${color}" opacity="0.85"/>
       <text x="${labelW + bw + 6}" y="${y + barH - 5}" font-size="11" fill="${color}" font-weight="700" font-family="Inter,sans-serif">${m.completionRate}%</text>`;
   }).join("");
@@ -381,8 +384,8 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
     const total = m.total || 1;
     const segments = [
       { val: m.completed, color: "#16a34a" },
-      { val: m.inProgress, color: "#3b82f6" },
-      { val: m.shared, color: "#f59e0b" },
+      { val: m.inProgress, color: "#2563eb" },
+      { val: m.shared, color: "#ffbe00" },
       { val: m.blocked, color: "#ef4444" },
       { val: m.pending, color: "#94a3b8" },
     ];
@@ -396,22 +399,22 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
       return rect;
     }).join("");
     return `
-      <text x="0" y="${y + barH - 5}" font-size="11" fill="#475569" font-family="Inter,sans-serif">${label}</text>
+      <text x="0" y="${y + barH - 5}" font-size="11" fill="#334155" font-family="Inter,sans-serif">${label}</text>
       ${rects}
-      <text x="${labelW + barAreaW + 6}" y="${y + barH - 5}" font-size="11" fill="#475569" font-family="Inter,sans-serif">${m.total}</text>`;
+      <text x="${labelW + barAreaW + 6}" y="${y + barH - 5}" font-size="11" fill="#334155" font-family="Inter,sans-serif">${m.total}</text>`;
   }).join("");
   const stackSvg = `<svg width="${chartW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">${stackRows}</svg>`;
 
   const rateBar = (rate: number) =>
     `<div style="display:flex;align-items:center;gap:8px;">
-      <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-        <div style="width:${rate}%;height:100%;background:${rate >= 80 ? "#16a34a" : rate >= 50 ? "#f59e0b" : "#ef4444"};border-radius:3px;"></div>
+      <div style="flex:1;height:6px;background:#dbe3ea;border-radius:3px;overflow:hidden;">
+        <div style="width:${rate}%;height:100%;background:${getReportRateColor(rate)};border-radius:3px;"></div>
       </div>
       <span style="font-size:11px;font-weight:600;color:${rate >= 80 ? "#16a34a" : rate >= 50 ? "#854d0e" : "#991b1b"};min-width:32px;">${rate}%</span>
     </div>`;
 
   const memberRows = members.map((m, i) => `
-    <tr style="${i % 2 === 0 ? "background:#f8fafc;" : ""}">
+    <tr style="${i % 2 === 0 ? "background:#ffffff;" : ""}">
       <td style="padding:10px 12px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="width:28px;height:28px;border-radius:50%;background:${m.avatarColor ?? BLUE};color:${WHITE};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">
@@ -423,7 +426,7 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
       <td style="padding:10px 12px;text-align:center;font-weight:700;">${m.total}</td>
       <td style="padding:10px 12px;text-align:center;color:#16a34a;font-weight:600;">${m.completed}</td>
       <td style="padding:10px 12px;text-align:center;color:#2563eb;">${m.inProgress}</td>
-      <td style="padding:10px 12px;text-align:center;color:#f59e0b;">${m.shared}</td>
+      <td style="padding:10px 12px;text-align:center;color:#ffbe00;">${m.shared}</td>
       <td style="padding:10px 12px;text-align:center;color:#ef4444;">${m.blocked}</td>
       <td style="padding:10px 12px;text-align:center;color:#dc2626;">${m.overdue}</td>
       <td style="padding:10px 12px;min-width:140px;">${rateBar(m.completionRate)}</td>
@@ -440,32 +443,32 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
         ${kpiBox("Bloqueadas / Atrasadas", totalBlocked + " / " + totalOverdue, "#dc2626")}
       </div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:8px;">Taxa de Conclusão por Membro</h3>
-      <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:24px;overflow:hidden;">
+      <div style="background:#ffffff;border-radius:8px;padding:16px;margin-bottom:24px;overflow:hidden;">
         ${chartSvg}
       </div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:4px;">Distribuição de Status por Membro</h3>
       <div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap;">
-        <span style="font-size:11px;color:#475569;"><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;margin-right:4px;"></span>Concluídas</span>
-        <span style="font-size:11px;color:#475569;"><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-right:4px;"></span>Em Andamento</span>
-        <span style="font-size:11px;color:#475569;"><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;margin-right:4px;"></span>Compartilhado</span>
-        <span style="font-size:11px;color:#475569;"><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;"></span>Bloqueadas</span>
-        <span style="font-size:11px;color:#475569;"><span style="display:inline-block;width:10px;height:10px;background:#94a3b8;border-radius:2px;margin-right:4px;"></span>Pendentes</span>
+        <span style="font-size:11px;color:#334155;"><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;margin-right:4px;"></span>Concluídas</span>
+        <span style="font-size:11px;color:#334155;"><span style="display:inline-block;width:10px;height:10px;background:#2563eb;border-radius:2px;margin-right:4px;"></span>Em Andamento</span>
+        <span style="font-size:11px;color:#334155;"><span style="display:inline-block;width:10px;height:10px;background:#ffbe00;border-radius:2px;margin-right:4px;"></span>Compartilhado</span>
+        <span style="font-size:11px;color:#334155;"><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;"></span>Bloqueadas</span>
+        <span style="font-size:11px;color:#334155;"><span style="display:inline-block;width:10px;height:10px;background:#94a3b8;border-radius:2px;margin-right:4px;"></span>Pendentes</span>
       </div>
-      <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:24px;overflow:hidden;">
+      <div style="background:#ffffff;border-radius:8px;padding:16px;margin-bottom:24px;overflow:hidden;">
         ${stackSvg}
       </div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:12px;">Detalhamento Individual</h3>
       <table style="border-collapse:collapse;width:100%;">
         <thead>
-          <tr style="background:#f1f5f9;">
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Membro</th>
-            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Total</th>
-            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Concluídas</th>
-            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Em Andamento</th>
-            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Compartilhado</th>
-            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Bloqueadas</th>
-            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Atrasadas</th>
-            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Taxa de Conclusão</th>
+          <tr style="background:#eef2f7;">
+            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Membro</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Total</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Concluídas</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Em Andamento</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Compartilhado</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Bloqueadas</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Atrasadas</th>
+            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Taxa de Conclusão</th>
           </tr>
         </thead>
         <tbody>${memberRows}</tbody>
@@ -494,38 +497,38 @@ function exportAnnualReport(data: any, clientName?: string) {
       const yC = yScaleM(m.created); const yD = yScaleM(m.completed);
       const hC = mH - padB - yC; const hD = mH - padB - yD;
       return `<rect x="${x}" y="${yC}" width="${barW}" height="${Math.max(hC, 1)}" rx="2" fill="#93c5fd"/>
-        <rect x="${x + barW + 2}" y="${yD}" width="${barW}" height="${Math.max(hD, 1)}" rx="2" fill="#1d4ed8"/>
+        <rect x="${x + barW + 2}" y="${yD}" width="${barW}" height="${Math.max(hD, 1)}" rx="2" fill="#0f3b5f"/>
         <text x="${x + barW}" y="${mH - 10}" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif">${m.monthName}</text>`;
     }).join('')}
-    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${mH - padB}" stroke="#e2e8f0" stroke-width="1"/>
-    <line x1="${padL}" y1="${mH - padB}" x2="${mW - padR}" y2="${mH - padB}" stroke="#e2e8f0" stroke-width="1"/>
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${mH - padB}" stroke="#dbe3ea" stroke-width="1"/>
+    <line x1="${padL}" y1="${mH - padB}" x2="${mW - padR}" y2="${mH - padB}" stroke="#dbe3ea" stroke-width="1"/>
     <rect x="${mW - 160}" y="${padT}" width="10" height="10" rx="2" fill="#93c5fd"/>
-    <text x="${mW - 146}" y="${padT + 9}" font-size="10" fill="#475569" font-family="Inter,sans-serif">Criadas</text>
-    <rect x="${mW - 90}" y="${padT}" width="10" height="10" rx="2" fill="#1d4ed8"/>
-    <text x="${mW - 76}" y="${padT + 9}" font-size="10" fill="#475569" font-family="Inter,sans-serif">Concluídas</text>
+    <text x="${mW - 146}" y="${padT + 9}" font-size="10" fill="#334155" font-family="Inter,sans-serif">Criadas</text>
+    <rect x="${mW - 90}" y="${padT}" width="10" height="10" rx="2" fill="#0f3b5f"/>
+    <text x="${mW - 76}" y="${padT + 9}" font-size="10" fill="#334155" font-family="Inter,sans-serif">Concluídas</text>
   </svg>`;
 
   // Tasks by contract rows
   const crsRows = (tasksByCrs ?? []).slice(0, 20).map((c: any, i: number) => `
-    <tr style="${i % 2 === 0 ? 'background:#f8fafc;' : ''}">
-      <td style="padding:8px 12px;font-weight:500;">${c.crsCode ? `<span style="color:#64748b;font-size:10px;margin-right:6px;">${c.crsCode}</span>` : ''}${c.crsName}</td>
-      <td style="padding:8px 12px;color:#475569;">${c.clientName}</td>
+    <tr style="${i % 2 === 0 ? 'background:#ffffff;' : ''}">
+      <td style="padding:8px 12px;font-weight:500;">${c.crsCode ? `<span style="color:#475569;font-size:10px;margin-right:6px;">${c.crsCode}</span>` : ''}${c.crsName}</td>
+      <td style="padding:8px 12px;color:#334155;">${c.clientName}</td>
       <td style="padding:8px 12px;text-align:center;font-weight:600;">${c.totalTasks}</td>
       <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:600;">${c.completedTasks}</td>
       <td style="padding:8px 12px;text-align:center;color:#ef4444;">${c.overdueTasks}</td>
       <td style="padding:8px 12px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-            <div style="width:${c.progress}%;height:100%;background:${c.progress >= 80 ? '#16a34a' : c.progress >= 50 ? '#3b82f6' : '#f59e0b'};border-radius:3px;"></div>
+          <div style="flex:1;height:6px;background:#dbe3ea;border-radius:3px;overflow:hidden;">
+            <div style="width:${c.progress}%;height:100%;background:${c.progress >= 80 ? '#16a34a' : c.progress >= 50 ? '#2563eb' : '#ffbe00'};border-radius:3px;"></div>
           </div>
-          <span style="font-size:11px;font-weight:600;color:#1d4ed8;min-width:30px;">${c.progress}%</span>
+          <span style="font-size:11px;font-weight:600;color:#0f3b5f;min-width:30px;">${c.progress}%</span>
         </div>
       </td>
     </tr>`).join('');
 
   // Member stats rows
   const memberRows2 = (memberStats ?? []).slice(0, 15).map((m: any, i: number) => `
-    <tr style="${i % 2 === 0 ? 'background:#f8fafc;' : ''}">
+    <tr style="${i % 2 === 0 ? 'background:#ffffff;' : ''}">
       <td style="padding:8px 12px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="width:26px;height:26px;border-radius:50%;background:${BLUE};color:${WHITE};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${(m.userName ?? '?').slice(0, 2).toUpperCase()}</div>
@@ -537,8 +540,8 @@ function exportAnnualReport(data: any, clientName?: string) {
       <td style="padding:8px 12px;text-align:center;color:#ef4444;">${m.overdueTasks}</td>
       <td style="padding:8px 12px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-            <div style="width:${m.completionRate}%;height:100%;background:${m.completionRate >= 80 ? '#16a34a' : m.completionRate >= 50 ? '#f59e0b' : '#ef4444'};border-radius:3px;"></div>
+          <div style="flex:1;height:6px;background:#dbe3ea;border-radius:3px;overflow:hidden;">
+            <div style="width:${m.completionRate}%;height:100%;background:${m.completionRate >= 80 ? '#16a34a' : m.completionRate >= 50 ? '#ffbe00' : '#ef4444'};border-radius:3px;"></div>
           </div>
           <span style="font-size:11px;font-weight:600;min-width:30px;">${m.completionRate}%</span>
         </div>
@@ -555,33 +558,33 @@ function exportAnnualReport(data: any, clientName?: string) {
         ${kpiBox('Taxa de Conclusão', summary.completionRate + '%', summary.completionRate >= 70 ? '#16a34a' : '#dc2626')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
-        ${kpiBox('Em Andamento', summary.inProgressTasks, '#3b82f6')}
-        ${kpiBox('Pendentes', summary.pendingTasks, '#f59e0b')}
+        ${kpiBox('Em Andamento', summary.inProgressTasks, '#2563eb')}
+        ${kpiBox('Pendentes', summary.pendingTasks, '#ffbe00')}
         ${kpiBox('Em Atraso', summary.overdueTasks, '#ef4444')}
       </div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:8px;">Tendência Mensal de Tarefas</h3>
-      <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:28px;">${monthlySvg}</div>
+      <div style="background:#ffffff;border-radius:8px;padding:16px;margin-bottom:28px;">${monthlySvg}</div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:12px;">Tarefas por Contrato</h3>
       <table style="border-collapse:collapse;width:100%;margin-bottom:28px;">
-        <thead><tr style="background:#f1f5f9;">
-          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Contrato</th>
-          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Cliente</th>
-          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Total</th>
-          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Concluídas</th>
-          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Em Atraso</th>
-          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Progresso</th>
+        <thead><tr style="background:#eef2f7;">
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Contrato</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Cliente</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Total</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Concluídas</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Em Atraso</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Progresso</th>
         </tr></thead>
         <tbody>${crsRows}</tbody>
       </table>
       ${(memberStats ?? []).length > 0 ? `
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:12px;">Desempenho por Membro</h3>
       <table style="border-collapse:collapse;width:100%;">
-        <thead><tr style="background:#f1f5f9;">
-          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Membro</th>
-          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Total</th>
-          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Concluídas</th>
-          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Em Atraso</th>
-          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;">Taxa</th>
+        <thead><tr style="background:#eef2f7;">
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Membro</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Total</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Concluídas</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Em Atraso</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#334155;border-bottom:2px solid #dbe3ea;">Taxa</th>
         </tr></thead>
         <tbody>${memberRows2}</tbody>
       </table>` : ''}

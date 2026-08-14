@@ -39,7 +39,7 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const margin = 20;
   const maxW = pageW - margin * 2;
 
-  doc.setFillColor(21, 97, 173);
+  doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, pageW, 20, "F");
   drawOrbitaPdfMark(doc, margin, 5);
   doc.setTextColor(255, 255, 255);
@@ -48,10 +48,10 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   doc.text("Orbita GIS & OS", margin + 13, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(200, 225, 255);
+  doc.setTextColor(255, 220, 120);
   doc.text("— Análise IA", margin + 57, 11.5);
   if (projectName) {
-    doc.setTextColor(29, 186, 180);
+    doc.setTextColor(255, 190, 0);
     doc.text(projectName, pageW - margin, 11.5, { align: "right" });
   }
 
@@ -81,12 +81,12 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const totalPages = (doc.internal as any).getNumberOfPages();
   for (let pg = 1; pg <= totalPages; pg++) {
     doc.setPage(pg);
-    doc.setFillColor(21, 97, 173);
+    doc.setFillColor(15, 23, 42);
     doc.rect(0, doc.internal.pageSize.getHeight() - 10, pageW, 10, "F");
-    doc.setTextColor(200, 225, 255);
+    doc.setTextColor(255, 190, 0);
     doc.setFontSize(7);
     doc.text("Orbita — Plataforma de Gestão de Projetos", margin, doc.internal.pageSize.getHeight() - 3.5);
-    doc.setTextColor(29, 186, 180);
+    doc.setTextColor(255, 190, 0);
     doc.text(`Pág. ${pg}/${totalPages}`, pageW - margin, doc.internal.pageSize.getHeight() - 3.5, { align: "right" });
   }
   doc.save(`orbita-analise-${Date.now()}.pdf`);

@@ -962,3 +962,4 @@
 - [x] Orbita AI: adicionar efeito de hover suave e acessível aos cartões de sugestão rápida
 - [x] Orbita: adicionar botão global de tema claro/escuro, persistência da preferência e transição suave de cores
 - [x] Orbita: detectar prefers-color-scheme do sistema para definir o tema inicial quando não houver preferência manual salva
+- [x] Relatórios: atualizar a paleta exportada para amarelo institucional, azul-marinho, preto e verde de status

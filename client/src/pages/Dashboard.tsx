@@ -699,34 +699,34 @@ export default function Dashboard() {
 <title>Dashboard Orbita</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #f8fafc; color: #1e293b; }
-  .header { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
+  .header { background: #0f172a; border-bottom: 4px solid #ffbe00; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
   .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
   .body { padding: 28px 36px; }
-  .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #1d4ed8; padding-left: 10px; margin: 24px 0 12px; }
+  .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #ffbe00; padding-left: 10px; margin: 24px 0 12px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .card { background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 16px; }
+  .card { background: white; border-radius: 10px; border: 1px solid #dbe3ea; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
   .card-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   .card-value { font-size: 28px; font-weight: 800; color: #0f172a; }
   .card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-  .sla-bar-bg { background: #e2e8f0; border-radius: 6px; height: 8px; margin: 8px 0; }
+  .sla-bar-bg { background: #dbe3ea; border-radius: 6px; height: 8px; margin: 8px 0; }
   .sla-bar { height: 8px; border-radius: 6px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .green { color: #16a34a; } .yellow { color: #d97706; } .red { color: #dc2626; }
-  .bg-green { background: #22c55e; } .bg-yellow { background: #f59e0b; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
+  .bg-green { background: #22c55e; } .bg-yellow { background: #ffbe00; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { background: #0f172a; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; }
-  tr:nth-child(even) td { background: #f8fafc; }
+  td { padding: 7px 12px; border-bottom: 1px solid #eef2f7; }
+  tr:nth-child(even) td { background: #f7f8fa; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
   .assignee-chart { padding: 18px; }
   .assignee-chart-row { display: grid; grid-template-columns: 150px 1fr 82px; align-items: center; gap: 12px; margin: 10px 0; }
   .assignee-chart-label { color: #334155; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .assignee-chart-track { background: #e2e8f0; border-radius: 999px; height: 12px; overflow: hidden; }
+  .assignee-chart-track { background: #dbe3ea; border-radius: 999px; height: 12px; overflow: hidden; }
   .assignee-chart-fill { height: 100%; border-radius: 999px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .assignee-chart-value { color: #475569; font-size: 11px; text-align: right; white-space: nowrap; }
-  .footer { background: #0f172a; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .footer { background: #0f172a; border-top: 4px solid #ffbe00; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
   @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
@@ -816,7 +816,7 @@ export default function Dashboard() {
             <button
               onClick={exportDashboardPDF}
               disabled={isExporting}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-lg shadow-sm transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-950 bg-[#ffbe00] hover:bg-[#eab000] disabled:opacity-60 rounded-lg shadow-sm transition-all"
             >
               <FileDown className="w-4 h-4" />
               {isExporting ? "Exportando..." : "Exportar PDF"}

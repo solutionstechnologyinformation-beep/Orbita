@@ -244,27 +244,27 @@ export default function Sprints() {
   <title>Relatório Sprint — ${selectedSprint.name}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 32px; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #3b82f6; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 3px solid rgba(0,0,0,0.1); }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; background: #f7f8fa; padding: 32px; }
+    .header { display: flex; align-items: center; justify-content: space-between; background: #0f172a; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 4px solid #ffbe00; }
     .logo { width: 48px; height: 48px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
     .logo span { color: #ffffff; }
-    .subtitle { font-size: 11px; color: rgba(0,0,0,0.55); margin-top: 2px; }
+    .subtitle { font-size: 11px; color: #ffdc78; margin-top: 2px; }
     h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-    .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
+    .kpi { background: #ffffff; border: 1px solid #dbe3ea; border-radius: 8px; padding: 14px; text-align: center; box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
     .kpi-value { font-size: 28px; font-weight: 800; }
     .kpi-label { font-size: 11px; color: #64748b; margin-top: 2px; }
     .kpi-completed .kpi-value { color: #22c55e; }
-    .kpi-progress .kpi-value { color: #3b82f6; }
-    .kpi-blocked .kpi-value { color: #ef4444; }
-    .kpi-rate .kpi-value { color: #3b82f6; }
-    .progress-bar { background: #e2e8f0; border-radius: 99px; height: 10px; margin: 8px 0 20px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #3b82f6, #3b82f6); }
+    .kpi-progress .kpi-value { color: #0f3b5f; }
+    .kpi-blocked .kpi-value { color: #dc2626; }
+    .kpi-rate .kpi-value { color: #0f3b5f; }
+    .progress-bar { background: #dbe3ea; border-radius: 99px; height: 10px; margin: 8px 0 20px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; background: #ffbe00; }
     section { margin-bottom: 24px; }
-    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #334155; border-left: 3px solid #3b82f6; padding-left: 8px; }
+    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #0f172a; border-left: 3px solid #ffbe00; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { background: #f1f5f9; padding: 6px 8px; text-align: left; border: 1px solid #e2e8f0; font-weight: 600; color: #475569; }
+    th { background: #eef2f7; padding: 6px 8px; text-align: left; border: 1px solid #dbe3ea; font-weight: 700; color: #0f172a; }
     .footer { margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
     @media print { body { padding: 20px; } }
   </style>
@@ -357,8 +357,8 @@ export default function Sprints() {
     <svg width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
       ${yLabels}
       <path d="${idealPath}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4"/>
-      <path d="${remainingPath}" fill="none" stroke="#6366f1" stroke-width="2.5"/>
-      ${pts.map((p: any, i: number) => `<circle cx="${padL + i * xStep}" cy="${padT + yScale(p.remaining ?? 0)}" r="3" fill="#6366f1"/>`).join('')}
+      <path d="${remainingPath}" fill="none" stroke="#0f3b5f" stroke-width="2.5"/>
+      ${pts.map((p: any, i: number) => `<circle cx="${padL + i * xStep}" cy="${padT + yScale(p.remaining ?? 0)}" r="3" fill="#0f3b5f"/>`).join('')}
       ${xLabels}
       <text x="${padL + chartW / 2}" y="${svgH}" text-anchor="middle" font-size="10" fill="#94a3b8">Data</text>
       <text x="14" y="${padT + chartH / 2}" text-anchor="middle" font-size="10" fill="#94a3b8" transform="rotate(-90 14 ${padT + chartH / 2})">Tarefas</text>
@@ -371,9 +371,9 @@ export default function Sprints() {
   </section>`;
       })() : ''}
 
-  <div style="margin-top:32px;padding:12px 24px;background:#3b82f6;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
+  <div style="margin-top:32px;padding:12px 24px;background:#0f172a;border-top:4px solid #ffbe00;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
     <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#ffffff;"><img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Orbita GIS &amp; OS</span>
-    <span style="margin-left:auto;font-size:11px;color:rgba(0,0,0,0.55);">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
+    <span style="margin-left:auto;font-size:11px;color:#ffdc78;">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>
 </html>`;
