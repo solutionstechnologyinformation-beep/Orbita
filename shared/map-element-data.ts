@@ -117,6 +117,10 @@ export function getMapElementPanelState(isLoading: boolean, segmentCount: number
   return segmentCount > 0 ? "ready" : "empty";
 }
 
+export function getMapElementFocusZoom(currentZoom: number | null | undefined, minimumZoom: number): number {
+  return Math.max(currentZoom ?? 6, minimumZoom);
+}
+
 export function getNextMapElementVisibleCount(currentCount: number, totalCount: number, pageSize = 8): number {
   if (totalCount <= 0) return 0;
   return Math.min(Math.max(currentCount, 0) + Math.max(pageSize, 1), totalCount);

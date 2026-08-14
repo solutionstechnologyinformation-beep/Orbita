@@ -146,3 +146,13 @@ describe("map element attributes", () => {
     expect(parseMapElementAttributes(null)).toEqual([]);
   });
 });
+
+
+describe("map element focus zoom", () => {
+  it("preserva zoom maior e aplica zoom mínimo quando necessário", async () => {
+    const { getMapElementFocusZoom } = await import("../shared/map-element-data");
+    expect(getMapElementFocusZoom(undefined, 10)).toBe(10);
+    expect(getMapElementFocusZoom(6, 12)).toBe(12);
+    expect(getMapElementFocusZoom(15, 12)).toBe(15);
+  });
+});

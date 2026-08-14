@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -255,6 +255,19 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     let pending = locations.length;
     const contractPoints = new Map<number, { latTotal: number; lngTotal: number; pointCount: number; name: string }>();
     const segmentLineMeta: Array<{ line: google.maps.Polyline; crsId: number; baseColor: string }> = [];
+    const attachElementFocusAction = (infoWindow: google.maps.InfoWindow, featureKey: string, position: google.maps.LatLngLiteral, minimumZoom: number, anchor?: google.maps.Marker) => {
+      window.setTimeout(() => {
+        const button = document.querySelector(`[data-map-focus="${featureKey}"]`) as HTMLButtonElement | null;
+        if (!button || button.dataset.focusBound === "true") return;
+        button.dataset.focusBound = "true";
+        button.addEventListener("click", () => {
+          map.panTo(position);
+          map.setZoom(getMapElementFocusZoom(map.getZoom(), minimumZoom));
+          infoWindow.setPosition(position);
+          infoWindow.open(anchor ? { map, anchor } : { map });
+        });
+      }, 150);
+    };
 
     if (zoomListenerRef.current) {
       zoomListenerRef.current.remove();
@@ -297,7 +310,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   <div style="font-size:12px;color:#475569;margin-bottom:3px;">Tipo: <strong>${escapeInfoWindowHtml(TIPO_OBRA_MAP[typeKey] ?? typeKey)}</strong></div>
                   ${attributesHtml}
                   <div style="font-size:12px;color:#475569;">Extensão: <strong>${extension !== null ? `${extension.toLocaleString("pt-BR")} km` : "Não informada"}</strong></div>
-                  <button data-segment-crs="${segment.crsId}" style="margin-top:8px;border:0;border-radius:6px;background:#2563eb;color:#fff;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;">Abrir contrato</button>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;"><button data-map-focus="${featureKey}" style="border:0;border-radius:6px;background:#f59e0b;color:#422006;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">Centralizar e aproximar</button><button data-segment-crs="${segment.crsId}" style="border:0;border-radius:6px;background:#2563eb;color:#fff;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;">Abrir contrato</button></div>
                 </div>`,
               });
               const line = new g.Polyline({ map, path, geodesic: true, strokeColor, strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
@@ -311,6 +324,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 map.setZoom(Math.max(map.getZoom() ?? 6, 10));
                 infoWindow.setPosition(path[Math.floor(path.length / 2)]);
                 infoWindow.open({ map });
+                attachElementFocusAction(infoWindow, featureKey, path[Math.floor(path.length / 2)], 10);
                 setTimeout(() => {
                   const button = document.querySelector(`[data-segment-crs="${segment.crsId}"]`);
                   button?.addEventListener("click", () => { infoWindow.close(); onNavigate(`/kanban?crs=${segment.crsId}`); });
@@ -330,6 +344,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${escapeInfoWindowHtml(featDesc)}</div>` : ""}
                   <div style="font-size:11px;color:#64748b;">Arquivo: ${escapeInfoWindowHtml(segment.name)}</div>
                   ${attributesHtml}
+                  <button data-map-focus="${featureKey}" style="margin-top:8px;border:0;border-radius:6px;background:#f59e0b;color:#422006;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">Centralizar e aproximar</button>
                 </div>`,
               });
               const pointStyle = getImportedPointStyle(featName);
@@ -346,6 +361,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 map.panTo(position);
                 map.setZoom(Math.max(map.getZoom() ?? 6, 12));
                 infoWindow.open({ map, anchor: marker });
+                attachElementFocusAction(infoWindow, featureKey, position, 12, marker);
               });
               segmentMarkersRef.current.push(marker);
             }

@@ -1005,3 +1005,5 @@
 - [x] Mapa KML/KMZ: exibir skeleton loader enquanto os elementos importados são processados inicialmente
 
 - [x] Mapa KML/KMZ: exibir atributos completos em balão de informação ao clicar em ponto ou trecho
+
+- [x] Mapa KML/KMZ: adicionar botão no balão para centralizar e aproximar o mapa no elemento selecionado
