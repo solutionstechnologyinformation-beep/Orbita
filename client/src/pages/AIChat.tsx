@@ -20,6 +20,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import jsPDF from "jspdf";
 
 // ── Export last AI response as PDF ───────────────────────────────────────────
+function drawOrbitaPdfMark(doc: jsPDF, x: number, y: number) {
+  doc.setFillColor(255, 190, 0);
+  doc.circle(x + 5, y + 5, 4.5, "F");
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.9);
+  doc.circle(x + 5, y + 5, 3.4, "S");
+  doc.setFillColor(15, 23, 42);
+  doc.circle(x + 5, y + 5, 1.2, "F");
+}
+
 function exportLastResponseToPDF(history: any[], projectName?: string) {
   const lastAI = [...history].reverse().find((m: any) => m.role === "assistant");
   if (!lastAI) { toast.error("Nenhuma resposta da IA para exportar."); return; }
@@ -31,14 +41,15 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
 
   doc.setFillColor(21, 97, 173);
   doc.rect(0, 0, pageW, 20, "F");
+  drawOrbitaPdfMark(doc, margin, 5);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Orbita", margin, 11.5);
+  doc.text("Orbita GIS & OS", margin + 13, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(200, 225, 255);
-  doc.text("— Análise IA", margin + 33, 11.5);
+  doc.text("— Análise IA", margin + 57, 11.5);
   if (projectName) {
     doc.setTextColor(29, 186, 180);
     doc.text(projectName, pageW - margin, 11.5, { align: "right" });
