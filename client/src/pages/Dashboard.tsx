@@ -2021,7 +2021,7 @@ export default function Dashboard() {
                         <span className={`text-4xl font-bold ${colorMap[color]}`}>
                           {pct !== null && pct !== undefined ? `${pct}%` : "—"}
                         </span>
-                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} series={slaSparklineData} />
+                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} series={slaSparklineData} seriesLabels={["Anterior", "Atual"]} />
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
                         <div

@@ -224,6 +224,44 @@ html.theme-transition body * {
   background: var(--popover);
   color: var(--popover-foreground);
   border: 1px solid var(--border);
+  pointer-events: auto;
+}
+
+.dashboard-trend-sparkline-trigger {
+  background: color-mix(in srgb, var(--muted) 38%, transparent);
+  cursor: zoom-in;
+  transition: background-color 160ms ease-out, transform 160ms ease-out;
+}
+
+.dashboard-trend-sparkline-trigger:hover {
+  background: color-mix(in srgb, var(--brand-highlight) 12%, var(--muted));
+  transform: translateY(-1px);
+}
+
+.dashboard-trend-grid-line {
+  stroke: color-mix(in srgb, var(--border) 80%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.dashboard-trend-axis-label {
+  fill: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.dashboard-trend-chart-tooltip {
+  fill: var(--popover);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.dashboard-trend-chart-tooltip-text {
+  fill: var(--popover-foreground);
+  font-size: 10px;
+}
+
+.dashboard-trend-chart-tooltip-value {
+  font-weight: 700;
 }
 
 .dashboard-trend-period-control {
@@ -262,7 +300,8 @@ html.theme-transition body * {
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-trend-tooltip svg,
-  .dashboard-trend-tooltip circle {
+  .dashboard-trend-tooltip circle,
+  .dashboard-trend-sparkline-trigger {
     animation: none !important;
     transition: none !important;
   }

@@ -1112,3 +1112,9 @@
 - [x] Integrar sparklines aos tooltips de tendência flutuantes
 - [x] Conectar dados reais de série histórica por período aos sparklines
 - [x] Adicionar testes de renderização, temas e acessibilidade
+
+## Dashboard — Modal detalhado do sparkline
+- [x] Criar gráfico detalhado interativo para a série histórica
+- [x] Abrir modal ao clicar ou focar no sparkline do tooltip
+- [x] Preservar período, tema, acessibilidade e navegação por teclado
+- [x] Adicionar testes do gráfico, modal e interação

@@ -14,12 +14,13 @@ describe("dashboard sparkline", () => {
 
   it("renders the historical series inside the trend tooltip", () => {
     expect(indicatorSource).toContain("series.length >= 2");
-    expect(indicatorSource).toContain("<DashboardSparkline data={series}");
+    expect(indicatorSource).toContain("<DashboardTrendDetailDialog");
+    expect(indicatorSource).toContain("data={series}");
     expect(indicatorSource).toContain("Série histórica insuficiente.");
   });
 
   it("keeps the visualization decorative while exposing context through the tooltip", () => {
     expect(sparklineSource).toContain('aria-hidden="true"');
-    expect(indicatorSource).toContain("aria-label={`Série histórica de ${label}`}");
+    expect(indicatorSource).toContain('aria-label={`${label}: ${description}`}');
   });
 });

@@ -1,7 +1,7 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { formatTrendDescription, getTrendPresentation } from "./dashboard-trend-utils";
 import { TREND_COMPARISON_PERIOD_LABELS, TREND_COMPARISON_PERIODS, type TrendComparisonPeriod } from "./dashboard-trend-period";
-import { DashboardSparkline } from "./DashboardSparkline";
+import { DashboardTrendDetailDialog } from "./DashboardTrendDetailDialog";
 
 type DashboardTrendIndicatorProps = {
   value?: number | null;
@@ -10,6 +10,7 @@ type DashboardTrendIndicatorProps = {
   label: string;
   positiveWhenUp?: boolean;
   series?: number[];
+  seriesLabels?: string[];
 };
 
 type DashboardTrendPeriodSelectProps = {
@@ -43,6 +44,7 @@ export function DashboardTrendIndicator({
   label,
   positiveWhenUp = true,
   series = [],
+  seriesLabels = [],
 }: DashboardTrendIndicatorProps) {
   const presentation = getTrendPresentation(value, positiveWhenUp);
   const description = formatTrendDescription(value, suffix, period);
@@ -70,9 +72,14 @@ export function DashboardTrendIndicator({
         <span className="block text-[10px] uppercase tracking-wide opacity-70">Tendência · {label}</span>
         <span className="mt-0.5 block">{description}</span>
         {series.length >= 2 ? (
-          <span className="mt-2 block" aria-label={`Série histórica de ${label}`}>
-            <DashboardSparkline data={series} color={presentation.tone === "negative" ? "#ef4444" : presentation.tone === "positive" ? "#22c55e" : "#94a3b8"} />
-          </span>
+          <DashboardTrendDetailDialog
+            data={series}
+            label={label}
+            period={period}
+            labels={seriesLabels}
+            valueSuffix={suffix}
+            color={presentation.tone === "negative" ? "#ef4444" : presentation.tone === "positive" ? "#22c55e" : "#94a3b8"}
+          />
         ) : (
           <span className="mt-2 block text-[10px] opacity-70">Série histórica insuficiente.</span>
         )}
