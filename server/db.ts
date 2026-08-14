@@ -139,10 +139,11 @@ export async function getCrsByClient(clientId: number) {
   const db = await getDb();
   return db.select().from(crs).where(and(eq(crs.clientId, clientId), eq(crs.status, "active"))).orderBy(asc(crs.name));
 }
-export async function getAllCrs(company?: string) {
+export async function getAllCrs(company?: string, clientId?: number) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const conditions: any[] = [eq(crs.status, "active")];
+  if (clientId != null) conditions.push(eq(crs.clientId, clientId));
   if (normalizedCompany) {
     const assignedRows = await db.select({ crsId: tasks.crsId })
       .from(tasks)
@@ -164,11 +165,12 @@ export async function getAllCrs(company?: string) {
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(and(...conditions)).orderBy(asc(crs.name));
 }
-export async function getCrsSegments(crsId?: number, company?: string) {
+export async function getCrsSegments(crsId?: number, company?: string, clientId?: number) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const conditions: any[] = [];
   if (crsId != null) conditions.push(eq(crsSegments.crsId, crsId));
+  if (clientId != null) conditions.push(eq(crs.clientId, clientId));
   if (normalizedCompany) {
     const assignedRows = await db.select({ crsId: tasks.crsId })
       .from(tasks)
@@ -668,10 +670,11 @@ export async function getDashboardCompanies() {
   return Array.from(new Set(rows.map((row: { company: string | null }) => row.company?.trim()).filter((company: string | undefined): company is string => Boolean(company))));
 }
 
-export async function getContractsByState(company?: string) {
+export async function getContractsByState(company?: string, clientId?: number) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const conditions: any[] = [eq(crs.status, "active")];
+  if (clientId != null) conditions.push(eq(crs.clientId, clientId));
   if (normalizedCompany) {
     const assignedRows = await db.select({ crsId: tasks.crsId })
       .from(tasks)
@@ -805,7 +808,7 @@ export async function getDashboardStats(clientId?: number, company?: string) {
   };
 }
 
-export async function getClientProgress(company?: string) {
+export async function getClientProgress(company?: string, clientId?: number) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const companyCrsIds: number[] | undefined = normalizedCompany
@@ -817,6 +820,13 @@ export async function getClientProgress(company?: string) {
       .filter((id: number) => Number.isInteger(id) && id > 0))) as number[]
     : undefined;
   if (normalizedCompany && companyCrsIds?.length === 0) return [];
+  if (clientId != null) {
+    const requestedClient = await db.select({ id: clients.id })
+      .from(clients)
+      .where(and(eq(clients.id, clientId), eq(clients.status, "active")))
+      .limit(1);
+    if (requestedClient.length === 0) return [];
+  }
   // Get all active clients with their CRS progress
   const rows = await db.select({
     clientId: clients.id,
@@ -825,7 +835,7 @@ export async function getClientProgress(company?: string) {
     crsId: crs.id,
     crsProgress: crs.progress,
   }).from(clients)
-    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active"), ...(companyCrsIds ? [inArray(crs.id, companyCrsIds)] : [])))
+    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active"), ...(clientId != null ? [eq(crs.clientId, clientId)] : []), ...(companyCrsIds ? [inArray(crs.id, companyCrsIds)] : [])))
     .where(eq(clients.status, "active"))
     .orderBy(asc(clients.name));
   // Group by client

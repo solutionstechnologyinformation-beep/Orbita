@@ -973,3 +973,5 @@
 - [x] Bug: adicionar teste de regressão para a geração do relatório PDF com captura do mapa
 
 - [x] Presença: padronizar o indicador online nas listas de usuários usando lastSeenAt e o limite compartilhado de cinco minutos
+
+- [x] Dashboard: adicionar seletor pesquisável de cliente ao lado do filtro de empresa e aplicar a seleção aos indicadores e visualizações compatíveis

@@ -260,8 +260,8 @@ export const appRouter = router({
   // ─── CRS ───────────────────────────────────────────────────────────────────
   crs: router({
     list: protectedProcedure
-      .input(z.object({ company: z.string().trim().max(256).optional() }).optional())
-      .query(async ({ input }) => getAllCrs(input?.company)),
+      .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
+      .query(async ({ input }) => getAllCrs(input?.company, input?.clientId)),
     listByClient: protectedProcedure
       .input(z.object({ clientId: z.number() }))
       .query(async ({ input }) => getCrsByClient(input.clientId)),
@@ -340,8 +340,8 @@ export const appRouter = router({
     worldMap: protectedProcedure.query(async () => getWorldMapData()),
     segments: router({
       list: protectedProcedure
-        .input(z.object({ crsId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
-        .query(async ({ input }) => getCrsSegments(input?.crsId, input?.company)),
+        .input(z.object({ crsId: z.number().optional(), clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
+        .query(async ({ input }) => getCrsSegments(input?.crsId, input?.company, input?.clientId)),
       upload: adminProcedure
         .input(z.object({
           crsId: z.number(),
@@ -999,8 +999,8 @@ export const appRouter = router({
       .query(async ({ input }) => getCompletedTasksSummary(input?.limit ?? 100)),
     companies: protectedProcedure.query(async () => getDashboardCompanies()),
     clientProgress: protectedProcedure
-      .input(z.object({ company: z.string().trim().max(256).optional() }).optional())
-      .query(async ({ input }) => getClientProgress(input?.company)),
+      .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
+      .query(async ({ input }) => getClientProgress(input?.company, input?.clientId)),
     yearlyStats: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))
       .query(async ({ input }) => getYearlyStats(input.clientId)),
@@ -1175,8 +1175,8 @@ export const appRouter = router({
       return rows.slice(0, 20);
     }),
     contractsByState: protectedProcedure
-      .input(z.object({ company: z.string().trim().max(256).optional() }).optional())
-      .query(async ({ input }) => getContractsByState(input?.company)),
+      .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
+      .query(async ({ input }) => getContractsByState(input?.company, input?.clientId)),
     // ── SLA / Pontualidade ──────────────────────────────────────────────────
     slaStats: protectedProcedure
       .input(z.object({ period: z.enum(["month", "quarter", "year"]).default("month") }).optional())

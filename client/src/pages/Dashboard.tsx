@@ -16,6 +16,8 @@ import {
     MapPin, Activity, Users, FolderOpen, ChevronRight,
   Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X,
 } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -573,6 +575,8 @@ export default function Dashboard() {
   const [view, setView] = useState<DashView>("geral");
   const [slaPeriod, setSlaPeriod] = useState<"month" | "quarter" | "year">("month");
   const [selectedCompany, setSelectedCompany] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<number | undefined>();
+  const [clientFilterOpen, setClientFilterOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef<HTMLDivElement>(null);
 
@@ -596,21 +600,23 @@ export default function Dashboard() {
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const normalizedCompany = useMemo(() => selectedCompany.trim() || undefined, [selectedCompany]);
-  const dashboardStatsInput = useMemo(() => ({ clientId: undefined, company: normalizedCompany }), [normalizedCompany]);
-  const companyFilterInput = useMemo(() => ({ company: normalizedCompany }), [normalizedCompany]);
+  const dashboardDataInput = useMemo(() => ({ clientId: selectedClientId, company: normalizedCompany }), [selectedClientId, normalizedCompany]);
   const companiesQ = trpc.dashboard.companies.useQuery();
-  const statsQ = trpc.dashboard.stats.useQuery(dashboardStatsInput);
-  const clientProgressQ = trpc.dashboard.clientProgress.useQuery(companyFilterInput);
+  const clientsQ = trpc.clients.list.useQuery();
+  const statsQ = trpc.dashboard.stats.useQuery(dashboardDataInput);
+  const clientProgressQ = trpc.dashboard.clientProgress.useQuery(dashboardDataInput);
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const completedTasksQ = trpc.dashboard.completedTasksSummary.useQuery({ limit: 100 });
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
-  const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(companyFilterInput);
-  const segmentsQ = trpc.crs.segments.list.useQuery(companyFilterInput);
+  const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(dashboardDataInput);
+  const segmentsQ = trpc.crs.segments.list.useQuery(dashboardDataInput);
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: slaPeriod });
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
-  const crsQ = trpc.crs.list.useQuery(companyFilterInput);
+  const crsQ = trpc.crs.list.useQuery(dashboardDataInput);
   const stats = statsQ.data;
   const companies = (companiesQ.data ?? []) as string[];
+  const clients = (clientsQ.data ?? []) as any[];
+  const selectedClient = useMemo(() => clients.find((client: any) => client.id === selectedClientId), [clients, selectedClientId]);
   const clientProgress = (clientProgressQ.data ?? []) as any[];
   const myTasks = (myTasksQ.data ?? []) as any[];
   const completedTasks = (completedTasksQ.data ?? []) as any[];
@@ -854,6 +860,47 @@ export default function Dashboard() {
                 {companies.map((company) => <option key={company} value={company}>{company}</option>)}
               </select>
             </label>
+            <Popover open={clientFilterOpen} onOpenChange={setClientFilterOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300"
+                  aria-label="Filtrar Dashboard por cliente"
+                  aria-expanded={clientFilterOpen}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Filter className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />
+                    <span>Cliente</span>
+                    <span className="max-w-[110px] truncate font-semibold text-gray-800">{selectedClient?.name ?? "Todos"}</span>
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[280px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar cliente..." aria-label="Buscar cliente" />
+                  <CommandList>
+                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                    <CommandGroup heading="Clientes">
+                      <CommandItem value="todos os clientes" onSelect={() => { setSelectedClientId(undefined); setClientFilterOpen(false); }}>
+                        <CheckCircle2 className={`h-4 w-4 ${selectedClientId === undefined ? "text-blue-600" : "text-transparent"}`} aria-hidden="true" />
+                        <span>Todos os clientes</span>
+                      </CommandItem>
+                      {clients.map((client: any) => (
+                        <CommandItem
+                          key={client.id}
+                          value={`${client.name} ${client.crsCode ?? ""}`}
+                          onSelect={() => { setSelectedClientId(client.id); setClientFilterOpen(false); }}
+                        >
+                          <CheckCircle2 className={`h-4 w-4 ${selectedClientId === client.id ? "text-blue-600" : "text-transparent"}`} aria-hidden="true" />
+                          <span className="truncate">{client.name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <button
               onClick={exportDashboardPDF}
               disabled={isExporting}

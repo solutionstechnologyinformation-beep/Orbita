@@ -156,3 +156,19 @@ describe("dashboard.companyFilter", () => {
     expect(typeof result.totalExtensaoKm).toBe("number");
   }, 15000);
 });
+
+// ── Dashboard: Client Filter ──────────────────────────────────────────────
+describe("dashboard.clientFilter", () => {
+  it("accepts clientId and returns an empty scope for an unknown client", async () => {
+    const ctx = makeCtx();
+    const caller = appRouter.createCaller(ctx);
+    const stats = await caller.dashboard.stats({ clientId: 999999 });
+    const progress = await caller.dashboard.clientProgress({ clientId: 999999 });
+    const states = await caller.dashboard.contractsByState({ clientId: 999999 });
+
+    expect(stats.totalCrs).toBe(0);
+    expect(stats.totalTasks).toBe(0);
+    expect(progress).toEqual([]);
+    expect(states).toEqual([]);
+  }, 15000);
+});
