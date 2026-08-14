@@ -148,6 +148,19 @@ interface SegmentOverlay {
   extensaoKm?: number | null;
   techDataByType?: string | null;
 }
+type MapWorkStatusFilter = "all" | "in-progress" | "completed" | "planned";
+const MAP_WORK_STATUS_OPTIONS: Array<{ value: MapWorkStatusFilter; label: string; shortLabel: string }> = [
+  { value: "all", label: "Todas", shortLabel: "Todas" },
+  { value: "in-progress", label: "Em andamento", shortLabel: "Andamento" },
+  { value: "completed", label: "Concluídas", shortLabel: "Concluídas" },
+  { value: "planned", label: "Planejadas", shortLabel: "Planejadas" },
+];
+const getMapWorkStatus = (progress: number | null | undefined): Exclude<MapWorkStatusFilter, "all"> => {
+  const normalizedProgress = Number(progress) || 0;
+  if (normalizedProgress >= 100) return "completed";
+  if (normalizedProgress > 0) return "in-progress";
+  return "planned";
+};
 type ContractMarkerData = { crsId: number; name: string; number: number | string };
 type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.Marker; baseColor?: string; baseIcon?: google.maps.Symbol };
   function ContractsMap({ locations, segments, segmentsLoading, onNavigate, mapExportRef, isMapExpanded, onExpandedChange }: { locations: ContractLocation[]; segments: SegmentOverlay[]; segmentsLoading: boolean; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null>; isMapExpanded: boolean; onExpandedChange: (expanded: boolean) => void }) {
@@ -226,6 +239,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   });
   const [controlsOpen, setControlsOpen] = useState(true);
   const [elementSearch, setElementSearch] = useState("");
+  const [workStatusFilter, setWorkStatusFilter] = useState<MapWorkStatusFilter>("all");
   const [elementSort, setElementSort] = useState<MapElementSort>("alphabetical");
   const [hoveredElementKey, setHoveredElementKey] = useState<string | null>(null);
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
@@ -237,8 +251,29 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const mapPanelText = isDark ? "text-slate-100" : "text-gray-800";
   const mapPanelMuted = isDark ? "text-slate-400" : "text-gray-500";
   const mapPanelInput = isDark ? "border-slate-600 bg-slate-800 text-slate-100" : "border-gray-200 bg-white text-gray-700";
-  const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
-  const allMapElementRecords = useMemo(() => extractMapElementRecords(segments), [segments]);
+  const contractProgressById = useMemo(() => {
+    const progressById = new Map<number, number>();
+    locations.forEach((location) => location.contracts?.forEach((contract) => progressById.set(contract.id, contract.progress)));
+    return progressById;
+  }, [locations]);
+  const getSegmentWorkStatus = useCallback((segment: SegmentOverlay) => getMapWorkStatus(contractProgressById.get(segment.crsId)), [contractProgressById]);
+  const workStatusCounts = useMemo(() => {
+    const counts: Record<MapWorkStatusFilter, number> = { all: segments.length, "in-progress": 0, completed: 0, planned: 0 };
+    segments.forEach((segment) => { counts[getSegmentWorkStatus(segment)] += 1; });
+    return counts;
+  }, [getSegmentWorkStatus, segments]);
+  const statusFilteredSegments = useMemo(
+    () => workStatusFilter === "all" ? segments : segments.filter((segment) => getSegmentWorkStatus(segment) === workStatusFilter),
+    [getSegmentWorkStatus, segments, workStatusFilter],
+  );
+  const filteredSummarySegments = useMemo(() => {
+    const query = elementSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return statusFilteredSegments;
+    return statusFilteredSegments.filter((segment) => [segment.name, segment.fileName, segment.crsName, segment.tipoObra]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(query)));
+  }, [elementSearch, statusFilteredSegments]);
+  const visibleSegments = useMemo(() => filterVisibleSegments(filteredSummarySegments, segmentVisibility, selectedSegmentId), [filteredSummarySegments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
   const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, Math.max(mapElementRecords.length, 1), elementSort), [elementSearch, elementSort, mapElementRecords]);
   const visibleElementRecords = useMemo(() => filteredElementRecords.slice(0, visibleElementCount), [filteredElementRecords, visibleElementCount]);
@@ -318,9 +353,9 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       return null;
     }
   }, []);
-  const totalImportedExtensionKm = useMemo(
-    () => segments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0),
-    [segments, getSegmentExtensionKm],
+  const filteredExtensionKm = useMemo(
+    () => filteredSummarySegments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0),
+    [filteredSummarySegments, getSegmentExtensionKm],
   );
   const visibleExtensionKm = useMemo(
     () => visibleSegments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0),
@@ -328,21 +363,17 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   );
   const segmentTypeSummary = useMemo(() => {
     const counts = new Map<string, number>();
-    segments.forEach((segment) => {
+    filteredSummarySegments.forEach((segment) => {
       const typeKey = getSegmentTypeKey(segment);
       counts.set(typeKey, (counts.get(typeKey) ?? 0) + 1);
     });
     return Array.from(counts.entries())
       .sort(([, countA], [, countB]) => countB - countA)
       .map(([typeKey, count]) => ({ typeKey, label: TIPO_OBRA_MAP[typeKey] ?? typeKey, count }));
-  }, [getSegmentTypeKey, segments]);
-  const filteredSummarySegments = useMemo(() => {
-    const query = elementSearch.trim().toLocaleLowerCase("pt-BR");
-    if (!query) return segments;
-    return segments.filter((segment) => [segment.name, segment.fileName, segment.crsName, segment.tipoObra]
-      .filter(Boolean)
-      .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(query)));
-  }, [elementSearch, segments]);
+  }, [filteredSummarySegments, getSegmentTypeKey]);
+  useEffect(() => {
+    setSelectedSegmentId("all");
+  }, [elementSearch, workStatusFilter]);
   useEffect(() => {
     window.localStorage.setItem("orbita-map-segment-colors", JSON.stringify(segmentColors));
   }, [segmentColors]);
@@ -867,10 +898,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-3">
               <div className="grid grid-cols-2 gap-2" aria-label="Métricas rápidas do mapa">
                 {[
-                  { label: "Trechos", value: segments.length },
+                  { label: "Trechos", value: filteredSummarySegments.length },
                   { label: "Visíveis", value: visibleSegments.length },
-                  { label: "Contratos", value: new Set(segments.map((segment) => segment.crsId)).size },
-                  { label: "Elementos", value: allMapElementRecords.length },
+                  { label: "Contratos", value: new Set(filteredSummarySegments.map((segment) => segment.crsId)).size },
+                  { label: "Elementos", value: mapElementRecords.length },
                 ].map((metric) => (
                   <div key={metric.label} className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
                     <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>{metric.label}</p>
@@ -880,14 +911,36 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
-                  <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>Extensão total</p>
-                  <p className={`mt-1 text-sm font-bold ${mapPanelText}`}>{totalImportedExtensionKm.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km</p>
+                  <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>Extensão filtrada</p>
+                  <p className={`mt-1 text-sm font-bold ${mapPanelText}`}>{filteredExtensionKm.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km</p>
                 </div>
                 <div className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
                   <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>Visível</p>
                   <p className={`mt-1 text-sm font-bold ${mapPanelText}`}>{visibleExtensionKm.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km</p>
                 </div>
               </div>
+              <fieldset className="mt-4">
+                <legend className={`mb-1 block text-[10px] font-semibold uppercase tracking-wide ${mapPanelMuted}`}>Status da obra</legend>
+                <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Filtrar obras por status">
+                  {MAP_WORK_STATUS_OPTIONS.map((option) => {
+                    const active = workStatusFilter === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        data-map-work-status-filter={option.value}
+                        aria-pressed={active}
+                        onClick={() => setWorkStatusFilter(option.value)}
+                        className={`flex items-center justify-between gap-1 rounded-md border px-2 py-1.5 text-[10px] font-semibold transition-colors ${active ? (isDark ? "border-teal-500 bg-teal-950/70 text-teal-100" : "border-blue-400 bg-blue-50 text-blue-700") : (isDark ? "border-slate-700 bg-slate-800/70 text-slate-300 hover:bg-slate-700" : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100")}`}
+                        title={`Mostrar obras: ${option.label}`}
+                      >
+                        <span className="truncate">{option.shortLabel}</span>
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] ${active ? (isDark ? "bg-teal-800 text-teal-100" : "bg-blue-100 text-blue-700") : (isDark ? "bg-slate-700 text-slate-300" : "bg-gray-200 text-gray-600")}`}>{workStatusCounts[option.value]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <label className="mt-4 block">
                 <span className={`mb-1 block text-[10px] font-semibold uppercase tracking-wide ${mapPanelMuted}`}>Busca rápida</span>
                 <div className="relative">

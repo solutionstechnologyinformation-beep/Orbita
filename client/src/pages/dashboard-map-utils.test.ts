@@ -63,7 +63,7 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("Recolher resumo do mapa");
     expect(dashboardSource).toContain("Expandir resumo do mapa");
     expect(dashboardSource).toContain("Trechos importados");
-    expect(dashboardSource).toContain("totalImportedExtensionKm");
+    expect(dashboardSource).toContain("filteredExtensionKm");
     expect(dashboardSource).toContain("visibleExtensionKm");
     expect(dashboardSource).toContain("filteredSummarySegments");
     expect(dashboardSource).toContain("onClick={() => focusSegment(segment.id)}");
@@ -168,5 +168,26 @@ describe("dashboard map viewport across fullscreen transitions", () => {
     expect(dashboardSource).toContain("map.setZoom(viewport.zoom);");
     expect(dashboardSource).toContain("window.google.maps.event.trigger(mapRef.current, \"resize\")");
     expect(dashboardSource).toContain("restoreViewportFrame = window.requestAnimationFrame(restoreMapViewport);");
+  });
+});
+
+describe("dashboard map quick work-status filters", () => {
+  it("defines all, in-progress, completed, and planned status options from contract progress", () => {
+    expect(dashboardSource).toContain('type MapWorkStatusFilter = "all" | "in-progress" | "completed" | "planned";');
+    expect(dashboardSource).toContain('{ value: "in-progress", label: "Em andamento"');
+    expect(dashboardSource).toContain('{ value: "completed", label: "Concluídas"');
+    expect(dashboardSource).toContain('{ value: "planned", label: "Planejadas"');
+    expect(dashboardSource).toContain("if (normalizedProgress >= 100) return \"completed\";");
+    expect(dashboardSource).toContain("if (normalizedProgress > 0) return \"in-progress\";");
+  });
+
+  it("combines the active status filter with search, markers, list and live metrics", () => {
+    expect(dashboardSource).toContain("const statusFilteredSegments = useMemo");
+    expect(dashboardSource).toContain("const filteredSummarySegments = useMemo");
+    expect(dashboardSource).toContain("data-map-work-status-filter={option.value}");
+    expect(dashboardSource).toContain("aria-pressed={active}");
+    expect(dashboardSource).toContain("setWorkStatusFilter(option.value)");
+    expect(dashboardSource).toContain("{ label: \"Trechos\", value: filteredSummarySegments.length }");
+    expect(dashboardSource).toContain("Extensão filtrada");
   });
 });

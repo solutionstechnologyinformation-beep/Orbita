@@ -1246,3 +1246,9 @@
 - [x] Auditar estados, classes e temporização atuais da transição
 - [x] Refinar animação de entrada e saída com opacidade, escala e deslocamento
 - [x] Adicionar testes de animação, reduced motion e validar TypeScript
+
+## Mapa — Filtros rápidos por status de obra
+- [x] Auditar os dados de status das obras e o filtro atual do painel lateral
+- [x] Implementar filtros Em andamento, Concluídas e Planejadas combinados com pesquisa e marcadores
+- [x] Integrar estados visuais, métricas e acessibilidade nos temas claro e escuro
+- [x] Adicionar testes e validar TypeScript
