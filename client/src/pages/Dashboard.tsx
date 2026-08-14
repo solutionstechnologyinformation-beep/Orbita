@@ -14,7 +14,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
     MapPin, Activity, Users, FolderOpen, ChevronRight,
-  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X,
+  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,6 +23,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { buildMapElementsCsv, extractMapElementRecords, type MapElementRecord } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -61,6 +62,13 @@ function getStatusLabel(progress: number) {
   if (progress >= 60) return { label: "Em Andamento", color: "#3b82f6" };
   if (progress >= 30) return { label: "Atenção", color: "#f59e0b" };
   return { label: "Atrasado", color: "#ef4444" };
+}
+function getImportedPointStyle(name: string) {
+  const normalized = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase();
+  if (normalized.includes("INICIO")) return { fillColor: "#16a34a", strokeColor: "#14532d", scale: 7 };
+  if (normalized.includes("FIM")) return { fillColor: "#dc2626", strokeColor: "#7f1d1d", scale: 7 };
+  if (/\\bKM\\s*\\d/.test(normalized)) return { fillColor: "#facc15", strokeColor: "#92400e", scale: 5 };
+  return { fillColor: "#a855f7", strokeColor: "#581c87", scale: 6 };
 }
 
 // ── Google Maps de Contratos ──────────────────────────────────────────────────
@@ -106,7 +114,36 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
     }
   });
   const [controlsOpen, setControlsOpen] = useState(true);
+  const [elementSearch, setElementSearch] = useState("");
+  const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
+  const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
+  const filteredElementRecords = useMemo(() => {
+    const query = elementSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return mapElementRecords.slice(0, 30);
+    return mapElementRecords.filter((record) => [record.elementName, record.description, record.crsName, record.segmentName, record.geometryType].some((value) => value.toLocaleLowerCase("pt-BR").includes(query))).slice(0, 30);
+  }, [elementSearch, mapElementRecords]);
+  const focusElement = useCallback((record: MapElementRecord) => {
+    setSelectedElementKey(record.key);
+    setSegmentVisibility((current) => ({ ...current, [record.segmentId]: true }));
+    if (record.center && mapRef.current) {
+      mapRef.current.panTo(record.center);
+      mapRef.current.setZoom(Math.max(mapRef.current.getZoom() ?? 6, record.geometryType === "Point" ? 12 : 10));
+    }
+  }, []);
+  const exportElementsCsv = useCallback(() => {
+    if (mapElementRecords.length === 0) return;
+    const csv = buildMapElementsCsv(mapElementRecords);
+    const blob = new Blob([`\\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `orbita-elementos-mapa-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, [mapElementRecords]);
   const enabledSegmentCount = useMemo(() => segments.filter((segment) => segmentVisibility[segment.id] !== false).length, [segments, segmentVisibility]);
   const contractNumbers = useMemo(() => buildContractNumbers(segments), [segments]);
   const segmentTypeKeys = useMemo(() => {
@@ -237,7 +274,13 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                   <div style="font-size:11px;color:#64748b;">Arquivo: ${segment.name}</div>
                 </div>`,
               });
-              const marker = new g.Marker({ map, position, title: featName });
+              const pointStyle = getImportedPointStyle(featName);
+              const marker = new g.Marker({
+                map,
+                position,
+                title: featName,
+                icon: { path: g.SymbolPath.CIRCLE, scale: pointStyle.scale, fillColor: pointStyle.fillColor, fillOpacity: 0.95, strokeColor: pointStyle.strokeColor, strokeWeight: 1.5 },
+              });
               marker.addListener("click", () => {
                 infoWindow.open({ map, anchor: marker });
               });
@@ -510,6 +553,28 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                   {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.crsName ?? `Contrato #${segment.crsId}`} — {segment.name}</option>)}
                 </select>
               </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Pesquisar elemento importado</span>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+                  <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome, descrição ou contrato" className="w-full rounded-md border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Pesquisar elemento importado" />
+                </div>
+              </label>
+              <div className="space-y-1.5">
+                {filteredElementRecords.length === 0 ? <p className="rounded-md bg-gray-50 px-2 py-2 text-[10px] text-gray-500">Nenhum elemento encontrado.</p> : filteredElementRecords.slice(0, 8).map((record) => {
+                  const pointStyle = record.geometryType === "Point" ? getImportedPointStyle(record.elementName) : null;
+                  const accent = pointStyle?.fillColor ?? "#2563eb";
+                  return <button key={record.key} type="button" onClick={() => focusElement(record)} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? "bg-blue-50 ring-1 ring-blue-200" : "bg-gray-50 hover:bg-gray-100"}`}>
+                    <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} /><span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-700">{record.elementName}</span><span className="text-[9px] uppercase text-gray-400">{record.geometryType === "Point" ? "ponto" : "trecho"}</span></span>
+                    <span className="mt-0.5 block truncate pl-4 text-[10px] text-gray-400">{record.description || record.crsName}</span>
+                  </button>;
+                })}
+                {filteredElementRecords.length > 8 && <p className="text-[10px] text-gray-400">Mostrando 8 de {filteredElementRecords.length} resultados.</p>}
+              </div>
+              <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
+                <span className="text-[10px] text-gray-400">{mapElementRecords.length} elemento(s) disponível(is)</span>
+                <button type="button" onClick={exportElementsCsv} disabled={mapElementRecords.length === 0} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" title="Exportar elementos do mapa para CSV"><FileDown className="h-3 w-3" /> CSV</button>
+              </div>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Cores por tipo de obra</p>
                 <Palette className="w-3.5 h-3.5 text-gray-400" />
@@ -521,6 +586,15 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                     <span className="truncate">{TIPO_OBRA_MAP[typeKey]}</span>
                   </label>
                 ))}
+              </div>
+              <div className="space-y-1.5 rounded-md bg-gray-50 px-2 py-2">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Ícones dos elementos</p>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-gray-600">
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-600" />Início</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-600" />Fim</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400 ring-1 ring-yellow-700" />Marco KM</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-purple-500" />Outro ponto</span>
+                </div>
               </div>
               <div className="flex items-center justify-between gap-2 pt-1">
                 <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Arquivos KMZ/KML</p>
