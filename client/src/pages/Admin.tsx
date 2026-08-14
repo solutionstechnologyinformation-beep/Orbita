@@ -155,6 +155,8 @@ export default function Admin() {
   const [disciplineForm, setDisciplineForm] = useState({ name: "", color: "#3b82f6", description: "" });
 
   // Users state
+  const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({ name: "", email: "", password: "", role: "user" });
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
   const [editingUserDisc, setEditingUserDisc] = useState<any>(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState<any>(null);
@@ -212,6 +214,16 @@ export default function Admin() {
   });
   const deleteDisciplineM = trpc.disciplines.delete.useMutation({
     onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina excluida"); },
+  });
+
+  const createUserM = trpc.users.createUser.useMutation({
+    onSuccess: () => {
+      utils.users.list.invalidate();
+      setShowCreateUserDialog(false);
+      setCreateUserForm({ name: "", email: "", password: "", role: "user" });
+      toast.success("Usuário criado com senha segura.");
+    },
+    onError: (e) => toast.error("Erro ao criar usuário: " + e.message),
   });
 
   // User avatar mutation
@@ -277,6 +289,18 @@ export default function Admin() {
     } else {
       createCrsM.mutate({ ...crsForm, clientId: Number(crsForm.clientId) });
     }
+  };
+
+  const handleCreateUser = () => {
+    const name = createUserForm.name.trim();
+    const email = createUserForm.email.trim();
+    if (!name || !email || createUserForm.password.length < 6) return;
+    createUserM.mutate({
+      name,
+      email,
+      password: createUserForm.password,
+      role: createUserForm.role as "user" | "admin" | "leader",
+    });
   };
 
   const [adminTab, setAdminTab] = useState("clients");
@@ -447,6 +471,9 @@ export default function Admin() {
           <TabsContent value="users">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Usuários ({users.length})</h2>
+              <Button size="sm" onClick={() => { setCreateUserForm({ name: "", email: "", password: "", role: "user" }); setShowCreateUserDialog(true); }}>
+                <Plus className="w-4 h-4 mr-1" />Novo Usuário
+              </Button>
             </div>
             <div className="grid gap-3">
               {users.map((u: any) => (
@@ -575,6 +602,48 @@ export default function Admin() {
           </SplitPanelContent>
         }
       />
+
+      {/* Create Local User Dialog */}
+      <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Novo Usuário Local
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="admin-user-name">Nome completo *</Label>
+              <Input id="admin-user-name" value={createUserForm.name} onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })} placeholder="Nome do usuário" autoComplete="name" />
+            </div>
+            <div>
+              <Label htmlFor="admin-user-email">E-mail *</Label>
+              <Input id="admin-user-email" type="email" value={createUserForm.email} onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })} placeholder="usuario@empresa.com" autoComplete="email" />
+            </div>
+            <div>
+              <Label htmlFor="admin-user-password">Senha provisória *</Label>
+              <Input id="admin-user-password" type="password" value={createUserForm.password} onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })} placeholder="Mínimo de 6 caracteres" autoComplete="new-password" />
+              {createUserForm.password.length > 0 && createUserForm.password.length < 6 && <p className="mt-1 text-xs text-destructive">A senha deve conter pelo menos 6 caracteres.</p>}
+            </div>
+            <div>
+              <Label>Perfil de acesso</Label>
+              <Select value={createUserForm.role} onValueChange={(role) => setCreateUserForm({ ...createUserForm, role })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{ROLES.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">A senha será armazenada no servidor com hash scrypt e nunca será exibida após a criação.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateUserDialog(false)}>Cancelar</Button>
+            <Button onClick={handleCreateUser} disabled={!createUserForm.name.trim() || !createUserForm.email.trim() || createUserForm.password.length < 6 || createUserM.isPending}>
+              {createUserM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+              Criar Usuário
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Avatar Dialog */}
       {editingUserAvatar && (

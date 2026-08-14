@@ -138,7 +138,7 @@
 - [x] Suporte a PDF, imagens (jpg/png/gif/webp), e fallback para outros tipos
 
 ## Melhorias v3.8
-- [ ] Admin: botão e formulário para criar novo usuário (nome, e-mail, senha, papel)
+- [x] Admin: botão e formulário para criar novo usuário (nome, e-mail, senha, papel)
 - [x] Backend: procedure admin.createUser com hash de senha
 - [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
 - [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
