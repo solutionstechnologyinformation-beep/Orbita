@@ -151,7 +151,7 @@
 - [ ] Backend: procedure admin.deleteUser
 - [x] Backend: procedure profile.update aceitar campo company
 - [ ] Backend: listTasks e getProjectMembers retornar company do responsável
-- [ ] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
+- [x] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
 - [ ] Frontend: TaskDetail exibir empresa do responsável
 - [ ] Frontend: filtro por empresa no Kanban (chips na barra superior)
 - [ ] Frontend: filtro por empresa no Dashboard
@@ -965,3 +965,5 @@
 - [x] Relatórios: atualizar a paleta exportada para amarelo institucional, azul-marinho, preto e verde de status
 - [x] Auth/Profile: garantir que auth.me exponha company e que o formulário carregue o valor atual
 - [x] Auth/Profile: cobrir a inicialização e atualização de company com teste unitário
+- [x] Kanban: ajustar o card para renderizar a empresa do responsável em uma segunda linha abaixo do nome
+- [x] Kanban: validar visualmente ou por teste que assigneeCompany aparece abaixo do nome somente quando existir

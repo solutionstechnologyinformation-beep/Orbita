@@ -98,12 +98,15 @@ function ChecklistPreview({ items }: { items: any[] }) {
                 {item.title}
               </span>
             </div>
-            {(endDate || item.assigneeName) && (
+            {(endDate || item.assigneeName || item.assigneeCompany) && (
               <div className="flex items-center gap-2 pl-5">
-                {item.assigneeName && (
-                  <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                    <User className="w-2.5 h-2.5" />
-                    {item.assigneeName}
+                {(item.assigneeName || item.assigneeCompany) && (
+                  <span className="flex min-w-0 items-start gap-0.5 text-[10px] text-muted-foreground">
+                    <User className="mt-0.5 w-2.5 h-2.5 flex-shrink-0" />
+                    <span className="min-w-0 truncate">
+                      <span className="block truncate">{item.assigneeName ?? "Responsável"}</span>
+                      {item.assigneeCompany && <span className="block truncate text-[9px] text-muted-foreground/80">{item.assigneeCompany}</span>}
+                    </span>
                   </span>
                 )}
                 {endDate && (
@@ -204,10 +207,13 @@ function SortableTaskCard({
 
           {/* Meta */}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {task.assigneeName && (
-              <span className="flex items-center gap-1 truncate">
-                <User className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{task.assigneeName}</span>
+            {(task.assigneeName || task.assigneeCompany) && (
+              <span className="flex min-w-0 items-start gap-1" title={task.assigneeCompany ? `${task.assigneeName ?? "Responsável"} · ${task.assigneeCompany}` : task.assigneeName ?? "Responsável"}>
+                <User className="mt-0.5 w-3 h-3 flex-shrink-0" />
+                <span className="min-w-0 truncate">
+                  <span className="block truncate">{task.assigneeName ?? "Responsável"}</span>
+                  {task.assigneeCompany && <span className="block truncate text-[10px] text-muted-foreground/80">{task.assigneeCompany}</span>}
+                </span>
               </span>
             )}
             {task.dueDate && (
