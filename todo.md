@@ -1205,3 +1205,14 @@
 - [x] Ocultar os demais widgets e caixas enquanto o mapa estiver ampliado
 - [x] Restaurar todos os widgets ao minimizar o mapa, sem perder a ordem ou o estado
 - [x] Adicionar testes de alternância e validar TypeScript
+
+## Mapa — Pesquisa em tela cheia
+- [ ] Auditar dados dos marcadores e filtros já existentes no painel lateral
+- [ ] Implementar pesquisa combinada por nome, número, arquivo e tipo de obra
+- [ ] Aplicar o filtro aos marcadores, clusters e lista lateral com limpeza acessível
+- [ ] Adicionar testes de pesquisa e validar TypeScript
+
+## Mapa — Largura em tela cheia
+- [x] Auditar o recorte atual do painel de resumos no modo ampliado
+- [x] Reduzir levemente a área útil do mapa em tela cheia e reservar espaço para o resumo
+- [x] Validar responsividade, testes e TypeScript após o ajuste

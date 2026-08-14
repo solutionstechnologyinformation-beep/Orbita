@@ -112,3 +112,13 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("opacity: reduceClusterMotion ? 1 : 0");
   });
 });
+
+describe("dashboard map fullscreen canvas width adjustment", () => {
+  it("reserves panel width in expanded mode so the summary panel is never clipped", () => {
+    expect(dashboardSource).toContain("map-fullscreen-canvas");
+    expect(dashboardSource).toContain("map-fullscreen-canvas-with-summary");
+    expect(dashboardSource).toContain("map-fullscreen-canvas-collapsed");
+    expect(stylesheet).toContain(".map-fullscreen-canvas-with-summary {");
+    expect(stylesheet).toContain("right: min(24rem, calc(100vw - 1rem));");
+  });
+});

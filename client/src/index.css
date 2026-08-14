@@ -308,6 +308,21 @@ html.theme-transition body *::after {
   animation: orbitaMapSummaryOpen 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Em tela cheia, o canvas reserva a largura real do resumo para evitar que ele fique sobreposto ou cortado. */
+.map-fullscreen-canvas {
+  position: absolute;
+  inset: 0;
+  transition: right 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.map-fullscreen-canvas-with-summary {
+  right: min(24rem, calc(100vw - 1rem));
+}
+
+.map-fullscreen-canvas-collapsed {
+  right: 0;
+}
+
 .map-fullscreen-enter,
 .map-fullscreen-exit {
   transform-origin: center;
@@ -376,6 +391,7 @@ html.theme-transition body *::after {
 
   .dashboard-widget-frame,
   .dashboard-widget-drop-target,
+  .map-fullscreen-canvas,
   .map-fullscreen-enter,
   .map-fullscreen-exit,
   .map-summary-panel,

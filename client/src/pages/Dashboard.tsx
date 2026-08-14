@@ -777,7 +777,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       window.removeEventListener("keydown", handleEscape);
       window.clearTimeout(resizeTimer);
     };
-  }, [isMapExpanded, minimizeMap]);
+  }, [isMapExpanded, isMapSummaryPanelOpen, minimizeMap]);
 
   useEffect(() => {
     if (mapRef.current && (locations.length > 0 || segments.length > 0)) {
@@ -808,12 +808,14 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   return (
     <div className={isMapExpanded ? `fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60 ${isMapMinimizing ? "map-fullscreen-exit" : "map-fullscreen-enter"}` : "relative"}>
       <div ref={mapExportRef} className={isMapExpanded ? `relative h-screen min-h-screen h-[100dvh] w-full overflow-hidden rounded-none bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
-        <MapView
-          className={isMapExpanded ? "overflow-hidden !h-full !rounded-none" : "rounded-xl overflow-hidden !h-[28rem]"}
-          initialCenter={{ lat: -14.235, lng: -51.925 }}
-          initialZoom={4}
-          onMapReady={handleMapReady}
-        />
+        <div className={isMapExpanded ? `map-fullscreen-canvas ${isMapSummaryPanelOpen ? "map-fullscreen-canvas-with-summary" : "map-fullscreen-canvas-collapsed"}` : "relative h-full w-full"}>
+          <MapView
+            className={isMapExpanded ? "overflow-hidden !h-full !rounded-none" : "rounded-xl overflow-hidden !h-[28rem]"}
+            initialCenter={{ lat: -14.235, lng: -51.925 }}
+            initialZoom={4}
+            onMapReady={handleMapReady}
+          />
+        </div>
         {selectedElement && (
           <aside data-map-control="true" className={`absolute ${isMapExpanded ? "bottom-16 left-3" : "bottom-3 right-3"} z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border ${mapPanelSurface} p-4 shadow-xl backdrop-blur-sm`} aria-label="Detalhes do elemento importado">
             <div className={`mb-3 flex items-start justify-between gap-3 border-b ${isDark ? "border-slate-700" : "border-gray-100"} pb-2`}>
@@ -951,7 +953,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           <span>Dados do mapa: {formatDashboardMapTimestamp(mapDataTimestamp)}</span>
         </div>
       </div>
-      <div data-map-control="true" className={`absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
+      <div data-map-control="true" className={`absolute top-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm ${isMapExpanded && isMapSummaryPanelOpen ? "right-[min(24rem,calc(100vw-1rem))]" : "right-3"}`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
         <button type="button" onClick={toggleMapExpanded} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
           {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           {isMapExpanded ? "Reduzir" : "Ampliar"}
