@@ -1033,6 +1033,6 @@
 - [x] Testes: cobrir transformação dos dados do gráfico e estado vazio
 
 ## Widget de atividade — Navegação por disciplina
-- [ ] Dashboard: tornar barras do gráfico de atividade clicáveis
-- [ ] Chat: abrir conversa filtrada pela disciplina selecionada a partir do gráfico
-- [ ] Testes: cobrir a construção do destino e a acessibilidade da interação
+- [x] Dashboard: tornar barras do gráfico de atividade clicáveis
+- [x] Chat: abrir conversa filtrada pela disciplina selecionada a partir do gráfico
+- [x] Testes: cobrir a construção do destino e a acessibilidade da interação
