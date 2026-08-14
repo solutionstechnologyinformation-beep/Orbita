@@ -155,6 +155,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
   const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
+  const contractMarkersRef = useRef<google.maps.Marker[]>([]);
+  const clusterAnimationFramesRef = useRef<Set<number>>(new Set());
   const elementOverlayMetaRef = useRef<Map<string, ElementOverlayMeta>>(new Map());
   const hoveredElementKeyRef = useRef<string | null>(null);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
@@ -402,6 +404,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     segmentLinesRef.current = [];
     segmentMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
     segmentMarkersRef.current = [];
+    contractMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
+    contractMarkersRef.current = [];
+    clusterAnimationFramesRef.current.forEach((frame) => window.cancelAnimationFrame(frame));
+    clusterAnimationFramesRef.current.clear();
     closeMarkerPreview();
     elementOverlayMetaRef.current.clear();
     const geocoder = new g.Geocoder();
@@ -558,9 +564,35 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       }, 3500);
     };
 
+    const reduceClusterMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const animateClusterMarker = (marker: google.maps.Marker, from: number, to: number, onComplete?: () => void) => {
+      if (reduceClusterMotion) {
+        marker.setOpacity(to);
+        onComplete?.();
+        return;
+      }
+      const start = performance.now();
+      const duration = 220;
+      let frame = 0;
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        marker.setOpacity(from + (to - from) * eased);
+        if (progress < 1) {
+          frame = window.requestAnimationFrame(tick);
+          clusterAnimationFramesRef.current.add(frame);
+        } else {
+          clusterAnimationFramesRef.current.delete(frame);
+          onComplete?.();
+        }
+      };
+      frame = window.requestAnimationFrame(tick);
+      clusterAnimationFramesRef.current.add(frame);
+    };
     const renderSegmentMarkers = (zoom: number) => {
-      segmentMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
-      segmentMarkersRef.current = [];
+      const previousMarkers = contractMarkersRef.current;
+      contractMarkersRef.current = [];
+      previousMarkers.forEach((marker) => animateClusterMarker(marker, marker.getOpacity() ?? 1, 0, () => marker.setMap(null)));
       const points: MapPoint<ContractMarkerData>[] = Array.from(contractPoints.entries())
         .filter(([, center]) => center.pointCount > 0)
         .map(([crsId, center]) => {
@@ -589,6 +621,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         const marker = new g.Marker({
           map,
           position: cluster.center,
+          opacity: reduceClusterMotion ? 1 : 0,
           title: isCluster ? `${cluster.points.length} contratos agrupados` : `${first.item.number} — ${first.item.name}`,
           icon: isCluster ? {
             path: g.SymbolPath.CIRCLE,
@@ -628,7 +661,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
             focusContract(first.item.crsId, first.position);
           });
         }
-        segmentMarkersRef.current.push(marker);
+        contractMarkersRef.current.push(marker);
+        animateClusterMarker(marker, 0, 1);
       });
     };
 

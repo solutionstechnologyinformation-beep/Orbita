@@ -91,4 +91,14 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("MAP_MARKER_SYMBOL_LABELS[typeKey]");
     expect(dashboardSource).toContain("orbita-map-segment-colors");
   });
+
+  it("animates cluster entry and exit during zoom while honoring reduced motion", () => {
+    expect(dashboardSource).toContain("contractMarkersRef");
+    expect(dashboardSource).toContain("clusterAnimationFramesRef");
+    expect(dashboardSource).toContain("animateClusterMarker");
+    expect(dashboardSource).toContain("requestAnimationFrame");
+    expect(dashboardSource).toContain("setOpacity");
+    expect(dashboardSource).toContain("prefers-reduced-motion: reduce");
+    expect(dashboardSource).toContain("opacity: reduceClusterMotion ? 1 : 0");
+  });
 });

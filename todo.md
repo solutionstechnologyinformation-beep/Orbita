@@ -1193,3 +1193,9 @@
 - [x] Implementar paleta e ícones semânticos por tipo de obra
 - [x] Integrar legenda, hover, seleção, clusters, tema escuro e persistência
 - [x] Adicionar testes de mapeamento visual e validar TypeScript
+
+## Mapa — Animação de clusters
+- [x] Auditar a renderização, limpeza e eventos de clusters durante o zoom
+- [x] Implementar transição suave ao agrupar e desagrupar marcadores
+- [x] Preservar hover, clique, cores por tipo, desempenho e prefers-reduced-motion
+- [x] Adicionar testes de transição e validar TypeScript
