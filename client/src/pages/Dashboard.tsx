@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import html2canvas from "html2canvas";
 import { aggregateCompletedTasksByAssignee } from "../../../shared/report-summary";
+import { resolvePrintWindow } from "./report-export-utils";
 import { ORBITA_LOGO_URL } from "@/branding";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -672,14 +673,22 @@ export default function Dashboard() {
 
   const exportDashboardPDF = useCallback(async () => {
     setIsExporting(true);
+    const printWindow = resolvePrintWindow(() => window.open("", "_blank"));
+    if (!printWindow) {
+      setIsExporting(false);
+      return;
+    }
     let mapDataUrl = "";
     try {
       if (mapExportRef.current) {
         const controls = mapExportRef.current.querySelectorAll('[data-map-control="true"]');
         controls.forEach((el: Element) => { (el as HTMLElement).style.display = "none"; });
-        const canvas = await html2canvas(mapExportRef.current, { scale: 1.5, useCORS: true, logging: false });
-        mapDataUrl = canvas.toDataURL("image/png");
-        controls.forEach((el: Element) => { (el as HTMLElement).style.display = ""; });
+        try {
+          const canvas = await html2canvas(mapExportRef.current, { scale: 1.5, useCORS: true, logging: false });
+          mapDataUrl = canvas.toDataURL("image/png");
+        } finally {
+          controls.forEach((el: Element) => { (el as HTMLElement).style.display = ""; });
+        }
       }
     } catch {
       // Falha na captura do mapa não bloqueia o relatório
@@ -784,11 +793,16 @@ export default function Dashboard() {
 </div>
 <div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Orbita" /> Orbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
 </body></html>`;
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-        setTimeout(() => { win.print(); }, 800);
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        if (!printWindow.closed) printWindow.print();
+      }, 800);
+    } catch {
+      if (!printWindow.closed) {
+        printWindow.document.body.innerHTML = '<main style="font-family:Arial,sans-serif;padding:32px;color:#0f172a"><h1>Não foi possível gerar o relatório</h1><p>Feche esta janela e tente novamente.</p></main>';
       }
     } finally {
       setIsExporting(false);

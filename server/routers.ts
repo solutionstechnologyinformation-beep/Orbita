@@ -963,8 +963,8 @@ export const appRouter = router({
   // ─── Dashboard ────────────────────────────────────────────────────────────────────────
   dashboard: router({
     stats: protectedProcedure
-      .input(z.object({ clientId: z.number().optional() }))
-      .query(async ({ input }) => getDashboardStats(input.clientId)),
+      .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }))
+      .query(async ({ input }) => getDashboardStats(input.clientId, input.company)),
     worldMap: protectedProcedure.query(async () => getWorldMapData()),
     weekDeliveries: protectedProcedure.query(async () => getWeekDeliveries()),
     myTasks: protectedProcedure.query(async ({ ctx }) => getMyTasks(ctx.user.id)),

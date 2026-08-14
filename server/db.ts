@@ -606,22 +606,43 @@ export async function getDisciplines(activeOnly = true) {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
-export async function getDashboardStats(clientId?: number) {
+export async function getDashboardStats(clientId?: number, company?: string) {
   const db = await getDb();
+  const normalizedCompany = company?.trim() || undefined;
+  const companyCrsRows = normalizedCompany
+    ? await db.select({ crsId: tasks.crsId }).from(tasks)
+      .leftJoin(users, eq(tasks.assigneeId, users.id))
+      .where(eq(users.company, normalizedCompany))
+    : [];
+  const companyCrsIds: number[] = Array.from(new Set(
+    companyCrsRows
+      .map((row: { crsId: number | null }) => row.crsId)
+      .filter((id: number | null): id is number => id !== null),
+  ));
+  const hasCompanyScope = !normalizedCompany || companyCrsIds.length > 0;
   const totalClients = await db.select({ count: sql<number>`COUNT(*)` }).from(clients).where(eq(clients.status, "active"));
-  // CRS filtered by clientId if provided
-  const crsConditions = clientId
-    ? and(eq(crs.status, "active"), eq(crs.clientId, clientId))
-    : eq(crs.status, "active");
+  // CRS filtered by clientId and, when selected, by contracts with tasks assigned to the company
+  const crsConditions = hasCompanyScope
+    ? and(
+        eq(crs.status, "active"),
+        ...(clientId ? [eq(crs.clientId, clientId)] : []),
+        ...(normalizedCompany ? [inArray(crs.id, companyCrsIds)] : []),
+      )
+    : sql`1 = 0`;
   const totalCrs = await db.select({ count: sql<number>`COUNT(*)` }).from(crs).where(crsConditions);
   const avgProgress = await db.select({ avg: sql<number>`AVG(progress)` }).from(crs).where(crsConditions);
-  // Tasks filtered through CRS
+  // Tasks filtered through CRS and the selected company
   const taskQuery = db.select({
     id: tasks.id, progress: tasks.progress, dueDate: tasks.dueDate, crsId: tasks.crsId,
-  }).from(tasks);
-  const allTasksRaw = clientId
-    ? await taskQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
-    : await taskQuery;
+    assigneeCompany: users.company,
+  }).from(tasks).leftJoin(users, eq(tasks.assigneeId, users.id));
+  const allTasksQuery = clientId
+    ? taskQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+    : taskQuery;
+  const allTasksRows = await allTasksQuery;
+  const allTasksRaw = normalizedCompany
+    ? allTasksRows.filter((task: any) => task.assigneeCompany === normalizedCompany)
+    : allTasksRows;
   const totalTasks = allTasksRaw.length;
   const now = new Date();
   const completedTasks = allTasksRaw.filter((t: any) => t.progress >= 100).length;
@@ -629,12 +650,20 @@ export async function getDashboardStats(clientId?: number) {
   const pendingTasks = allTasksRaw.filter((t: any) => t.progress === 0).length;
   const overdueTasks = allTasksRaw.filter((t: any) => t.dueDate && new Date(t.dueDate) < now && t.progress < 100).length;
   // Checklist stats — filtered by clientId if provided
-  const checklistQuery = db.select({ status: checklistItems.status, completedAt: checklistItems.completedAt, endDate: checklistItems.endDate }).from(checklistItems);
-  const allChecklist = clientId
-    ? await checklistQuery
-        .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
-        .innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+  const checklistQuery = db.select({
+    status: checklistItems.status,
+    completedAt: checklistItems.completedAt,
+    endDate: checklistItems.endDate,
+    assigneeCompany: users.company,
+  }).from(checklistItems)
+    .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id));
+  const allChecklistRows = clientId
+    ? await checklistQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
     : await checklistQuery;
+  const allChecklist = normalizedCompany
+    ? allChecklistRows.filter((item: any) => item.assigneeCompany === normalizedCompany)
+    : allChecklistRows;
   const totalChecklist = allChecklist.length;
   const completedChecklist = allChecklist.filter((c: any) => c.status === 'published' || c.status === 'archived' || c.completedAt != null).length;
   const pendingChecklist = totalChecklist - completedChecklist;

@@ -969,3 +969,5 @@
 - [x] Kanban: validar visualmente ou por teste que assigneeCompany aparece abaixo do nome somente quando existir
 - [x] Backend: criar alias admin.deleteUser com as mesmas proteções de users.deleteUser
 - [x] Backend: testar o contrato admin.deleteUser contra autoexclusão e remoção do administrador principal
+- [x] Bug: corrigir exportação do relatório PDF que não está sendo concluída
+- [x] Bug: adicionar teste de regressão para a geração do relatório PDF com captura do mapa
