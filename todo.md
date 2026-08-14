@@ -493,10 +493,10 @@
 - [x] Bug: Kanban dos CRS não abria — rota /kanban faltava no App.tsx e o componente não lia o parâmetro ?crs=X da URL — corrigido
 
 ## Melhorias v4.4
-- [ ] Bug: Erro ao inserir nova tarefa no Kanban — investigar e corrigir
-- [ ] Fases padrão automáticas ao criar CRS (A Fazer, Em Andamento, Revisão, Concluído)
-- [ ] Submenu de CRS na sidebar com link direto para o Kanban de cada CRS ativo
-- [ ] Filtro de disciplina no Kanban (chips na barra superior)
+- [x] Bug: Erro ao inserir nova tarefa no Kanban — fluxo de validação, mutation e diálogo de criação corrigidos
+- [x] Fases padrão automáticas ao criar CRS (Para Iniciar, Em Andamento, Compartilhado, Publicado, Concluído e Bloqueado)
+- [x] Submenu de CRS na sidebar com link direto para o Kanban de cada CRS ativo
+- [x] Filtro de disciplina no Kanban (chips na barra superior)
 
 ## Melhorias v4.4 — Sidebar CRS + Filtro Disciplina Kanban
 - [x] AppLayout: submenu expansível "Projetos" com lista de CRS ativos (links diretos para /kanban?crs=X)
@@ -1021,3 +1021,8 @@
 - [x] PDF Dashboard: implementar mapa exportável com manchas/áreas azuis por estado e marcador numérico de contratos
 - [x] PDF Dashboard: incluir detalhamento de contrato com tipos de obra, extensão, tarefas concluídas e checklist agrupado por disciplina
 - [x] Banco: documentar no README a migração idempotente via SQL executada para chat_typing_states, em vez de pnpm db:push
+
+## Dashboard — Atividade do Chat por Disciplina
+- [x] Backend: métricas de atividade do chat e presença online agrupadas por disciplina, com isolamento por companyId
+- [x] Dashboard: widget visual com mensagens recentes, usuários online, última atividade e atualização periódica por disciplina
+- [x] Testes: cobrir agregação das métricas, estados vazios e filtragem multi-tenant do widget

@@ -18,7 +18,7 @@ import {
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
-  getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, deleteCompany,
+  getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, deleteCompany, getChatActivityByDiscipline,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage, setChatTypingState, clearChatTypingState, getChatTypingUsers,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
@@ -1091,6 +1091,7 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().min(1).max(200).optional() }).optional())
       .query(async ({ input }) => getCompletedTasksSummary(input?.limit ?? 100)),
     companies: protectedProcedure.query(async ({ ctx }) => getDashboardCompanies(tenantCompanyId(ctx.user))),
+    chatActivityByDiscipline: protectedProcedure.query(async ({ ctx }) => getChatActivityByDiscipline(tenantCompanyId(ctx.user))),
     clientProgress: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
       .query(async ({ ctx, input }) => getClientProgress(input?.company, input?.clientId, tenantCompanyId(ctx.user))),

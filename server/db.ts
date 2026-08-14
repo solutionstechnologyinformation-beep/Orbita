@@ -2,6 +2,7 @@ import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte, or, isN
 import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
 import { normalizeDeadlineAlertDays } from "../shared/deadline-alert";
+import { normalizeChatActivitySnapshot } from "../shared/chat-activity";
 import {
   users, clients, crs, kanbanPhases, tasks, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -1138,6 +1139,37 @@ export async function createChatMessage(data: { userId: number; crsId?: number; 
     sql`INSERT INTO chat_messages (userId, crsId, role, content, createdAt) VALUES (${data.userId}, ${data.crsId ?? null}, ${data.role}, ${data.content}, NOW())`
   );
   return (result as any).insertId as number;
+}
+
+export async function getChatActivityByDiscipline(companyId?: number | null) {
+  const db = await getDb();
+  const now = new Date();
+  const onlineSince = new Date(now.getTime() - 5 * 60 * 1000);
+  const typingSince = new Date(now.getTime() - 15 * 1000);
+  const daySince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const weekSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const conditions: any[] = [];
+  if (companyId != null) conditions.push(eq(users.companyId, companyId));
+
+  const disciplineExpression = sql<string>`COALESCE(${userDisciplines.disciplineName}, 'Sem disciplina')`;
+  const rows = await db.select({
+    discipline: disciplineExpression,
+    memberCount: sql<number>`COUNT(DISTINCT ${users.id})`,
+    onlineCount: sql<number>`COUNT(DISTINCT CASE WHEN ${users.lastSeenAt} >= ${onlineSince} THEN ${users.id} END)`,
+    typingCount: sql<number>`COUNT(DISTINCT CASE WHEN ${chatTypingStates.lastTypedAt} >= ${typingSince} THEN ${users.id} END)`,
+    messagesLast24h: sql<number>`COUNT(DISTINCT CASE WHEN ${directMessages.createdAt} >= ${daySince} THEN ${directMessages.id} END)`,
+    messagesLast7d: sql<number>`COUNT(DISTINCT CASE WHEN ${directMessages.createdAt} >= ${weekSince} THEN ${directMessages.id} END)`,
+    activeConversationsLast24h: sql<number>`COUNT(DISTINCT CASE WHEN ${directMessages.createdAt} >= ${daySince} THEN ${directMessages.conversationId} END)`,
+    lastActivityAt: sql<Date | null>`MAX(${directMessages.createdAt})`,
+  }).from(users)
+    .leftJoin(userDisciplines, eq(userDisciplines.userId, users.id))
+    .leftJoin(chatTypingStates, and(eq(chatTypingStates.userId, users.id), gte(chatTypingStates.lastTypedAt, typingSince)))
+    .leftJoin(directMessages, and(eq(directMessages.senderId, users.id), gte(directMessages.createdAt, weekSince)))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .groupBy(userDisciplines.disciplineName)
+    .orderBy(desc(sql`COUNT(DISTINCT CASE WHEN ${directMessages.createdAt} >= ${daySince} THEN ${directMessages.id} END)`), asc(disciplineExpression));
+
+  return normalizeChatActivitySnapshot(rows as any[], now);
 }
 
 // ─── Conversations / Direct Messages ──────────────────────────────────────────
