@@ -117,9 +117,9 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b border-border shadow-sm">
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: BRAND.blue }}>
@@ -235,7 +235,7 @@ export default function Home() {
       </section>
 
       {/* ── Features ────────────────────────────────────────────────────────── */}
-      <section id="funcionalidades" className="py-24 px-4 bg-white">
+      <section id="funcionalidades" className="py-24 px-4 bg-background">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <Badge className="mb-4 text-xs font-semibold px-3 py-1 text-white border-0"
@@ -253,7 +253,7 @@ export default function Home() {
             {features.map(({ icon: Icon, title, desc }) => (
               <div
                 key={title}
-                className="bg-white rounded-2xl p-6 border border-border hover:shadow-md transition-all duration-200 group hover:border-primary/30"
+                className="bg-card rounded-2xl p-6 border border-border hover:shadow-md transition-all duration-200 group hover:border-primary/30"
               >
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-colors"
                   style={{ background: `${BRAND.blue}12` }}>
@@ -290,7 +290,7 @@ export default function Home() {
                 className={`relative rounded-2xl p-8 border-2 transition-all ${
                   plan.highlight
                     ? "shadow-2xl scale-105"
-                    : "bg-white shadow-sm hover:shadow-md"
+                    : "bg-card shadow-sm hover:shadow-md"
                 }`}
                 style={plan.highlight ? {
                   background: `linear-gradient(135deg, ${BRAND.blue}, ${BRAND.blueAlt})`,
@@ -366,7 +366,7 @@ export default function Home() {
                   className="w-full gap-2 font-semibold text-sm"
                   onClick={() => window.location.href = getLoginUrl()}
                   style={plan.highlight ? {
-                    background: "white",
+                    background: "var(--card)",
                     color: BRAND.blue,
                   } : {
                     background: plan.color,
@@ -391,7 +391,7 @@ export default function Home() {
       </section>
 
       {/* ── Trust section ───────────────────────────────────────────────────── */}
-      <section className="py-20 px-4 bg-white">
+      <section className="py-20 px-4 bg-background">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             {[
@@ -429,7 +429,7 @@ export default function Home() {
               size="lg"
               onClick={() => window.location.href = getLoginUrl()}
               className="gap-2 px-8 text-base font-semibold"
-              style={{ background: "white", color: BRAND.blue }}
+              style={{ background: "var(--card)", color: BRAND.blue }}
             >
               Criar conta grátis
               <ArrowRight className="w-5 h-5" />
@@ -447,7 +447,7 @@ export default function Home() {
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-border py-10 px-4 bg-white">
+      <footer className="border-t border-border py-10 px-4 bg-background">
         <div className="container">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2.5">

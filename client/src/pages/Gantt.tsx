@@ -306,7 +306,7 @@ export default function Gantt() {
 
   return (
     <AppLayout title="Linha do tempo" fullHeight>
-      <div className="h-full min-h-0 bg-[#f6f8fb] p-4 lg:p-6 flex flex-col gap-4">
+      <div className="gantt-page h-full min-h-0 bg-background text-foreground p-4 lg:p-6 flex flex-col gap-4">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

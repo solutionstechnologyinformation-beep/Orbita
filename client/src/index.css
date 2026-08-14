@@ -462,6 +462,74 @@ html.theme-transition body * {
     background-color: color-mix(in srgb, var(--brand-accent) 25%, var(--card)) !important;
   }
 
+  /* Cross-application dark surfaces: legacy light utility classes resolve to the active semantic palette. */
+  .dark .bg-white,
+  .dark .bg-slate-50,
+  .dark .bg-slate-100,
+  .dark .bg-slate-200,
+  .dark .bg-gray-50,
+  .dark .bg-gray-100,
+  .dark .bg-blue-50,
+  .dark .bg-indigo-50,
+  .dark .bg-emerald-50,
+  .dark .bg-green-50,
+  .dark .bg-violet-50,
+  .dark .bg-purple-50,
+  .dark .bg-teal-50,
+  .dark .bg-red-50 {
+    background-color: color-mix(in srgb, var(--brand-accent) 16%, var(--card)) !important;
+  }
+
+  .dark [class*="bg-[#f6f8fb]"],
+  .dark [class*="bg-[#f8fafc]"],
+  .dark [class*="bg-[#eef5ff]"] {
+    background-color: color-mix(in srgb, var(--brand-accent) 18%, var(--card)) !important;
+  }
+
+  .dark .border-gray-100,
+  .dark .border-gray-200,
+  .dark .border-gray-300,
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    border-color: var(--border) !important;
+  }
+
+  .dark .text-gray-900,
+  .dark .text-gray-800,
+  .dark .text-gray-700,
+  .dark .text-gray-600,
+  .dark .text-slate-900,
+  .dark .text-slate-800,
+  .dark .text-slate-700 {
+    color: var(--foreground) !important;
+  }
+
+  .dark .text-gray-500,
+  .dark .text-gray-400,
+  .dark .text-slate-500,
+  .dark .text-slate-400,
+  .dark .text-slate-300 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .dark .hover\\:bg-gray-50:hover,
+  .dark .hover\\:bg-slate-50:hover,
+  .dark .hover\\:bg-slate-100:hover,
+  .dark .hover\\:bg-slate-200:hover {
+    background-color: color-mix(in srgb, var(--brand-accent) 28%, var(--card)) !important;
+  }
+
+  .dark .glass {
+    background: color-mix(in srgb, var(--brand-accent) 16%, var(--card)) !important;
+    border-color: var(--border) !important;
+  }
+
+  .dark .kanban-column {
+    background: color-mix(in srgb, var(--brand-accent) 14%, var(--background)) !important;
+    border-color: var(--border) !important;
+  }
+
   /* Dark theme: preserve the yellow identity for text that needs emphasis and contrast. */
   .dark .chat-activity-panel .text-gray-700,
   .dark .chat-activity-panel .text-gray-800,

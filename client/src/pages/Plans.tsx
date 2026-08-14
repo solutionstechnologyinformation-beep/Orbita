@@ -166,9 +166,9 @@ export default function Plans() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-b border-border shadow-sm">
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
             <button
@@ -210,7 +210,7 @@ export default function Plans() {
 
       {/* Hero */}
       <section className="pt-28 pb-16 px-4 text-center" style={{
-        background: `linear-gradient(180deg, ${BRAND.blue}08 0%, white 100%)`,
+        background: `linear-gradient(180deg, ${BRAND.blue}08 0%, var(--background) 100%)`,
       }}>
         <Badge className="mb-4 text-xs font-semibold px-3 py-1 text-white border-0"
           style={{ background: BRAND.blue }}>
@@ -485,7 +485,7 @@ export default function Plans() {
             size="lg"
             onClick={() => window.location.href = getLoginUrl()}
             className="gap-2 px-8 font-semibold"
-            style={{ background: "white", color: BRAND.blue }}
+            style={{ background: "var(--card)", color: BRAND.blue }}
           >
             Criar conta grátis
             <ChevronRight className="w-5 h-5" />
@@ -494,7 +494,7 @@ export default function Plans() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 px-4 bg-white">
+      <footer className="border-t border-border py-8 px-4 bg-background">
         <div className="container flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center">
