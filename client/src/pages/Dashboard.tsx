@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, findMapElementRecord, type MapElementRecord } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, type MapElementRecord } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -119,11 +119,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
-  const filteredElementRecords = useMemo(() => {
-    const query = elementSearch.trim().toLocaleLowerCase("pt-BR");
-    if (!query) return mapElementRecords.slice(0, 30);
-    return mapElementRecords.filter((record) => [record.elementName, record.description, record.crsName, record.segmentName, record.geometryType].some((value) => value.toLocaleLowerCase("pt-BR").includes(query))).slice(0, 30);
-  }, [elementSearch, mapElementRecords]);
+  const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, 30), [elementSearch, mapElementRecords]);
   const selectedElement = useMemo(() => findMapElementRecord(mapElementRecords, selectedElementKey), [mapElementRecords, selectedElementKey]);
   const focusElement = useCallback((record: MapElementRecord) => {
     setSelectedElementKey(record.key);
@@ -585,10 +581,10 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Pesquisar elemento importado</span>
+                <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Pesquisar por nome ou atributo</span>
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-                  <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome, descrição ou contrato" className="w-full rounded-md border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Pesquisar elemento importado" />
+                  <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome, atributo, descrição ou contrato" className="w-full rounded-md border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Pesquisar elementos KML/KMZ por nome ou atributo" />
                 </div>
               </label>
               <div className="space-y-1.5">

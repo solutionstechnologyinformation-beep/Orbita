@@ -65,6 +65,20 @@ export function findMapElementRecord(records: MapElementRecord[], key: string | 
   return records.find((record) => record.key === key) ?? null;
 }
 
+export function filterMapElementRecords(records: MapElementRecord[], query: string, limit = 30): MapElementRecord[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+  if (!normalizedQuery) return records.slice(0, limit);
+  return records.filter((record) => [
+    record.elementName,
+    record.description,
+    record.attributes,
+    record.crsName,
+    record.segmentName,
+    record.geometryType,
+    record.workType,
+  ].some((value) => value.toLocaleLowerCase("pt-BR").includes(normalizedQuery))).slice(0, limit);
+}
+
 export function escapeCsvCell(value: unknown): string {
   const text = value == null ? "" : String(value);
   return /[",\n\r;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;

@@ -41,3 +41,34 @@ describe("map element data", () => {
     expect(findMapElementRecord([record], null)).toBeNull();
     expect(findMapElementRecord([record], "missing")).toBeNull();
   });
+
+
+describe("map element search", () => {
+  it("filtra por nome, descrição ou atributo sem perder o limite de resultados", async () => {
+    const { filterMapElementRecords } = await import("../shared/map-element-data");
+    const base = (key: string, elementName: string, description: string, attributes: string) => ({
+      key,
+      segmentId: 1,
+      segmentName: "trecho.kmz",
+      crsId: 1,
+      crsName: "Contrato GO-319",
+      geometryType: "Point" as const,
+      elementName,
+      description,
+      attributes,
+      coordinates: [[-49.7, -17.1]],
+      center: { lat: -17.1, lng: -49.7 },
+      workType: "implementacao",
+      extensionKm: null,
+    });
+    const records = [
+      base("1:0", "Marco inicial", "Entrada da obra", "{\"codigo\":\"A-100\"}"),
+      base("1:1", "Ponto técnico", "Travessia especial", "{\"codigo\":\"B-200\"}"),
+      base("1:2", "Outro elemento", "Sem correspondência", "{\"codigo\":\"C-300\"}"),
+    ];
+    expect(filterMapElementRecords(records, "marco").map((record) => record.key)).toEqual(["1:0"]);
+    expect(filterMapElementRecords(records, "travessia").map((record) => record.key)).toEqual(["1:1"]);
+    expect(filterMapElementRecords(records, "B-200").map((record) => record.key)).toEqual(["1:1"]);
+    expect(filterMapElementRecords(records, "", 2)).toHaveLength(2);
+  });
+});
