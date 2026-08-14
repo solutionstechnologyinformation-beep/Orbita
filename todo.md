@@ -1090,7 +1090,7 @@
 - [x] Adicionar testes para reordenação, persistência e teclado
 
 ## Dashboard — Animação da reordenação
-- [ ] Adicionar transições fluidas de posição ao mover widgets
-- [ ] Destacar visualmente o widget arrastado e o alvo da soltura
-- [ ] Respeitar prefers-reduced-motion e preservar teclado e persistência
-- [ ] Adicionar testes de estados e transições da reordenação
+- [x] Adicionar transições fluidas de posição ao mover widgets
+- [x] Destacar visualmente o widget arrastado e o alvo da soltura
+- [x] Respeitar prefers-reduced-motion e preservar teclado e persistência
+- [x] Adicionar testes de estados e transições da reordenação
