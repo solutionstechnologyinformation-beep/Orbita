@@ -157,7 +157,7 @@
 - [ ] Frontend: filtro por empresa no Dashboard
 - [ ] Frontend: campo empresa no perfil do usuário (página Profile)
 - [ ] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
-- [ ] Frontend Admin: botão excluir usuário com confirmação
+- [x] Frontend Admin: botão excluir usuário com confirmação
 - [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
 - [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
