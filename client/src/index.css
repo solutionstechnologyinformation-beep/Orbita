@@ -141,13 +141,15 @@
   --sidebar-ring:           #5d9b9b;
 }
 
-/* Applied briefly by ThemeContext so the complete UI changes palette without a visual jump. */
+/* Applied briefly by ThemeContext so every visual surface changes palette smoothly. */
 html.theme-transition,
 html.theme-transition body,
-html.theme-transition body * {
-  transition-property: color, background-color, border-color, box-shadow, fill, stroke;
+html.theme-transition body *,
+html.theme-transition body *::before,
+html.theme-transition body *::after {
+  transition-property: color, background-color, border-color, box-shadow, fill, stroke, text-shadow, outline-color, text-decoration-color, caret-color, accent-color;
   transition-duration: 260ms;
-  transition-timing-function: ease;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes orbitaUnreadBadgeIn {
@@ -308,8 +310,11 @@ html.theme-transition body * {
 
   html.theme-transition,
   html.theme-transition body,
-  html.theme-transition body * {
-    transition-duration: 0ms;
+  html.theme-transition body *,
+  html.theme-transition body *::before,
+  html.theme-transition body *::after {
+    transition-property: none !important;
+    transition-duration: 0ms !important;
   }
 
   .chat-unread-badge {

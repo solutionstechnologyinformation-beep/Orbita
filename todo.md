@@ -1135,3 +1135,9 @@
 - [x] Corrigir o Gantt e seus cabeçalhos, tabelas, filtros, calendário e estados vazios
 - [x] Corrigir demais abas, modais, popovers e blocos de relatório para usar superfícies escuras semânticas
 - [x] Adicionar testes de tema escuro, contraste e regressão visual
+
+## Tema — Transição suave
+- [x] Auditar a implementação atual de troca de tema e os elementos sem transição
+- [x] Aplicar transição global a fundos, textos, bordas, sombras e SVG
+- [x] Respeitar prefers-reduced-motion e evitar animação em mudanças estruturais
+- [x] Adicionar testes de transição e validar TypeScript e preview
