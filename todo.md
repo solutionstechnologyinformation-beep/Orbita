@@ -1153,3 +1153,8 @@
 - [x] Inicializar a nova habilidade utilizando `init_skill.py`
 - [x] Escrever o SKILL.md e referências com instruções passo a passo
 - [x] Validar a habilidade com `quick_validate.py` e entregar o arquivo SKILL.md
+
+## Habilidade Reutilizável — Expansão Drizzle ORM (`orbita-webdev-evolution`)
+- [x] Criar arquivo de referência com exemplos de joins, agregações e transações em Drizzle ORM
+- [x] Atualizar o SKILL.md para apontar para a nova referência de queries complexas
+- [x] Validar a habilidade com o script `quick_validate.py` e entregar o resultado
