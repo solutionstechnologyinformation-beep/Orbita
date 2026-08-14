@@ -1102,7 +1102,7 @@
 - [x] Adicionar testes de conteúdo, estados e acessibilidade
 
 ## Dashboard — Período das tendências
-- [ ] Adicionar seletor de comparação entre mês, trimestre e ano no widget
-- [ ] Atualizar o período exibido nos indicadores e tooltips com dados reais
-- [ ] Persistir a preferência de período por usuário e widget
-- [ ] Cobrir seletor, acessibilidade, persistência e cálculos com testes
+- [x] Adicionar seletor de comparação entre mês, trimestre e ano no widget
+- [x] Atualizar o período exibido nos indicadores e tooltips com dados reais
+- [x] Persistir a preferência de período por usuário e widget
+- [x] Cobrir seletor, acessibilidade, persistência e cálculos com testes
