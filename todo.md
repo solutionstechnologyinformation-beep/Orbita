@@ -1046,3 +1046,9 @@
 - [x] Adicionar transição suave quando o indicador de mensagens não lidas aparecer ou atualizar
 - [x] Respeitar prefers-reduced-motion na animação do indicador
 - [x] Adicionar testes para entrada, atualização e acessibilidade da animação
+
+## Relatório PDF — Atividade do Chat
+- [x] Criar relatório PDF com métricas gerais e detalhamento por disciplina
+- [x] Incluir mensagens não lidas, presença, digitação e conversas ativas no relatório
+- [x] Adicionar botão de exportação, loading e feedback de sucesso no Dashboard
+- [x] Adicionar testes para dados, conteúdo e estados da exportação

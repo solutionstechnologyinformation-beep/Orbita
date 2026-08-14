@@ -996,50 +996,50 @@ export default function Dashboard() {
       const periodLabel = slaPeriod === "month" ? "Mês Atual" : slaPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
       const now = new Date();
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Dashboard Orbita</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
-  .header { background: ${REPORT_PALETTE.navy}; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
-  .body { padding: 28px 36px; }
-  .section-title { font-size: 14px; font-weight: 700; color: ${REPORT_PALETTE.navy}; border-left: 4px solid ${REPORT_PALETTE.yellow}; padding-left: 10px; margin: 24px 0 12px; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .card { background: white; border-radius: 10px; border: 1px solid #dbe3ea; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
-  .card-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .card-value { font-size: 28px; font-weight: 800; color: ${REPORT_PALETTE.navy}; }
-  .card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-  .sla-bar-bg { background: #dbe3ea; border-radius: 6px; height: 8px; margin: 8px 0; }
-  .sla-bar { height: 8px; border-radius: 6px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .green { color: #16a34a; } .yellow { color: #d97706; } .red { color: #dc2626; }
-  .bg-green { background: #22c55e; } .bg-yellow { background: ${REPORT_PALETTE.yellow}; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: ${REPORT_PALETTE.navy}; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  td { padding: 7px 12px; border-bottom: 1px solid #eef2f7; }
-  tr:nth-child(even) td { background: #f7f8fa; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
-  .assignee-chart { padding: 18px; }
-  .assignee-chart-row { display: grid; grid-template-columns: 150px 1fr 82px; align-items: center; gap: 12px; margin: 10px 0; }
-  .assignee-chart-label { color: #334155; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .assignee-chart-track { background: #dbe3ea; border-radius: 999px; height: 12px; overflow: hidden; }
-  .assignee-chart-fill { height: 100%; border-radius: 999px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .assignee-chart-value { color: #475569; font-size: 11px; text-align: right; white-space: nowrap; }
-  .state-map { position: relative; min-height: 220px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #bfdbfe 100%); border: 1px solid #bfdbfe; border-radius: 12px; overflow: hidden; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .state-map::before { content: ""; position: absolute; inset: 16px; border: 1px dashed rgba(37,99,235,.25); border-radius: 40% 55% 45% 60%; transform: rotate(-4deg); }
-  .state-marker { position: absolute; z-index: 1; transform: translate(-50%, 0); min-width: 46px; padding: 5px 7px; border-radius: 999px; background: #2563eb; color: white; text-align: center; box-shadow: 0 4px 10px rgba(30,64,175,.28); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .state-marker span { display: block; font-size: 8px; font-weight: 700; letter-spacing: .3px; opacity: .88; }
-  .state-marker strong { display: block; font-size: 16px; line-height: 17px; }
-  .map-legend { font-size: 10px; color: #475569; margin-top: 8px; }
-  .muted { color: #64748b; font-size: 10px; margin-top: 3px; }
-  .discipline-list { display: grid; gap: 4px; min-width: 170px; }
-  .discipline-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; line-height: 1.25; }
-  .discipline-row span { color: #475569; text-align: right; }
-  .footer { background: ${REPORT_PALETTE.navy}; border-top: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
-  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-</style></head><body>
+	<title>Dashboard Orbita</title>
+	<style>
+	  * { box-sizing: border-box; margin: 0; padding: 0; }
+	  body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
+	  .header { background: ${REPORT_PALETTE.navy}; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+	  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+	  .body { padding: 28px 36px; }
+	  .section-title { font-size: 14px; font-weight: 700; color: ${REPORT_PALETTE.navy}; border-left: 4px solid ${REPORT_PALETTE.yellow}; padding-left: 10px; margin: 24px 0 12px; }
+	  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+	  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+	  .card { background: white; border-radius: 10px; border: 1px solid #dbe3ea; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
+	  .card-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+	  .card-value { font-size: 28px; font-weight: 800; color: ${REPORT_PALETTE.navy}; }
+	  .card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+	  .sla-bar-bg { background: #dbe3ea; border-radius: 6px; height: 8px; margin: 8px 0; }
+	  .sla-bar { height: 8px; border-radius: 6px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  .green { color: #16a34a; } .yellow { color: #d97706; } .red { color: #dc2626; }
+	  .bg-green { background: #22c55e; } .bg-yellow { background: ${REPORT_PALETTE.yellow}; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
+	  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+	  th { background: ${REPORT_PALETTE.navy}; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  td { padding: 7px 12px; border-bottom: 1px solid #eef2f7; }
+	  tr:nth-child(even) td { background: #f7f8fa; }
+	  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+	  .assignee-chart { background: white; border-radius: 10px; border: 1px solid #dbe3ea; padding: 16px; display: grid; gap: 8px; }
+	  .assignee-chart-row { display: grid; grid-template-columns: 140px 1fr 90px; gap: 12px; align-items: center; font-size: 12px; }
+	  .assignee-chart-label { color: #334155; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	  .assignee-chart-track { background: #dbe3ea; border-radius: 999px; height: 12px; overflow: hidden; }
+	  .assignee-chart-fill { height: 100%; border-radius: 999px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  .assignee-chart-value { color: #475569; font-size: 11px; text-align: right; white-space: nowrap; }
+	  .state-map { position: relative; min-height: 220px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #bfdbfe 100%); border: 1px solid #bfdbfe; border-radius: 12px; overflow: hidden; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  .state-map::before { content: ""; position: absolute; inset: 16px; border: 1px dashed rgba(37,99,235,.25); border-radius: 40% 55% 45% 60%; transform: rotate(-4deg); }
+	  .state-marker { position: absolute; z-index: 1; transform: translate(-50%, 0); min-width: 46px; padding: 5px 7px; border-radius: 999px; background: #2563eb; color: white; text-align: center; box-shadow: 0 4px 10px rgba(30,64,175,.28); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  .state-marker span { display: block; font-size: 8px; font-weight: 700; letter-spacing: .3px; opacity: .88; }
+	  .state-marker strong { display: block; font-size: 16px; line-height: 17px; }
+	  .map-legend { font-size: 10px; color: #475569; margin-top: 8px; }
+	  .muted { color: #64748b; font-size: 10px; margin-top: 3px; }
+	  .discipline-list { display: grid; gap: 4px; min-width: 170px; }
+	  .discipline-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; line-height: 1.25; }
+	  .discipline-row span { color: #475569; text-align: right; }
+	  .footer { background: ${REPORT_PALETTE.navy}; border-top: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	  .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
+	  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+	</style></head><body>
 <div class="header">
   <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /><div><h1>LS Solutions · Orbita GIS &amp; OS</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
   <div style="text-align:right"><p style="font-size:13px;font-weight:700">Visão Geral</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
@@ -1123,6 +1123,94 @@ export default function Dashboard() {
       setIsExporting(false);
     }
   }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod, completedTasks, contractDetails]);
+
+  const exportChatActivityPDF = useCallback(() => {
+    const printWindow = resolvePrintWindow(() => window.open("", "_blank"));
+    if (!printWindow) {
+      toast.error("Pop-up bloqueado. Permita pop-ups para exportar o relatório de atividade.");
+      return;
+    }
+    const now = new Date();
+    const disciplines = (chatActivity?.disciplines ?? []) as any[];
+    const totals = chatActivity?.totals ?? { memberCount: 0, onlineCount: 0, typingCount: 0, messagesLast24h: 0, messagesLast7d: 0, unreadCount: 0 };
+    const disciplineRowsHtml = disciplines.length > 0 ? disciplines.map((d) => `<tr>
+      <td><strong>${escapeInfoWindowHtml(d.discipline)}</strong></td>
+      <td style="text-align:center">${Number(d.memberCount ?? 0)}</td>
+      <td style="text-align:center;color:#16a34a;font-weight:600">${Number(d.onlineCount ?? 0)}</td>
+      <td style="text-align:center;color:#7c3aed">${Number(d.typingCount ?? 0)}</td>
+      <td style="text-align:center">${Number(d.messagesLast24h ?? 0)}</td>
+      <td style="text-align:center">${Number(d.messagesLast7d ?? 0)}</td>
+      <td style="text-align:center"><span class="badge ${Number(d.unreadCount ?? 0) > 0 ? 'unread' : ''}">${Number(d.unreadCount ?? 0)}</span></td>
+    end`).join("") : '<tr><td colspan="7" style="color:#64748b;text-align:center;">Nenhuma disciplina com atividade de chat registrada.</td></tr>';
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Relatório de Atividade do Chat — Orbita</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
+  .header { background: ${REPORT_PALETTE.navy}; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  .body { padding: 28px 36px; }
+  .section-title { font-size: 14px; font-weight: 700; color: ${REPORT_PALETTE.navy}; border-left: 4px solid ${REPORT_PALETTE.yellow}; padding-left: 10px; margin: 24px 0 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .card { background: white; border-radius: 10px; border: 1px solid #dbe3ea; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
+  .card-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .card-value { font-size: 28px; font-weight: 800; color: ${REPORT_PALETTE.navy}; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  th { background: ${REPORT_PALETTE.navy}; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  td { padding: 8px 12px; border-bottom: 1px solid #eef2f7; }
+  tr:nth-child(even) td { background: #f7f8fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; background: #e2e8f0; color: #475569; }
+  .badge.unread { background: #fee2e2; color: #dc2626; }
+  .footer { background: ${REPORT_PALETTE.navy}; border-top: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
+  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+</style></head><body>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /><div><h1>LS Solutions · Orbita GIS &amp; OS</h1><p>Relatório de Atividade do Chat e Presença — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+  <div style="text-align:right"><p style="font-size:13px;font-weight:700">Equipes &amp; Comunicação</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
+</div>
+<div class="body">
+  <div class="section-title">Métricas Gerais de Atividade</div>
+  <div class="grid3">
+    <div class="card"><div class="card-title">Usuários Online</div><div class="card-value" style="color:#16a34a">${totals.onlineCount ?? 0}</div></div>
+    <div class="card"><div class="card-title">Mensagens em 24h</div><div class="card-value" style="color:#2563eb">${totals.messagesLast24h ?? 0}</div></div>
+    <div class="card"><div class="card-title">Usuários Digitando</div><div class="card-value" style="color:#7c3aed">${totals.typingCount ?? 0}</div></div>
+  </div>
+  <div class="grid3">
+    <div class="card"><div class="card-title">Mensagens Não Lidas</div><div class="card-value" style="color:#dc2626">${totals.unreadCount ?? 0}</div></div>
+    <div class="card"><div class="card-title">Total de Membros</div><div class="card-value">${totals.memberCount ?? 0}</div></div>
+    <div class="card"><div class="card-title">Mensagens nos Últimos 7 Dias</div><div class="card-value">${totals.messagesLast7d ?? 0}</div></div>
+  </div>
+  <div class="section-title">Detalhamento por Disciplina</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Disciplina</th>
+        <th style="text-align:center">Membros</th>
+        <th style="text-align:center">Online</th>
+        <th style="text-align:center">Digitando</th>
+        <th style="text-align:center">Msgs 24h</th>
+        <th style="text-align:center">Msgs 7d</th>
+        <th style="text-align:center">Não Lidas</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${disciplineRowsHtml.replace(/end<\/tr>/g, '</tr>')}
+    </tbody>
+  </table>
+</div>
+<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /> LS Solutions · Orbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
+</body></html>`;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      if (!printWindow.closed) printWindow.print();
+    }, 800);
+  }, [chatActivity]);
 
   return (
     <AppLayout title="Dashboard">
@@ -1485,11 +1573,22 @@ export default function Dashboard() {
                       <p className="text-xs text-gray-400">Presença atualizada a cada 15 segundos</p>
                     </div>
                   </div>
-                  {chatActivity?.generatedAt && (
-                    <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                      Atualizado às {new Date(chatActivity.generatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {chatActivity?.generatedAt && (
+                      <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                        Atualizado às {new Date(chatActivity.generatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={exportChatActivityPDF}
+                      className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-[#ffbe00] hover:bg-[#eab000] rounded-md shadow-xs transition-all"
+                      title="Exportar estatísticas do chat em PDF"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                      PDF
+                    </button>
+                  </div>
                 </div>
                 {chatActivityQ.isLoading ? (
                   <div className="space-y-3">
