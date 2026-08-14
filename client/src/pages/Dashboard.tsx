@@ -7,6 +7,7 @@ import { resolvePrintWindow } from "./report-export-utils";
 import { ORBITA_LOGO_URL } from "@/branding";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useLocation } from "wouter";
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -41,6 +42,24 @@ const EXTENSION_COLORS: Record<string, string> = {
   levantamento: "#8b5cf6",
   outro: "#64748b",
 };
+const LIGHT_MAP_STYLES: google.maps.MapTypeStyle[] = [
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
+  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e8e8e8" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
+const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry", stylers: [{ color: "#1f2937" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1f2937" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#d1d5db" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1d2a" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#374151" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#4b5563" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
 function parseTipoObra(raw: any): string[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
@@ -112,6 +131,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const hoveredElementKeyRef = useRef<string | null>(null);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
@@ -133,6 +154,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const [visibleElementCount, setVisibleElementCount] = useState(8);
   const elementListRef = useRef<HTMLDivElement | null>(null);
   const mapElementPanelState = getMapElementPanelState(segmentsLoading, segments.length);
+  const mapPanelSurface = isDark ? "bg-slate-900/95 border-slate-700" : "bg-white/95 border-gray-200";
+  const mapPanelText = isDark ? "text-slate-100" : "text-gray-800";
+  const mapPanelMuted = isDark ? "text-slate-400" : "text-gray-500";
+  const mapPanelInput = isDark ? "border-slate-600 bg-slate-800 text-slate-100" : "border-gray-200 bg-white text-gray-700";
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
   const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, Math.max(mapElementRecords.length, 1), elementSort), [elementSearch, elementSort, mapElementRecords]);
@@ -225,18 +250,19 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: true,
-      styles: [
-        { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
-        { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-        { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-        { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e8e8e8" }] },
-        { featureType: "poi", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", stylers: [{ visibility: "off" }] },
-      ],
+      styles: theme === "dark" ? DARK_MAP_STYLES : LIGHT_MAP_STYLES,
     });
     if (locations.length === 0 && segments.length === 0) return;
     placeMarkers(map);
-  }, [locations, segments]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locations, segments, theme]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (mapRef.current) mapRef.current.setOptions({ styles: theme === "dark" ? DARK_MAP_STYLES : LIGHT_MAP_STYLES });
+  }, [theme]);
+
+  useEffect(() => {
+    if (mapRef.current) mapRef.current.setMapTypeId(mapType);
+  }, [mapType]);
 
   const placeMarkers = useCallback((map: google.maps.Map) => {
     const g = (window as any).google.maps;
@@ -583,7 +609,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   }
   return (
     <div className={isMapExpanded ? "fixed inset-0 z-[60] bg-slate-950/60 p-3 sm:p-6" : "relative"}>
-      <div ref={mapExportRef} className={isMapExpanded ? "relative h-full w-full overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-white/30" : "relative rounded-xl overflow-hidden"}>
+      <div ref={mapExportRef} className={isMapExpanded ? `relative h-full w-full overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
         <MapView
           className={isMapExpanded ? "rounded-2xl overflow-hidden !h-full" : "rounded-xl overflow-hidden !h-[28rem]"}
           initialCenter={{ lat: -14.235, lng: -51.925 }}
@@ -591,72 +617,72 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           onMapReady={handleMapReady}
         />
         {selectedElement && (
-          <aside data-map-control="true" className="absolute bottom-3 right-3 z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm" aria-label="Detalhes do elemento importado">
-            <div className="mb-3 flex items-start justify-between gap-3 border-b border-gray-100 pb-2">
+          <aside data-map-control="true" className={`absolute bottom-3 right-3 z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border ${mapPanelSurface} p-4 shadow-xl backdrop-blur-sm`} aria-label="Detalhes do elemento importado">
+            <div className={`mb-3 flex items-start justify-between gap-3 border-b ${isDark ? "border-slate-700" : "border-gray-100"} pb-2`}>
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Detalhes do elemento</p>
-                <h3 className="truncate text-sm font-bold text-gray-900" title={selectedElement.elementName}>{selectedElement.elementName}</h3>
+                <h3 className={`truncate text-sm font-bold ${isDark ? "text-slate-100" : "text-gray-900"}`} title={selectedElement.elementName}>{selectedElement.elementName}</h3>
               </div>
-              <button type="button" onClick={() => setSelectedElementKey(null)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Fechar detalhes do elemento"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setSelectedElementKey(null)} className={`rounded-md p-1 ${mapPanelMuted} ${isDark ? "hover:bg-slate-800 hover:text-slate-100" : "hover:bg-gray-100 hover:text-gray-700"}`} aria-label="Fechar detalhes do elemento"><X className="h-4 w-4" /></button>
             </div>
             <dl className="space-y-2 text-[11px]">
-              <div><dt className="font-semibold text-gray-400">Tipo</dt><dd className="text-gray-700">{selectedElement.geometryType === "Point" ? "Ponto" : "Trecho linear"}</dd></div>
-              <div><dt className="font-semibold text-gray-400">Contrato</dt><dd className="text-gray-700">{selectedElement.crsName}</dd></div>
-              <div><dt className="font-semibold text-gray-400">Arquivo / OS</dt><dd className="break-words text-gray-700">{selectedElement.segmentName}</dd></div>
-              {selectedElement.workType && <div><dt className="font-semibold text-gray-400">Tipo de obra</dt><dd className="text-gray-700">{TIPO_OBRA_MAP[selectedElement.workType] ?? selectedElement.workType}</dd></div>}
-              {selectedElement.extensionKm !== null && <div><dt className="font-semibold text-gray-400">Extensão do contrato</dt><dd className="text-gray-700">{selectedElement.extensionKm.toLocaleString("pt-BR")} km</dd></div>}
-              {selectedElement.description && <div><dt className="font-semibold text-gray-400">Descrição</dt><dd className="whitespace-pre-wrap break-words rounded-md bg-gray-50 p-2 text-gray-700">{selectedElement.description}</dd></div>}
-              {selectedElement.attributes && <div><dt className="font-semibold text-gray-400">Atributos</dt><dd className="max-h-32 overflow-auto rounded-md bg-gray-950 p-2 font-mono text-[10px] text-green-200">{selectedElement.attributes}</dd></div>}
-              {selectedElement.center && <div><dt className="font-semibold text-gray-400">Centro geográfico</dt><dd className="text-gray-700">Lat. {selectedElement.center.lat.toFixed(6)} · Lng. {selectedElement.center.lng.toFixed(6)}</dd></div>}
+              <div><dt className={`font-semibold ${mapPanelMuted}`}>Tipo</dt><dd className={isDark ? "text-slate-200" : "text-gray-700"}>{selectedElement.geometryType === "Point" ? "Ponto" : "Trecho linear"}</dd></div>
+              <div><dt className={`font-semibold ${mapPanelMuted}`}>Contrato</dt><dd className={isDark ? "text-slate-200" : "text-gray-700"}>{selectedElement.crsName}</dd></div>
+              <div><dt className={`font-semibold ${mapPanelMuted}`}>Arquivo / OS</dt><dd className={`break-words ${isDark ? "text-slate-200" : "text-gray-700"}`}>{selectedElement.segmentName}</dd></div>
+              {selectedElement.workType && <div><dt className={`font-semibold ${mapPanelMuted}`}>Tipo de obra</dt><dd className={isDark ? "text-slate-200" : "text-gray-700"}>{TIPO_OBRA_MAP[selectedElement.workType] ?? selectedElement.workType}</dd></div>}
+              {selectedElement.extensionKm !== null && <div><dt className={`font-semibold ${mapPanelMuted}`}>Extensão do contrato</dt><dd className={isDark ? "text-slate-200" : "text-gray-700"}>{selectedElement.extensionKm.toLocaleString("pt-BR")} km</dd></div>}
+              {selectedElement.description && <div><dt className={`font-semibold ${mapPanelMuted}`}>Descrição</dt><dd className={`whitespace-pre-wrap break-words rounded-md ${isDark ? "bg-slate-800 text-slate-200" : "bg-gray-50 text-gray-700"} p-2`}>{selectedElement.description}</dd></div>}
+              {selectedElement.attributes && <div><dt className={`font-semibold ${mapPanelMuted}`}>Atributos</dt><dd className="max-h-32 overflow-auto rounded-md bg-gray-950 p-2 font-mono text-[10px] text-green-200">{selectedElement.attributes}</dd></div>}
+              {selectedElement.center && <div><dt className={`font-semibold ${mapPanelMuted}`}>Centro geográfico</dt><dd className={isDark ? "text-slate-200" : "text-gray-700"}>Lat. {selectedElement.center.lat.toFixed(6)} · Lng. {selectedElement.center.lng.toFixed(6)}</dd></div>}
             </dl>
             <button type="button" onClick={() => onNavigate(`/kanban?crs=${selectedElement.crsId}`)} className="mt-4 w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Abrir contrato no Kanban</button>
           </aside>
         )}
       </div>
-      <div data-map-control="true" className="absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg bg-white/95 p-1 shadow-sm border border-gray-100" role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
-        <button type="button" onClick={() => setIsMapExpanded((expanded) => !expanded)} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100" aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
+      <div data-map-control="true" className={`absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
+        <button type="button" onClick={() => setIsMapExpanded((expanded) => !expanded)} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
           {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           {isMapExpanded ? "Reduzir" : "Ampliar"}
         </button>
-        <span className="mx-0.5 h-5 w-px bg-gray-200" aria-hidden="true" />
+        <span className={`mx-0.5 h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} aria-hidden="true" />
         {isMapExpanded && (
-          <button type="button" onClick={() => setIsMapExpanded(false)} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100" title="Fechar visualização ampliada">
+          <button type="button" onClick={() => setIsMapExpanded(false)} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} title="Fechar visualização ampliada">
             <X className="w-3.5 h-3.5" />
             Fechar
           </button>
         )}
-        <button type="button" onClick={() => setMapType("roadmap")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "roadmap" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`} aria-pressed={mapType === "roadmap"}>
+        <button type="button" onClick={() => setMapType("roadmap")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "roadmap" ? "bg-blue-600 text-white" : `${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`}`} aria-pressed={mapType === "roadmap"}>
           <MapIcon className="w-3.5 h-3.5" /> Mapa
         </button>
-        <button type="button" onClick={() => setMapType("satellite")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "satellite" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`} aria-pressed={mapType === "satellite"}>
+        <button type="button" onClick={() => setMapType("satellite")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "satellite" ? "bg-blue-600 text-white" : `${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`}`} aria-pressed={mapType === "satellite"}>
           <Satellite className="w-3.5 h-3.5" /> Satélite
         </button>
-        <span className="mx-0.5 h-5 w-px bg-gray-200" aria-hidden="true" />
+        <span className={`mx-0.5 h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} aria-hidden="true" />
 
       </div>
 
 
       {mapElementPanelState !== "empty" && (
-        <div data-map-control="true" className="absolute top-3 left-3 z-20 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
-          <button type="button" onClick={() => setControlsOpen((open) => !open)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50" aria-expanded={controlsOpen}>
-            <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> {mapElementPanelState === "loading" ? "Processando KML/KMZ" : "Trechos importados"} <span className="text-gray-400 font-normal">{mapElementPanelState === "loading" ? <Loader2 className="inline h-3 w-3 animate-spin" aria-label="Carregando segmentos" /> : `${enabledSegmentCount}/${segments.length}`}</span></span>
-            {controlsOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+        <div data-map-control="true" className={`absolute top-3 left-3 z-20 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl ${mapPanelSurface} shadow-md overflow-hidden`}>
+          <button type="button" onClick={() => setControlsOpen((open) => !open)} className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-50"}`} aria-expanded={controlsOpen}>
+            <span className={`flex items-center gap-2 text-xs font-semibold ${mapPanelText}`}><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> {mapElementPanelState === "loading" ? "Processando KML/KMZ" : "Trechos importados"} <span className={mapPanelMuted}>{mapElementPanelState === "loading" ? <Loader2 className="inline h-3 w-3 animate-spin" aria-label="Carregando segmentos" /> : `${enabledSegmentCount}/${segments.length}`}</span></span>
+            {controlsOpen ? <ChevronUp className={`w-4 h-4 ${mapPanelMuted}`} /> : <ChevronDown className={`w-4 h-4 ${mapPanelMuted}`} />}
           </button>
           {controlsOpen && (mapElementPanelState === "loading" ? (
-            <div className="border-t border-gray-100 px-3 py-3 space-y-2.5" aria-live="polite" aria-label="Processando elementos KML/KMZ">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600"><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Processando elementos do mapa...</div>
+            <div className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"} px-3 py-3 space-y-2.5`} aria-live="polite" aria-label="Processando elementos KML/KMZ">
+              <div className={`flex items-center gap-2 text-[11px] font-medium ${mapPanelMuted}`}><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Processando elementos do mapa...</div>
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-9 w-full rounded-md" />)}
-              <p className="text-[10px] text-gray-400">Os controles aparecerão assim que os arquivos terminarem de ser processados.</p>
+              <p className={`text-[10px] ${mapPanelMuted}`}>Os controles aparecerão assim que os arquivos terminarem de ser processados.</p>
             </div>
           ) : (
-            <div className="border-t border-gray-100 px-3 py-2.5 space-y-3 max-h-[22rem] overflow-y-auto">
+            <div className={`border-t ${isDark ? "border-slate-700" : "border-gray-100"} px-3 py-2.5 space-y-3 max-h-[22rem] overflow-y-auto`}>
               <label className="block">
                 <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Localizar trecho</span>
                 <select value={selectedSegmentId} onChange={(event) => {
                   const value = event.target.value === "all" ? "all" : Number(event.target.value);
                   setSelectedSegmentId(value);
                   if (value !== "all") setSegmentVisibility((current) => ({ ...current, [value]: true }));
-                }} className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Localizar trecho importado">
+                }} className={`w-full rounded-md border ${mapPanelInput} px-2 py-1.5 text-[11px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500`} aria-label="Localizar trecho importado">
                   <option value="all">Todos os trechos</option>
                   {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.crsName ?? `Contrato #${segment.crsId}`} — {segment.name}</option>)}
                 </select>
@@ -666,48 +692,48 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Pesquisar</span>
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-                    <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome ou atributo" className="w-full rounded-md border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Pesquisar elementos KML/KMZ por nome ou atributo" />
+                    <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome ou atributo" className={`w-full rounded-md border ${mapPanelInput} pl-7 pr-2 py-1.5 text-[11px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500`} aria-label="Pesquisar elementos KML/KMZ por nome ou atributo" />
                   </div>
                 </label>
                 <label className="block min-w-0">
                   <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Ordenar</span>
-                  <select value={elementSort} onChange={(event) => setElementSort(event.target.value as MapElementSort)} className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Ordenar resultados dos elementos KML/KMZ">
+                  <select value={elementSort} onChange={(event) => setElementSort(event.target.value as MapElementSort)} className={`w-full rounded-md border ${mapPanelInput} px-2 py-1.5 text-[11px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500`} aria-label="Ordenar resultados dos elementos KML/KMZ">
                     <option value="alphabetical">A–Z</option>
                     <option value="geometry">Geometria</option>
                   </select>
                 </label>
               </div>
               <div ref={elementListRef} onScroll={handleElementListScroll} className="max-h-64 space-y-1.5 overflow-y-auto pr-1" role="list" aria-label="Resultados dos elementos KML/KMZ">
-                {filteredElementRecords.length === 0 ? <p className="rounded-md bg-gray-50 px-2 py-2 text-[10px] text-gray-500">Nenhum elemento encontrado.</p> : visibleElementRecords.map((record) => {
+                {filteredElementRecords.length === 0 ? <p className={`rounded-md ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-50 text-gray-500"} px-2 py-2 text-[10px]`}>Nenhum elemento encontrado.</p> : visibleElementRecords.map((record) => {
                   const pointStyle = record.geometryType === "Point" ? getImportedPointStyle(record.elementName) : null;
                   const accent = pointStyle?.fillColor ?? "#2563eb";
-                  return <button key={record.key} type="button" onClick={() => focusElement(record)} onMouseEnter={() => setElementHover(record.key)} onMouseLeave={() => setElementHover(null)} onFocus={() => setElementHover(record.key)} onBlur={() => setElementHover(null)} data-map-element-key={record.key} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? "bg-blue-50 ring-1 ring-blue-200" : hoveredElementKey === record.key ? "bg-amber-50 ring-1 ring-amber-200" : "bg-gray-50 hover:bg-gray-100"}`}>
-                    <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} /><span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-700">{record.elementName}</span><span className="text-[9px] uppercase text-gray-400">{record.geometryType === "Point" ? "ponto" : "trecho"}</span></span>
-                    <span className="mt-0.5 block truncate pl-4 text-[10px] text-gray-400">{record.description || record.crsName}</span>
+                  return <button key={record.key} type="button" onClick={() => focusElement(record)} onMouseEnter={() => setElementHover(record.key)} onMouseLeave={() => setElementHover(null)} onFocus={() => setElementHover(record.key)} onBlur={() => setElementHover(null)} data-map-element-key={record.key} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? (isDark ? "bg-blue-950/70 ring-1 ring-blue-700" : "bg-blue-50 ring-1 ring-blue-200") : hoveredElementKey === record.key ? (isDark ? "bg-amber-950/70 ring-1 ring-amber-700" : "bg-amber-50 ring-1 ring-amber-200") : (isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100")}`}>
+                    <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} /><span className={`min-w-0 flex-1 truncate text-[11px] font-medium ${isDark ? "text-slate-100" : "text-gray-700"}`}>{record.elementName}</span><span className={`text-[9px] uppercase ${mapPanelMuted}`}>{record.geometryType === "Point" ? "ponto" : "trecho"}</span></span>
+                    <span className={`mt-0.5 block truncate pl-4 text-[10px] ${mapPanelMuted}`}>{record.description || record.crsName}</span>
                   </button>;
                 })}
-                {filteredElementRecords.length > visibleElementRecords.length && <p className="sticky bottom-0 rounded-md bg-white/95 px-2 py-1 text-center text-[10px] text-gray-400">Role para carregar mais ({visibleElementRecords.length} de {filteredElementRecords.length})</p>}
-                {filteredElementRecords.length > 0 && visibleElementRecords.length === filteredElementRecords.length && filteredElementRecords.length > 8 && <p className="px-2 py-1 text-center text-[10px] text-gray-400">Todos os {filteredElementRecords.length} resultados carregados.</p>}
+                {filteredElementRecords.length > visibleElementRecords.length && <p className={`sticky bottom-0 rounded-md ${isDark ? "bg-slate-900/95" : "bg-white/95"} px-2 py-1 text-center text-[10px] ${mapPanelMuted}`}>Role para carregar mais ({visibleElementRecords.length} de {filteredElementRecords.length})</p>}
+                {filteredElementRecords.length > 0 && visibleElementRecords.length === filteredElementRecords.length && filteredElementRecords.length > 8 && <p className={`px-2 py-1 text-center text-[10px] ${mapPanelMuted}`}>Todos os {filteredElementRecords.length} resultados carregados.</p>}
               </div>
-              <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
-                <span className="text-[10px] text-gray-400">{mapElementRecords.length} elemento(s) disponível(is)</span>
+              <div className={`flex items-center justify-between gap-2 border-t ${isDark ? "border-slate-700" : "border-gray-100"} pt-2`}>
+                <span className={`text-[10px] ${mapPanelMuted}`}>{mapElementRecords.length} elemento(s) disponível(is)</span>
                 <button type="button" onClick={exportElementsCsv} disabled={mapElementRecords.length === 0} className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" title="Exportar elementos do mapa para CSV"><FileDown className="h-3 w-3" /> CSV</button>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Cores por tipo de obra</p>
-                <Palette className="w-3.5 h-3.5 text-gray-400" />
+                <p className={`text-[10px] uppercase tracking-wide font-semibold ${mapPanelMuted}`}>Cores por tipo de obra</p>
+                <Palette className={`w-3.5 h-3.5 ${mapPanelMuted}`} />
               </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                 {segmentTypeKeys.map((typeKey) => (
-                  <label key={typeKey} className="flex items-center gap-2 text-[11px] text-gray-600 cursor-pointer">
+                  <label key={typeKey} className={`flex items-center gap-2 text-[11px] ${isDark ? "text-slate-200" : "text-gray-600"} cursor-pointer`}>
                     <input type="color" value={segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a"} onChange={(event) => setSegmentColors((current) => ({ ...current, [typeKey]: event.target.value }))} className="w-5 h-5 rounded border-0 p-0 cursor-pointer" aria-label={`Cor de ${TIPO_OBRA_MAP[typeKey]}`} />
                     <span className="truncate">{TIPO_OBRA_MAP[typeKey]}</span>
                   </label>
                 ))}
               </div>
-              <div className="space-y-1.5 rounded-md bg-gray-50 px-2 py-2">
-                <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Ícones dos elementos</p>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-gray-600">
+              <div className={`space-y-1.5 rounded-md ${isDark ? "bg-slate-800" : "bg-gray-50"} px-2 py-2`}>
+                <p className={`text-[10px] uppercase tracking-wide font-semibold ${mapPanelMuted}`}>Ícones dos elementos</p>
+                <div className={`grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                   <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-600" />Início</span>
                   <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-600" />Fim</span>
                   <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400 ring-1 ring-yellow-700" />Marco KM</span>
@@ -715,10 +741,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 pt-1">
-                <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Arquivos KMZ/KML</p>
+                <p className={`text-[10px] uppercase tracking-wide font-semibold ${mapPanelMuted}`}>Arquivos KMZ/KML</p>
                 <div className="flex gap-1">
                   <button type="button" onClick={() => setSegmentVisibility(Object.fromEntries(segments.map((segment) => [segment.id, true])))} className="text-[10px] text-blue-600 hover:underline">Mostrar todos</button>
-                  <button type="button" onClick={() => setSegmentVisibility(Object.fromEntries(segments.map((segment) => [segment.id, false])))} className="text-[10px] text-gray-500 hover:underline">Ocultar todos</button>
+                  <button type="button" onClick={() => setSegmentVisibility(Object.fromEntries(segments.map((segment) => [segment.id, false])))} className={`text-[10px] ${mapPanelMuted} hover:underline`}>Ocultar todos</button>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -727,10 +753,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   const visible = segmentVisibility[segment.id] !== false;
                   const extension = getSegmentExtensionKm(segment);
                   return (
-                    <button key={segment.id} type="button" onClick={() => setSegmentVisibility((current) => ({ ...current, [segment.id]: !visible }))} className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${visible ? "bg-gray-50 hover:bg-gray-100" : "bg-gray-50/50 opacity-55 hover:opacity-80"}`} aria-pressed={visible}>
+                    <button key={segment.id} type="button" onClick={() => setSegmentVisibility((current) => ({ ...current, [segment.id]: !visible }))} className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${visible ? (isDark ? "bg-slate-800 hover:bg-slate-700" : "bg-gray-50 hover:bg-gray-100") : (isDark ? "bg-slate-800/50 opacity-55 hover:opacity-80" : "bg-gray-50/50 opacity-55 hover:opacity-80")}`} aria-pressed={visible}>
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a" }} />
-                      {visible ? <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <EyeOff className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-                      <span className="min-w-0 flex-1"><span className="block truncate text-[11px] font-medium text-gray-700">{segment.name}</span><span className="block truncate text-[10px] text-gray-400">{segment.crsName ?? `Contrato #${segment.crsId}`} · {TIPO_OBRA_MAP[typeKey] ?? typeKey}{extension !== null ? ` · ${extension.toLocaleString("pt-BR")} km` : ""}</span></span>
+                      {visible ? <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <EyeOff className={`w-3.5 h-3.5 ${mapPanelMuted} shrink-0`} />}
+                      <span className="min-w-0 flex-1"><span className={`block truncate text-[11px] font-medium ${isDark ? "text-slate-100" : "text-gray-700"}`}>{segment.name}</span><span className={`block truncate text-[10px] ${mapPanelMuted}`}>{segment.crsName ?? `Contrato #${segment.crsId}`} · {TIPO_OBRA_MAP[typeKey] ?? typeKey}{extension !== null ? ` · ${extension.toLocaleString("pt-BR")} km` : ""}</span></span>
                     </button>
                   );
                 })}
@@ -740,7 +766,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         </div>
       )}
       {segments.length > 0 && (
-        <div data-map-control="true" className="absolute left-3 bottom-3 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-gray-600 shadow-sm border border-gray-100">
+        <div data-map-control="true" className={`absolute left-3 bottom-3 rounded-lg ${mapPanelSurface} px-3 py-2 text-[11px] ${mapPanelMuted} shadow-sm`}>
           <span className="inline-block w-3 h-1 rounded-full align-middle mr-1.5" style={{ backgroundColor: visibleSegments.length > 0 ? "#16a34a" : "#94a3b8" }} />
           Trechos visíveis: {visibleSegments.length}/{segments.length}
         </div>

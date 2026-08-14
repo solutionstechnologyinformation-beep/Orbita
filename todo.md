@@ -1007,3 +1007,5 @@
 - [x] Mapa KML/KMZ: exibir atributos completos em balão de informação ao clicar em ponto ou trecho
 
 - [x] Mapa KML/KMZ: adicionar botão no balão para centralizar e aproximar o mapa no elemento selecionado
+
+- [x] Interface: adicionar botão de alternância claro/escuro e adaptar painel lateral, controles e estilo do mapa
