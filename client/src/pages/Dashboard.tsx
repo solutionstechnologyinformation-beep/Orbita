@@ -150,7 +150,7 @@ interface SegmentOverlay {
 }
 type ContractMarkerData = { crsId: number; name: string; number: number | string };
 type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.Marker; baseColor?: string; baseIcon?: google.maps.Symbol };
-  function ContractsMap({ locations, segments, segmentsLoading, onNavigate, mapExportRef }: { locations: ContractLocation[]; segments: SegmentOverlay[]; segmentsLoading: boolean; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null> }) {
+  function ContractsMap({ locations, segments, segmentsLoading, onNavigate, mapExportRef, isMapExpanded, onExpandedChange }: { locations: ContractLocation[]; segments: SegmentOverlay[]; segmentsLoading: boolean; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null>; isMapExpanded: boolean; onExpandedChange: (expanded: boolean) => void }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
@@ -165,7 +165,6 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const markerPreviewRef = useRef<google.maps.InfoWindow | null>(null);
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isMapMinimizing, setIsMapMinimizing] = useState(false);
   const [isMapSummaryPanelOpen, setIsMapSummaryPanelOpen] = useState(true);
   const [mapDataTimestamp, setMapDataTimestamp] = useState(() => new Date());
@@ -182,11 +181,11 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     if (!isMapExpanded) return;
     setIsMapMinimizing(true);
     mapAnimationTimerRef.current = window.setTimeout(() => {
-      setIsMapExpanded(false);
+      onExpandedChange(false);
       setIsMapMinimizing(false);
       mapAnimationTimerRef.current = null;
     }, MAP_FULLSCREEN_ANIMATION_DURATION_MS);
-  }, [clearMapAnimationTimer, isMapExpanded]);
+  }, [clearMapAnimationTimer, isMapExpanded, onExpandedChange]);
   const toggleMapExpanded = useCallback(() => {
     clearMapAnimationTimer();
     if (isMapExpanded) {
@@ -195,8 +194,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     }
     setIsMapMinimizing(false);
     setIsMapSummaryPanelOpen(true);
-    setIsMapExpanded(true);
-  }, [clearMapAnimationTimer, isMapExpanded, minimizeMap]);
+    onExpandedChange(true);
+  }, [clearMapAnimationTimer, isMapExpanded, minimizeMap, onExpandedChange]);
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | "all">("all");
   const [segmentColors, setSegmentColors] = useState<Record<string, string>>(() => {
@@ -1175,6 +1174,7 @@ function DashboardWidgetFrame({ group, id, label, order, draggedWidget, dragOver
       role="group"
       aria-label={`${label}. Use as setas para reordenar.`}
       aria-grabbed={isDragging}
+      data-dashboard-widget-id={id}
       onDragStart={(event) => onDragStart(group, id, event)}
       onDragOver={(event) => onDragOver(group, id, event)}
       onDrop={(event) => onDrop(group, id, event)}
@@ -1212,6 +1212,7 @@ export default function Dashboard() {
   const [draggedWidget, setDraggedWidget] = useState<{ group: DashboardWidgetGroup; id: DashboardWidgetId } | null>(null);
   const [dragOverWidget, setDragOverWidget] = useState<{ group: DashboardWidgetGroup; id: DashboardWidgetId } | null>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   useEffect(() => {
     setWidgetOrders(readDashboardWidgetOrders(user?.id));
@@ -1822,7 +1823,7 @@ export default function Dashboard() {
             VISÃO GERAL
         ══════════════════════════════════════════════════════════════════════ */}
         {view === "geral" && (
-          <div className="grid grid-cols-12 gap-5">
+          <div className={`grid grid-cols-12 gap-5 ${isMapExpanded ? "dashboard-map-focused" : ""}`} data-map-focused={isMapExpanded ? "true" : "false"}>
             {/* ── Coluna esquerda: Mapa + Stats + Vencimentos ── */}
             <div className="col-span-12 lg:col-span-6 flex flex-col gap-4">
               {/* Mapa */}
@@ -1837,6 +1838,8 @@ export default function Dashboard() {
                       segmentsLoading={segmentsQ.isLoading}
                       onNavigate={navigate}
                       mapExportRef={mapExportRef}
+                      isMapExpanded={isMapExpanded}
+                      onExpandedChange={setIsMapExpanded}
                     />
                   )}
                 </div>

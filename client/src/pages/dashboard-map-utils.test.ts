@@ -33,7 +33,7 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("map-fullscreen-exit");
     expect(dashboardSource).toContain("const minimizeMap = useCallback");
     expect(dashboardSource).toContain("MAP_FULLSCREEN_ANIMATION_DURATION_MS");
-    expect(dashboardSource).toContain("setIsMapExpanded(false)");
+    expect(dashboardSource).toContain("onExpandedChange(false)");
     expect(dashboardSource).toContain("window.google.maps.event.trigger(mapRef.current, \"resize\")");
   });
 
@@ -45,6 +45,16 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(stylesheet).toContain(".map-fullscreen-enter,");
     expect(stylesheet).toContain(".map-fullscreen-exit {");
     expect(stylesheet).toContain("animation: none;");
+  });
+
+  it("hides every non-map widget while expanded and restores the Dashboard afterward", () => {
+    expect(dashboardSource).toContain("data-dashboard-widget-id={id}");
+    expect(dashboardSource).toContain("dashboard-map-focused");
+    expect(dashboardSource).toContain('data-map-focused={isMapExpanded ? "true" : "false"}');
+    expect(stylesheet).toContain('.dashboard-map-focused [data-dashboard-widget-id]:not([data-dashboard-widget-id="map"])');
+    expect(stylesheet).toContain("display: none !important");
+    expect(dashboardSource).toContain("onExpandedChange(true)");
+    expect(dashboardSource).toContain("onExpandedChange(false)");
   });
 
   it("provides a retractable fullscreen summary panel with real map data and accessible controls", () => {

@@ -1199,3 +1199,9 @@
 - [x] Implementar transição suave ao agrupar e desagrupar marcadores
 - [x] Preservar hover, clique, cores por tipo, desempenho e prefers-reduced-motion
 - [x] Adicionar testes de transição e validar TypeScript
+
+## Mapa — Tela cheia isolada
+- [x] Auditar o wrapper do Dashboard e o estado isMapExpanded
+- [x] Ocultar os demais widgets e caixas enquanto o mapa estiver ampliado
+- [x] Restaurar todos os widgets ao minimizar o mapa, sem perder a ordem ou o estado
+- [x] Adicionar testes de alternância e validar TypeScript

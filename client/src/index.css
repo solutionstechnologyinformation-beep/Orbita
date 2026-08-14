@@ -660,3 +660,8 @@ html.theme-transition body *::after {
 
   .flex { min-height: 0; min-width: 0; }
 }
+
+/* Em tela cheia, somente o mapa permanece visível; ao retornar, o Dashboard é restaurado. */
+.dashboard-map-focused [data-dashboard-widget-id]:not([data-dashboard-widget-id="map"]) {
+  display: none !important;
+}
