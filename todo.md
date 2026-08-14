@@ -981,3 +981,5 @@
 - [x] Kanban: permitir arrastar cards entre colunas com atualização automática da fase/status e manter as regras de bloqueio
 
 - [x] Kanban: exibir Arquivado como Concluído, sombrear cards concluídos e ocultar o marcador de atraso em tarefas concluídas ou com 100%
+
+- [x] Importação KMZ/KML: corrigir erro SQL no insert da tabela crs_segments e validar com o arquivo GO-319.kmz

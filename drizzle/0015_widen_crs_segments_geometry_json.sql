@@ -1,0 +1,1 @@
+ALTER TABLE `crs_segments` MODIFY COLUMN `geometryJson` MEDIUMTEXT NOT NULL;

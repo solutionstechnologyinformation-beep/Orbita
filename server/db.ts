@@ -212,18 +212,11 @@ export async function createCrsSegment(data: {
   createdById: number;
 }) {
   const db = await getDb();
-  const [result] = await db.insert(crsSegments).values({
-    crsId: data.crsId,
-    name: data.name,
-    fileName: data.fileName,
-    fileUrl: data.fileUrl,
-    geometryJson: data.geometryJson,
-    boundsJson: data.boundsJson ?? null,
-    createdById: data.createdById,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  return (result as any).insertId as number;
+  const [result] = await db.execute(
+    sql`INSERT INTO crs_segments (crsId, name, fileName, fileUrl, geometryJson, boundsJson, createdById, createdAt, updatedAt)
+        VALUES (${data.crsId}, ${data.name}, ${data.fileName}, ${data.fileUrl}, ${data.geometryJson}, ${data.boundsJson ?? null}, ${data.createdById}, NOW(), NOW())`,
+  );
+  return Number((result as any).insertId);
 }
 
 export async function deleteCrsSegment(id: number, crsId: number) {

@@ -7,6 +7,7 @@ import {
   varchar,
   boolean,
   float,
+  mediumtext,
 } from "drizzle-orm/mysql-core";
 
 // ─── Companies (Multi-Tenant v3.9) ────────────────────────────────────────────
@@ -92,7 +93,7 @@ export const crsSegments = mysqlTable("crs_segments", {
   name: varchar("name", { length: 256 }).notNull(),
   fileName: varchar("fileName", { length: 256 }).notNull(),
   fileUrl: text("fileUrl").notNull(),
-  geometryJson: text("geometryJson").notNull(),
+  geometryJson: mediumtext("geometryJson").notNull(),
   boundsJson: text("boundsJson"),
   createdById: int("createdById").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
