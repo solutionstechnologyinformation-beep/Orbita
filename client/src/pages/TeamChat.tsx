@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Send, MessageSquare, Users, Search, Plus, Lock, Hash } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { isRecentlyOnline } from "../../../shared/presence";
+import { PresenceDot } from "@/components/PresenceDot";
 import { toast } from "sonner";
 
 export default function TeamChat() {
@@ -182,7 +182,7 @@ export default function TeamChat() {
                               {(u.name ?? u.email).slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          {isRecentlyOnline(u.lastSeenAt) && <span className="absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-card" aria-label="Online" />}
+                          <PresenceDot className="absolute -right-0.5 -bottom-0.5" lastSeenAt={u.lastSeenAt} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">{u.name ?? u.email}</p>
@@ -221,7 +221,7 @@ export default function TeamChat() {
                             {name.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        {isRecentlyOnline(conv.otherUserLastSeenAt) && <span className="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" aria-label="Online" />}
+                        <PresenceDot className="absolute -right-0.5 -bottom-0.5" lastSeenAt={conv.otherUserLastSeenAt} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{name}</p>

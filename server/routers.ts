@@ -16,7 +16,8 @@ import {
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead,
-  logActivity, getDisciplines, getDashboardStats, getWorldMapData, getWeekDeliveries, getMyTasks,
+  logActivity, getDisciplines, getDashboardStats, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
+  getCompanies, createCompany, updateCompany, deleteCompany,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
@@ -193,6 +194,29 @@ export const appRouter = router({
       .input(z.object({ userId: z.number() }))
       .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId)),
   }),
+  companies: router({
+    list: protectedProcedure.query(async () => getCompanies()),
+    create: adminProcedure
+      .input(z.object({ name: z.string().min(1), slug: z.string().min(1), color: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await createCompany(input);
+        await logActivity({ userId: ctx.user.id, action: "created_company", entityType: "company", entityId: id });
+        return { id };
+      }),
+    update: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), slug: z.string().optional(), color: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateCompany(id, data);
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteCompany(input.id);
+        return { success: true };
+      }),
+  }),
   // ─── Registros (Activity Logs) ───────────────────────────────────────────────────────────
   registros: router({
     list: adminProcedure
@@ -235,7 +259,9 @@ export const appRouter = router({
 
   // ─── CRS ───────────────────────────────────────────────────────────────────
   crs: router({
-    list: protectedProcedure.query(async () => getAllCrs()),
+    list: protectedProcedure
+      .input(z.object({ company: z.string().trim().max(256).optional() }).optional())
+      .query(async ({ input }) => getAllCrs(input?.company)),
     listByClient: protectedProcedure
       .input(z.object({ clientId: z.number() }))
       .query(async ({ input }) => getCrsByClient(input.clientId)),
@@ -314,8 +340,8 @@ export const appRouter = router({
     worldMap: protectedProcedure.query(async () => getWorldMapData()),
     segments: router({
       list: protectedProcedure
-        .input(z.object({ crsId: z.number().optional() }).optional())
-        .query(async ({ input }) => getCrsSegments(input?.crsId)),
+        .input(z.object({ crsId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
+        .query(async ({ input }) => getCrsSegments(input?.crsId, input?.company)),
       upload: adminProcedure
         .input(z.object({
           crsId: z.number(),
@@ -971,7 +997,10 @@ export const appRouter = router({
     completedTasksSummary: protectedProcedure
       .input(z.object({ limit: z.number().min(1).max(200).optional() }).optional())
       .query(async ({ input }) => getCompletedTasksSummary(input?.limit ?? 100)),
-    clientProgress: protectedProcedure.query(async () => getClientProgress()),
+    companies: protectedProcedure.query(async () => getDashboardCompanies()),
+    clientProgress: protectedProcedure
+      .input(z.object({ company: z.string().trim().max(256).optional() }).optional())
+      .query(async ({ input }) => getClientProgress(input?.company)),
     yearlyStats: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))
       .query(async ({ input }) => getYearlyStats(input.clientId)),
@@ -1145,33 +1174,9 @@ export const appRouter = router({
         .orderBy(t.startDate, t.dueDate);
       return rows.slice(0, 20);
     }),
-    contractsByState: protectedProcedure.query(async () => {
-      const db = await getDb();
-      const { crs: crsTable, clients: clientsTable } = await import('../drizzle/schema');
-      const { eq: eq2 } = await import('drizzle-orm');
-      const rows = await db.select({
-        id: crsTable.id, name: crsTable.name,
-        stateCode: crsTable.stateCode, state: crsTable.state, progress: crsTable.progress,
-        clientName: clientsTable.name,
-      }).from(crsTable)
-        .leftJoin(clientsTable, eq2(crsTable.clientId, clientsTable.id))
-        .where(eq2(crsTable.status, 'active'));
-      // Group by stateCode
-      const map: Record<string, { state: string; count: number; totalProgress: number; contracts: { id: number; name: string; clientName: string | null; progress: number }[] }> = {};
-      rows.forEach((r: any) => {
-        const key = r.stateCode ?? r.state ?? 'BR';
-        if (!map[key]) map[key] = { state: r.state ?? r.stateCode ?? 'Brasil', count: 0, totalProgress: 0, contracts: [] };
-        map[key].count++;
-        map[key].totalProgress += r.progress ?? 0;
-        map[key].contracts.push({ id: r.id, name: r.name, clientName: r.clientName ?? null, progress: r.progress ?? 0 });
-      });
-      return Object.entries(map).map(([code, v]) => ({
-        code, state: v.state, count: v.count,
-        avgProgress: v.count > 0 ? Math.round(v.totalProgress / v.count) : 0,
-        contracts: v.contracts,
-       })).sort((a, b) => b.count - a.count);
-    }),
-
+    contractsByState: protectedProcedure
+      .input(z.object({ company: z.string().trim().max(256).optional() }).optional())
+      .query(async ({ input }) => getContractsByState(input?.company)),
     // ── SLA / Pontualidade ──────────────────────────────────────────────────
     slaStats: protectedProcedure
       .input(z.object({ period: z.enum(["month", "quarter", "year"]).default("month") }).optional())

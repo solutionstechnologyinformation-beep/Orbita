@@ -154,7 +154,7 @@
 - [x] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
 - [x] Frontend: TaskDetail exibir empresa do responsável
 - [x] Frontend: filtro por empresa no Kanban (chips na barra superior)
-- [ ] Frontend: filtro por empresa no Dashboard
+- [x] Frontend: filtro por empresa no Dashboard
 - [x] Frontend: campo empresa no perfil do usuário (página Profile)
 - [x] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
 - [x] Frontend Admin: botão excluir usuário com confirmação
@@ -174,7 +174,7 @@
 - [ ] Frontend: painel /company-admin com abas Usuários e Projetos da empresa
 - [ ] Frontend Admin Master: aba "Empresas" para criar/editar/excluir empresas
 - [ ] Frontend Admin Master: exibir empresa junto ao responsável nas tarefas
-- [ ] Frontend: filtro por empresa no Kanban e Dashboard
+- [x] Frontend: filtro por empresa no Kanban e Dashboard
 - [ ] Frontend: campo empresa visível no perfil do usuário
 
 ## Gráfico de Gantt v3.10
@@ -801,7 +801,7 @@
 
 - [x] FilePreviewModal criado (PDF via iframe, imagens via img, fallback para download)
 - [x] admin.createUser com hash de senha (scrypt nativo)
-- [ ] Campo company nos usuários + filtro por empresa (próxima sessão)
+- [x] Campo company nos usuários + filtro por empresa (concluído no Dashboard e Kanban)
 - [ ] Notificações e alertas automáticos (próxima sessão)
 - [x] Todos os 23 testes passando
 - [x] Zero erros TypeScript
@@ -971,3 +971,5 @@
 - [x] Backend: testar o contrato admin.deleteUser contra autoexclusão e remoção do administrador principal
 - [x] Bug: corrigir exportação do relatório PDF que não está sendo concluída
 - [x] Bug: adicionar teste de regressão para a geração do relatório PDF com captura do mapa
+
+- [x] Presença: padronizar o indicador online nas listas de usuários usando lastSeenAt e o limite compartilhado de cinco minutos

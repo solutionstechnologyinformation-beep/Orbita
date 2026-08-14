@@ -572,6 +572,7 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const [view, setView] = useState<DashView>("geral");
   const [slaPeriod, setSlaPeriod] = useState<"month" | "quarter" | "year">("month");
+  const [selectedCompany, setSelectedCompany] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef<HTMLDivElement>(null);
 
@@ -594,17 +595,22 @@ export default function Dashboard() {
   }, []);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
-  const statsQ = trpc.dashboard.stats.useQuery({ clientId: undefined });
-  const clientProgressQ = trpc.dashboard.clientProgress.useQuery();
+  const normalizedCompany = useMemo(() => selectedCompany.trim() || undefined, [selectedCompany]);
+  const dashboardStatsInput = useMemo(() => ({ clientId: undefined, company: normalizedCompany }), [normalizedCompany]);
+  const companyFilterInput = useMemo(() => ({ company: normalizedCompany }), [normalizedCompany]);
+  const companiesQ = trpc.dashboard.companies.useQuery();
+  const statsQ = trpc.dashboard.stats.useQuery(dashboardStatsInput);
+  const clientProgressQ = trpc.dashboard.clientProgress.useQuery(companyFilterInput);
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const completedTasksQ = trpc.dashboard.completedTasksSummary.useQuery({ limit: 100 });
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
-  const contractsByStateQ = trpc.dashboard.contractsByState.useQuery();
-  const segmentsQ = trpc.crs.segments.list.useQuery({});
+  const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(companyFilterInput);
+  const segmentsQ = trpc.crs.segments.list.useQuery(companyFilterInput);
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: slaPeriod });
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
-  const crsQ = trpc.crs.list.useQuery();
+  const crsQ = trpc.crs.list.useQuery(companyFilterInput);
   const stats = statsQ.data;
+  const companies = (companiesQ.data ?? []) as string[];
   const clientProgress = (clientProgressQ.data ?? []) as any[];
   const myTasks = (myTasksQ.data ?? []) as any[];
   const completedTasks = (completedTasksQ.data ?? []) as any[];
@@ -824,9 +830,30 @@ export default function Dashboard() {
           </div>
         )}
         {/* ── Header ── */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900" style={{ color: '#000000' }}>Visão Geral</h1>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900" style={{ color: '#000000' }}>Visão Geral</h1>
+            {normalizedCompany && (
+              <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex" title="Os KPIs, mapa e contratos estão filtrados por empresa">
+                {normalizedCompany}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm" htmlFor="dashboard-company-filter">
+              <Filter className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+              <span>Empresa</span>
+              <select
+                id="dashboard-company-filter"
+                value={selectedCompany}
+                onChange={(event) => setSelectedCompany(event.target.value)}
+                className="max-w-[180px] bg-transparent text-xs font-semibold text-gray-800 outline-none"
+                aria-label="Filtrar Dashboard por empresa"
+              >
+                <option value="">Todas</option>
+                {companies.map((company) => <option key={company} value={company}>{company}</option>)}
+              </select>
+            </label>
             <button
               onClick={exportDashboardPDF}
               disabled={isExporting}

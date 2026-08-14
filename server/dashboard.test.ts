@@ -129,3 +129,30 @@ describe("dashboard.checkDeadlineAlerts", () => {
     expect(result.tasksChecked).toBeGreaterThanOrEqual(0);
   }, 15000);
 });
+
+// ── Dashboard: Company Filter ──────────────────────────────────────────────
+describe("dashboard.companyFilter", () => {
+  it("throws UNAUTHORIZED when listing companies without a session", async () => {
+    const ctx = makeCtx({ user: null });
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.dashboard.companies()).rejects.toThrow();
+  });
+
+  it("returns a normalized list of companies", async () => {
+    const ctx = makeCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.dashboard.companies();
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.every((company) => typeof company === "string" && company.trim().length > 0)).toBe(true);
+    expect(new Set(result).size).toBe(result.length);
+  }, 15000);
+
+  it("accepts an optional company filter in dashboard stats", async () => {
+    const ctx = makeCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.dashboard.stats({ company: "Empresa inexistente para teste" });
+    expect(typeof result.totalCrs).toBe("number");
+    expect(typeof result.totalTasks).toBe("number");
+    expect(typeof result.totalExtensaoKm).toBe("number");
+  }, 15000);
+});

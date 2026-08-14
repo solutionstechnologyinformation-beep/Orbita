@@ -147,3 +147,21 @@ describe("input validation", () => {
     ).rejects.toThrow();
   });
 });
+
+// ── Companies Multi-Tenant v3.9 ──────────────────────────────────────────
+describe("companies multi-tenant", () => {
+  it("allows authenticated users to list companies", async () => {
+    const ctx = makeCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.companies.list();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("forbids non-admins from creating companies", async () => {
+    const ctx = makeCtx({ user: { ...makeCtx().user!, role: "user" } });
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.companies.create({ name: "Nova Empresa", slug: "nova-empresa", color: "#3b82f6" })
+    ).rejects.toThrow();
+  });
+});

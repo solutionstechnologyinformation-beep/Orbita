@@ -9,6 +9,18 @@ import {
   float,
 } from "drizzle-orm/mysql-core";
 
+// ─── Companies (Multi-Tenant v3.9) ────────────────────────────────────────────
+export const companies = mysqlTable("companies", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  color: varchar("color", { length: 32 }).default("#2563eb").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = typeof companies.$inferInsert;
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -50,6 +62,7 @@ export type InsertClient = typeof clients.$inferInsert;
 export const crs = mysqlTable("crs", {
   id: int("id").autoincrement().primaryKey(),
   clientId: int("clientId").notNull(),
+  companyId: int("companyId"),
   name: varchar("name", { length: 256 }).notNull(),
   code: varchar("code", { length: 64 }),
   description: text("description"),

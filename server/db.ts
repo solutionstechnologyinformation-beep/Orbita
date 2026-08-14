@@ -1,4 +1,4 @@
-import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte, or } from "drizzle-orm";
+import { eq, and, desc, like, inArray, sql, asc, aliasedTable, gte, lte, or, isNotNull } from "drizzle-orm";
 import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
 import {
@@ -10,6 +10,7 @@ import {
   sprintChecklistItems, whiteboards, userDisciplines,
   googleCalendarTokens, googleCalendarEvents, meetings, crsSegments,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
+  companies,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -21,6 +22,31 @@ export async function getDb() {
   const pool = mysql.createPool({ uri: process.env.DATABASE_URL, waitForConnections: true, connectionLimit: 10 });
   _db = drizzle(pool);
   return _db;
+}
+
+// ─── Companies (Multi-Tenant v3.9) ─────────────────────────────────────────────
+export async function getCompanies() {
+  const db = await getDb();
+  return db.select().from(companies).orderBy(asc(companies.name));
+}
+export async function createCompany(data: { name: string; slug: string; color?: string }) {
+  const db = await getDb();
+  const [result] = await db.insert(companies).values({
+    name: data.name,
+    slug: data.slug,
+    color: data.color ?? "#2563eb",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  return (result as any).insertId as number;
+}
+export async function updateCompany(id: number, data: Partial<typeof companies.$inferInsert>) {
+  const db = await getDb();
+  await db.update(companies).set({ ...data, updatedAt: new Date() }).where(eq(companies.id, id));
+}
+export async function deleteCompany(id: number) {
+  const db = await getDb();
+  await db.delete(companies).where(eq(companies.id, id));
 }
 
 // ─── Users ─────────────────────────────────────────────────────────────────────
@@ -65,7 +91,7 @@ export async function deleteUser(id: number) {
 }
 export async function getAllUsers() {
   const db = await getDb();
-  const userRows = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role, company: users.company, avatarUrl: users.avatarUrl, avatarColor: users.avatarColor, avatarInitials: users.avatarInitials, createdAt: users.createdAt }).from(users).orderBy(asc(users.name));
+  const userRows = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role, company: users.company, avatarUrl: users.avatarUrl, avatarColor: users.avatarColor, avatarInitials: users.avatarInitials, createdAt: users.createdAt, lastSeenAt: users.lastSeenAt }).from(users).orderBy(asc(users.name));
   // Fetch all user disciplines in one query
   const allDiscs = await db.select({ userId: userDisciplines.userId, disciplineName: userDisciplines.disciplineName }).from(userDisciplines);
   const discByUser = new Map<number, string[]>();
@@ -113,8 +139,21 @@ export async function getCrsByClient(clientId: number) {
   const db = await getDb();
   return db.select().from(crs).where(and(eq(crs.clientId, clientId), eq(crs.status, "active"))).orderBy(asc(crs.name));
 }
-export async function getAllCrs() {
+export async function getAllCrs(company?: string) {
   const db = await getDb();
+  const normalizedCompany = company?.trim() || undefined;
+  const conditions: any[] = [eq(crs.status, "active")];
+  if (normalizedCompany) {
+    const assignedRows = await db.select({ crsId: tasks.crsId })
+      .from(tasks)
+      .leftJoin(users, eq(tasks.assigneeId, users.id))
+      .where(eq(users.company, normalizedCompany));
+    const companyCrsIds: number[] = Array.from(new Set(
+      assignedRows.map((row: any) => Number(row.crsId)).filter((id: number) => Number.isInteger(id) && id > 0),
+    ));
+    if (companyCrsIds.length === 0) return [];
+    conditions.push(inArray(crs.id, companyCrsIds));
+  }
   return db.select({
     id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
@@ -123,10 +162,24 @@ export async function getAllCrs() {
     techDataByType: crs.techDataByType,
     createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
     clientName: clients.name, clientColor: clients.color,
-  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'active')).orderBy(asc(crs.name));
+  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(and(...conditions)).orderBy(asc(crs.name));
 }
-export async function getCrsSegments(crsId?: number) {
+export async function getCrsSegments(crsId?: number, company?: string) {
   const db = await getDb();
+  const normalizedCompany = company?.trim() || undefined;
+  const conditions: any[] = [];
+  if (crsId != null) conditions.push(eq(crsSegments.crsId, crsId));
+  if (normalizedCompany) {
+    const assignedRows = await db.select({ crsId: tasks.crsId })
+      .from(tasks)
+      .leftJoin(users, eq(tasks.assigneeId, users.id))
+      .where(eq(users.company, normalizedCompany));
+    const companyCrsIds: number[] = Array.from(new Set(
+      assignedRows.map((row: any) => Number(row.crsId)).filter((id: number) => Number.isInteger(id) && id > 0),
+    ));
+    if (companyCrsIds.length === 0) return [];
+    conditions.push(inArray(crsSegments.crsId, companyCrsIds));
+  }
   const query = db.select({
     id: crsSegments.id,
     crsId: crsSegments.crsId,
@@ -143,7 +196,7 @@ export async function getCrsSegments(crsId?: number) {
     extensaoKm: crs.extensaoKm,
     techDataByType: crs.techDataByType,
   }).from(crsSegments).innerJoin(crs, eq(crsSegments.crsId, crs.id));
-  const rows = crsId == null ? await query.orderBy(desc(crsSegments.createdAt)) : await query.where(eq(crsSegments.crsId, crsId)).orderBy(desc(crsSegments.createdAt));
+  const rows = conditions.length > 0 ? await query.where(and(...conditions)).orderBy(desc(crsSegments.createdAt)) : await query.orderBy(desc(crsSegments.createdAt));
   return rows.map((row: typeof rows[number]) => ({ ...row, extensionKm: getSegmentExtensionKmValue(row.extensaoKm, row.techDataByType) }));
 }
 
@@ -606,6 +659,51 @@ export async function getDisciplines(activeOnly = true) {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
+export async function getDashboardCompanies() {
+  const db = await getDb();
+  const rows = await db.select({ company: users.company })
+    .from(users)
+    .where(and(isNotNull(users.company), sql`TRIM(${users.company}) <> ''`))
+    .orderBy(asc(users.company));
+  return Array.from(new Set(rows.map((row: { company: string | null }) => row.company?.trim()).filter((company: string | undefined): company is string => Boolean(company))));
+}
+
+export async function getContractsByState(company?: string) {
+  const db = await getDb();
+  const normalizedCompany = company?.trim() || undefined;
+  const conditions: any[] = [eq(crs.status, "active")];
+  if (normalizedCompany) {
+    const assignedRows = await db.select({ crsId: tasks.crsId })
+      .from(tasks)
+      .leftJoin(users, eq(tasks.assigneeId, users.id))
+      .where(eq(users.company, normalizedCompany));
+    const companyCrsIds: number[] = Array.from(new Set(
+      assignedRows.map((row: any) => Number(row.crsId)).filter((id: number) => Number.isInteger(id) && id > 0),
+    ));
+    if (companyCrsIds.length === 0) return [];
+    conditions.push(inArray(crs.id, companyCrsIds));
+  }
+  const rows = await db.select({
+    id: crs.id, name: crs.name, stateCode: crs.stateCode, state: crs.state,
+    progress: crs.progress, clientName: clients.name,
+  }).from(crs)
+    .leftJoin(clients, eq(crs.clientId, clients.id))
+    .where(and(...conditions));
+  const map: Record<string, { state: string; count: number; totalProgress: number; contracts: { id: number; name: string; clientName: string | null; progress: number }[] }> = {};
+  rows.forEach((row: any) => {
+    const key = row.stateCode ?? row.state ?? "BR";
+    if (!map[key]) map[key] = { state: row.state ?? row.stateCode ?? "Brasil", count: 0, totalProgress: 0, contracts: [] };
+    map[key].count += 1;
+    map[key].totalProgress += row.progress ?? 0;
+    map[key].contracts.push({ id: row.id, name: row.name, clientName: row.clientName ?? null, progress: row.progress ?? 0 });
+  });
+  return Object.entries(map).map(([code, value]) => ({
+    code, state: value.state, count: value.count,
+    avgProgress: value.count > 0 ? Math.round(value.totalProgress / value.count) : 0,
+    contracts: value.contracts,
+  })).sort((a, b) => b.count - a.count);
+}
+
 export async function getDashboardStats(clientId?: number, company?: string) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
@@ -707,8 +805,18 @@ export async function getDashboardStats(clientId?: number, company?: string) {
   };
 }
 
-export async function getClientProgress() {
+export async function getClientProgress(company?: string) {
   const db = await getDb();
+  const normalizedCompany = company?.trim() || undefined;
+  const companyCrsIds: number[] | undefined = normalizedCompany
+    ? Array.from(new Set((await db.select({ crsId: tasks.crsId })
+      .from(tasks)
+      .leftJoin(users, eq(tasks.assigneeId, users.id))
+      .where(eq(users.company, normalizedCompany)))
+      .map((row: any) => Number(row.crsId))
+      .filter((id: number) => Number.isInteger(id) && id > 0))) as number[]
+    : undefined;
+  if (normalizedCompany && companyCrsIds?.length === 0) return [];
   // Get all active clients with their CRS progress
   const rows = await db.select({
     clientId: clients.id,
@@ -717,7 +825,7 @@ export async function getClientProgress() {
     crsId: crs.id,
     crsProgress: crs.progress,
   }).from(clients)
-    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active")))
+    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active"), ...(companyCrsIds ? [inArray(crs.id, companyCrsIds)] : [])))
     .where(eq(clients.status, "active"))
     .orderBy(asc(clients.name));
   // Group by client

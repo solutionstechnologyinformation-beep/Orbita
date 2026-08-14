@@ -19,6 +19,7 @@ import {
   ClipboardList, User, Layers, Loader2, Palette,
 } from "lucide-react";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
+import { PresenceDot } from "@/components/PresenceDot";
 
 const COUNTRIES = [
   "Brasil","Argentina","Chile","Colombia","Peru","Uruguai","Paraguai","Bolivia","Venezuela","Ecuador",
@@ -481,6 +482,7 @@ export default function Admin() {
                 <div key={u.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
                   <div className="relative shrink-0">
                     <UserAvatar user={u} size="md" />
+                    <PresenceDot className="absolute -right-1 -top-0.5" lastSeenAt={u.lastSeenAt} />
                     {/* Discipline dots */}
                     {(() => {
                       const discData = disciplinesQ.data as any[];
