@@ -72,3 +72,32 @@ describe("map element search", () => {
     expect(filterMapElementRecords(records, "", 2)).toHaveLength(2);
   });
 });
+
+
+describe("map element sorting", () => {
+  it("ordena por nome ou agrupa por tipo de geometria", async () => {
+    const { filterMapElementRecords } = await import("../shared/map-element-data");
+    const makeRecord = (key: string, elementName: string, geometryType: "Point" | "LineString" | "MultiLineString") => ({
+      key,
+      segmentId: 1,
+      segmentName: "trecho.kmz",
+      crsId: 1,
+      crsName: "Contrato",
+      geometryType,
+      elementName,
+      description: "",
+      attributes: "",
+      coordinates: [[-49.7, -17.1]],
+      center: { lat: -17.1, lng: -49.7 },
+      workType: "",
+      extensionKm: null,
+    });
+    const records = [
+      makeRecord("1:0", "Zeta", "LineString"),
+      makeRecord("1:1", "Alfa", "Point"),
+      makeRecord("1:2", "Beta", "MultiLineString"),
+    ];
+    expect(filterMapElementRecords(records, "", 30, "alphabetical").map((record) => record.elementName)).toEqual(["Alfa", "Beta", "Zeta"]);
+    expect(filterMapElementRecords(records, "", 30, "geometry").map((record) => record.geometryType)).toEqual(["Point", "LineString", "MultiLineString"]);
+  });
+});

@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, type MapElementRecord } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -116,10 +116,11 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
   });
   const [controlsOpen, setControlsOpen] = useState(true);
   const [elementSearch, setElementSearch] = useState("");
+  const [elementSort, setElementSort] = useState<MapElementSort>("alphabetical");
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
-  const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, 30), [elementSearch, mapElementRecords]);
+  const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, 30, elementSort), [elementSearch, elementSort, mapElementRecords]);
   const selectedElement = useMemo(() => findMapElementRecord(mapElementRecords, selectedElementKey), [mapElementRecords, selectedElementKey]);
   const focusElement = useCallback((record: MapElementRecord) => {
     setSelectedElementKey(record.key);
@@ -580,13 +581,22 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                   {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.crsName ?? `Contrato #${segment.crsId}`} — {segment.name}</option>)}
                 </select>
               </label>
-              <label className="block">
-                <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Pesquisar por nome ou atributo</span>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
-                  <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome, atributo, descrição ou contrato" className="w-full rounded-md border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Pesquisar elementos KML/KMZ por nome ou atributo" />
-                </div>
-              </label>
+              <div className="grid grid-cols-[minmax(0,1fr)_8.5rem] items-end gap-2">
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Pesquisar</span>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+                    <input value={elementSearch} onChange={(event) => setElementSearch(event.target.value)} placeholder="Nome ou atributo" className="w-full rounded-md border border-gray-200 bg-white pl-7 pr-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Pesquisar elementos KML/KMZ por nome ou atributo" />
+                  </div>
+                </label>
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Ordenar</span>
+                  <select value={elementSort} onChange={(event) => setElementSort(event.target.value as MapElementSort)} className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" aria-label="Ordenar resultados dos elementos KML/KMZ">
+                    <option value="alphabetical">A–Z</option>
+                    <option value="geometry">Geometria</option>
+                  </select>
+                </label>
+              </div>
               <div className="space-y-1.5">
                 {filteredElementRecords.length === 0 ? <p className="rounded-md bg-gray-50 px-2 py-2 text-[10px] text-gray-500">Nenhum elemento encontrado.</p> : filteredElementRecords.slice(0, 8).map((record) => {
                   const pointStyle = record.geometryType === "Point" ? getImportedPointStyle(record.elementName) : null;

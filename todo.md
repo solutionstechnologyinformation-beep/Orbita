@@ -995,3 +995,5 @@
 - [x] Alertas: notifyUser agora consulta notification_preferences.inApp e não cria alertas de tipos desativados pelo usuário
 
 - [x] Mapa KML/KMZ: adicionar barra de pesquisa no painel lateral para filtrar por nome, descrição ou atributo
+
+- [x] Mapa KML/KMZ: adicionar ordenação dos resultados por ordem alfabética ou tipo de geometria ao lado da pesquisa

@@ -65,18 +65,34 @@ export function findMapElementRecord(records: MapElementRecord[], key: string | 
   return records.find((record) => record.key === key) ?? null;
 }
 
-export function filterMapElementRecords(records: MapElementRecord[], query: string, limit = 30): MapElementRecord[] {
+export type MapElementSort = "alphabetical" | "geometry";
+
+const GEOMETRY_SORT_ORDER: Record<MapElementRecord["geometryType"], number> = {
+  Point: 0,
+  LineString: 1,
+  MultiLineString: 2,
+};
+
+export function filterMapElementRecords(records: MapElementRecord[], query: string, limit = 30, sortBy: MapElementSort = "alphabetical"): MapElementRecord[] {
   const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-  if (!normalizedQuery) return records.slice(0, limit);
-  return records.filter((record) => [
-    record.elementName,
-    record.description,
-    record.attributes,
-    record.crsName,
-    record.segmentName,
-    record.geometryType,
-    record.workType,
-  ].some((value) => value.toLocaleLowerCase("pt-BR").includes(normalizedQuery))).slice(0, limit);
+  const filtered = normalizedQuery
+    ? records.filter((record) => [
+      record.elementName,
+      record.description,
+      record.attributes,
+      record.crsName,
+      record.segmentName,
+      record.geometryType,
+      record.workType,
+    ].some((value) => value.toLocaleLowerCase("pt-BR").includes(normalizedQuery)))
+    : records;
+  return [...filtered].sort((left, right) => {
+    if (sortBy === "geometry") {
+      const geometryDifference = GEOMETRY_SORT_ORDER[left.geometryType] - GEOMETRY_SORT_ORDER[right.geometryType];
+      if (geometryDifference !== 0) return geometryDifference;
+    }
+    return left.elementName.localeCompare(right.elementName, "pt-BR", { sensitivity: "base" }) || left.key.localeCompare(right.key);
+  }).slice(0, limit);
 }
 
 export function escapeCsvCell(value: unknown): string {
