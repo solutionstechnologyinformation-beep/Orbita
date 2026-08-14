@@ -187,39 +187,63 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
         const features = Array.isArray(collection.features) ? collection.features : [];
         features.forEach((feature: any) => {
           const geometry = feature?.geometry;
-          const paths = geometry?.type === "LineString" ? [geometry.coordinates] : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
-          paths.forEach((coordinates: any[]) => {
-            const path = coordinates.map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) })).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
-            if (path.length < 2) return;
-            path.forEach((point) => bounds.extend(point));
-            segmentPointCount += path.length;
-            const currentCenter = contractPoints.get(segment.crsId) ?? { latTotal: 0, lngTotal: 0, pointCount: 0, name: segment.crsName ?? `Contrato #${segment.crsId}` };
-            path.forEach((point) => { currentCenter.latTotal += point.lat; currentCenter.lngTotal += point.lng; currentCenter.pointCount += 1; });
-            contractPoints.set(segment.crsId, currentCenter);
-            const typeKey = getSegmentTypeKey(segment);
-            const strokeColor = segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a";
-            const extension = getSegmentExtensionKm(segment);
-            const infoWindow = new g.InfoWindow({
-              content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:190px;max-width:260px;">
-                <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:5px;">${segment.crsName ?? `Contrato #${segment.crsId}`}</div>
-                <div style="font-size:12px;color:#475569;margin-bottom:3px;">Trecho: <strong>${segment.name}</strong></div>
-                <div style="font-size:12px;color:#475569;margin-bottom:3px;">Tipo: <strong>${TIPO_OBRA_MAP[typeKey] ?? typeKey}</strong></div>
-                <div style="font-size:12px;color:#475569;">Extensão: <strong>${extension !== null ? `${extension.toLocaleString("pt-BR")} km` : "Não informada"}</strong></div>
-                <button data-segment-crs="${segment.crsId}" style="margin-top:8px;border:0;border-radius:6px;background:#2563eb;color:#fff;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;">Abrir contrato</button>
-              </div>`,
+          const featName = feature?.properties?.name || segment.name;
+          const featDesc = feature?.properties?.description;
+
+          if (geometry?.type === "LineString" || geometry?.type === "MultiLineString") {
+            const paths = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+            paths.forEach((coordinates: any[]) => {
+              const path = coordinates.map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) })).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+              if (path.length < 2) return;
+              path.forEach((point) => bounds.extend(point));
+              segmentPointCount += path.length;
+              const currentCenter = contractPoints.get(segment.crsId) ?? { latTotal: 0, lngTotal: 0, pointCount: 0, name: segment.crsName ?? `Contrato #${segment.crsId}` };
+              path.forEach((point) => { currentCenter.latTotal += point.lat; currentCenter.lngTotal += point.lng; currentCenter.pointCount += 1; });
+              contractPoints.set(segment.crsId, currentCenter);
+              const typeKey = getSegmentTypeKey(segment);
+              const strokeColor = segmentColors[typeKey] ?? EXTENSION_COLORS[typeKey] ?? "#16a34a";
+              const extension = getSegmentExtensionKm(segment);
+              const infoWindow = new g.InfoWindow({
+                content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:190px;max-width:280px;">
+                  <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:5px;">${segment.crsName ?? `Contrato #${segment.crsId}`}</div>
+                  <div style="font-size:12px;color:#475569;margin-bottom:3px;">Elemento: <strong>${featName}</strong></div>
+                  ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${featDesc}</div>` : ""}
+                  <div style="font-size:12px;color:#475569;margin-bottom:3px;">Tipo: <strong>${TIPO_OBRA_MAP[typeKey] ?? typeKey}</strong></div>
+                  <div style="font-size:12px;color:#475569;">Extensão: <strong>${extension !== null ? `${extension.toLocaleString("pt-BR")} km` : "Não informada"}</strong></div>
+                  <button data-segment-crs="${segment.crsId}" style="margin-top:8px;border:0;border-radius:6px;background:#2563eb;color:#fff;padding:5px 9px;font-size:11px;font-weight:600;cursor:pointer;">Abrir contrato</button>
+                </div>`,
+              });
+              const line = new g.Polyline({ map, path, geodesic: true, strokeColor, strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
+              line.addListener("click", () => {
+                infoWindow.setPosition(path[Math.floor(path.length / 2)]);
+                infoWindow.open({ map });
+                setTimeout(() => {
+                  const button = document.querySelector(`[data-segment-crs="${segment.crsId}"]`);
+                  button?.addEventListener("click", () => { infoWindow.close(); onNavigate(`/kanban?crs=${segment.crsId}`); });
+                }, 200);
+              });
+              segmentLinesRef.current.push(line);
+              segmentLineMeta.push({ line, crsId: segment.crsId, baseColor: strokeColor });
             });
-            const line = new g.Polyline({ map, path, geodesic: true, strokeColor, strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
-            line.addListener("click", () => {
-              infoWindow.setPosition(path[Math.floor(path.length / 2)]);
-              infoWindow.open({ map });
-              setTimeout(() => {
-                const button = document.querySelector(`[data-segment-crs="${segment.crsId}"]`);
-                button?.addEventListener("click", () => { infoWindow.close(); onNavigate(`/kanban?crs=${segment.crsId}`); });
-              }, 200);
-            });
-            segmentLinesRef.current.push(line);
-            segmentLineMeta.push({ line, crsId: segment.crsId, baseColor: strokeColor });
-          });
+          } else if (geometry?.type === "Point" && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2) {
+            const [lng, lat] = geometry.coordinates;
+            const position = { lat: Number(lat), lng: Number(lng) };
+            if (Number.isFinite(position.lat) && Number.isFinite(position.lng)) {
+              bounds.extend(position);
+              const infoWindow = new g.InfoWindow({
+                content: `<div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:180px;max-width:260px;">
+                  <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px;">${featName}</div>
+                  ${featDesc ? `<div style="font-size:11px;color:#334155;margin-bottom:3px;background:#f8fafc;padding:4px;border-radius:4px;">${featDesc}</div>` : ""}
+                  <div style="font-size:11px;color:#64748b;">Arquivo: ${segment.name}</div>
+                </div>`,
+              });
+              const marker = new g.Marker({ map, position, title: featName });
+              marker.addListener("click", () => {
+                infoWindow.open({ map, anchor: marker });
+              });
+              segmentMarkersRef.current.push(marker);
+            }
+          }
         });
       } catch {
         // Segmentos inválidos são ignorados sem interromper os marcadores do mapa.

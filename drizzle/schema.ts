@@ -300,6 +300,7 @@ export const notificationPreferences = mysqlTable("notification_preferences", {
   notificationType: varchar("notificationType", { length: 64 }).notNull(),
   inApp: boolean("inApp").default(true).notNull(),
   email: boolean("email").default(true).notNull(),
+  deadlineAlertDays: int("deadlineAlertDays").default(3).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;

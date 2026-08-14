@@ -70,43 +70,58 @@ function parseKmlToGeoJson(kml: string): ParsedSegment {
   const document = new DOMParser().parseFromString(kml, "application/xml");
   if (document.querySelector("parsererror")) throw new Error("O KML está malformado.");
   const placemarks = localElements(document, "Placemark");
-  type KmlFeature = {
-    type: "Feature";
-    properties: { name: string };
-    geometry: { type: "LineString"; coordinates: number[][] } | { type: "MultiLineString"; coordinates: number[][][] };
-  };
-  const features: KmlFeature[] = [];
+  const features: any[] = [];
+  const allCoordinates: number[][] = [];
 
   placemarks.forEach((placemark, index) => {
-    const name = localElements(placemark, "name")[0]?.textContent?.trim() || `Trecho ${index + 1}`;
-    const paths = [
-      ...localElements(placemark, "LineString").map((line) => parseKmlCoordinates(localElements(line, "coordinates")[0]?.textContent)),
-      ...localElements(placemark, "LinearRing").map((ring) => parseKmlCoordinates(localElements(ring, "coordinates")[0]?.textContent)),
-    ].filter((coordinates) => coordinates.length >= 2);
-    if (paths.length === 0) return;
-    features.push({
-      type: "Feature",
-      properties: { name },
-      geometry: paths.length === 1 ? { type: "LineString", coordinates: paths[0] } : { type: "MultiLineString", coordinates: paths },
-    });
+    const name = localElements(placemark, "name")[0]?.textContent?.trim() || `Elemento ${index + 1}`;
+    const descEl = localElements(placemark, "description")[0];
+    const description = descEl ? descEl.textContent?.trim() : undefined;
+
+    // Verificar LineString
+    const lineEls = localElements(placemark, "LineString");
+    if (lineEls.length > 0) {
+      const coordsText = localElements(lineEls[0], "coordinates")[0]?.textContent;
+      const coordinates = parseKmlCoordinates(coordsText);
+      if (coordinates.length >= 2) {
+        coordinates.forEach(([lng, lat]) => allCoordinates.push([lng, lat]));
+        features.push({
+          type: "Feature",
+          properties: { name, description },
+          geometry: { type: "LineString", coordinates },
+        });
+        return;
+      }
+    }
+
+    // Verificar Point
+    const pointEls = localElements(placemark, "Point");
+    if (pointEls.length > 0) {
+      const coordsText = localElements(pointEls[0], "coordinates")[0]?.textContent;
+      const coords = parseKmlCoordinates(coordsText);
+      if (coords.length > 0) {
+        const [lng, lat] = coords[0];
+        allCoordinates.push([lng, lat]);
+        features.push({
+          type: "Feature",
+          properties: { name, description },
+          geometry: { type: "Point", coordinates: [lng, lat] },
+        });
+      }
+    }
   });
 
-  if (features.length === 0) {
-    localElements(document, "LineString").forEach((line, index) => {
-      const coordinates = parseKmlCoordinates(localElements(line, "coordinates")[0]?.textContent);
-      if (coordinates.length >= 2) features.push({ type: "Feature", properties: { name: `Trecho ${index + 1}` }, geometry: { type: "LineString", coordinates } });
-    });
-  }
-  if (features.length === 0) throw new Error("Nenhum trecho linear foi encontrado no KMZ/KML.");
+  if (features.length === 0) throw new Error("Nenhum elemento geográfico válido (linha ou ponto) foi encontrado no KMZ/KML.");
 
-  const allCoordinates: number[][] = [];
-  features.forEach((feature) => {
-    if (feature.geometry.type === "LineString") allCoordinates.push(...feature.geometry.coordinates);
-    else feature.geometry.coordinates.forEach((path) => allCoordinates.push(...path));
-  });
   const lngs = allCoordinates.map(([lng]) => lng);
   const lats = allCoordinates.map(([, lat]) => lat);
-  const bounds = { minLng: Math.min(...lngs), minLat: Math.min(...lats), maxLng: Math.max(...lngs), maxLat: Math.max(...lats) };
+  const bounds = lngs.length > 0 ? {
+    minLng: Math.min(...lngs),
+    minLat: Math.min(...lats),
+    maxLng: Math.max(...lngs),
+    maxLat: Math.max(...lats),
+  } : null;
+
   return { geometryJson: JSON.stringify({ type: "FeatureCollection", features }), boundsJson: JSON.stringify(bounds) };
 }
 

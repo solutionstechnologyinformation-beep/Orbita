@@ -983,3 +983,5 @@
 - [x] Kanban: exibir Arquivado como Concluído, sombrear cards concluídos e ocultar o marcador de atraso em tarefas concluídas ou com 100%
 
 - [x] Importação KMZ/KML: corrigir erro SQL no insert da tabela crs_segments e validar com o arquivo GO-319.kmz
+
+- [x] Importação KML/KMZ: preservar nome, descrição e atributos dos elementos e exibi-los no mapa e na lista de trechos
