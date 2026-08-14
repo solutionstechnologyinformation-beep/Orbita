@@ -14,6 +14,8 @@ import { getKanbanCompanyOptions, matchesKanbanCompanyFilter } from "../../../sh
 import { isCompletedKanbanPhase } from "../../../shared/kanban-completion";
 import { isBlockedPhaseName } from "../../../shared/kanban-block";
 import { getKanbanPhaseDropId, parseKanbanPhaseDropId } from "../../../shared/kanban-dnd";
+import { getKanbanPhaseDisplayName } from "../../../shared/kanban-labels";
+import { isKanbanTaskCompleted, isKanbanTaskOverdue } from "../../../shared/kanban-card-state";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -62,7 +64,7 @@ function PhaseBadge({ color, name }: { color: string; name: string }) {
 }
 
 // ── Checklist Preview ─────────────────────────────────────────────────────────
-function ChecklistPreview({ items }: { items: any[] }) {
+function ChecklistPreview({ items, isTaskCompleted = false }: { items: any[]; isTaskCompleted?: boolean }) {
   const utils = trpc.useUtils();
   const toggleMut = trpc.checklist.updateStatus.useMutation({
     onSuccess: () => utils.tasks.listByCrsWithChecklist.invalidate(),
@@ -81,7 +83,8 @@ function ChecklistPreview({ items }: { items: any[] }) {
       {items.map((item) => {
         const isDone = item.status === "published";
         const endDate = item.endDate ? new Date(item.endDate) : null;
-        const isOverdue = endDate && endDate < new Date() && !isDone;
+        const isOverdue = !isTaskCompleted && endDate && endDate < new Date() && !isDone;
+        const visuallyCompleted = isTaskCompleted || isDone;
         return (
           <div key={`ci-${item.id}`} className="flex flex-col gap-0.5 pl-0.5">
             <div className="flex items-start gap-1.5">
@@ -96,7 +99,7 @@ function ChecklistPreview({ items }: { items: any[] }) {
                   ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                   : <Circle className="w-3.5 h-3.5" />}
               </button>
-              <span className={`text-xs leading-tight ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+              <span className={`text-xs leading-tight ${visuallyCompleted ? "line-through text-muted-foreground" : "text-foreground"}`}>
                 {item.title}
               </span>
             </div>
@@ -146,11 +149,12 @@ function SortableTaskCard({
   const [expanded, setExpanded] = useState(false);
   const p = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium;
   const phase = phases.find((ph) => ph.id === task.phaseId);
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+  const isTaskCompleted = isKanbanTaskCompleted(task, phase);
+  const isOverdue = isKanbanTaskOverdue(task, phase);
   const checklist: any[] = task.checklistItems ?? [];
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-card border border-border rounded-xl p-3 hover:shadow-lg transition-all duration-200 group hover:scale-[1.02] active:scale-[0.98]">
+    <div ref={setNodeRef} style={style} data-completed={isTaskCompleted ? "true" : "false"} className={`border rounded-xl p-3 hover:shadow-lg transition-all duration-200 group hover:scale-[1.02] active:scale-[0.98] ${isTaskCompleted ? "bg-muted/60 border-border/70 opacity-75 grayscale-[0.12]" : "bg-card border-border"}`}>
       {/* Drag handle + header */}
       <div className="flex items-start gap-1.5">
         <button
@@ -172,7 +176,7 @@ function SortableTaskCard({
                   </span>
                 )}
               </div>
-              <p className="text-sm font-medium text-foreground leading-tight">{task.title}</p>
+              <p className={`text-sm font-medium leading-tight ${isTaskCompleted ? "text-muted-foreground" : "text-foreground"}`}>{task.title}</p>
               {(task.crsName || task.crsCode) && (
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
                   <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary truncate">OS: {task.crsName ?? "—"}</span>
@@ -236,7 +240,7 @@ function SortableTaskCard({
                 {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 {expanded ? "Ocultar checklist" : `Ver checklist (${checklist.filter((i: any) => i.status === "published").length}/${checklist.length})`}
               </button>
-              {expanded && <ChecklistPreview items={checklist} />}
+              {expanded && <ChecklistPreview items={checklist} isTaskCompleted={isTaskCompleted} />}
             </>
           )}
         </div>
@@ -267,7 +271,7 @@ function PhaseColumn({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: phase.color }} />
-            <h3 className="text-sm font-semibold text-foreground">{phase.name}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{getKanbanPhaseDisplayName(phase.name)}</h3>
           </div>
           <div className="flex items-center gap-1">
             <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
@@ -901,7 +905,7 @@ export default function Kanban() {
                       <SelectItem key={ph.id} value={String(ph.id)}>
                         <span className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: ph.color }} />
-                          {ph.name}
+                          {getKanbanPhaseDisplayName(ph.name)}
                         </span>
                       </SelectItem>
                     ))}
@@ -986,7 +990,7 @@ export default function Kanban() {
                       <SelectItem key={ph.id} value={String(ph.id)}>
                         <span className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: ph.color }} />
-                          {ph.name}
+                          {getKanbanPhaseDisplayName(ph.name)}
                         </span>
                       </SelectItem>
                     ))}

@@ -976,6 +976,8 @@
 
 - [x] Dashboard: adicionar seletor pesquisável de cliente ao lado do filtro de empresa e aplicar a seleção aos indicadores e visualizações compatíveis
 
-- [ ] Kanban: renomear a coluna Arquivado para Concluído, sombrear cards concluídos e remover o marcador de atraso em tarefas concluídas ou com 100%
+- [x] Kanban: renomear a coluna Arquivado para Concluído, sombrear cards concluídos e remover o marcador de atraso em tarefas concluídas ou com 100%
 
 - [x] Kanban: permitir arrastar cards entre colunas com atualização automática da fase/status e manter as regras de bloqueio
+
+- [x] Kanban: exibir Arquivado como Concluído, sombrear cards concluídos e ocultar o marcador de atraso em tarefas concluídas ou com 100%
