@@ -191,3 +191,16 @@ describe("dashboard map quick work-status filters", () => {
     expect(dashboardSource).toContain("Extensão filtrada");
   });
 });
+
+describe("dashboard map work-status legend", () => {
+  it("renders a labeled visual legend with the same colors used by contract markers", () => {
+    expect(dashboardSource).toContain('data-map-status-legend="true"');
+    expect(dashboardSource).toContain('aria-label="Legenda de status das obras"');
+    expect(dashboardSource).toContain("MAP_WORK_STATUS_COLORS");
+    expect(dashboardSource).toContain('"in-progress": { color: "#2563eb"');
+    expect(dashboardSource).toContain('completed: { color: "#16a34a"');
+    expect(dashboardSource).toContain('planned: { color: "#f59e0b"');
+    expect(dashboardSource).toContain("fillColor: contractStatusColor.color");
+    expect(dashboardSource).toContain("border: `1px solid ${statusColor.stroke}`");
+  });
+});

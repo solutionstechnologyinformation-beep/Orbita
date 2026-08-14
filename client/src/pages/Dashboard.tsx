@@ -155,6 +155,11 @@ const MAP_WORK_STATUS_OPTIONS: Array<{ value: MapWorkStatusFilter; label: string
   { value: "completed", label: "Concluídas", shortLabel: "Concluídas" },
   { value: "planned", label: "Planejadas", shortLabel: "Planejadas" },
 ];
+const MAP_WORK_STATUS_COLORS: Record<Exclude<MapWorkStatusFilter, "all">, { color: string; stroke: string }> = {
+  "in-progress": { color: "#2563eb", stroke: "#1e3a8a" },
+  completed: { color: "#16a34a", stroke: "#14532d" },
+  planned: { color: "#f59e0b", stroke: "#92400e" },
+};
 const getMapWorkStatus = (progress: number | null | undefined): Exclude<MapWorkStatusFilter, "all"> => {
   const normalizedProgress = Number(progress) || 0;
   if (normalizedProgress >= 100) return "completed";
@@ -629,6 +634,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         const contractSegments = segments.filter((segment) => segment.crsId === first.item.crsId);
         const contractTypeKey = contractSegments.length > 0 ? getSegmentTypeKey(contractSegments[0]) : "outro";
         const contractMarkerVisual = getMapMarkerVisual(contractTypeKey, segmentColors, g);
+        const contractStatus = getMapWorkStatus(contractProgressById.get(first.item.crsId));
+        const contractStatusColor = MAP_WORK_STATUS_COLORS[contractStatus];
         const contractExtension = contractSegments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0);
         const contractTypes = Array.from(new Set(contractSegments.flatMap((segment) => parseTipoObra(segment.tipoObra).map((typeKey) => TIPO_OBRA_MAP[typeKey] ?? typeKey))));
         const previewSurface = isDark ? "#0f172a" : "#ffffff";
@@ -651,6 +658,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
             strokeWeight: 2,
           } : {
             ...contractMarkerVisual,
+            fillColor: contractStatusColor.color,
+            strokeColor: contractStatusColor.stroke,
             scale: 10,
           },
           label: {
@@ -776,7 +785,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         });
       }, i * 150);
     });
-  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers, applyElementHover]);
+  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers, contractProgressById, applyElementHover]);
 
 
 
@@ -846,6 +855,26 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
             initialZoom={4}
             onMapReady={handleMapReady}
           />
+        </div>
+        <div
+          data-map-status-legend="true"
+          className={`absolute bottom-3 z-20 max-w-[calc(100%-1.5rem)] rounded-lg border ${isMapExpanded ? "left-3" : "right-3"} ${mapPanelSurface} px-3 py-2 shadow-lg backdrop-blur-sm`}
+          role="group"
+          aria-label="Legenda de status das obras"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className={`text-[10px] font-semibold uppercase tracking-wide ${mapPanelMuted}`}>Status:</span>
+            {MAP_WORK_STATUS_OPTIONS.map((option) => {
+              if (option.value === "all") return null;
+              const statusColor = MAP_WORK_STATUS_COLORS[option.value];
+              return (
+                <span key={option.value} className={`inline-flex items-center gap-1.5 text-[10px] font-medium ${mapPanelText}`}>
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: statusColor.color, border: `1px solid ${statusColor.stroke}` }} aria-hidden="true" />
+                  {option.label}
+                </span>
+              );
+            })}
+          </div>
         </div>
         {selectedElement && (
           <aside data-map-control="true" className={`absolute ${isMapExpanded ? "bottom-16 left-3" : "bottom-3 right-3"} z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border ${mapPanelSurface} p-4 shadow-xl backdrop-blur-sm`} aria-label="Detalhes do elemento importado">

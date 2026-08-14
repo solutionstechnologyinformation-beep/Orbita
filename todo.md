@@ -1252,3 +1252,8 @@
 - [x] Implementar filtros Em andamento, Concluídas e Planejadas combinados com pesquisa e marcadores
 - [x] Integrar estados visuais, métricas e acessibilidade nos temas claro e escuro
 - [x] Adicionar testes e validar TypeScript
+
+## Mapa — Legenda visual de status
+- [x] Auditar a área de controles e as cores usadas pelos status das obras
+- [x] Implementar legenda compacta sincronizada com os status e o tema ativo
+- [x] Adicionar testes de cores e acessibilidade e validar TypeScript
