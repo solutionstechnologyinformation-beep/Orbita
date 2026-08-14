@@ -1147,3 +1147,9 @@
 - [x] Implementar duração configurável sincronizada entre ThemeContext, timer e CSS
 - [x] Adicionar controle acessível com opções de duração e indicação de movimento reduzido
 - [x] Adicionar testes de persistência, aplicação da duração, acessibilidade e TypeScript
+
+## Habilidade Reutilizável — Orbita Workflow (`orbita-webdev-evolution`)
+- [x] Extrair padrões de tRPC, Drizzle, React, testes, tema e checkpoints do projeto Orbita
+- [x] Inicializar a nova habilidade utilizando `init_skill.py`
+- [x] Escrever o SKILL.md e referências com instruções passo a passo
+- [x] Validar a habilidade com `quick_validate.py` e entregar o arquivo SKILL.md
