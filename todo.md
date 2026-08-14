@@ -1067,10 +1067,10 @@
 - [x] Manter exclusivamente a logo atual da Órbita e não usar a logo LS Solutions na variante do tema escuro
 
 ## Configurações — Branding por empresa
-- [ ] Criar aba de configurações acessível pelo painel para editar nome e logo da empresa
-- [ ] Persistir nome e logo por companyId com isolamento multi-tenant
-- [ ] Integrar configurações ao layout, tema escuro e relatórios PDF
-- [ ] Adicionar validação de upload, feedback de salvamento e testes
+- [x] Criar aba de configurações acessível pelo painel para editar nome e logo da empresa
+- [x] Persistir nome e logo por companyId com isolamento multi-tenant
+- [x] Integrar configurações ao layout, tema escuro e relatórios PDF
+- [x] Adicionar validação de upload, feedback de salvamento e testes
 
 ## Tema escuro — Logo transparente e contraste amarelo
 - [x] Exibir a logo atual da Órbita sem fundo no modo escuro

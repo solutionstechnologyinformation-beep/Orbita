@@ -18,7 +18,7 @@ import {
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
-  getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, deleteCompany, getChatActivityByDiscipline,
+  getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage, setChatTypingState, clearChatTypingState, getChatTypingUsers,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
@@ -260,6 +260,29 @@ export const appRouter = router({
         if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
         await archiveCompanyProject(companyId, input.crsId);
         return { success: true };
+      }),
+    updateBranding: companyAdminProcedure
+      .input(z.object({ name: z.string().trim().min(1).max(256), logoUrl: z.string().optional().nullable(), logoDarkUrl: z.string().optional().nullable() }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        await updateCompanyBranding(companyId, input);
+        await logActivity({ userId: ctx.user.id, action: "updated_company_branding", entityType: "company", entityId: companyId, metadata: JSON.stringify({ name: input.name }) });
+        return { success: true };
+      }),
+    uploadLogo: companyAdminProcedure
+      .input(z.object({ base64: z.string(), mimeType: z.string(), fileName: z.string(), variant: z.enum(["light", "dark"]) }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        const { storagePut } = await import("./storage");
+        const buffer = Buffer.from(input.base64, "base64");
+        const ext = input.mimeType.split("/")[1] ?? "png";
+        const key = `company-logos/${companyId}-${input.variant}-${Date.now()}.${ext}`;
+        const { url } = await storagePut(key, buffer, input.mimeType);
+        const updatePayload = input.variant === "dark" ? { logoDarkUrl: url } : { logoUrl: url };
+        await updateCompanyBranding(companyId, updatePayload);
+        return { url };
       }),
   }),
   companies: router({

@@ -17,6 +17,8 @@ export const companies = mysqlTable("companies", {
   name: varchar("name", { length: 256 }).notNull(),
   slug: varchar("slug", { length: 128 }).notNull().unique(),
   color: varchar("color", { length: 32 }).default("#2563eb").notNull(),
+  logoUrl: text("logoUrl"),
+  logoDarkUrl: text("logoDarkUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

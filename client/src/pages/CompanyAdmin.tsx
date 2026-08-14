@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, FolderKanban, Loader2, Plus, ShieldCheck, UserPlus, Users } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { Building2, FolderKanban, Loader2, Plus, ShieldCheck, UserPlus, Users, Settings, Upload, Image as ImageIcon } from "lucide-react";
+import { FormEvent, useState, useEffect } from "react";
 
 const roleLabels: Record<string, string> = {
   user: "Usuário",
@@ -37,7 +37,55 @@ export default function CompanyAdmin() {
     onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Projeto arquivado."); },
     onError: (error) => toast.error(error.message),
   });
+  const updateBranding = trpc.companyAdmin.updateBranding.useMutation({
+    onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Configurações de branding atualizadas."); },
+    onError: (error) => toast.error(error.message),
+  });
+  const uploadLogo = trpc.companyAdmin.uploadLogo.useMutation({
+    onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Logo atualizada com sucesso."); },
+    onError: (error) => toast.error(error.message),
+  });
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" as "user" | "leader" | "company_admin" });
+  const [brandingForm, setBrandingForm] = useState({ name: "", logoUrl: "", logoDarkUrl: "" });
+
+  useEffect(() => {
+    if (dashboard.data?.company) {
+      setBrandingForm({
+        name: dashboard.data.company.name ?? "",
+        logoUrl: dashboard.data.company.logoUrl ?? "",
+        logoDarkUrl: dashboard.data.company.logoDarkUrl ?? "",
+      });
+    }
+  }, [dashboard.data?.company]);
+
+  const handleBrandingSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    updateBranding.mutate({
+      name: brandingForm.name,
+      logoUrl: brandingForm.logoUrl || null,
+      logoDarkUrl: brandingForm.logoDarkUrl || null,
+    });
+  };
+
+  const handleLogoUpload = async (file: File, variant: "light" | "dark") => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("O arquivo deve ter no máximo 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      if (!base64) return;
+      await uploadLogo.mutateAsync({
+        base64,
+        mimeType: file.type || "image/png",
+        fileName: file.name,
+        variant,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -72,9 +120,10 @@ export default function CompanyAdmin() {
             </div>
 
             <Tabs defaultValue="users" className="w-full">
-              <TabsList className="grid h-auto w-full max-w-xl grid-cols-2 rounded-xl bg-slate-100 p-1">
+              <TabsList className="grid h-auto w-full max-w-2xl grid-cols-3 rounded-xl bg-slate-100 p-1">
                 <TabsTrigger value="users" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Users className="h-4 w-4" /> Usuários</TabsTrigger>
                 <TabsTrigger value="projects" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><FolderKanban className="h-4 w-4" /> Projetos da empresa</TabsTrigger>
+                <TabsTrigger value="settings" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Settings className="h-4 w-4" /> Configurações</TabsTrigger>
               </TabsList>
 
               <TabsContent value="users" className="mt-4">
@@ -93,6 +142,107 @@ export default function CompanyAdmin() {
 
               <TabsContent value="projects" className="mt-4">
                 <section className="rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-bold text-slate-900">Projetos da empresa</h2><p className="text-xs text-slate-500">Somente contratos vinculados ao companyId atual são exibidos.</p></div><Building2 className="h-5 w-5 text-emerald-600" /></div><div className="grid gap-3 p-5 md:grid-cols-2">{data?.projects.map((project: any) => <div key={project.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{project.name}</p><p className="mt-1 text-xs text-slate-500">{project.code || project.clientName || "Sem código"}</p></div><Badge className={project.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}>{project.status === "active" ? "Ativo" : "Arquivado"}</Badge></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(0, Math.min(100, Number(project.progress) || 0))}%` }} /></div><div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>{Number(project.progress || 0).toLocaleString("pt-BR")}% concluído</span>{project.status === "active" && <Button type="button" variant="outline" size="sm" onClick={() => { if (window.confirm(`Arquivar o projeto ${project.name}?`)) archiveProject.mutate({ crsId: project.id }); }} disabled={archiveProject.isPending}>Arquivar</Button>}</div></div>)}{data?.projects.length === 0 && <p className="col-span-full py-8 text-center text-sm text-slate-500">Nenhum projeto vinculado à empresa.</p>}</div></section>
+              </TabsContent>
+
+              <TabsContent value="settings" className="mt-4">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <form onSubmit={handleBrandingSubmit} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <Settings className="h-5 w-5 text-emerald-600" />
+                      <div>
+                        <h2 className="font-bold text-slate-900">Branding da Empresa</h2>
+                        <p className="text-xs text-slate-500">Personalize o nome e as logomarcas exibidas na plataforma.</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="company-name-input">Nome da Empresa</Label>
+                      <Input
+                        id="company-name-input"
+                        value={brandingForm.name}
+                        onChange={(e) => setBrandingForm((c) => ({ ...c, name: e.target.value }))}
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="logo-url-input">URL da Logo (Tema Claro)</Label>
+                      <Input
+                        id="logo-url-input"
+                        value={brandingForm.logoUrl}
+                        onChange={(e) => setBrandingForm((c) => ({ ...c, logoUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="logo-dark-url-input">URL da Logo (Tema Escuro / Transparente)</Label>
+                      <Input
+                        id="logo-dark-url-input"
+                        value={brandingForm.logoDarkUrl}
+                        onChange={(e) => setBrandingForm((c) => ({ ...c, logoDarkUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={updateBranding.isPending}>
+                      {updateBranding.isPending ? "Salvando..." : "Salvar alterações de branding"}
+                    </Button>
+                  </form>
+
+                  <div className="space-y-6">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <Upload className="h-5 w-5 text-emerald-600" />
+                        <div>
+                          <h3 className="font-bold text-slate-900">Upload de Logomarca (Modo Claro)</h3>
+                          <p className="text-xs text-slate-500">Envie uma imagem PNG, JPG ou SVG (máx. 5MB).</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {brandingForm.logoUrl && (
+                          <div className="h-14 w-14 rounded-lg border border-slate-200 bg-slate-50 p-1 flex items-center justify-center">
+                            <img src={brandingForm.logoUrl} alt="Logo clara" className="h-full w-full object-contain" />
+                          </div>
+                        )}
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLogoUpload(file, "light");
+                          }}
+                          disabled={uploadLogo.isPending}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <Upload className="h-5 w-5 text-emerald-600" />
+                        <div>
+                          <h3 className="font-bold text-slate-900">Upload de Logomarca (Modo Escuro)</h3>
+                          <p className="text-xs text-slate-500">Envie a versão com desenho branco ou transparente (máx. 5MB).</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {brandingForm.logoDarkUrl && (
+                          <div className="h-14 w-14 rounded-lg border border-slate-700 bg-slate-900 p-1 flex items-center justify-center">
+                            <img src={brandingForm.logoDarkUrl} alt="Logo escura" className="h-full w-full object-contain" />
+                          </div>
+                        )}
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLogoUpload(file, "dark");
+                          }}
+                          disabled={uploadLogo.isPending}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
           </>
