@@ -1207,10 +1207,10 @@
 - [x] Adicionar testes de alternância e validar TypeScript
 
 ## Mapa — Pesquisa em tela cheia
-- [ ] Auditar dados dos marcadores e filtros já existentes no painel lateral
-- [ ] Implementar pesquisa combinada por nome, número, arquivo e tipo de obra
-- [ ] Aplicar o filtro aos marcadores, clusters e lista lateral com limpeza acessível
-- [ ] Adicionar testes de pesquisa e validar TypeScript
+- [x] Auditar dados dos marcadores e filtros já existentes no painel lateral
+- [x] Implementar pesquisa combinada por nome, número, arquivo e tipo de obra
+- [x] Aplicar o filtro aos marcadores, clusters e lista lateral com limpeza acessível
+- [x] Adicionar testes de pesquisa e validar TypeScript
 
 ## Mapa — Largura em tela cheia
 - [x] Auditar o recorte atual do painel de resumos no modo ampliado
