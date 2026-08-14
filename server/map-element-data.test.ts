@@ -122,3 +122,14 @@ describe("map element progressive list", () => {
     expect(getNextMapElementVisibleCount(8, 0)).toBe(0);
   });
 });
+
+
+describe("map element panel state", () => {
+  it("mantém loading durante a consulta e diferencia painel pronto de vazio", async () => {
+    const { getMapElementPanelState } = await import("../shared/map-element-data");
+    expect(getMapElementPanelState(true, 0)).toBe("loading");
+    expect(getMapElementPanelState(true, 4)).toBe("loading");
+    expect(getMapElementPanelState(false, 4)).toBe("ready");
+    expect(getMapElementPanelState(false, 0)).toBe("empty");
+  });
+});

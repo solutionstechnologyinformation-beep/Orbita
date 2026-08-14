@@ -1001,3 +1001,5 @@
 - [x] Mapa KML/KMZ: destacar no mapa o elemento correspondente ao passar o mouse sobre um resultado da lista lateral
 
 - [x] Mapa KML/KMZ: implementar rolagem interna e carregamento progressivo na lista lateral de resultados
+
+- [x] Mapa KML/KMZ: exibir skeleton loader enquanto os elementos importados são processados inicialmente

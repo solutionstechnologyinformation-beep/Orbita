@@ -95,6 +95,13 @@ export function filterMapElementRecords(records: MapElementRecord[], query: stri
   }).slice(0, limit);
 }
 
+export type MapElementPanelState = "loading" | "ready" | "empty";
+
+export function getMapElementPanelState(isLoading: boolean, segmentCount: number): MapElementPanelState {
+  if (isLoading) return "loading";
+  return segmentCount > 0 ? "ready" : "empty";
+}
+
 export function getNextMapElementVisibleCount(currentCount: number, totalCount: number, pageSize = 8): number {
   if (totalCount <= 0) return 0;
   return Math.min(Math.max(currentCount, 0) + Math.max(pageSize, 1), totalCount);

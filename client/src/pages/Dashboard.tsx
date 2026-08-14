@@ -15,7 +15,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
     MapPin, Activity, Users, FolderOpen, ChevronRight,
-  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search,
+  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, getNextMapElementVisibleCount, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -95,7 +95,7 @@ interface SegmentOverlay {
 }
 type ContractMarkerData = { crsId: number; name: string; number: number | string };
 type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.Marker; baseColor?: string; baseIcon?: google.maps.Symbol };
-  function ContractsMap({ locations, segments, onNavigate, mapExportRef }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null> }) {
+  function ContractsMap({ locations, segments, segmentsLoading, onNavigate, mapExportRef }: { locations: ContractLocation[]; segments: SegmentOverlay[]; segmentsLoading: boolean; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null> }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
@@ -124,6 +124,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
   const [visibleElementCount, setVisibleElementCount] = useState(8);
   const elementListRef = useRef<HTMLDivElement | null>(null);
+  const mapElementPanelState = getMapElementPanelState(segmentsLoading, segments.length);
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
   const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, Math.max(mapElementRecords.length, 1), elementSort), [elementSearch, elementSort, mapElementRecords]);
@@ -543,7 +544,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     highlightTimerRef.current = null;
   }, []);
 
-  if (locations.length === 0 && segments.length === 0) {
+  if (locations.length === 0 && segments.length === 0 && !segmentsLoading) {
     return (
       <div className="flex items-center justify-center h-64 bg-gray-50 rounded-xl border border-gray-100">
         <div className="text-center text-gray-400">
@@ -608,13 +609,19 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       </div>
 
 
-      {segments.length > 0 && (
+      {mapElementPanelState !== "empty" && (
         <div data-map-control="true" className="absolute top-3 left-3 z-20 w-[292px] max-w-[calc(100%-1.5rem)] rounded-xl bg-white/95 shadow-md border border-gray-200 overflow-hidden">
           <button type="button" onClick={() => setControlsOpen((open) => !open)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50" aria-expanded={controlsOpen}>
-            <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> Trechos importados <span className="text-gray-400 font-normal">{enabledSegmentCount}/{segments.length}</span></span>
+            <span className="flex items-center gap-2 text-xs font-semibold text-gray-800"><SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" /> {mapElementPanelState === "loading" ? "Processando KML/KMZ" : "Trechos importados"} <span className="text-gray-400 font-normal">{mapElementPanelState === "loading" ? <Loader2 className="inline h-3 w-3 animate-spin" aria-label="Carregando segmentos" /> : `${enabledSegmentCount}/${segments.length}`}</span></span>
             {controlsOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
           </button>
-          {controlsOpen && (
+          {controlsOpen && (mapElementPanelState === "loading" ? (
+            <div className="border-t border-gray-100 px-3 py-3 space-y-2.5" aria-live="polite" aria-label="Processando elementos KML/KMZ">
+              <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600"><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Processando elementos do mapa...</div>
+              {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-9 w-full rounded-md" />)}
+              <p className="text-[10px] text-gray-400">Os controles aparecerão assim que os arquivos terminarem de ser processados.</p>
+            </div>
+          ) : (
             <div className="border-t border-gray-100 px-3 py-2.5 space-y-3 max-h-[22rem] overflow-y-auto">
               <label className="block">
                 <span className="mb-1 block text-[10px] uppercase tracking-wide font-semibold text-gray-400">Localizar trecho</span>
@@ -702,7 +709,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                 })}
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
       {segments.length > 0 && (
@@ -1127,6 +1134,7 @@ export default function Dashboard() {
                   <ContractsMap
                     locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0, contracts: s.contracts ?? [] }))}
                     segments={(segmentsQ.data ?? []) as SegmentOverlay[]}
+                    segmentsLoading={segmentsQ.isLoading}
                     onNavigate={navigate}
                     mapExportRef={mapExportRef}
                   />
