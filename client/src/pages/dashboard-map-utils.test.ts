@@ -67,7 +67,7 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain("visibleExtensionKm");
     expect(dashboardSource).toContain("filteredSummarySegments");
     expect(dashboardSource).toContain("onClick={() => focusSegment(segment.id)}");
-    expect(dashboardSource).toContain("map.fitBounds(bounds, 56)");
+    expect(dashboardSource).toContain('data-map-focus="${featureKey}"');
   });
 
   it("animates opening and retracting the summary panel while respecting reduced motion", () => {
@@ -120,5 +120,23 @@ describe("dashboard map fullscreen canvas width adjustment", () => {
     expect(dashboardSource).toContain("map-fullscreen-canvas-collapsed");
     expect(stylesheet).toContain(".map-fullscreen-canvas-with-summary {");
     expect(stylesheet).toContain("right: min(24rem, calc(100vw - 1rem));");
+  });
+});
+
+describe("dashboard map viewport preservation", () => {
+  it("preserves the current viewport when marker data is refreshed after a selection", () => {
+    expect(dashboardSource).toContain("const previousCenter = map.getCenter()?.toJSON();");
+    expect(dashboardSource).toContain("const previousZoom = map.getZoom();");
+    expect(dashboardSource).toContain("const shouldPreserveViewport");
+    expect(dashboardSource).toContain("map.setCenter(previousCenter);");
+    expect(dashboardSource).toContain("map.setZoom(previousZoom);");
+  });
+
+  it("does not pan or zoom when selecting a point, line, contract marker, or summary result", () => {
+    expect(dashboardSource).toContain("const focusElement = useCallback((record: MapElementRecord)");
+    expect(dashboardSource).toContain("const focusSegment = useCallback((segmentId: number)");
+    expect(dashboardSource).toContain("infoWindow.open({ map, anchor: marker });");
+    expect(dashboardSource).toContain("focusContract(first.item.crsId);");
+    expect(dashboardSource).not.toContain("focusContract(first.item.crsId, first.position)");
   });
 });

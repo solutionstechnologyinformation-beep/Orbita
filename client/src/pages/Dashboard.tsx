@@ -261,36 +261,11 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     setSelectedElementKey(record.key);
     setSelectedSegmentId(record.segmentId);
     setSegmentVisibility((current) => ({ ...current, [record.segmentId]: true }));
-    if (record.center && mapRef.current) {
-      mapRef.current.panTo(record.center);
-      mapRef.current.setZoom(record.geometryType === "Point" ? 12 : 10);
-    }
   }, []);
   const focusSegment = useCallback((segmentId: number) => {
     setSelectedSegmentId(segmentId);
     setSegmentVisibility((current) => ({ ...current, [segmentId]: true }));
-    const relatedRecords = allMapElementRecords.filter((record) => record.segmentId === segmentId && record.center);
-    const map = mapRef.current;
-    if (!map || relatedRecords.length === 0) return;
-    const hasPoint = relatedRecords.some((record) => record.geometryType === "Point");
-    if (hasPoint || !window.google?.maps?.LatLngBounds) {
-      const center = relatedRecords.reduce((sum, record) => ({ lat: sum.lat + (record.center?.lat ?? 0), lng: sum.lng + (record.center?.lng ?? 0) }), { lat: 0, lng: 0 });
-      map.panTo({ lat: center.lat / relatedRecords.length, lng: center.lng / relatedRecords.length });
-      map.setZoom(12);
-      return;
-    }
-    const bounds = new window.google.maps.LatLngBounds();
-    relatedRecords.forEach((record) => record.coordinates.forEach(([lng, lat]) => {
-      if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) bounds.extend({ lat: Number(lat), lng: Number(lng) });
-    }));
-    if (bounds.isEmpty()) return;
-    map.fitBounds(bounds, 56);
-    window.setTimeout(() => {
-      if (mapRef.current !== map) return;
-      const zoom = map.getZoom();
-      if (typeof zoom === "number" && zoom > 14) map.setZoom(14);
-    }, 180);
-  }, [allMapElementRecords]);
+  }, []);
   const exportElementsCsv = useCallback(() => {
     if (mapElementRecords.length === 0) return;
     const csv = buildMapElementsCsv(mapElementRecords);
@@ -386,6 +361,9 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
 
   const placeMarkers = useCallback((map: google.maps.Map) => {
     const g = (window as any).google.maps;
+    const previousCenter = map.getCenter()?.toJSON();
+    const previousZoom = map.getZoom();
+    const shouldPreserveViewport = Boolean(previousCenter && typeof previousZoom === "number" && (markersRef.current.length > 0 || segmentLinesRef.current.length > 0 || segmentMarkersRef.current.length > 0 || contractMarkersRef.current.length > 0));
     const closeMarkerPreview = () => {
       markerPreviewRef.current?.close();
       markerPreviewRef.current = null;
@@ -481,8 +459,6 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               elementOverlayMetaRef.current.set(featureKey, lineMeta);
               line.addListener("click", () => {
                 setSelectedElementKey(featureKey);
-                map.panTo(path[Math.floor(path.length / 2)]);
-                map.setZoom(Math.max(map.getZoom() ?? 6, 10));
                 infoWindow.setPosition(path[Math.floor(path.length / 2)]);
                 infoWindow.open({ map });
                 attachElementFocusAction(infoWindow, featureKey, path[Math.floor(path.length / 2)], 10);
@@ -529,8 +505,6 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               marker.addListener("click", () => {
                 closeMarkerPreview();
                 setSelectedElementKey(featureKey);
-                map.panTo(position);
-                map.setZoom(Math.max(map.getZoom() ?? 6, 12));
                 infoWindow.open({ map, anchor: marker });
                 attachElementFocusAction(infoWindow, featureKey, position, 12, marker);
               });
@@ -543,9 +517,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       }
     });
 
-    const focusContract = (crsId: number, position: google.maps.LatLngLiteral) => {
-      map.panTo(position);
-      map.setZoom(Math.max(map.getZoom() ?? 6, 10));
+    const focusContract = (crsId: number) => {
       segmentLineMeta.forEach(({ line, crsId: lineCrsId, baseColor }) => {
         line.setOptions({
           strokeWeight: lineCrsId === crsId ? 9 : 3,
@@ -657,7 +629,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         } else {
           marker.addListener("click", () => {
             closeMarkerPreview();
-            focusContract(first.item.crsId, first.position);
+            focusContract(first.item.crsId);
           });
         }
         contractMarkersRef.current.push(marker);
@@ -670,6 +642,11 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     zoomListenerRef.current = map.addListener("zoom_changed", () => renderSegmentMarkers(map.getZoom() ?? 4));
 
     const finish = () => {
+      if (shouldPreserveViewport && previousCenter && typeof previousZoom === "number") {
+        map.setCenter(previousCenter);
+        map.setZoom(previousZoom);
+        return;
+      }
       const totalPoints = geocodedCount + segmentPointCount;
       if (totalPoints > 0) {
         if (totalPoints === 1) {

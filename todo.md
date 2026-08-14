@@ -1216,3 +1216,13 @@
 - [x] Auditar o recorte atual do painel de resumos no modo ampliado
 - [x] Reduzir levemente a área útil do mapa em tela cheia e reservar espaço para o resumo
 - [x] Validar responsividade, testes e TypeScript após o ajuste
+
+## Mapa — Painel direito sem rolagem horizontal
+- [x] Auditar o recorte horizontal e os containers do mapa ampliado
+- [x] Corrigir o grid de largura do mapa, painel e controles dentro da viewport
+- [x] Bloquear rolagem horizontal e manter somente rolagem vertical no resumo
+- [x] Atualizar testes e validar TypeScript
+## Mapa — Preservação do zoom na seleção
+- [x] Auditar fluxos que recalculam bounds, centro e zoom após seleções
+- [x] Corrigir seleção e atualização dos marcadores sem reenquadramento geral
+- [x] Adicionar testes de preservação da viewport e validar TypeScript
