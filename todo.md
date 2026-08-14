@@ -1118,3 +1118,14 @@
 - [x] Abrir modal ao clicar ou focar no sparkline do tooltip
 - [x] Preservar período, tema, acessibilidade e navegação por teclado
 - [x] Adicionar testes do gráfico, modal e interação
+
+## Dashboard — Histórico ampliado do SLA
+- [x] Criar consulta backend com múltiplos pontos reais agregados por semana ou mês
+- [x] Preservar isolamento multi-tenant e coerência com o período selecionado
+- [x] Conectar pontos e rótulos históricos ao sparkline e ao gráfico detalhado
+- [x] Adicionar testes de agregação, rótulos e estados sem dados
+
+## Mapa — Tela cheia e data/hora
+- [x] Restaurar a expansão do mapa para tela cheia em desktop e mobile
+- [x] Incluir data e hora na visualização ou exportação relacionada ao mapa
+- [x] Adicionar testes para o modo tela cheia e a formatação de data/hora

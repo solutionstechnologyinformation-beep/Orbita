@@ -40,6 +40,7 @@ import {
   getCrsSegments, createCrsSegment, deleteCrsSegment,
 } from "./db";
 import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalendarEvents, syncGoogleMeetReport } from "./google-calendar";
+import { buildSlaHistory, getSlaPeriodConfig, summarizeSlaEvents, type SlaHistoryEvent } from "./sla-history";
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
 import { getDeadlineAlertWindow, normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import { summarizePdfAttachment } from "./pdf-summary";
@@ -1297,83 +1298,53 @@ export const appRouter = router({
     // ── SLA / Pontualidade ──────────────────────────────────────────────────
     slaStats: protectedProcedure
       .input(z.object({ period: z.enum(["month", "quarter", "year"]).default("month") }).optional())
-      .query(async ({ input }) => {
-      const db = await getDb();
-      const { tasks: t, kanbanPhases: kp, taskPhaseHistory: tph } = await import('../drizzle/schema');
-      const { eq: eq2, and: and2, isNotNull: isNotNull2, lte: lte2, sql: sqlExpr2 } = await import('drizzle-orm');
-      const period = input?.period ?? "month";
-      const now = new Date();
-      // Calculate period boundaries
-      let thisStart: Date, lastStart: Date, lastEnd: Date;
-      if (period === "month") {
-        thisStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        lastStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        lastEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-      } else if (period === "quarter") {
-        const q = Math.floor(now.getMonth() / 3);
-        thisStart = new Date(now.getFullYear(), q * 3, 1);
-        const prevQ = q === 0 ? 3 : q - 1;
-        const prevYear = q === 0 ? now.getFullYear() - 1 : now.getFullYear();
-        lastStart = new Date(prevYear, prevQ * 3, 1);
-        lastEnd = new Date(now.getFullYear(), q * 3, 0, 23, 59, 59);
-      } else {
-        thisStart = new Date(now.getFullYear(), 0, 1);
-        lastStart = new Date(now.getFullYear() - 1, 0, 1);
-        lastEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-      }
-      const thisMonthStart = thisStart;
-      const lastMonthStart = lastStart;
-      const lastMonthEnd = lastEnd;
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { tasks: t, kanbanPhases: kp, taskPhaseHistory: tph, crs: c } = await import('../drizzle/schema');
+        const { eq: eq2, and: and2, gte: gte2, lt: lt2, sql: sqlExpr2 } = await import('drizzle-orm');
+        const period = input?.period ?? "month";
+        const config = getSlaPeriodConfig(period);
+        const companyId = tenantCompanyId(ctx.user);
+        const isUnscopedAdmin = ctx.user.role === "admin" || ctx.user.role === "master_admin";
+        const tenantConditions = companyId != null
+          ? [eq2(c.companyId, companyId)]
+          : isUnscopedAdmin
+            ? []
+            : [sqlExpr2`1 = 0`];
 
-      // Tasks completed this month (in terminal phases)
-      const completedThisMonth = await db.execute(
-        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
-          FROM task_phase_history tph
-          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
-          WHERE tph.changedAt >= ${thisMonthStart}`
-      ) as any[];
+        const completionRows = await db.select({
+          taskId: tph.taskId,
+          completedAt: tph.changedAt,
+          dueDate: t.dueDate,
+        })
+          .from(tph)
+          .innerJoin(kp, eq2(kp.id, tph.toPhaseId))
+          .innerJoin(t, eq2(t.id, tph.taskId))
+          .innerJoin(c, eq2(c.id, t.crsId))
+          .where(and2(
+            eq2(kp.isTerminal, true),
+            gte2(tph.changedAt, config.queryStart),
+            lt2(tph.changedAt, config.queryEndExclusive),
+            ...tenantConditions,
+          ));
 
-      // Tasks completed on time this month (completed before or on dueDate)
-      const onTimeThisMonth = await db.execute(
-        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
-          FROM task_phase_history tph
-          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
-          JOIN tasks t ON t.id = tph.taskId
-          WHERE tph.changedAt >= ${thisMonthStart}
-            AND t.dueDate IS NOT NULL
-            AND tph.changedAt <= t.dueDate`
-      ) as any[];
+        const events = completionRows as SlaHistoryEvent[];
+        const current = summarizeSlaEvents(events, config.currentStart, config.queryEndExclusive);
+        const previous = summarizeSlaEvents(events, config.previousStart, config.previousEndExclusive);
+        const history = buildSlaHistory(events, config);
+        const slaThis = current.sla;
+        const slaLast = previous.sla;
 
-      // Tasks completed last month
-      const completedLastMonth = await db.execute(
-        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
-          FROM task_phase_history tph
-          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
-          WHERE tph.changedAt >= ${lastMonthStart} AND tph.changedAt <= ${lastMonthEnd}`
-      ) as any[];
-
-      // Tasks completed on time last month
-      const onTimeLastMonth = await db.execute(
-        sqlExpr2`SELECT COUNT(DISTINCT tph.taskId) as cnt
-          FROM task_phase_history tph
-          JOIN kanban_phases kp ON kp.id = tph.toPhaseId AND kp.isTerminal = 1
-          JOIN tasks t ON t.id = tph.taskId
-          WHERE tph.changedAt >= ${lastMonthStart} AND tph.changedAt <= ${lastMonthEnd}
-            AND t.dueDate IS NOT NULL
-            AND tph.changedAt <= t.dueDate`
-      ) as any[];
-
-      const totalThis = Number((completedThisMonth[0] as any)?.[0]?.cnt ?? 0);
-      const onTimeThis = Number((onTimeThisMonth[0] as any)?.[0]?.cnt ?? 0);
-      const totalLast = Number((completedLastMonth[0] as any)?.[0]?.cnt ?? 0);
-      const onTimeLast = Number((onTimeLastMonth[0] as any)?.[0]?.cnt ?? 0);
-
-      const slaThis = totalThis > 0 ? Math.round((onTimeThis / totalThis) * 100) : null;
-      const slaLast = totalLast > 0 ? Math.round((onTimeLast / totalLast) * 100) : null;
-      const trend = slaThis !== null && slaLast !== null ? slaThis - slaLast : null;
-
-      return { slaThis, slaLast, trend, totalThis, onTimeThis };
-    }),
+        return {
+          slaThis,
+          slaLast,
+          trend: slaThis !== null && slaLast !== null ? slaThis - slaLast : null,
+          totalThis: current.total,
+          onTimeThis: current.onTime,
+          history: history.map((point) => ({ key: point.key, label: point.label, value: point.sla })),
+          historyGranularity: config.granularity,
+        };
+      }),
 
     // ── Vencimentos Próximos ─────────────────────────────────────────────────
     upcomingDeadlines: protectedProcedure.query(async () => {

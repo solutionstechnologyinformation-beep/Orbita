@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import { aggregateCompletedTasksByAssignee } from "../../../shared/report-summary";
 import { resolvePrintWindow } from "./report-export-utils";
+import { formatDashboardMapTimestamp } from "./dashboard-map-utils";
 import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE } from "./report-palette";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -140,6 +141,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [mapDataTimestamp, setMapDataTimestamp] = useState(() => new Date());
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const mapStyles = mapType === "roadmap" ? (isDark ? DARK_MAP_STYLES : LIGHT_MAP_STYLES) : undefined;
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
@@ -161,6 +163,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const [visibleElementCount, setVisibleElementCount] = useState(8);
   const elementListRef = useRef<HTMLDivElement | null>(null);
   const mapElementPanelState = getMapElementPanelState(segmentsLoading, segments.length);
+  const mapDataVersion = `${locations.map((location) => `${location.state ?? ""}:${location.count}`).join("|")}::${segments.map((segment) => segment.id).join(",")}`;
   const mapPanelSurface = isDark ? "bg-slate-900/95 border-slate-700" : "bg-white/95 border-gray-200";
   const mapPanelText = isDark ? "text-slate-100" : "text-gray-800";
   const mapPanelMuted = isDark ? "text-slate-400" : "text-gray-500";
@@ -247,6 +250,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   useEffect(() => {
     window.localStorage.setItem("orbita-map-segment-colors", JSON.stringify(segmentColors));
   }, [segmentColors]);
+
+  useEffect(() => {
+    setMapDataTimestamp(new Date());
+  }, [mapDataVersion]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -574,16 +581,18 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   }, [mapType]);
 
   useEffect(() => {
-    if (!isMapExpanded) return;
     const previousOverflow = document.body.style.overflow;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setIsMapExpanded(false);
     };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", handleEscape);
+    if (isMapExpanded) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", handleEscape);
+    }
     const resizeTimer = window.setTimeout(() => {
       if (mapRef.current && window.google?.maps?.event) window.google.maps.event.trigger(mapRef.current, "resize");
-    }, 160);
+      window.dispatchEvent(new Event("resize"));
+    }, 180);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
@@ -618,7 +627,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   }
   return (
     <div className={isMapExpanded ? "fixed inset-0 z-[60] bg-slate-950/60 p-3 sm:p-6" : "relative"}>
-      <div ref={mapExportRef} className={isMapExpanded ? `relative h-full w-full overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
+      <div ref={mapExportRef} className={isMapExpanded ? `relative h-[calc(100vh-1.5rem)] h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 sm:h-[calc(100vh-3rem)] sm:h-[calc(100dvh-3rem)] ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
         <MapView
           className={isMapExpanded ? "rounded-2xl overflow-hidden !h-full" : "rounded-xl overflow-hidden !h-[28rem]"}
           initialCenter={{ lat: -14.235, lng: -51.925 }}
@@ -647,6 +656,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
             <button type="button" onClick={() => onNavigate(`/kanban?crs=${selectedElement.crsId}`)} className="mt-4 w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Abrir contrato no Kanban</button>
           </aside>
         )}
+        <div data-map-control="true" data-map-stamp="true" className={`absolute bottom-3 left-3 z-20 inline-flex items-center gap-1.5 rounded-lg ${mapPanelSurface} px-2.5 py-1.5 text-[10px] font-medium ${mapPanelMuted} shadow-sm`}>
+          <CalendarClock className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
+          <span>Dados do mapa: {formatDashboardMapTimestamp(mapDataTimestamp)}</span>
+        </div>
       </div>
       <div data-map-control="true" className={`absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
         <button type="button" onClick={() => setIsMapExpanded((expanded) => !expanded)} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
@@ -1023,7 +1036,17 @@ export default function Dashboard() {
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(dashboardDataInput);
   const segmentsQ = trpc.crs.segments.list.useQuery(dashboardDataInput);
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: trendComparisonPeriod });
-  const slaSparklineData = useMemo(() => [slaQ.data?.slaLast, slaQ.data?.slaThis].filter((value): value is number => typeof value === "number" && Number.isFinite(value)), [slaQ.data?.slaLast, slaQ.data?.slaThis]);
+  const slaHistoryPoints = useMemo(() => slaQ.data?.history ?? [], [slaQ.data?.history]);
+  const slaSparklineData = useMemo(() => {
+    const historyValues = slaHistoryPoints.map((p) => p.value).filter((val): val is number => val !== null && val !== undefined && Number.isFinite(val));
+    if (historyValues.length >= 2) return historyValues;
+    return [slaQ.data?.slaLast, slaQ.data?.slaThis].filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  }, [slaHistoryPoints, slaQ.data?.slaLast, slaQ.data?.slaThis]);
+  const slaSparklineLabels = useMemo(() => {
+    const labels = slaHistoryPoints.filter((p) => p.value !== null && p.value !== undefined && Number.isFinite(p.value)).map((p) => p.label);
+    if (labels.length >= 2) return labels;
+    return ["Anterior", "Atual"];
+  }, [slaHistoryPoints]);
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
   const crsQ = trpc.crs.list.useQuery(dashboardDataInput);
   const stats = statsQ.data;
@@ -1110,9 +1133,10 @@ export default function Dashboard() {
       return;
     }
     let mapDataUrl = "";
+    const mapCaptureTimestamp = formatDashboardMapTimestamp(new Date());
     try {
       if (mapExportRef.current) {
-        const controls = mapExportRef.current.querySelectorAll('[data-map-control="true"]');
+        const controls = mapExportRef.current.querySelectorAll('[data-map-control="true"]:not([data-map-stamp="true"])');
         controls.forEach((el: Element) => { (el as HTMLElement).style.display = "none"; });
         try {
           const canvas = await html2canvas(mapExportRef.current, { scale: 1.5, useCORS: true, logging: false });
@@ -1232,6 +1256,7 @@ export default function Dashboard() {
     </div>
     <div class="card">
       <div class="card-title">Captura do mapa atual</div>
+      <div class="card-sub">Dados do mapa: ${escapeInfoWindowHtml(mapCaptureTimestamp)}</div>
       ${mapDataUrl ? `<img src="${mapDataUrl}" style="width:100%;height:auto;max-height:300px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" alt="Mapa atual do Dashboard" />` : '<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:12px;">A captura do mapa não ficou disponível nesta exportação.</div>'}
     </div>
   </div>
@@ -2021,7 +2046,7 @@ export default function Dashboard() {
                         <span className={`text-4xl font-bold ${colorMap[color]}`}>
                           {pct !== null && pct !== undefined ? `${pct}%` : "—"}
                         </span>
-                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} series={slaSparklineData} seriesLabels={["Anterior", "Atual"]} />
+                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} series={slaSparklineData} seriesLabels={slaSparklineLabels} />
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
                         <div
