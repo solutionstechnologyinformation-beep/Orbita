@@ -9,6 +9,25 @@ export type ChatActivityDiscipline = {
   lastActivityAt: Date | string | null;
 };
 
+export type ChatActivityMetric = "onlineCount" | "messagesLast24h" | "typingCount";
+
+export const CHAT_ACTIVITY_METRICS: Array<{ key: ChatActivityMetric; label: string }> = [
+  { key: "onlineCount", label: "Online agora" },
+  { key: "messagesLast24h", label: "Mensagens em 24h" },
+  { key: "typingCount", label: "Digitando agora" },
+];
+
+export type ChatActivityChartDatum = {
+  discipline: string;
+  value: number;
+};
+
+export function buildChatActivityChartData(rows: ChatActivityDiscipline[], metric: ChatActivityMetric): ChatActivityChartDatum[] {
+  return rows
+    .map((row) => ({ discipline: row.discipline, value: Number(row[metric] ?? 0) }))
+    .sort((a, b) => b.value - a.value || a.discipline.localeCompare(b.discipline, "pt-BR"));
+}
+
 export type ChatActivitySnapshot = {
   generatedAt: Date;
   disciplines: ChatActivityDiscipline[];

@@ -1026,3 +1026,8 @@
 - [x] Backend: métricas de atividade do chat e presença online agrupadas por disciplina, com isolamento por companyId
 - [x] Dashboard: widget visual com mensagens recentes, usuários online, última atividade e atualização periódica por disciplina
 - [x] Testes: cobrir agregação das métricas, estados vazios e filtragem multi-tenant do widget
+
+## Widget de atividade — Comparação visual
+- [x] Dashboard: gráfico de barras compacto para comparar métricas de atividade entre disciplinas
+- [x] Dashboard: seletor acessível de métrica para alternar entre online, mensagens em 24h e usuários digitando
+- [x] Testes: cobrir transformação dos dados do gráfico e estado vazio

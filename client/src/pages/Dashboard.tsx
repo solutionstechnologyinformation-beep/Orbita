@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
+import { buildChatActivityChartData, CHAT_ACTIVITY_METRICS, type ChatActivityMetric } from "../../../shared/chat-activity";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -826,6 +827,7 @@ export default function Dashboard() {
   const [slaPeriod, setSlaPeriod] = useState<"month" | "quarter" | "year">("month");
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>();
+  const [chatMetric, setChatMetric] = useState<ChatActivityMetric>("onlineCount");
   const [clientFilterOpen, setClientFilterOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const dashboardRef = useRef<HTMLDivElement>(null);
@@ -881,6 +883,8 @@ export default function Dashboard() {
   const crsItems = (crsQ.data ?? []) as any[];
   const contractDetails = (contractDetailsQ.data ?? []) as any[];
   const chatActivity = chatActivityQ.data;
+  const chatActivityChartData = useMemo(() => buildChatActivityChartData(chatActivity?.disciplines ?? [], chatMetric), [chatActivity?.disciplines, chatMetric]);
+  const chatMetricLabel = CHAT_ACTIVITY_METRICS.find((metric) => metric.key === chatMetric)?.label ?? "Métrica";
 
   // ── Tipo de Obra stats ────────────────────────────────────────────────────────
   const tipoObraStats = useMemo(() => {
@@ -1506,6 +1510,51 @@ export default function Dashboard() {
                         <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-violet-700"><Activity className="w-3.5 h-3.5" /> Digitando</div>
                         <div className="mt-1 text-xl font-bold text-violet-800">{chatActivity?.totals.typingCount ?? 0}</div>
                       </div>
+                    </div>
+                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/60 p-3" role="img" aria-label={`Comparação de ${chatMetricLabel.toLowerCase()} entre disciplinas`}>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700">Comparativo por disciplina</p>
+                          <p className="text-[10px] text-gray-400">Barras ordenadas do maior para o menor valor</p>
+                        </div>
+                        <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500" htmlFor="chat-activity-metric">
+                          Métrica
+                          <select
+                            id="chat-activity-metric"
+                            value={chatMetric}
+                            onChange={(event) => setChatMetric(event.target.value as ChatActivityMetric)}
+                            className="h-7 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-semibold text-gray-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                            aria-label="Métrica do gráfico de atividade do chat"
+                          >
+                            {CHAT_ACTIVITY_METRICS.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                      {chatActivityChartData.length === 0 ? (
+                        <div className="flex h-24 items-center justify-center text-xs text-gray-400">Sem dados para comparar</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={Math.min(220, Math.max(125, chatActivityChartData.length * 31 + 30))}>
+                          <BarChart data={chatActivityChartData} layout="vertical" margin={{ top: 2, right: 12, left: 4, bottom: 2 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                            <YAxis
+                              type="category"
+                              dataKey="discipline"
+                              width={94}
+                              tick={{ fontSize: 10, fill: "#64748b" }}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(value: string) => value.length > 15 ? `${value.slice(0, 14)}…` : value}
+                            />
+                            <RechartsTooltip
+                              cursor={{ fill: "rgba(20, 184, 166, 0.08)" }}
+                              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #dbe3ea" }}
+                              formatter={(value: any) => [value, chatMetricLabel]}
+                            />
+                            <Bar dataKey="value" name={chatMetricLabel} fill="#0f766e" radius={[0, 4, 4, 0]} barSize={14} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
                     </div>
                     {(chatActivity?.disciplines ?? []).length === 0 ? (
                       <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-xs text-gray-400">
