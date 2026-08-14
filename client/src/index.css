@@ -316,7 +316,7 @@ html.theme-transition body *::after {
 }
 
 .map-fullscreen-canvas-with-summary {
-  right: min(24rem, calc(100vw - 1rem));
+  right: min(26rem, calc(100vw - 1rem));
 }
 
 .map-fullscreen-canvas-collapsed {

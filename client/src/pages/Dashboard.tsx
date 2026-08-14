@@ -930,7 +930,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           <span>Dados do mapa: {formatDashboardMapTimestamp(mapDataTimestamp)}</span>
         </div>
       </div>
-      <div data-map-control="true" className={`absolute top-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm ${isMapExpanded && isMapSummaryPanelOpen ? "right-[min(24rem,calc(100vw-1rem))]" : "right-3"}`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
+      <div data-map-control="true" className={`absolute top-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm ${isMapExpanded && isMapSummaryPanelOpen ? "right-[min(26rem,calc(100vw-1rem))]" : "right-3"}`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
         <button type="button" onClick={toggleMapExpanded} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
           {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           {isMapExpanded ? "Reduzir" : "Ampliar"}

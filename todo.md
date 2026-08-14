@@ -1226,3 +1226,13 @@
 - [x] Auditar fluxos que recalculam bounds, centro e zoom após seleções
 - [x] Corrigir seleção e atualização dos marcadores sem reenquadramento geral
 - [x] Adicionar testes de preservação da viewport e validar TypeScript
+
+## Tema escuro — Superfícies das abas administrativas
+- [ ] Auditar fundos cinza em Projetos, Sprints, Programação, Calendário, Relatórios e Notificações
+- [ ] Substituir superfícies cinza por tokens escuros preservando o tema claro
+- [ ] Adicionar testes de regressão e validar TypeScript
+
+## Mapa — Redução adicional em tela cheia
+- [x] Auditar a largura atual do canvas e do painel no modo ampliado
+- [x] Reduzir moderadamente a área útil do mapa mantendo o painel dentro da viewport
+- [x] Validar testes, TypeScript e ausência de overflow horizontal
