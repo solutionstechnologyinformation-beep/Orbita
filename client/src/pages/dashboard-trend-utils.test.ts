@@ -14,10 +14,12 @@ describe("dashboard trend utilities", () => {
     expect(getTrendPresentation(-3, false)).toEqual({ direction: "down", tone: "positive", label: "-3" });
   });
 
-  it("reveals the floating tooltip on hover and keyboard focus", () => {
+  it("reveals the floating tooltip and period selector on hover and keyboard focus", () => {
     expect(indicatorSource).toContain("group-hover:opacity-100");
     expect(indicatorSource).toContain("group-focus-visible:opacity-100");
     expect(indicatorSource).toContain('role="tooltip"');
+    expect(indicatorSource).toContain('aria-label="Período de comparação das tendências"');
+    expect(indicatorSource).toContain("TREND_COMPARISON_PERIODS.map");
   });
 
   it("uses a neutral presentation when no comparison is available", () => {

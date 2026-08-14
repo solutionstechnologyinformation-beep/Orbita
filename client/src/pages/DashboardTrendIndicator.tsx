@@ -1,5 +1,6 @@
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { formatTrendDescription, getTrendPresentation } from "./dashboard-trend-utils";
+import { TREND_COMPARISON_PERIOD_LABELS, TREND_COMPARISON_PERIODS, type TrendComparisonPeriod } from "./dashboard-trend-period";
 
 type DashboardTrendIndicatorProps = {
   value?: number | null;
@@ -8,6 +9,30 @@ type DashboardTrendIndicatorProps = {
   label: string;
   positiveWhenUp?: boolean;
 };
+
+type DashboardTrendPeriodSelectProps = {
+  value: TrendComparisonPeriod;
+  onChange: (period: TrendComparisonPeriod) => void;
+};
+
+export function DashboardTrendPeriodSelect({ value, onChange }: DashboardTrendPeriodSelectProps) {
+  return (
+    <label className="dashboard-trend-period-control inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium">
+      <span className="sr-only">Comparar tendências por período</span>
+      <span aria-hidden="true">Comparar</span>
+      <select
+        value={value}
+        aria-label="Período de comparação das tendências"
+        onChange={(event) => onChange(event.target.value as TrendComparisonPeriod)}
+        className="dashboard-trend-period-select rounded border-0 bg-transparent px-1 py-0.5 text-[11px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#ffc30d]"
+      >
+        {TREND_COMPARISON_PERIODS.map((period) => (
+          <option key={period} value={period}>{TREND_COMPARISON_PERIOD_LABELS[period]}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export function DashboardTrendIndicator({
   value,

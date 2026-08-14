@@ -30,7 +30,8 @@ import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords,
 import { buildChatActivityChartData, buildChatActivityDisciplineDetails, buildUnreadBadgeAnimationKey, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
 import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 import { DEFAULT_DASHBOARD_WIDGET_ORDERS, getDashboardWidgetStorageKey, moveDashboardWidget, readDashboardWidgetOrders, type DashboardWidgetGroup, type DashboardWidgetId, type DashboardWidgetOrders } from "./dashboard-widget-order";
-import { DashboardTrendIndicator } from "./DashboardTrendIndicator";
+import { DashboardTrendIndicator, DashboardTrendPeriodSelect } from "./DashboardTrendIndicator";
+import { TREND_COMPARISON_PERIOD_DESCRIPTIONS, getTrendComparisonStorageKey, readTrendComparisonPeriod, type TrendComparisonPeriod } from "./dashboard-trend-period";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -896,7 +897,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [view, setView] = useState<DashView>("geral");
-  const [slaPeriod, setSlaPeriod] = useState<"month" | "quarter" | "year">("month");
+  const [trendComparisonPeriod, setTrendComparisonPeriod] = useState<TrendComparisonPeriod>(() => readTrendComparisonPeriod(undefined));
   const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<number | undefined>();
   const [chatMetric, setChatMetric] = useState<ChatActivityMetric>("onlineCount");
@@ -909,13 +910,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     setWidgetOrders(readDashboardWidgetOrders(user?.id));
+    const persistedPeriod = readTrendComparisonPeriod(user?.id);
+    setTrendComparisonPeriod(persistedPeriod);
   }, [user?.id]);
 
   useEffect(() => {
     if (user?.id !== undefined && typeof window !== "undefined") {
       window.localStorage.setItem(getDashboardWidgetStorageKey(user.id), JSON.stringify(widgetOrders));
+      window.localStorage.setItem(getTrendComparisonStorageKey(user.id), trendComparisonPeriod);
     }
-  }, [user?.id, widgetOrders]);
+  }, [user?.id, widgetOrders, trendComparisonPeriod]);
+
+  const handleTrendPeriodChange = useCallback((period: TrendComparisonPeriod) => {
+    setTrendComparisonPeriod(period);
+  }, []);
 
   const updateWidgetOrder = useCallback((group: DashboardWidgetGroup, sourceId: DashboardWidgetId, targetId: DashboardWidgetId) => {
     setWidgetOrders((current) => ({ ...current, [group]: moveDashboardWidget(current[group], sourceId, targetId) }));
@@ -1014,7 +1022,7 @@ export default function Dashboard() {
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(dashboardDataInput);
   const segmentsQ = trpc.crs.segments.list.useQuery(dashboardDataInput);
-  const slaQ = trpc.dashboard.slaStats.useQuery({ period: slaPeriod });
+  const slaQ = trpc.dashboard.slaStats.useQuery({ period: trendComparisonPeriod });
   const upcomingQ = trpc.dashboard.upcomingDeadlines.useQuery();
   const crsQ = trpc.crs.list.useQuery(dashboardDataInput);
   const stats = statsQ.data;
@@ -1139,7 +1147,7 @@ export default function Dashboard() {
       const completedContracts = new Set(completedTasks.map((task: any) => task.crsName).filter(Boolean)).size;
       const completedOnTime = completedTasks.filter((task: any) => task.completedAt && (!task.dueDate || new Date(task.completedAt) <= new Date(task.dueDate))).length;
       const assigneeChartColors = ["#2563eb", "#16a34a", "#f59e0b", "#9333ea", "#0891b2", "#e11d48", "#64748b"];
-      const periodLabel = slaPeriod === "month" ? "Mês Atual" : slaPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
+      const periodLabel = trendComparisonPeriod === "month" ? "Mês Atual" : trendComparisonPeriod === "quarter" ? "Trimestre Atual" : "Ano Atual";
       const now = new Date();
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 	<title>Dashboard Orbita</title>
@@ -1268,7 +1276,7 @@ export default function Dashboard() {
     } finally {
       setIsExporting(false);
     }
-  }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod, completedTasks, contractDetails]);
+  }, [slaQ.data, upcomingQ.data, stateData, stats, trendComparisonPeriod, completedTasks, contractDetails]);
 
   const exportChatActivityPDF = useCallback(() => {
     const printWindow = resolvePrintWindow(() => window.open("", "_blank"));
@@ -1995,19 +2003,7 @@ export default function Dashboard() {
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                     <Target className="w-4 h-4 text-blue-600" /> SLA / Pontualidade
                   </h3>
-                  <div className="flex items-center gap-1">
-                    {(["month", "quarter", "year"] as const).map(p => (
-                      <button
-                        key={p}
-                        onClick={() => setSlaPeriod(p)}
-                        className={`px-2 py-0.5 text-xs rounded font-medium transition-all ${
-                          slaPeriod === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600"
-                        }`}
-                      >
-                        {p === "month" ? "Mês" : p === "quarter" ? "Trim." : "Ano"}
-                      </button>
-                    ))}
-                  </div>
+                  <DashboardTrendPeriodSelect value={trendComparisonPeriod} onChange={handleTrendPeriodChange} />
                 </div>
                 {slaQ.isLoading ? (
                   <Skeleton className="h-20 w-full" />
@@ -2024,7 +2020,7 @@ export default function Dashboard() {
                         <span className={`text-4xl font-bold ${colorMap[color]}`}>
                           {pct !== null && pct !== undefined ? `${pct}%` : "—"}
                         </span>
-                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period="período anterior" />
+                        <DashboardTrendIndicator label="SLA" value={trend} suffix="pp" period={TREND_COMPARISON_PERIOD_DESCRIPTIONS[trendComparisonPeriod]} />
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
                         <div

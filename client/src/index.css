@@ -226,6 +226,20 @@ html.theme-transition body * {
   border: 1px solid var(--border);
 }
 
+.dashboard-trend-period-control {
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+  color: var(--muted-foreground);
+}
+
+.dashboard-trend-period-select {
+  color: var(--foreground);
+}
+
+.dashboard-trend-period-select option {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+
 .dark .dashboard-trend-positive {
   background: color-mix(in srgb, #22c55e 20%, var(--card));
   color: #86efac;

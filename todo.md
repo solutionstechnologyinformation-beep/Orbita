@@ -1100,3 +1100,9 @@
 - [x] Aplicar indicadores aos KPIs e estatísticas dos widgets
 - [x] Adicionar suporte a hover, foco por teclado e temas claro/escuro
 - [x] Adicionar testes de conteúdo, estados e acessibilidade
+
+## Dashboard — Período das tendências
+- [ ] Adicionar seletor de comparação entre mês, trimestre e ano no widget
+- [ ] Atualizar o período exibido nos indicadores e tooltips com dados reais
+- [ ] Persistir a preferência de período por usuário e widget
+- [ ] Cobrir seletor, acessibilidade, persistência e cálculos com testes
