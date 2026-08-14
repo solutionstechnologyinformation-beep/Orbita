@@ -19,6 +19,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
+  Sun,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
@@ -32,6 +34,8 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { UserAvatar } from "./UserAvatar";
 import { FloatingAgent } from "./FloatingAgent";
+import { useTheme } from "../contexts/ThemeContext";
+import { getThemeToggleCopy } from "../contexts/theme-utils";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -72,6 +76,26 @@ const adminItems = [
 const helpItems = [
   { href: "/manual", icon: BookOpen, label: "Manual de Uso" },
 ];
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  const { isDark, label, ariaLabel } = getThemeToggleCopy(theme);
+
+  if (!toggleTheme) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className="inline-flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm font-semibold text-black/80 transition-colors hover:bg-black/10 hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
+      aria-label={ariaLabel}
+      title={ariaLabel}
+    >
+      {isDark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -457,6 +481,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             )}
 
             <div className="flex items-center gap-2 ml-auto">
+              <ThemeToggle />
               <Link
                 href="/notifications"
                 className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
@@ -472,18 +497,20 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
 
         {/* Mobile hamburger when no header */}
         {!title && !backHref && (
-          <div className="lg:hidden flex-shrink-0 z-30 bg-white/95 border-b border-border px-4 h-12 flex items-center">
+          <div className="lg:hidden flex-shrink-0 z-30 bg-white/95 border-b border-border px-4 h-12 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Abrir menu"
             >
               <Menu className="w-5 h-5" />
             </button>
+            <ThemeToggle />
           </div>
         )}
 
         {/* Page Content */}
-        <main className={fullHeight ? "flex-1 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto p-4 lg:p-6"} style={{backgroundColor: '#fafafa'}}>
+        <main className={`${fullHeight ? "flex-1 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto p-4 lg:p-6"} bg-background text-foreground transition-colors duration-200`}>
           {children}
         </main>
       </div>

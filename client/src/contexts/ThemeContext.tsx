@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-
-type Theme = "light" | "dark";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import { normalizeThemePreference, THEME_TRANSITION_DURATION_MS, type Theme } from "./theme-utils";
 
 interface ThemeContextType {
   theme: Theme;
@@ -22,12 +21,13 @@ export function ThemeProvider({
   switchable = false,
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    if (switchable) {
-      const stored = localStorage.getItem("theme");
-      return (stored as Theme) || defaultTheme;
+    if (switchable && typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("theme");
+      return normalizeThemePreference(stored, defaultTheme);
     }
     return defaultTheme;
   });
+  const previousThemeRef = useRef(theme);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -38,8 +38,17 @@ export function ThemeProvider({
     }
 
     if (switchable) {
-      localStorage.setItem("theme", theme);
+      window.localStorage.setItem("theme", theme);
     }
+
+    if (previousThemeRef.current !== theme) {
+      root.classList.add("theme-transition");
+      const transitionTimer = window.setTimeout(() => root.classList.remove("theme-transition"), THEME_TRANSITION_DURATION_MS);
+      previousThemeRef.current = theme;
+      return () => window.clearTimeout(transitionTimer);
+    }
+
+    previousThemeRef.current = theme;
   }, [theme, switchable]);
 
   const toggleTheme = switchable
