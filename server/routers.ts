@@ -4,6 +4,7 @@ import { users } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
+import { getKanbanStatusForPhase } from "../shared/kanban-status";
 import {
   updateUser, getAllUsers, deleteUser, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
@@ -716,10 +717,11 @@ export const appRouter = router({
           });
         }
         const isBlockedPhase = isBlockedPhaseName(targetPhaseName);
+        const nextStatus = getKanbanStatusForPhase(targetPhaseName, task.status as Parameters<typeof getKanbanStatusForPhase>[1]);
         await updateTask(input.id, {
           phaseId: input.phaseId,
           position: input.position ?? task.position,
-          status: isBlockedPhase ? "blocked" : task.status === "blocked" ? "in_progress" : task.status,
+          status: isBlockedPhase ? "blocked" : nextStatus,
           blockReason: isBlockedPhase ? normalizeBlockReason(input.blockReason) : null,
         });
         if (isBlockedPhase && input.blockReason && task.assigneeId && task.assigneeId !== ctx.user.id) {

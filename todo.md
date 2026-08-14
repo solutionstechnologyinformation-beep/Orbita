@@ -975,3 +975,7 @@
 - [x] Presença: padronizar o indicador online nas listas de usuários usando lastSeenAt e o limite compartilhado de cinco minutos
 
 - [x] Dashboard: adicionar seletor pesquisável de cliente ao lado do filtro de empresa e aplicar a seleção aos indicadores e visualizações compatíveis
+
+- [ ] Kanban: renomear a coluna Arquivado para Concluído, sombrear cards concluídos e remover o marcador de atraso em tarefas concluídas ou com 100%
+
+- [x] Kanban: permitir arrastar cards entre colunas com atualização automática da fase/status e manter as regras de bloqueio

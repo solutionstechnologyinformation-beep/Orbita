@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable,
   closestCenter, type DragStartEvent, type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -13,6 +13,7 @@ import { matchesKanbanTaskSearch } from "../../../shared/kanban-search";
 import { getKanbanCompanyOptions, matchesKanbanCompanyFilter } from "../../../shared/kanban-company-filter";
 import { isCompletedKanbanPhase } from "../../../shared/kanban-completion";
 import { isBlockedPhaseName } from "../../../shared/kanban-block";
+import { getKanbanPhaseDropId, parseKanbanPhaseDropId } from "../../../shared/kanban-dnd";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -255,8 +256,12 @@ function PhaseColumn({
   activeTaskId: string | null;
 }) {
   const taskIds = tasks.map((t) => `task-${t.id}`);
+  const { isOver, setNodeRef: setDropRef } = useDroppable({
+    id: getKanbanPhaseDropId(phase.id),
+    data: { type: "phase", phase },
+  });
   return (
-    <div className="flex flex-col bg-secondary/30 rounded-2xl border border-border overflow-hidden h-full">
+    <div className={`flex flex-col bg-secondary/30 rounded-2xl border border-border overflow-hidden h-full transition-colors duration-200 ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
       {/* Header */}
       <div className="p-3 border-b border-border flex-shrink-0" style={{ borderTopColor: phase.color, borderTopWidth: 3 }}>
         <div className="flex items-center justify-between">
@@ -280,7 +285,7 @@ function PhaseColumn({
 
       {/* Droppable task list */}
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px] transition-colors duration-200 hover:bg-primary/5 rounded-lg">
+        <div ref={setDropRef} className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px] transition-colors duration-200 hover:bg-primary/5 rounded-lg">
           {tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-border/40 rounded-xl">
               <p className="text-xs text-muted-foreground">Arraste tarefas aqui</p>
@@ -498,7 +503,7 @@ export default function Kanban() {
     // Determine target phase
     let targetPhaseId: number | null = null;
     if (overId.startsWith("phase-")) {
-      targetPhaseId = parseInt(overId.replace("phase-", ""));
+      targetPhaseId = parseKanbanPhaseDropId(overId);
     } else if (overId.startsWith("task-")) {
       const overTaskId = parseInt(overId.replace("task-", ""));
       const overTask = allTasks.find((t) => t.id === overTaskId);
