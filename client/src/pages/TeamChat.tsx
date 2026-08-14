@@ -58,6 +58,12 @@ export default function TeamChat() {
   const usersQ = trpc.users.list.useQuery();
   const utils = trpc.useUtils();
   const presenceM = trpc.presence.heartbeat.useMutation();
+  const markReadM = trpc.messages.markRead.useMutation({
+    onSuccess: () => {
+      utils.messages.getConversations.invalidate();
+      utils.dashboard.chatActivityByDiscipline.invalidate();
+    },
+  });
 
   useEffect(() => {
     presenceM.mutate();
@@ -102,6 +108,9 @@ export default function TeamChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgsQ.data]);
+  useEffect(() => {
+    if (selectedConvId) markReadM.mutate({ conversationId: selectedConvId });
+  }, [selectedConvId]);
 
   const directConvs = (convsQ.data ?? []) as any[];
   const groupConvs = (groupConvsQ.data ?? []) as any[];

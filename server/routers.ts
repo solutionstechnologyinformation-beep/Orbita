@@ -22,7 +22,7 @@ import {
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage, setChatTypingState, clearChatTypingState, getChatTypingUsers,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
-  createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
+  createGroupConversation, getGroupConversations, getConversationMembers, markConversationAsRead, getTasksInVacationPeriod,
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint,
   getSprintWithTasks, addTaskToSprint, removeTaskFromSprint,
   getClientProgress, getCrsDisciplineProgress, getYearlyStats, getCompletedTasksSummary,
@@ -1678,6 +1678,9 @@ export const appRouter = router({
     getTypingUsers: protectedProcedure
       .input(z.object({ conversationId: z.number() }))
       .query(async ({ ctx, input }) => getChatTypingUsers(input.conversationId, ctx.user.id)),
+    markRead: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .mutation(async ({ ctx, input }) => ({ success: await markConversationAsRead(input.conversationId, ctx.user.id, tenantCompanyId(ctx.user)) })),
     setTyping: protectedProcedure
       .input(z.object({ conversationId: z.number(), isTyping: z.boolean() }))
       .mutation(async ({ ctx, input }) => {

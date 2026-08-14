@@ -1036,3 +1036,8 @@
 - [x] Dashboard: tornar barras do gráfico de atividade clicáveis
 - [x] Chat: abrir conversa filtrada pela disciplina selecionada a partir do gráfico
 - [x] Testes: cobrir a construção do destino e a acessibilidade da interação
+
+## Widget de atividade — Mensagens não lidas
+- [x] Backend: calcular mensagens não lidas por disciplina com isolamento por companyId
+- [x] Dashboard: exibir indicador visual de não lidas em cada barra e no tooltip
+- [x] Testes: cobrir contagem, destaque e estado sem mensagens não lidas

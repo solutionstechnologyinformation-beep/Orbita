@@ -12,7 +12,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useLocation } from "wouter";
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar, LabelList,
 } from "recharts";
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
-import { buildChatActivityChartData, CHAT_ACTIVITY_METRICS, type ChatActivityMetric } from "../../../shared/chat-activity";
+import { buildChatActivityChartData, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
 import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -1512,11 +1512,12 @@ export default function Dashboard() {
                         <div className="mt-1 text-xl font-bold text-violet-800">{chatActivity?.totals.typingCount ?? 0}</div>
                       </div>
                     </div>
-                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/60 p-3" role="group" aria-label={`Comparação de ${chatMetricLabel.toLowerCase()} entre disciplinas`}>
+                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/60 p-3" role="group" aria-label={`Comparação de ${chatMetricLabel.toLowerCase()} entre disciplinas; rótulos vermelhos indicam mensagens não lidas`}
+>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold text-gray-700">Comparativo por disciplina</p>
-                          <p className="text-[10px] text-gray-400">Clique em uma barra para abrir o chat da disciplina</p>
+                          <p className="text-[10px] text-gray-400">Clique em uma barra para abrir o chat da disciplina · <span className="font-semibold text-red-600">●</span> não lidas</p>
                         </div>
                         <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500" htmlFor="chat-activity-metric">
                           Métrica
@@ -1535,7 +1536,7 @@ export default function Dashboard() {
                         <div className="flex h-24 items-center justify-center text-xs text-gray-400">Sem dados para comparar</div>
                       ) : (
                         <ResponsiveContainer width="100%" height={Math.min(220, Math.max(125, chatActivityChartData.length * 31 + 30))}>
-                          <BarChart data={chatActivityChartData} layout="vertical" margin={{ top: 2, right: 12, left: 4, bottom: 2 }}>
+                          <BarChart data={chatActivityChartData} layout="vertical" margin={{ top: 2, right: 42, left: 4, bottom: 2 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
                             <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                             <YAxis
@@ -1563,14 +1564,21 @@ export default function Dashboard() {
                                 const selected = barData?.payload ?? chatActivityChartData[index];
                                 if (selected?.discipline) navigate(buildTeamChatDisciplineUrl(selected.discipline));
                               }}
-                            />
+                            >
+                              <LabelList
+                                dataKey="unreadCount"
+                                position="right"
+                                formatter={(value: number) => formatUnreadBadgeLabel(value)}
+                                style={{ fill: "#dc2626", fontSize: 10, fontWeight: 700 }}
+                              />
+                            </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       )}
                       <div className="sr-only">
                         {chatActivityChartData.map((datum) => (
                           <button key={`chat-chart-action-${datum.discipline}`} type="button" onClick={() => navigate(buildTeamChatDisciplineUrl(datum.discipline))}>
-                            Abrir chat da disciplina {datum.discipline}
+                            Abrir chat da disciplina {datum.discipline}; {datum.unreadCount} mensagens não lidas
                           </button>
                         ))}
                       </div>

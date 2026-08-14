@@ -1152,6 +1152,8 @@ export async function getChatActivityByDiscipline(companyId?: number | null) {
   if (companyId != null) conditions.push(eq(users.companyId, companyId));
 
   const disciplineExpression = sql<string>`COALESCE(${userDisciplines.disciplineName}, 'Sem disciplina')`;
+  const unreadParticipant = aliasedTable(conversationParticipants, "unreadParticipant");
+  const unreadMessages = aliasedTable(directMessages, "unreadMessages");
   const rows = await db.select({
     discipline: disciplineExpression,
     memberCount: sql<number>`COUNT(DISTINCT ${users.id})`,
@@ -1169,10 +1171,27 @@ export async function getChatActivityByDiscipline(companyId?: number | null) {
     .groupBy(userDisciplines.disciplineName)
     .orderBy(desc(sql`COUNT(DISTINCT CASE WHEN ${directMessages.createdAt} >= ${daySince} THEN ${directMessages.id} END)`), asc(disciplineExpression));
 
-  return normalizeChatActivitySnapshot(rows as any[], now);
+    const unreadRows = await db.select({
+    discipline: disciplineExpression,
+    unreadCount: sql<number>`COUNT(DISTINCT ${unreadMessages.id})`,
+  }).from(users)
+    .leftJoin(userDisciplines, eq(userDisciplines.userId, users.id))
+    .innerJoin(unreadParticipant, eq(unreadParticipant.userId, users.id))
+    .innerJoin(unreadMessages, and(
+      eq(unreadMessages.conversationId, unreadParticipant.conversationId),
+      sql`${unreadMessages.senderId} <> ${users.id}`,
+      sql`(${unreadParticipant.lastReadAt} IS NULL OR ${unreadMessages.createdAt} > ${unreadParticipant.lastReadAt})`,
+    ))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .groupBy(userDisciplines.disciplineName);
+  const unreadByDiscipline = new Map((unreadRows as any[]).map((row) => [String(row.discipline ?? "Sem disciplina").trim() || "Sem disciplina", Number(row.unreadCount ?? 0)]));
+  return normalizeChatActivitySnapshot(
+    (rows as any[]).map((row) => ({ ...row, unreadCount: unreadByDiscipline.get(String(row.discipline ?? "Sem disciplina").trim() || "Sem disciplina") ?? 0 })),
+    now,
+  );
 }
-
 // ─── Conversations / Direct Messages ──────────────────────────────────────────
+
 export async function getOrCreateConversation(userId1: number, userId2: number) {
   const db = await getDb();
   // Find existing direct conversation between these two users
@@ -1326,6 +1345,24 @@ export async function getChatTypingUsers(conversationId: number, currentUserId: 
       sql`${chatTypingStates.lastTypedAt} >= ${cutoff}`,
       sql`${chatTypingStates.userId} <> ${currentUserId}`,
     ));
+}
+
+export async function markConversationAsRead(conversationId: number, userId: number, companyId?: number | null) {
+  const db = await getDb();
+  const participant = await db.select({ id: conversationParticipants.id })
+    .from(conversationParticipants)
+    .innerJoin(users, eq(conversationParticipants.userId, users.id))
+    .where(and(
+      eq(conversationParticipants.conversationId, conversationId),
+      eq(conversationParticipants.userId, userId),
+      ...(companyId != null ? [eq(users.companyId, companyId)] : []),
+    ))
+    .limit(1);
+  if (!participant[0]) return false;
+  await db.update(conversationParticipants)
+    .set({ lastReadAt: new Date() })
+    .where(eq(conversationParticipants.id, participant[0].id));
+  return true;
 }
 // ─── Sprints ───────────────────────────────────────────────────────────────────
 export async function getSprintsByCrs(crsId: number) {
