@@ -1163,3 +1163,9 @@
 - [x] Confirmar que o botão Ampliar usa posicionamento fixed e cobre toda a viewport
 - [x] Corrigir altura, largura, z-index e redimensionamento do mapa em tela cheia
 - [x] Adicionar ou atualizar testes do modo tela cheia e validar TypeScript
+
+## Mapa — Animação de expansão
+- [x] Auditar as regras atuais de expansão e movimento reduzido
+- [x] Adicionar transição suave de opacidade, escala e deslocamento ao expandir e minimizar
+- [x] Preservar foco, Escape, redimensionamento do mapa e prefers-reduced-motion
+- [x] Adicionar testes de animação e validar TypeScript e preview

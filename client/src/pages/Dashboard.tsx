@@ -35,6 +35,7 @@ import { DashboardTrendIndicator, DashboardTrendPeriodSelect } from "./Dashboard
 import { TREND_COMPARISON_PERIOD_DESCRIPTIONS, getTrendComparisonStorageKey, readTrendComparisonPeriod, type TrendComparisonPeriod } from "./dashboard-trend-period";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const MAP_FULLSCREEN_ANIMATION_DURATION_MS = 320;
 const TIPO_OBRA_MAP: Record<string, string> = {
   implementacao: "Implementação",
   restauracao: "Restauração",
@@ -138,12 +139,39 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const hoveredElementKeyRef = useRef<string | null>(null);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
+  const mapAnimationTimerRef = useRef<number | null>(null);
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [isMapMinimizing, setIsMapMinimizing] = useState(false);
   const [mapDataTimestamp, setMapDataTimestamp] = useState(() => new Date());
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const mapStyles = mapType === "roadmap" ? (isDark ? DARK_MAP_STYLES : LIGHT_MAP_STYLES) : undefined;
+  const clearMapAnimationTimer = useCallback(() => {
+    if (mapAnimationTimerRef.current !== null) {
+      window.clearTimeout(mapAnimationTimerRef.current);
+      mapAnimationTimerRef.current = null;
+    }
+  }, []);
+  const minimizeMap = useCallback(() => {
+    clearMapAnimationTimer();
+    if (!isMapExpanded) return;
+    setIsMapMinimizing(true);
+    mapAnimationTimerRef.current = window.setTimeout(() => {
+      setIsMapExpanded(false);
+      setIsMapMinimizing(false);
+      mapAnimationTimerRef.current = null;
+    }, MAP_FULLSCREEN_ANIMATION_DURATION_MS);
+  }, [clearMapAnimationTimer, isMapExpanded]);
+  const toggleMapExpanded = useCallback(() => {
+    clearMapAnimationTimer();
+    if (isMapExpanded) {
+      minimizeMap();
+      return;
+    }
+    setIsMapMinimizing(false);
+    setIsMapExpanded(true);
+  }, [clearMapAnimationTimer, isMapExpanded, minimizeMap]);
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | "all">("all");
   const [segmentColors, setSegmentColors] = useState<Record<string, string>>(() => {
@@ -583,7 +611,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsMapExpanded(false);
+      if (event.key === "Escape") minimizeMap();
     };
     if (isMapExpanded) {
       document.body.style.overflow = "hidden";
@@ -598,7 +626,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       window.removeEventListener("keydown", handleEscape);
       window.clearTimeout(resizeTimer);
     };
-  }, [isMapExpanded]);
+  }, [isMapExpanded, minimizeMap]);
 
   useEffect(() => {
     if (mapRef.current && (locations.length > 0 || segments.length > 0)) {
@@ -609,11 +637,12 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
 
 
   useEffect(() => () => {
+    clearMapAnimationTimer();
     zoomListenerRef.current?.remove();
     zoomListenerRef.current = null;
     if (highlightTimerRef.current !== null) window.clearTimeout(highlightTimerRef.current);
     highlightTimerRef.current = null;
-  }, []);
+  }, [clearMapAnimationTimer]);
 
   if (locations.length === 0 && segments.length === 0 && !segmentsLoading) {
     return (
@@ -626,7 +655,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     );
   }
   return (
-    <div className={isMapExpanded ? "fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60" : "relative"}>
+    <div className={isMapExpanded ? `fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60 ${isMapMinimizing ? "map-fullscreen-exit" : "map-fullscreen-enter"}` : "relative"}>
       <div ref={mapExportRef} className={isMapExpanded ? `relative h-screen min-h-screen h-[100dvh] w-full overflow-hidden rounded-none bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
         <MapView
           className={isMapExpanded ? "overflow-hidden !h-full !rounded-none" : "rounded-xl overflow-hidden !h-[28rem]"}
@@ -662,7 +691,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         </div>
       </div>
       <div data-map-control="true" className={`absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg ${mapPanelSurface} p-1 shadow-sm`} role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
-        <button type="button" onClick={() => setIsMapExpanded((expanded) => !expanded)} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
+        <button type="button" onClick={toggleMapExpanded} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>
           {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           {isMapExpanded ? "Reduzir" : "Ampliar"}
         </button>
@@ -678,7 +707,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         </div>
         <span className={`mx-0.5 h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} aria-hidden="true" />
         {isMapExpanded && (
-          <button type="button" onClick={() => setIsMapExpanded(false)} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} title="Fechar visualização ampliada">
+          <button type="button" onClick={minimizeMap} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} title="Fechar visualização ampliada">
             <X className="w-3.5 h-3.5" />
             Fechar
           </button>
