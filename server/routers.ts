@@ -6,7 +6,7 @@ import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
 import { getKanbanStatusForPhase } from "../shared/kanban-status";
 import {
-  updateUser, getAllUsers, deleteUser, getMemberPerformance,
+  updateUser, getProjectMembers, deleteUser, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
   getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
@@ -69,7 +69,7 @@ const leaderProcedure = protectedProcedure.use(({ ctx, next }) => {
 });
 
 async function deleteUserWithAdminGuards(actorId: number, targetUserId: number) {
-  const allUsers = await getAllUsers();
+  const allUsers = await getProjectMembers();
   const targetUser = allUsers.find((u: any) => u.id === targetUserId);
   if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado." });
   assertCanDeleteUser(actorId, targetUserId, targetUser.role);
@@ -91,6 +91,7 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, getSessionCookieOptions(ctx.req));
       return { success: true };
     }),
+    projectMembers: protectedProcedure.query(async () => getProjectMembers()),
     updateProfile: protectedProcedure
       .input(z.object({ name: z.string().optional(), company: z.string().trim().max(256).optional(), avatarUrl: z.string().optional(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
       .mutation(async ({ ctx, input }) => {
@@ -126,7 +127,7 @@ export const appRouter = router({
   // ─── Users ────────────────────────────────────────────────────────────────────────
   users: router({
     list: protectedProcedure.query(async () => {
-      return getAllUsers();
+      return getProjectMembers();
     }),
     updateRole: adminProcedure
       .input(z.object({ userId: z.number(), role: z.enum(["user", "admin", "leader"]) }))
@@ -764,7 +765,7 @@ export const appRouter = router({
           // Detect @mentions: find @word patterns and match to user names
           const mentions = input.content.match(/@(\w+)/g);
           if (mentions && mentions.length > 0) {
-            const allUsers = await getAllUsers();
+            const allUsers = await getProjectMembers();
             for (const mention of mentions) {
               const mentionName = mention.slice(1).toLowerCase();
               const mentionedUser = allUsers.find((u: any) =>

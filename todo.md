@@ -150,7 +150,7 @@
 - [x] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
 - [x] Backend: procedure admin.deleteUser
 - [x] Backend: procedure profile.update aceitar campo company
-- [ ] Backend: listTasks e getProjectMembers retornar company do responsável
+- [x] Backend: listTasks e getProjectMembers retornar company do responsável
 - [x] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
 - [x] Frontend: TaskDetail exibir empresa do responsável
 - [x] Frontend: filtro por empresa no Kanban (chips na barra superior)
@@ -162,12 +162,12 @@
 - [x] TaskDetail: botão "Visualizar" nos anexos abre o modal de preview
 
 ## Arquitetura Multi-Tenant v3.9
-- [ ] Schema: tabela companies (id, name, slug, color, createdAt)
-- [ ] Schema: campo companyId em users (FK → companies)
-- [ ] Schema: campo companyId em projects (FK → companies)
-- [ ] Schema: enum role expandido: "master_admin" | "company_admin" | "user"
-- [ ] Backend: migrar banco (novas tabelas e colunas)
-- [ ] Backend: procedures companies.list, create, update, delete (master_admin)
+- [x] Schema: tabela companies (id, name, slug, color, createdAt)
+- [x] Schema: campo companyId em users (FK → companies)
+- [x] Schema: campo companyId em projects (FK → companies)
+- [x] Schema: enum role expandido: "master_admin" | "company_admin" | "user"
+- [x] Backend: migrar banco (novas tabelas e colunas)
+- [x] Backend: procedures companies.list, create, update, delete (master_admin)
 - [ ] Backend: isolamento de queries por companyId (users, projects, tasks)
 - [ ] Backend: companyAdminProcedure — guard que verifica role company_admin
 - [ ] Backend: procedures para Company Admin gerenciar usuários da sua empresa

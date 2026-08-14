@@ -220,6 +220,20 @@ export async function createCrsSegment(data: {
   return Number((result as any).insertId);
 }
 
+export async function getProjectMembers() {
+  const db = await getDb();
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    role: users.role,
+    company: users.company,
+    avatarUrl: users.avatarUrl,
+    lastSeenAt: users.lastSeenAt,
+  }).from(users);
+  return rows;
+}
+
 export async function deleteCrsSegment(id: number, crsId: number) {
   const db = await getDb();
   await db.delete(crsSegments).where(and(eq(crsSegments.id, id), eq(crsSegments.crsId, crsId)));
