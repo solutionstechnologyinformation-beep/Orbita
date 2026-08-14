@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Loader2, User, Camera, Palette, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 import AppLayout from "@/components/AppLayout";
+import { getProfileFormValues } from "./profile-utils";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -22,11 +23,21 @@ export default function Profile() {
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [name, setName] = useState(user?.name ?? "");
+  const [name, setName] = useState(() => getProfileFormValues(user).name);
+  const [company, setCompany] = useState(() => getProfileFormValues(user).company);
   const [avatarColor, setAvatarColor] = useState(user?.avatarColor ?? "#3b82f6");
   const [avatarInitials, setAvatarInitials] = useState(user?.avatarInitials ?? "");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<"info" | "avatar">("info");
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const values = getProfileFormValues(user);
+    setName(values.name);
+    setCompany(values.company);
+    setAvatarColor(user.avatarColor ?? "#3b82f6");
+    setAvatarInitials(user.avatarInitials ?? "");
+  }, [user?.id]);
 
   const updateProfile = trpc.auth.updateProfile.useMutation({
     onSuccess: () => {
@@ -46,7 +57,7 @@ export default function Profile() {
 
   const handleSaveInfo = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile.mutate({ name: name || undefined });
+    updateProfile.mutate({ name: name.trim() || undefined, company: company.trim() || undefined });
   };
 
   const handleSaveAvatar = () => {
@@ -166,6 +177,16 @@ export default function Profile() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Seu nome completo"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company">Empresa</Label>
+                  <Input
+                    id="company"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    placeholder="Nome da sua empresa (opcional)"
+                    autoComplete="organization"
                   />
                 </div>
                 <div className="space-y-2">

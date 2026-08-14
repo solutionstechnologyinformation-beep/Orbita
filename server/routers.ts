@@ -78,7 +78,7 @@ export const appRouter = router({
       return { success: true };
     }),
     updateProfile: protectedProcedure
-      .input(z.object({ name: z.string().optional(), avatarUrl: z.string().optional(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
+      .input(z.object({ name: z.string().optional(), company: z.string().trim().max(256).optional(), avatarUrl: z.string().optional(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
       .mutation(async ({ ctx, input }) => {
         await updateUser(ctx.user.id, input);
         return { success: true };

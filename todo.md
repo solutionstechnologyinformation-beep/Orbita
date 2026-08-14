@@ -149,13 +149,13 @@
 - [ ] Backend: importar upsertUser e deleteUser no routers.ts
 - [x] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
 - [ ] Backend: procedure admin.deleteUser
-- [ ] Backend: procedure profile.update aceitar campo company
+- [x] Backend: procedure profile.update aceitar campo company
 - [ ] Backend: listTasks e getProjectMembers retornar company do responsável
 - [ ] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
 - [ ] Frontend: TaskDetail exibir empresa do responsável
 - [ ] Frontend: filtro por empresa no Kanban (chips na barra superior)
 - [ ] Frontend: filtro por empresa no Dashboard
-- [ ] Frontend: campo empresa no perfil do usuário (página Profile)
+- [x] Frontend: campo empresa no perfil do usuário (página Profile)
 - [x] Frontend Admin: formulário de criar usuário com nome, e-mail, empresa, papel
 - [x] Frontend Admin: botão excluir usuário com confirmação
 - [x] Visualizador inline: componente FilePreviewModal (PDF via iframe, imagens via img)
@@ -963,3 +963,5 @@
 - [x] Orbita: adicionar botão global de tema claro/escuro, persistência da preferência e transição suave de cores
 - [x] Orbita: detectar prefers-color-scheme do sistema para definir o tema inicial quando não houver preferência manual salva
 - [x] Relatórios: atualizar a paleta exportada para amarelo institucional, azul-marinho, preto e verde de status
+- [x] Auth/Profile: garantir que auth.me exponha company e que o formulário carregue o valor atual
+- [x] Auth/Profile: cobrir a inicialização e atualização de company com teste unitário
