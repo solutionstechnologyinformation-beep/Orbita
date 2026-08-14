@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, X, Zap, Clock, Users, BarChart2, Calendar, MessageSquare, Shield } from "lucide-react";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
+import { useTheme } from "@/contexts/ThemeContext";
 
 type BillingCycle = "monthly" | "annual";
 
@@ -104,6 +105,9 @@ const PLANS = [
 
 export function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const { theme } = useTheme();
+  const brandAccent = theme === "dark" ? "var(--brand-accent)" : LS_COLORS.yellow;
+  const brandAccentForeground = theme === "dark" ? "var(--brand-accent-foreground)" : LS_COLORS.black;
   const userQ = trpc.auth.me.useQuery();
   const user = userQ.data;
   const createCheckoutMut = trpc.subscription.createCheckoutSession.useMutation();
@@ -159,10 +163,10 @@ export function PricingPage() {
               onClick={() => setBillingCycle("monthly")}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 billingCycle === "monthly"
-                  ? "bg-yellow-400 text-black"
+                  ? "text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
-              style={billingCycle === "monthly" ? { backgroundColor: LS_COLORS.yellow } : {}}
+              style={billingCycle === "monthly" ? { backgroundColor: brandAccent, color: brandAccentForeground } : {}}
             >
               Mensal
             </button>
@@ -170,10 +174,10 @@ export function PricingPage() {
               onClick={() => setBillingCycle("annual")}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 billingCycle === "annual"
-                  ? "bg-yellow-400 text-black"
+                  ? "text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
-              style={billingCycle === "annual" ? { backgroundColor: LS_COLORS.yellow } : {}}
+              style={billingCycle === "annual" ? { backgroundColor: brandAccent, color: brandAccentForeground } : {}}
             >
               Anual (2 meses grátis)
             </button>

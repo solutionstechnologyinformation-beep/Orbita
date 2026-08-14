@@ -135,6 +135,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const isDark = theme === "dark";
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
+  const mapStyles = mapType === "roadmap" ? (isDark ? DARK_MAP_STYLES : LIGHT_MAP_STYLES) : undefined;
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | "all">("all");
   const [segmentColors, setSegmentColors] = useState<Record<string, string>>(() => {
@@ -250,19 +251,21 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: true,
-      styles: theme === "dark" ? DARK_MAP_STYLES : LIGHT_MAP_STYLES,
+      styles: mapStyles,
     });
     if (locations.length === 0 && segments.length === 0) return;
     placeMarkers(map);
-  }, [locations, segments, theme]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locations, segments, theme, mapType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (mapRef.current) mapRef.current.setOptions({ styles: theme === "dark" ? DARK_MAP_STYLES : LIGHT_MAP_STYLES });
-  }, [theme]);
+    if (mapRef.current) mapRef.current.setOptions({ styles: mapStyles });
+  }, [mapStyles]);
 
   useEffect(() => {
-    if (mapRef.current) mapRef.current.setMapTypeId(mapType);
-  }, [mapType]);
+    if (!mapRef.current) return;
+    mapRef.current.setMapTypeId(mapType);
+    mapRef.current.setOptions({ styles: mapStyles });
+  }, [mapType, mapStyles]);
 
   const placeMarkers = useCallback((map: google.maps.Map) => {
     const g = (window as any).google.maps;
@@ -645,18 +648,22 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           {isMapExpanded ? "Reduzir" : "Ampliar"}
         </button>
         <span className={`mx-0.5 h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} aria-hidden="true" />
+        <div className="flex items-center gap-1" role="group" aria-label="Camadas do mapa">
+          <span className={`hidden sm:inline-flex items-center gap-1 px-1 text-[10px] font-semibold uppercase tracking-wide ${mapPanelMuted}`}><Layers className="h-3 w-3" /> Camadas</span>
+          <button type="button" onClick={() => setMapType("roadmap")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "roadmap" ? "bg-blue-600 text-white shadow-sm" : `${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`}`} aria-pressed={mapType === "roadmap"} title="Exibir mapa padrão">
+            <MapIcon className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Padrão</span>
+          </button>
+          <button type="button" onClick={() => setMapType("satellite")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "satellite" ? "bg-blue-600 text-white shadow-sm" : `${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`}`} aria-pressed={mapType === "satellite"} title="Exibir imagem de satélite">
+            <Satellite className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Satélite</span>
+          </button>
+        </div>
+        <span className={`mx-0.5 h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} aria-hidden="true" />
         {isMapExpanded && (
           <button type="button" onClick={() => setIsMapExpanded(false)} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`} title="Fechar visualização ampliada">
             <X className="w-3.5 h-3.5" />
             Fechar
           </button>
         )}
-        <button type="button" onClick={() => setMapType("roadmap")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "roadmap" ? "bg-blue-600 text-white" : `${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`}`} aria-pressed={mapType === "roadmap"}>
-          <MapIcon className="w-3.5 h-3.5" /> Mapa
-        </button>
-        <button type="button" onClick={() => setMapType("satellite")} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${mapType === "satellite" ? "bg-blue-600 text-white" : `${mapPanelMuted} ${isDark ? "hover:bg-slate-800" : "hover:bg-gray-100"}`}`} aria-pressed={mapType === "satellite"}>
-          <Satellite className="w-3.5 h-3.5" /> Satélite
-        </button>
         <span className={`mx-0.5 h-5 w-px ${isDark ? "bg-slate-700" : "bg-gray-200"}`} aria-hidden="true" />
 
       </div>

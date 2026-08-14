@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSystemTheme, getThemeToggleCopy, normalizeThemePreference, THEME_TRANSITION_DURATION_MS } from "./theme-utils";
+import { getSystemTheme, getThemeToggleCopy, normalizeThemePreference, THEME_TRANSITION_DURATION_MS, LIGHT_THEME_ACCENT, DARK_THEME_ACCENT } from "./theme-utils";
 
 describe("theme utilities", () => {
   it("resolves the system preference when no manual value exists", () => {
@@ -22,6 +22,11 @@ describe("theme utilities", () => {
   it("provides accessible copy for both theme states", () => {
     expect(getThemeToggleCopy("light")).toEqual({ isDark: false, label: "Tema escuro", ariaLabel: "Ativar tema escuro" });
     expect(getThemeToggleCopy("dark")).toEqual({ isDark: true, label: "Tema claro", ariaLabel: "Ativar tema claro" });
+  });
+
+  it("uses the institutional yellow in light mode and the reference teal in dark mode", () => {
+    expect(LIGHT_THEME_ACCENT).toBe("#FFC30D");
+    expect(DARK_THEME_ACCENT).toBe("#102C2D");
   });
 
   it("keeps the theme transition short and consistent", () => {

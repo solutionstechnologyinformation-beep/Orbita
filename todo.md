@@ -1009,3 +1009,7 @@
 - [x] Mapa KML/KMZ: adicionar botão no balão para centralizar e aproximar o mapa no elemento selecionado
 
 - [x] Interface: adicionar botão de alternância claro/escuro e adaptar painel lateral, controles e estilo do mapa
+
+- [x] Mapa: adicionar controle de camadas para alternar entre mapa padrão e satélite respeitando o tema escuro
+
+- [x] Tema escuro: substituir acentos amarelos pela cor teal escura de referência da imagem enviada

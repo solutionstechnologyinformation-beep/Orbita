@@ -1,6 +1,8 @@
 export type Theme = "light" | "dark";
 
 export const THEME_TRANSITION_DURATION_MS = 260;
+export const LIGHT_THEME_ACCENT = "#FFC30D";
+export const DARK_THEME_ACCENT = "#102C2D";
 
 type MatchMediaReader = (query: string) => { matches: boolean };
 

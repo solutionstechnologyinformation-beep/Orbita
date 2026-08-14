@@ -152,11 +152,11 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
   }
 
   const SidebarContent = ({ compact = false }: { compact?: boolean }) => (
-    <div className="flex flex-col h-full" style={{ backgroundColor: isDark ? "#111827" : "#ffc30d" }}>
+    <div className="flex flex-col h-full" style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
       {/* Logo / Brand */}
       <div
         className={`flex items-center px-3 py-4 ${compact ? "justify-center" : "gap-3"}`}
-        style={{ borderBottom: `1px solid ${isDark ? "rgba(148,163,184,0.18)" : "rgba(0,0,0,0.1)"}`, backgroundColor: isDark ? "#111827" : "#ffc30d" }}
+        style={{ borderBottom: `1px solid ${isDark ? "rgba(148,163,184,0.18)" : "rgba(0,0,0,0.1)"}`, backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}
       >
         <button
           type="button"
@@ -189,7 +189,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
       </div>
 
       {/* Nav */}
-      <nav className={`flex-1 py-3 space-y-0.5 overflow-y-auto ${compact ? "px-2" : "px-3"}`} style={{ backgroundColor: isDark ? "#111827" : "#ffc30d" }}>
+      <nav className={`flex-1 py-3 space-y-0.5 overflow-y-auto ${compact ? "px-2" : "px-3"}`} style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = location === href || (href !== "/dashboard" && href !== "/kanban" && location.startsWith(href));
 
@@ -374,7 +374,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
       {/* User Profile */}
       <div
         className="p-3"
-        style={{ borderTop: `1px solid ${isDark ? "rgba(148,163,184,0.18)" : "rgba(255,255,255,0.08)"}`, backgroundColor: isDark ? "#111827" : "#ffc30d" }}
+        style={{ borderTop: `1px solid ${isDark ? "rgba(148,163,184,0.18)" : "rgba(255,255,255,0.08)"}`, backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -462,7 +462,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
       <div className={`flex-1 flex flex-col h-screen overflow-hidden transition-[margin] duration-300 ease-out ${sidebarCollapsed ? "lg:ml-[4.5rem]" : "lg:ml-60"}`}>
         {/* Top Header — only shown when title or backHref is provided */}
         {(title || backHref) && (
-          <header className="flex-shrink-0 z-30 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm" style={{ backgroundColor: isDark ? "#111827" : "#ffc30d" }}>
+          <header className="flex-shrink-0 z-30 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm" style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden text-muted-foreground hover:text-foreground"
@@ -501,7 +501,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
 
         {/* Mobile hamburger when no header */}
         {!title && !backHref && (
-          <div className="lg:hidden flex-shrink-0 z-30 border-b border-border px-4 h-12 flex items-center justify-between" style={{ backgroundColor: isDark ? "#111827" : "#ffc30d" }}>
+          <div className="lg:hidden flex-shrink-0 z-30 border-b border-border px-4 h-12 flex items-center justify-between" style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
             <button
               onClick={() => setSidebarOpen(true)}
               className="text-muted-foreground hover:text-foreground"

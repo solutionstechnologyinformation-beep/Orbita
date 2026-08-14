@@ -6,8 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle2, Calendar, CreditCard, Download } from "lucide-react";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function SubscriptionPortal() {
+  const { theme } = useTheme();
+  const brandAccent = theme === "dark" ? "var(--brand-accent)" : "#FFC30D";
+  const brandAccentForeground = theme === "dark" ? "var(--brand-accent-foreground)" : "#111827";
   const statusQ = trpc.subscription.getStatus.useQuery();
   const invoicesQ = trpc.subscription.getInvoices.useQuery();
   const cancelMut = trpc.subscription.cancel.useMutation();
@@ -40,7 +44,7 @@ export function SubscriptionPortal() {
         {status?.hasSubscription ? (
           <div className="grid md:grid-cols-2 gap-8 mb-8">
             {/* Card Principal */}
-            <Card className="border-2" style={{ borderColor: "#FFC30D" }}>
+            <Card className="border-2" style={{ borderColor: brandAccent }}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -63,7 +67,7 @@ export function SubscriptionPortal() {
                           status.status === "active"
                             ? "#00AA00"
                             : status.status === "trialing"
-                            ? "#FFC30D"
+                            ? brandAccent
                             : "#ff6b6b",
                       }}
                     >
@@ -161,7 +165,7 @@ export function SubscriptionPortal() {
                   </p>
                   <Button
                     className="text-black"
-                    style={{ backgroundColor: "#FFC30D" }}
+                    style={{ backgroundColor: brandAccent, color: brandAccentForeground }}
                     onClick={() => (window.location.href = "/planos")}
                   >
                     Ver Planos
@@ -221,7 +225,7 @@ export function SubscriptionPortal() {
                                 invoice.status === "paid"
                                   ? "#00AA00"
                                   : invoice.status === "open"
-                                  ? "#FFC30D"
+                                  ? brandAccent
                                   : "#ff6b6b",
                             }}
                           >
