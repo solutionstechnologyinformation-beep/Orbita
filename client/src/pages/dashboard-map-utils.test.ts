@@ -12,8 +12,10 @@ describe("dashboard map fullscreen and timestamp", () => {
   });
 
   it("keeps the map container attached to the viewport in expanded mode", () => {
-    expect(dashboardSource).toContain('"fixed inset-0 z-[60] bg-slate-950/60 p-3 sm:p-6"');
-    expect(dashboardSource).toContain("h-[calc(100dvh-1.5rem)]");
+    expect(dashboardSource).toContain('"fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60"');
+    expect(dashboardSource).toContain("h-[100dvh]");
+    expect(dashboardSource).toContain("min-h-screen");
+    expect(dashboardSource).toContain("!rounded-none");
     expect(dashboardSource).toContain("window.google.maps.event.trigger(mapRef.current, \"resize\")");
     expect(dashboardSource).toContain('onClick={() => setIsMapExpanded((expanded) => !expanded)}');
   });

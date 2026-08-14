@@ -1158,3 +1158,8 @@
 - [x] Criar arquivo de referência com exemplos de joins, agregações e transações em Drizzle ORM
 - [x] Atualizar o SKILL.md para apontar para a nova referência de queries complexas
 - [x] Validar a habilidade com o script `quick_validate.py` e entregar o resultado
+
+## Mapa — Verificação de tela cheia
+- [x] Confirmar que o botão Ampliar usa posicionamento fixed e cobre toda a viewport
+- [x] Corrigir altura, largura, z-index e redimensionamento do mapa em tela cheia
+- [x] Adicionar ou atualizar testes do modo tela cheia e validar TypeScript

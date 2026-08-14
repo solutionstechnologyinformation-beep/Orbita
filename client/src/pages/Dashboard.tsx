@@ -626,10 +626,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     );
   }
   return (
-    <div className={isMapExpanded ? "fixed inset-0 z-[60] bg-slate-950/60 p-3 sm:p-6" : "relative"}>
-      <div ref={mapExportRef} className={isMapExpanded ? `relative h-[calc(100vh-1.5rem)] h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 sm:h-[calc(100vh-3rem)] sm:h-[calc(100dvh-3rem)] ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
+    <div className={isMapExpanded ? "fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60" : "relative"}>
+      <div ref={mapExportRef} className={isMapExpanded ? `relative h-screen min-h-screen h-[100dvh] w-full overflow-hidden rounded-none bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
         <MapView
-          className={isMapExpanded ? "rounded-2xl overflow-hidden !h-full" : "rounded-xl overflow-hidden !h-[28rem]"}
+          className={isMapExpanded ? "overflow-hidden !h-full !rounded-none" : "rounded-xl overflow-hidden !h-[28rem]"}
           initialCenter={{ lat: -14.235, lng: -51.925 }}
           initialZoom={4}
           onMapReady={handleMapReady}
