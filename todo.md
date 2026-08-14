@@ -1131,7 +1131,7 @@
 - [x] Adicionar testes para o modo tela cheia e a formatação de data/hora
 
 ## Tema escuro — Auditoria de todas as abas
-- [ ] Auditar superfícies claras residuais nas páginas e componentes compartilhados
-- [ ] Corrigir o Gantt e seus cabeçalhos, tabelas, filtros, calendário e estados vazios
-- [ ] Corrigir demais abas, modais, popovers e blocos de relatório para usar superfícies escuras semânticas
-- [ ] Adicionar testes de tema escuro, contraste e regressão visual
+- [x] Auditar superfícies claras residuais nas páginas e componentes compartilhados
+- [x] Corrigir o Gantt e seus cabeçalhos, tabelas, filtros, calendário e estados vazios
+- [x] Corrigir demais abas, modais, popovers e blocos de relatório para usar superfícies escuras semânticas
+- [x] Adicionar testes de tema escuro, contraste e regressão visual
