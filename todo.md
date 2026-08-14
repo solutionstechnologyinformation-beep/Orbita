@@ -1267,3 +1267,8 @@
 - [x] Auditar a contagem de status e a estrutura da legenda clicável
 - [x] Adicionar badges de quantidade sincronizados aos botões da legenda
 - [x] Validar atualização dinâmica, acessibilidade, testes e TypeScript
+
+## Mapa — Percentuais na legenda de status
+- [x] Auditar a base de cálculo e o layout atual dos badges da legenda
+- [x] Calcular percentuais sobre o total de obras e exibir quantidade e percentual
+- [x] Validar atualização dinâmica, acessibilidade, responsividade, testes e TypeScript

@@ -200,7 +200,10 @@ describe("dashboard map work-status legend", () => {
     expect(dashboardSource).toContain("aria-pressed={active}");
     expect(dashboardSource).toContain("onClick={() => setWorkStatusFilter(option.value)}");
     expect(dashboardSource).toContain("workStatusCounts[option.value]");
-    expect(dashboardSource).toContain("aria-label={`${workStatusCounts[option.value]} obras`}");
+    expect(dashboardSource).toContain("const statusPercentage = workStatusCounts.all > 0 ? Math.round((statusCount / workStatusCounts.all) * 1000) / 10 : 0;");
+    expect(dashboardSource).toContain("const formattedPercentage = statusPercentage.toLocaleString(\"pt-BR\", { maximumFractionDigits: 1 });");
+    expect(dashboardSource).toContain("{statusCount} · {formattedPercentage}%");
+    expect(dashboardSource).toContain("${statusCount} obras, ${formattedPercentage}% do total");
     expect(dashboardSource).toContain("MAP_WORK_STATUS_COLORS");
     expect(dashboardSource).toContain('"in-progress": { color: "#2563eb"');
     expect(dashboardSource).toContain('completed: { color: "#16a34a"');

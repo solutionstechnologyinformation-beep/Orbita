@@ -858,30 +858,32 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
         </div>
         <div
           data-map-status-legend="true"
-          className={`absolute bottom-3 z-20 max-w-[calc(100%-1.5rem)] rounded-lg border ${isMapExpanded ? "left-3" : "right-3"} ${mapPanelSurface} px-3 py-2 shadow-lg backdrop-blur-sm`}
+          className={`${isMapExpanded ? "absolute bottom-3 left-3 z-20 max-w-[calc(100%-1.5rem)]" : "relative mt-2 flex w-full justify-center"} rounded-lg border ${mapPanelSurface} px-3 py-2 shadow-lg backdrop-blur-sm`}
           role="group"
           aria-label="Legenda de status das obras"
         >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className={`text-[10px] font-semibold uppercase tracking-wide ${mapPanelMuted}`}>Status:</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
             {MAP_WORK_STATUS_OPTIONS.map((option) => {
               if (option.value === "all") return null;
               const statusColor = MAP_WORK_STATUS_COLORS[option.value];
               const active = workStatusFilter === option.value;
+              const statusCount = workStatusCounts[option.value];
+              const statusPercentage = workStatusCounts.all > 0 ? Math.round((statusCount / workStatusCounts.all) * 1000) / 10 : 0;
+              const formattedPercentage = statusPercentage.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
               return (
                 <button
                   key={option.value}
                   type="button"
                   data-map-status-legend-filter={option.value}
                   aria-pressed={active}
-                  aria-label={`Filtrar mapa por obras ${option.label.toLocaleLowerCase("pt-BR")}: ${workStatusCounts[option.value]} obras`}
-                  title={`Filtrar mapa: ${option.label} — ${workStatusCounts[option.value]} obras`}
+                  aria-label={`Filtrar mapa por obras ${option.label.toLocaleLowerCase("pt-BR")}: ${statusCount} obras, ${formattedPercentage}% do total`}
+                  title={`Filtrar mapa: ${option.label} — ${statusCount} obras (${formattedPercentage}%)`}
                   onClick={() => setWorkStatusFilter(option.value)}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${active ? (isDark ? "bg-slate-700 text-slate-100" : "bg-blue-50 text-blue-700") : `${mapPanelText} hover:bg-black/5 dark:hover:bg-white/10`}`}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${active ? (isDark ? "bg-slate-700 text-slate-100" : "bg-blue-50 text-blue-700") : `${mapPanelText} hover:bg-black/5 dark:hover:bg-white/10`}`}
                 >
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 ${active ? "scale-110" : "opacity-80"}`} style={{ backgroundColor: statusColor.color, border: `1px solid ${statusColor.stroke}` }} aria-hidden="true" />
-                  <span className="whitespace-nowrap">{option.label}</span>
-                  <span className={`min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[9px] font-bold leading-none ${active ? (isDark ? "bg-slate-600 text-slate-100" : "bg-blue-100 text-blue-700") : (isDark ? "bg-slate-700 text-slate-300" : "bg-gray-200 text-gray-600")}`} aria-label={`${workStatusCounts[option.value]} obras`}>{workStatusCounts[option.value]}</span>
+                  <span className="whitespace-nowrap">{option.shortLabel}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-center text-[9px] font-bold leading-none whitespace-nowrap ${active ? (isDark ? "bg-slate-600 text-slate-100" : "bg-blue-100 text-blue-700") : (isDark ? "bg-slate-700 text-slate-300" : "bg-gray-200 text-gray-600")}`} aria-label={`${statusCount} obras, ${formattedPercentage}% do total`}>{statusCount} · {formattedPercentage}%</span>
                 </button>
               );
             })}
