@@ -997,3 +997,5 @@
 - [x] Mapa KML/KMZ: adicionar barra de pesquisa no painel lateral para filtrar por nome, descrição ou atributo
 
 - [x] Mapa KML/KMZ: adicionar ordenação dos resultados por ordem alfabética ou tipo de geometria ao lado da pesquisa
+
+- [x] Mapa KML/KMZ: destacar no mapa o elemento correspondente ao passar o mouse sobre um resultado da lista lateral

@@ -101,3 +101,12 @@ describe("map element sorting", () => {
     expect(filterMapElementRecords(records, "", 30, "geometry").map((record) => record.geometryType)).toEqual(["Point", "LineString", "MultiLineString"]);
   });
 });
+
+
+describe("map element hover", () => {
+  it("aplica destaque âmbar e restaura a cor base", async () => {
+    const { getMapElementHighlightStyle } = await import("../shared/map-element-data");
+    expect(getMapElementHighlightStyle(true, "#2563eb")).toEqual({ strokeColor: "#f59e0b", strokeOpacity: 1, strokeWeight: 8, zIndex: 120 });
+    expect(getMapElementHighlightStyle(false, "#2563eb")).toEqual({ strokeColor: "#2563eb", strokeOpacity: 0.9, strokeWeight: 4, zIndex: 1 });
+  });
+});

@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementHighlightStyle, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -94,11 +94,14 @@ interface SegmentOverlay {
   techDataByType?: string | null;
 }
 type ContractMarkerData = { crsId: number; name: string; number: number | string };
+type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.Marker; baseColor?: string; baseIcon?: google.maps.Symbol };
   function ContractsMap({ locations, segments, onNavigate, mapExportRef }: { locations: ContractLocation[]; segments: SegmentOverlay[]; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null> }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
   const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
+  const elementOverlayMetaRef = useRef<Map<string, ElementOverlayMeta>>(new Map());
+  const hoveredElementKeyRef = useRef<string | null>(null);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -117,11 +120,33 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
   const [controlsOpen, setControlsOpen] = useState(true);
   const [elementSearch, setElementSearch] = useState("");
   const [elementSort, setElementSort] = useState<MapElementSort>("alphabetical");
+  const [hoveredElementKey, setHoveredElementKey] = useState<string | null>(null);
   const [selectedElementKey, setSelectedElementKey] = useState<string | null>(null);
   const visibleSegments = useMemo(() => filterVisibleSegments(segments, segmentVisibility, selectedSegmentId), [segments, segmentVisibility, selectedSegmentId]);
   const mapElementRecords = useMemo(() => extractMapElementRecords(visibleSegments), [visibleSegments]);
   const filteredElementRecords = useMemo(() => filterMapElementRecords(mapElementRecords, elementSearch, 30, elementSort), [elementSearch, elementSort, mapElementRecords]);
   const selectedElement = useMemo(() => findMapElementRecord(mapElementRecords, selectedElementKey), [mapElementRecords, selectedElementKey]);
+  const applyElementHover = useCallback((key: string | null) => {
+    elementOverlayMetaRef.current.forEach((meta, overlayKey) => {
+      const isHovered = overlayKey === key;
+      meta.lines.forEach((line) => line.setOptions(getMapElementHighlightStyle(isHovered, meta.baseColor ?? "#2563eb")));
+      if (meta.marker && meta.baseIcon) {
+        meta.marker.setIcon(isHovered ? {
+          ...meta.baseIcon,
+          scale: (meta.baseIcon.scale ?? 6) + 3,
+          fillColor: "#f59e0b",
+          strokeColor: "#92400e",
+          strokeWeight: 2.5,
+        } : meta.baseIcon);
+        meta.marker.setZIndex(isHovered ? 120 : 1);
+      }
+    });
+  }, []);
+  const setElementHover = useCallback((key: string | null) => {
+    hoveredElementKeyRef.current = key;
+    setHoveredElementKey(key);
+    applyElementHover(key);
+  }, [applyElementHover]);
   const focusElement = useCallback((record: MapElementRecord) => {
     setSelectedElementKey(record.key);
     setSegmentVisibility((current) => ({ ...current, [record.segmentId]: true }));
@@ -200,6 +225,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
     segmentLinesRef.current = [];
     segmentMarkersRef.current.forEach((marker) => { try { marker.setMap(null); } catch {} });
     segmentMarkersRef.current = [];
+    elementOverlayMetaRef.current.clear();
     const geocoder = new g.Geocoder();
     const bounds = new g.LatLngBounds();
     let geocodedCount = 0;
@@ -251,6 +277,10 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                 </div>`,
               });
               const line = new g.Polyline({ map, path, geodesic: true, strokeColor, strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
+              const lineMeta = elementOverlayMetaRef.current.get(featureKey) ?? { lines: [], baseColor: strokeColor };
+              lineMeta.lines.push(line);
+              lineMeta.baseColor = strokeColor;
+              elementOverlayMetaRef.current.set(featureKey, lineMeta);
               line.addListener("click", () => {
                 setSelectedElementKey(featureKey);
                 map.panTo(path[Math.floor(path.length / 2)]);
@@ -278,12 +308,14 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                 </div>`,
               });
               const pointStyle = getImportedPointStyle(featName);
+              const baseIcon: google.maps.Symbol = { path: g.SymbolPath.CIRCLE, scale: pointStyle.scale, fillColor: pointStyle.fillColor, fillOpacity: 0.95, strokeColor: pointStyle.strokeColor, strokeWeight: 1.5 };
               const marker = new g.Marker({
                 map,
                 position,
                 title: featName,
-                icon: { path: g.SymbolPath.CIRCLE, scale: pointStyle.scale, fillColor: pointStyle.fillColor, fillOpacity: 0.95, strokeColor: pointStyle.strokeColor, strokeWeight: 1.5 },
+                icon: baseIcon,
               });
+              elementOverlayMetaRef.current.set(featureKey, { lines: [], marker, baseIcon });
               marker.addListener("click", () => {
                 setSelectedElementKey(featureKey);
                 map.panTo(position);
@@ -371,6 +403,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
       });
     };
 
+    applyElementHover(hoveredElementKeyRef.current);
     renderSegmentMarkers(map.getZoom() ?? 4);
     zoomListenerRef.current = map.addListener("zoom_changed", () => renderSegmentMarkers(map.getZoom() ?? 4));
 
@@ -456,7 +489,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
         });
       }, i * 150);
     });
-  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers]);
+  }, [locations, visibleSegments, onNavigate, segmentColors, getSegmentTypeKey, getSegmentExtensionKm, contractNumbers, applyElementHover]);
 
 
 
@@ -601,7 +634,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                 {filteredElementRecords.length === 0 ? <p className="rounded-md bg-gray-50 px-2 py-2 text-[10px] text-gray-500">Nenhum elemento encontrado.</p> : filteredElementRecords.slice(0, 8).map((record) => {
                   const pointStyle = record.geometryType === "Point" ? getImportedPointStyle(record.elementName) : null;
                   const accent = pointStyle?.fillColor ?? "#2563eb";
-                  return <button key={record.key} type="button" onClick={() => focusElement(record)} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? "bg-blue-50 ring-1 ring-blue-200" : "bg-gray-50 hover:bg-gray-100"}`}>
+                  return <button key={record.key} type="button" onClick={() => focusElement(record)} onMouseEnter={() => setElementHover(record.key)} onMouseLeave={() => setElementHover(null)} onFocus={() => setElementHover(record.key)} onBlur={() => setElementHover(null)} data-map-element-key={record.key} className={`w-full rounded-md px-2 py-1.5 text-left transition-colors ${selectedElementKey === record.key ? "bg-blue-50 ring-1 ring-blue-200" : hoveredElementKey === record.key ? "bg-amber-50 ring-1 ring-amber-200" : "bg-gray-50 hover:bg-gray-100"}`}>
                     <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} /><span className="min-w-0 flex-1 truncate text-[11px] font-medium text-gray-700">{record.elementName}</span><span className="text-[9px] uppercase text-gray-400">{record.geometryType === "Point" ? "ponto" : "trecho"}</span></span>
                     <span className="mt-0.5 block truncate pl-4 text-[10px] text-gray-400">{record.description || record.crsName}</span>
                   </button>;

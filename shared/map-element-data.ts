@@ -95,6 +95,15 @@ export function filterMapElementRecords(records: MapElementRecord[], query: stri
   }).slice(0, limit);
 }
 
+export function getMapElementHighlightStyle(isHovered: boolean, baseColor: string): { strokeColor: string; strokeOpacity: number; strokeWeight: number; zIndex: number } {
+  return {
+    strokeColor: isHovered ? "#f59e0b" : baseColor,
+    strokeOpacity: isHovered ? 1 : 0.9,
+    strokeWeight: isHovered ? 8 : 4,
+    zIndex: isHovered ? 120 : 1,
+  };
+}
+
 export function escapeCsvCell(value: unknown): string {
   const text = value == null ? "" : String(value);
   return /[",\n\r;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
