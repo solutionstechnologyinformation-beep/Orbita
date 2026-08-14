@@ -165,3 +165,26 @@ describe("companies multi-tenant", () => {
     ).rejects.toThrow();
   });
 });
+
+
+describe("company admin isolation", () => {
+  it("rejects regular users before loading company data", async () => {
+    const ctx = makeCtx({ user: { ...makeCtx().user!, role: "user", companyId: 10 } });
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.companyAdmin.dashboard()).rejects.toThrow("Apenas administradores da empresa");
+  });
+
+  it("rejects company admins without a company binding", async () => {
+    const ctx = makeCtx({ user: { ...makeCtx().user!, role: "company_admin", companyId: null } });
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.companyAdmin.dashboard()).rejects.toThrow("não está vinculado");
+  });
+});
+
+
+describe("notification preference validation", () => {
+  it("rejects notification types outside the supported contract", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.notificationPreferences.updateType({ notificationType: "unknown" as never, enabled: true })).rejects.toThrow();
+  });
+});

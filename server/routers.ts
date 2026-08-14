@@ -16,9 +16,9 @@ import {
   getChecklistItemComments, createChecklistItemComment,
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
-  notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, getDeadlineAlertDays, updateDeadlineAlertDays,
+  notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
-  getCompanies, createCompany, updateCompany, deleteCompany,
+  getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, deleteCompany,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
@@ -68,8 +68,28 @@ const leaderProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
-async function deleteUserWithAdminGuards(actorId: number, targetUserId: number) {
-  const allUsers = await getProjectMembers();
+const companyAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "company_admin" && ctx.user.role !== "admin" && ctx.user.role !== "master_admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores da empresa podem realizar esta ação." });
+  }
+  if (ctx.user.role === "company_admin" && ctx.user.companyId == null) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "O usuário administrador não está vinculado a uma empresa." });
+  }
+  return next({ ctx });
+});
+
+function tenantCompanyId(user: { role: string; companyId?: number | null }) {
+  return user.role === "master_admin" || user.role === "admin" ? user.companyId ?? undefined : user.companyId;
+}
+
+async function requireTenantCrs(user: { role: string; companyId?: number | null }, crsId: number) {
+  const project = await getCrsById(crsId, tenantCompanyId(user));
+  if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Contrato não encontrado no escopo da empresa." });
+  return project;
+}
+
+async function deleteUserWithAdminGuards(actorId: number, targetUserId: number, companyId?: number | null) {
+  const allUsers = await getProjectMembers(companyId);
   const targetUser = allUsers.find((u: any) => u.id === targetUserId);
   if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado." });
   assertCanDeleteUser(actorId, targetUserId, targetUser.role);
@@ -91,7 +111,7 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, getSessionCookieOptions(ctx.req));
       return { success: true };
     }),
-    projectMembers: protectedProcedure.query(async () => getProjectMembers()),
+    projectMembers: protectedProcedure.query(async ({ ctx }) => getProjectMembers(tenantCompanyId(ctx.user))),
     updateProfile: protectedProcedure
       .input(z.object({ name: z.string().optional(), company: z.string().trim().max(256).optional(), avatarUrl: z.string().optional(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
       .mutation(async ({ ctx, input }) => {
@@ -111,8 +131,10 @@ export const appRouter = router({
       }),
     updateUserAvatar: adminProcedure
       .input(z.object({ userId: z.number(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const { userId, ...data } = input;
+        const target = (await getProjectMembers(tenantCompanyId(ctx.user))).find((member: any) => member.id === userId);
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário fora do escopo da empresa." });
         await updateUser(userId, data);
         return { success: true };
       }),
@@ -126,12 +148,14 @@ export const appRouter = router({
   }),
   // ─── Users ────────────────────────────────────────────────────────────────────────
   users: router({
-    list: protectedProcedure.query(async () => {
-      return getProjectMembers();
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return getProjectMembers(tenantCompanyId(ctx.user));
     }),
     updateRole: adminProcedure
       .input(z.object({ userId: z.number(), role: z.enum(["user", "admin", "leader"]) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const target = (await getProjectMembers(tenantCompanyId(ctx.user))).find((member: any) => member.id === input.userId);
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário fora do escopo da empresa." });
         await updateUser(input.userId, { role: input.role as any });
         return { success: true };
       }),
@@ -157,8 +181,8 @@ export const appRouter = router({
         const initials = input.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
         const [result] = await db.execute(
-          sql`INSERT INTO users (openId, name, email, loginMethod, role, company, passwordHash, avatarInitials, createdAt, updatedAt, lastSignedIn)
-              VALUES (${openId}, ${input.name}, ${input.email}, 'local', ${input.role}, ${input.company ?? null}, ${passwordHash}, ${initials}, NOW(), NOW(), NOW())`
+          sql`INSERT INTO users (openId, name, email, loginMethod, role, company, companyId, passwordHash, avatarInitials, createdAt, updatedAt, lastSignedIn)
+              VALUES (${openId}, ${input.name}, ${input.email}, 'local', ${input.role}, ${input.company ?? null}, ${ctx.user.companyId ?? null}, ${passwordHash}, ${initials}, NOW(), NOW(), NOW())`
         );
         const newUserId = (result as any).insertId as number;
         await logActivity({ userId: ctx.user.id, action: "created_user_local", entityType: "user", entityId: newUserId, metadata: JSON.stringify({ email: input.email, role: input.role }) });
@@ -185,7 +209,7 @@ export const appRouter = router({
       }),
     delete: adminProcedure
       .input(z.object({ userId: z.number() }))
-      .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId)),
+      .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId, tenantCompanyId(ctx.user))),
     memberPerformance: protectedProcedure
       .input(z.object({ crsId: z.number().optional() }))
       .query(async ({ input }) => {
@@ -195,10 +219,58 @@ export const appRouter = router({
   admin: router({
     deleteUser: adminProcedure
       .input(z.object({ userId: z.number() }))
-      .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId)),
+      .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId, tenantCompanyId(ctx.user))),
+  }),
+  companyAdmin: router({
+    dashboard: companyAdminProcedure.query(async ({ ctx }) => {
+      const companyId = ctx.user.companyId;
+      if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "Empresa não definida." });
+      const data = await getCompanyAdminDashboard(companyId);
+      if (!data) throw new TRPCError({ code: "NOT_FOUND", message: "Empresa não encontrada." });
+      return data;
+    }),
+    createUser: companyAdminProcedure
+      .input(z.object({ name: z.string().trim().min(1).max(256), email: z.string().trim().email(), password: z.string().min(6).max(128), role: z.enum(["user", "leader", "company_admin"]).default("user") }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        const db = await getDb();
+        const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
+        if (existing.length > 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail." });
+        const { scryptSync, randomBytes } = await import("crypto");
+        const salt = randomBytes(16).toString("hex");
+        const passwordHash = `scrypt$${salt}$${scryptSync(input.password, salt, 64).toString("hex")}`;
+        const id = await createCompanyLocalUser({ companyId, name: input.name, email: input.email, passwordHash, role: input.role, companyName: ctx.user.company ?? undefined });
+        await logActivity({ userId: ctx.user.id, action: "created_company_user", entityType: "user", entityId: id, metadata: JSON.stringify({ email: input.email, role: input.role }) });
+        return { id };
+      }),
+    updateUserRole: companyAdminProcedure
+      .input(z.object({ userId: z.number(), role: z.enum(["user", "leader", "company_admin"]) }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        if (input.userId === ctx.user.id && input.role !== "company_admin") throw new TRPCError({ code: "BAD_REQUEST", message: "O administrador atual precisa permanecer administrador da empresa." });
+        await updateCompanyMemberRole(companyId, input.userId, input.role);
+        return { success: true };
+      }),
+    archiveProject: companyAdminProcedure
+      .input(z.object({ crsId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        await archiveCompanyProject(companyId, input.crsId);
+        return { success: true };
+      }),
   }),
   companies: router({
-    list: protectedProcedure.query(async () => getCompanies()),
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const companyId = tenantCompanyId(ctx.user);
+      if (companyId != null) {
+        const company = await getCompanyById(companyId);
+        return company ? [company] : [];
+      }
+      return getCompanies();
+    }),
     create: adminProcedure
       .input(z.object({ name: z.string().min(1), slug: z.string().min(1), color: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
@@ -264,14 +336,14 @@ export const appRouter = router({
   crs: router({
     list: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
-      .query(async ({ input }) => getAllCrs(input?.company, input?.clientId)),
+      .query(async ({ ctx, input }) => getAllCrs(input?.company, input?.clientId, tenantCompanyId(ctx.user))),
     listByClient: protectedProcedure
       .input(z.object({ clientId: z.number() }))
-      .query(async ({ input }) => getCrsByClient(input.clientId)),
+      .query(async ({ ctx, input }) => getCrsByClient(input.clientId, tenantCompanyId(ctx.user))),
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        const c = await getCrsById(input.id);
+      .query(async ({ ctx, input }) => {
+        const c = await getCrsById(input.id, tenantCompanyId(ctx.user));
         if (!c) throw new TRPCError({ code: "NOT_FOUND" });
         const dateRange = await getCrsDateRange(input.id);
         return { ...c, derivedStartDate: dateRange.startDate, derivedEndDate: dateRange.endDate };
@@ -294,7 +366,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const techDataByTypeStr = input.techDataByType ? JSON.stringify(input.techDataByType) : undefined;
-        const id = await createCrs({ ...input, tipoObra: input.tipoObra ? JSON.stringify(input.tipoObra) : undefined, techDataByType: techDataByTypeStr, createdById: ctx.user.id });
+        const id = await createCrs({ ...input, companyId: ctx.user.companyId, tipoObra: input.tipoObra ? JSON.stringify(input.tipoObra) : undefined, techDataByType: techDataByTypeStr, createdById: ctx.user.id });
         await logActivity({ userId: ctx.user.id, action: "created_crs", entityType: "crs", entityId: id });
         return { id };
       }),
@@ -315,28 +387,32 @@ export const appRouter = router({
         perimetroUrbano: z.number().int().nullable().optional(),
         techDataByType: z.record(z.string(), z.object({ extensaoKm: z.number().nullable().optional(), areaHa: z.number().nullable().optional() })).nullable().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
+        await requireTenantCrs(ctx.user, id);
         const techDataByTypeStr = data.techDataByType != null ? JSON.stringify(data.techDataByType) : data.techDataByType;
         await updateCrs(id, { ...data, tipoObra: data.tipoObra != null ? JSON.stringify(data.tipoObra) : data.tipoObra, techDataByType: techDataByTypeStr });
         return { success: true };
       }),
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        await requireTenantCrs(ctx.user, input.id);
         await deleteCrs(input.id);
         return { success: true };
       }),
-    listArchived: protectedProcedure.query(async () => getArchivedCrs()),
+    listArchived: protectedProcedure.query(async ({ ctx }) => getArchivedCrs(tenantCompanyId(ctx.user))),
     archive: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        await requireTenantCrs(ctx.user, input.id);
         await updateCrs(input.id, { status: "archived" });
         return { success: true };
       }),
     restore: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        await requireTenantCrs(ctx.user, input.id);
         await updateCrs(input.id, { status: "active" });
         return { success: true };
       }),
@@ -344,7 +420,7 @@ export const appRouter = router({
     segments: router({
       list: protectedProcedure
         .input(z.object({ crsId: z.number().optional(), clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
-        .query(async ({ input }) => getCrsSegments(input?.crsId, input?.company, input?.clientId)),
+        .query(async ({ ctx, input }) => getCrsSegments(input?.crsId, input?.company, input?.clientId, tenantCompanyId(ctx.user))),
       upload: adminProcedure
         .input(z.object({
           crsId: z.number(),
@@ -356,6 +432,7 @@ export const appRouter = router({
           boundsJson: z.string().max(10_000).optional(),
         }))
         .mutation(async ({ ctx, input }) => {
+          await requireTenantCrs(ctx.user, input.crsId);
           const extension = input.fileName.toLowerCase().split(".").pop();
           if (extension !== "kmz" && extension !== "kml") {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Envie um arquivo .KMZ ou .KML." });
@@ -387,7 +464,8 @@ export const appRouter = router({
         }),
       delete: adminProcedure
         .input(z.object({ id: z.number(), crsId: z.number() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          await requireTenantCrs(ctx.user, input.crsId);
           await deleteCrsSegment(input.id, input.crsId);
           return { success: true };
         }),
@@ -416,7 +494,7 @@ export const appRouter = router({
   kanbanPhases: router({
     list: protectedProcedure
       .input(z.object({ crsId: z.number() }))
-      .query(async ({ input }) => getPhasesByCrs(input.crsId)),
+      .query(async ({ ctx, input }) => getPhasesByCrs(input.crsId, tenantCompanyId(ctx.user))),
     create: adminProcedure
       .input(z.object({ crsId: z.number(), name: z.string().min(1), color: z.string().optional(), position: z.number().optional(), isTerminal: z.boolean().optional() }))
       .mutation(async ({ ctx, input }) => {
@@ -450,8 +528,8 @@ export const appRouter = router({
   tasks: router({
     summarizePdfAttachment: protectedProcedure
       .input(z.object({ taskId: z.number().int().positive(), attachmentId: z.number().int().positive() }))
-      .mutation(async ({ input }) => {
-        const task = await getTaskById(input.taskId);
+      .mutation(async ({ ctx, input }) => {
+        const task = await getTaskById(input.taskId, tenantCompanyId(ctx.user));
         const attachment = (task as any)?.attachments?.find((item: any) => item.id === input.attachmentId);
         if (!attachment) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Anexo não encontrado para esta tarefa." });
@@ -474,7 +552,7 @@ export const appRouter = router({
         setor: z.string().optional(),
         assigneeId: z.number().optional(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
         const { tasks: t, crs: c, users: u, kanbanPhases: kp, clients: cl } = await import('../drizzle/schema');
         const { eq: eq2, and: and2, like: like2 } = await import('drizzle-orm');
         const db = await getDb();
@@ -482,6 +560,8 @@ export const appRouter = router({
         if (input.crsId) conditions.push(eq2(t.crsId, input.crsId));
         if (input.assigneeId) conditions.push(eq2(t.assigneeId, input.assigneeId));
         if (input.setor) conditions.push(eq2(t.setor, input.setor));
+        const companyId = tenantCompanyId(ctx.user);
+        if (companyId != null) conditions.push(eq2(c.companyId, companyId));
         const rows = await db.select({
           id: t.id, crsId: t.crsId, phaseId: t.phaseId,
           title: t.title, priority: t.priority,
@@ -520,14 +600,14 @@ export const appRouter = router({
         assigneeId: z.number().optional(),
         search: z.string().optional(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
         const { crsId, ...filters } = input;
-        return getTasksByCrs(crsId, filters);
+        return getTasksByCrs(crsId, filters, tenantCompanyId(ctx.user));
       }),
     listByCrsWithChecklist: protectedProcedure
       .input(z.object({ crsId: z.number() }))
-      .query(async ({ input }) => {
-        const taskList = await getTasksByCrs(input.crsId);
+      .query(async ({ ctx, input }) => {
+        const taskList = await getTasksByCrs(input.crsId, undefined, tenantCompanyId(ctx.user));
         const enriched = await Promise.all(
           taskList.map(async (t: (typeof taskList)[number]) => {
             const checklistItems = await getChecklistItems(t.id);
@@ -536,22 +616,25 @@ export const appRouter = router({
         );
         return enriched;
       }),
-    listBlocked: protectedProcedure.query(async () => {
+    listBlocked: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
+      const companyId = tenantCompanyId(ctx.user);
+      const companyFilter = companyId != null ? `AND c.companyId = ${Number(companyId)}` : "";
       const [rows] = await (db as any).$client.query(`
         SELECT t.id, t.title, t.priority, t.blockReason, t.statusChangedAt,
           t.dueDate, t.crsId, t.assigneeId, u.name as assigneeName, u.company as assigneeCompany, c.name as projectName
         FROM tasks t
         LEFT JOIN users u ON u.id = t.assigneeId
         LEFT JOIN crs c ON c.id = t.crsId
-        WHERE t.status = 'blocked'
+        WHERE t.status = 'blocked' ${companyFilter}
         ORDER BY t.statusChangedAt DESC
       `);
       return rows as any[];
     }),
-    listWithCounts: protectedProcedure.query(async () => {
+    listWithCounts: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
-      const allCrs = await getAllCrs();
+      const companyId = tenantCompanyId(ctx.user);
+      const allCrs = await getAllCrs(undefined, undefined, companyId);
       // Use kanban phase terminal flag to determine completion (not legacy status field)
       const [countRows] = await (db as any).$client.query(`
         SELECT t.crsId,
@@ -563,6 +646,8 @@ export const appRouter = router({
           SUM(CASE WHEN t.status = 'shared' THEN 1 ELSE 0 END) as shared
         FROM tasks t
         LEFT JOIN kanban_phases kp ON kp.id = t.phaseId
+        LEFT JOIN crs c ON c.id = t.crsId
+        ${companyId != null ? `WHERE c.companyId = ${Number(companyId)}` : ""}
         GROUP BY t.crsId
       `);
       const countMap = Object.fromEntries((countRows as any[]).map((r: any) => [r.crsId, {
@@ -574,8 +659,8 @@ export const appRouter = router({
     }),
     get: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        const task = await getTaskById(input.id);
+      .query(async ({ ctx, input }) => {
+        const task = await getTaskById(input.id, tenantCompanyId(ctx.user));
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         const comments = await getTaskComments(input.id);
         const checklist = await getChecklistItems(input.id);
@@ -639,7 +724,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
-        const task = await getTaskById(id);
+        const task = await getTaskById(id, tenantCompanyId(ctx.user));
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         // Record phase change history
         if (data.phaseId !== undefined && data.phaseId !== task.phaseId) {
@@ -702,7 +787,7 @@ export const appRouter = router({
     movePhase: protectedProcedure
       .input(z.object({ id: z.number(), phaseId: z.number(), position: z.number().optional(), blockReason: z.string().trim().min(1).optional() }))
       .mutation(async ({ ctx, input }) => {
-        const task = await getTaskById(input.id);
+        const task = await getTaskById(input.id, tenantCompanyId(ctx.user));
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         let targetPhaseName = "";
         if (input.phaseId !== task.phaseId) {
@@ -750,7 +835,7 @@ export const appRouter = router({
         const id = await createTaskComment({ taskId: input.taskId, userId: ctx.user.id, content: input.content });
         // Detect @mentions in comment content (e.g., @Nome)
         try {
-          const task = await getTaskById(input.taskId);
+          const task = await getTaskById(input.taskId, tenantCompanyId(ctx.user));
           const commenterName = ctx.user.name ?? ctx.user.email ?? "Alguém";
           // Notify task assignee about new comment (if not the commenter)
           if (task?.assigneeId && task.assigneeId !== ctx.user.id) {
@@ -765,7 +850,7 @@ export const appRouter = router({
           // Detect @mentions: find @word patterns and match to user names
           const mentions = input.content.match(/@(\w+)/g);
           if (mentions && mentions.length > 0) {
-            const allUsers = await getProjectMembers();
+            const allUsers = await getProjectMembers(tenantCompanyId(ctx.user));
             for (const mention of mentions) {
               const mentionName = mention.slice(1).toLowerCase();
               const mentionedUser = allUsers.find((u: any) =>
@@ -795,7 +880,7 @@ export const appRouter = router({
     duplicate: protectedProcedure
       .input(z.object({ id: z.number(), targetCrsId: z.number().optional(), targetPhaseId: z.number().optional() }))
       .mutation(async ({ ctx, input }) => {
-        const sourceTask = await getTaskById(input.id);
+        const sourceTask = await getTaskById(input.id, tenantCompanyId(ctx.user));
         if (!sourceTask) throw new TRPCError({ code: "NOT_FOUND" });
         
         // Create new task with same properties
@@ -988,23 +1073,23 @@ export const appRouter = router({
   crs_discipline: router({
     progress: protectedProcedure
       .input(z.object({ crsId: z.number() }))
-      .query(async ({ input }) => getCrsDisciplineProgress(input.crsId)),
+      .query(async ({ ctx, input }) => getCrsDisciplineProgress(input.crsId, tenantCompanyId(ctx.user))),
   }),
   // ─── Dashboard ────────────────────────────────────────────────────────────────────────
   dashboard: router({
     stats: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }))
-      .query(async ({ input }) => getDashboardStats(input.clientId, input.company)),
-    worldMap: protectedProcedure.query(async () => getWorldMapData()),
-    weekDeliveries: protectedProcedure.query(async () => getWeekDeliveries()),
+      .query(async ({ ctx, input }) => getDashboardStats(input.clientId, input.company, tenantCompanyId(ctx.user))),
+    worldMap: protectedProcedure.query(async ({ ctx }) => getWorldMapData(tenantCompanyId(ctx.user))),
+    weekDeliveries: protectedProcedure.query(async ({ ctx }) => getWeekDeliveries(tenantCompanyId(ctx.user))),
     myTasks: protectedProcedure.query(async ({ ctx }) => getMyTasks(ctx.user.id)),
     completedTasksSummary: protectedProcedure
       .input(z.object({ limit: z.number().min(1).max(200).optional() }).optional())
       .query(async ({ input }) => getCompletedTasksSummary(input?.limit ?? 100)),
-    companies: protectedProcedure.query(async () => getDashboardCompanies()),
+    companies: protectedProcedure.query(async ({ ctx }) => getDashboardCompanies(tenantCompanyId(ctx.user))),
     clientProgress: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
-      .query(async ({ input }) => getClientProgress(input?.company, input?.clientId)),
+      .query(async ({ ctx, input }) => getClientProgress(input?.company, input?.clientId, tenantCompanyId(ctx.user))),
     yearlyStats: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }))
       .query(async ({ input }) => getYearlyStats(input.clientId)),
@@ -1180,7 +1265,7 @@ export const appRouter = router({
     }),
     contractsByState: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
-      .query(async ({ input }) => getContractsByState(input?.company, input?.clientId)),
+      .query(async ({ ctx, input }) => getContractsByState(input?.company, input?.clientId, tenantCompanyId(ctx.user))),
     // ── SLA / Pontualidade ──────────────────────────────────────────────────
     slaStats: protectedProcedure
       .input(z.object({ period: z.enum(["month", "quarter", "year"]).default("month") }).optional())
@@ -1383,6 +1468,9 @@ export const appRouter = router({
 
   notificationPreferences: router({
     list: protectedProcedure.query(async ({ ctx }) => getNotificationPreferences(ctx.user.id)),
+    updateType: protectedProcedure
+      .input(z.object({ notificationType: z.enum(["task_assigned", "task_due", "phase_change", "vacation_conflict", "system_alerts"]), enabled: z.boolean() }))
+      .mutation(async ({ ctx, input }) => updateNotificationTypePreference(ctx.user.id, input.notificationType, input.enabled)),
     deadlineAlertDays: protectedProcedure.query(async ({ ctx }) => ({ days: await getDeadlineAlertDays(ctx.user.id) })),
     updateDeadlineAlertDays: protectedProcedure
       .input(z.object({ days: z.union([z.literal(1), z.literal(3), z.literal(7)]) }))
@@ -1464,18 +1552,19 @@ export const appRouter = router({
     // Coleta dados reais do sistema para usar como contexto da IA
     getContext: protectedProcedure
       .input(z.object({ crsId: z.number().optional() }))
-      .query(async ({ input }) => {
-        const stats = await getDashboardStats();
-        const members = await getMemberPerformance(input.crsId);
-        const clientProgress = await getClientProgress();
+      .query(async ({ ctx, input }) => {
+        const companyId = tenantCompanyId(ctx.user);
+        const stats = await getDashboardStats(undefined, undefined, companyId);
+        const members = await getMemberPerformance(input.crsId, companyId);
+        const clientProgress = await getClientProgress(undefined, undefined, companyId);
         let disciplineProgress: any[] = [];
         let crsInfo: any = null;
         let tasks: any[] = [];
         if (input.crsId) {
-          disciplineProgress = await getCrsDisciplineProgress(input.crsId);
-          const allCrs = await getAllCrs();
+          disciplineProgress = await getCrsDisciplineProgress(input.crsId, companyId);
+          const allCrs = await getAllCrs(undefined, undefined, companyId);
           crsInfo = allCrs.find((c: any) => c.id === input.crsId) ?? null;
-          tasks = await getTasksByCrs(input.crsId);
+          tasks = await getTasksByCrs(input.crsId, undefined, companyId);
         }
         return { stats, members, clientProgress, disciplineProgress, crsInfo, tasks };
       }),

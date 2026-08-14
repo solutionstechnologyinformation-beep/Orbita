@@ -13,6 +13,7 @@ import TaskDetail from "./pages/TaskDetail";
 import Notifications from "./pages/Notifications";
 import AIChat from "./pages/AIChat";
 import Admin from "./pages/Admin";
+import CompanyAdmin from "./pages/CompanyAdmin";
 import Profile from "./pages/Profile";
 import Roles from "./pages/Roles";
 import NotificationPreferences from "./pages/NotificationPreferences";
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/assinatura" component={SubscriptionPortal} />
       <Route path="/manual" component={UserManual} />
       <Route path="/admin" component={Admin} />
+      <Route path="/company-admin" component={CompanyAdmin} />
       <Route path="/profile" component={Profile} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

@@ -30,6 +30,41 @@ export async function getCompanies() {
   const db = await getDb();
   return db.select().from(companies).orderBy(asc(companies.name));
 }
+export async function getCompanyById(id: number) {
+  const db = await getDb();
+  const rows = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function getCompanyAdminDashboard(companyId: number) {
+  const company = await getCompanyById(companyId);
+  if (!company) return null;
+  const [members, projects] = await Promise.all([
+    getProjectMembers(companyId),
+    getAllCrs(undefined, undefined, companyId),
+  ]);
+  return { company, members, projects };
+}
+
+export async function updateCompanyMemberRole(companyId: number, userId: number, role: "user" | "leader" | "company_admin") {
+  const db = await getDb();
+  await db.update(users).set({ role, updatedAt: new Date() }).where(and(eq(users.id, userId), eq(users.companyId, companyId)));
+}
+
+export async function archiveCompanyProject(companyId: number, crsId: number) {
+  const db = await getDb();
+  await db.update(crs).set({ status: "archived", updatedAt: new Date() }).where(and(eq(crs.id, crsId), eq(crs.companyId, companyId)));
+}
+
+export async function createCompanyLocalUser(data: { companyId: number; name: string; email: string; passwordHash: string; role: "user" | "leader" | "company_admin"; companyName?: string | null }) {
+  const db = await getDb();
+  const openId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const initials = data.name.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase();
+  const [result] = await db.execute(sql`INSERT INTO users (openId, name, email, loginMethod, role, company, companyId, passwordHash, avatarInitials, createdAt, updatedAt, lastSignedIn, lastSeenAt)
+    VALUES (${openId}, ${data.name}, ${data.email}, 'local', ${data.role}, ${data.companyName ?? null}, ${data.companyId}, ${data.passwordHash}, ${initials}, NOW(), NOW(), NOW(), NOW())`);
+  return Number((result as any).insertId);
+}
+
 export async function createCompany(data: { name: string; slug: string; color?: string }) {
   const db = await getDb();
   const [result] = await db.insert(companies).values({
@@ -136,15 +171,18 @@ export async function deleteClient(id: number) {
 }
 
 // ─── CRS ───────────────────────────────────────────────────────────────────────
-export async function getCrsByClient(clientId: number) {
+export async function getCrsByClient(clientId: number, companyId?: number | null) {
   const db = await getDb();
-  return db.select().from(crs).where(and(eq(crs.clientId, clientId), eq(crs.status, "active"))).orderBy(asc(crs.name));
+  const conditions: any[] = [eq(crs.clientId, clientId), eq(crs.status, "active")];
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
+  return db.select().from(crs).where(and(...conditions)).orderBy(asc(crs.name));
 }
-export async function getAllCrs(company?: string, clientId?: number) {
+export async function getAllCrs(company?: string, clientId?: number, companyId?: number | null) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const conditions: any[] = [eq(crs.status, "active")];
   if (clientId != null) conditions.push(eq(crs.clientId, clientId));
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
   if (normalizedCompany) {
     const assignedRows = await db.select({ crsId: tasks.crsId })
       .from(tasks)
@@ -157,7 +195,7 @@ export async function getAllCrs(company?: string, clientId?: number) {
     conditions.push(inArray(crs.id, companyCrsIds));
   }
   return db.select({
-    id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
+    id: crs.id, clientId: crs.clientId, companyId: crs.companyId, name: crs.name, code: crs.code,
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
     state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
     tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
@@ -166,12 +204,13 @@ export async function getAllCrs(company?: string, clientId?: number) {
     clientName: clients.name, clientColor: clients.color,
   }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(and(...conditions)).orderBy(asc(crs.name));
 }
-export async function getCrsSegments(crsId?: number, company?: string, clientId?: number) {
+export async function getCrsSegments(crsId?: number, company?: string, clientId?: number, companyId?: number | null) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const conditions: any[] = [];
   if (crsId != null) conditions.push(eq(crsSegments.crsId, crsId));
   if (clientId != null) conditions.push(eq(crs.clientId, clientId));
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
   if (normalizedCompany) {
     const assignedRows = await db.select({ crsId: tasks.crsId })
       .from(tasks)
@@ -220,18 +259,33 @@ export async function createCrsSegment(data: {
   return Number((result as any).insertId);
 }
 
-export async function getProjectMembers() {
+export async function getProjectMembers(companyId?: number | null) {
   const db = await getDb();
-  const rows = await db.select({
+  const query = db.select({
     id: users.id,
     name: users.name,
     email: users.email,
     role: users.role,
     company: users.company,
+    companyId: users.companyId,
     avatarUrl: users.avatarUrl,
+    avatarColor: users.avatarColor,
+    avatarInitials: users.avatarInitials,
+    createdAt: users.createdAt,
     lastSeenAt: users.lastSeenAt,
   }).from(users);
-  return rows;
+
+  const userRows = companyId != null
+    ? await query.where(eq(users.companyId, companyId)).orderBy(asc(users.name))
+    : await query.orderBy(asc(users.name));
+
+  const allDiscs = await db.select({ userId: userDisciplines.userId, disciplineName: userDisciplines.disciplineName }).from(userDisciplines);
+  const discByUser = new Map<number, string[]>();
+  for (const d of allDiscs) {
+    if (!discByUser.has(d.userId)) discByUser.set(d.userId, []);
+    discByUser.get(d.userId)!.push(d.disciplineName);
+  }
+  return userRows.map((u: typeof userRows[number]) => ({ ...u, disciplines: discByUser.get(u.id) ?? [] }));
 }
 
 export async function deleteCrsSegment(id: number, crsId: number) {
@@ -239,32 +293,32 @@ export async function deleteCrsSegment(id: number, crsId: number) {
   await db.delete(crsSegments).where(and(eq(crsSegments.id, id), eq(crsSegments.crsId, crsId)));
 }
 
-export async function getArchivedCrs() {
+export async function getArchivedCrs(companyId?: number | null) {
   const db = await getDb();
   return db.select({
     id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
     description: crs.description, country: crs.country, status: crs.status,
     clientName: clients.name, clientColor: clients.color,
-  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.status, 'archived')).orderBy(asc(crs.name));
+  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(and(eq(crs.status, 'archived'), ...(companyId != null ? [eq(crs.companyId, companyId)] : []))).orderBy(asc(crs.name));
 }
-export async function getCrsById(id: number) {
+export async function getCrsById(id: number, companyId?: number | null) {
   const db = await getDb();
   const r = await db.select({
-    id: crs.id, clientId: crs.clientId, name: crs.name, code: crs.code,
+    id: crs.id, clientId: crs.clientId, companyId: crs.companyId, name: crs.name, code: crs.code,
     description: crs.description, country: crs.country, countryCode: crs.countryCode,
     state: crs.state, stateCode: crs.stateCode, status: crs.status, progress: crs.progress,
     tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
     techDataByType: crs.techDataByType,
     createdById: crs.createdById, createdAt: crs.createdAt, updatedAt: crs.updatedAt,
     clientName: clients.name, clientColor: clients.color,
-  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(eq(crs.id, id)).limit(1);
+  }).from(crs).leftJoin(clients, eq(crs.clientId, clients.id)).where(and(eq(crs.id, id), ...(companyId != null ? [eq(crs.companyId, companyId)] : []))).limit(1);
   return r[0];
 }
-export async function createCrs(data: { clientId: number; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; tipoObra?: string; extensaoKm?: number; areaHa?: number; perimetroUrbano?: number; techDataByType?: string; createdById: number }) {
+export async function createCrs(data: { clientId: number; companyId?: number | null; name: string; code?: string; description?: string; country?: string; countryCode?: string; state?: string; stateCode?: string; tipoObra?: string; extensaoKm?: number; areaHa?: number; perimetroUrbano?: number; techDataByType?: string; createdById: number }) {
   const db = await getDb();
   const [result] = await db.execute(
-    sql`INSERT INTO crs (clientId, name, code, description, country, countryCode, state, stateCode, tipoObra, extensaoKm, areaHa, perimetroUrbano, techDataByType, status, progress, createdById, createdAt, updatedAt)
-        VALUES (${data.clientId}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, ${data.tipoObra ?? null}, ${data.extensaoKm ?? null}, ${data.areaHa ?? null}, ${data.perimetroUrbano ?? null}, ${data.techDataByType ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
+    sql`INSERT INTO crs (clientId, companyId, name, code, description, country, countryCode, state, stateCode, tipoObra, extensaoKm, areaHa, perimetroUrbano, techDataByType, status, progress, createdById, createdAt, updatedAt)
+        VALUES (${data.clientId}, ${data.companyId ?? null}, ${data.name}, ${data.code ?? null}, ${data.description ?? null}, ${data.country ?? null}, ${data.countryCode ?? null}, ${data.state ?? null}, ${data.stateCode ?? null}, ${data.tipoObra ?? null}, ${data.extensaoKm ?? null}, ${data.areaHa ?? null}, ${data.perimetroUrbano ?? null}, ${data.techDataByType ?? null}, 'active', 0, ${data.createdById}, NOW(), NOW())`
   );
   const crsId = (result as any).insertId as number;
   // Create default phases for the new CRS
@@ -309,9 +363,22 @@ export async function createDefaultPhases(crsId: number, createdById: number) {
     );
   }
 }
-export async function getPhasesByCrs(crsId: number) {
+export async function getPhasesByCrs(crsId: number, companyId?: number | null) {
   const db = await getDb();
-  return db.select().from(kanbanPhases).where(eq(kanbanPhases.crsId, crsId)).orderBy(asc(kanbanPhases.position));
+  const conditions: any[] = [eq(kanbanPhases.crsId, crsId)];
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
+  const query = db.select({
+    id: kanbanPhases.id,
+    crsId: kanbanPhases.crsId,
+    name: kanbanPhases.name,
+    color: kanbanPhases.color,
+    position: kanbanPhases.position,
+    isDefault: kanbanPhases.isDefault,
+    isTerminal: kanbanPhases.isTerminal,
+    createdById: kanbanPhases.createdById,
+    createdAt: kanbanPhases.createdAt,
+  }).from(kanbanPhases).innerJoin(crs, eq(kanbanPhases.crsId, crs.id));
+  return query.where(and(...conditions)).orderBy(asc(kanbanPhases.position));
 }
 export async function createPhase(data: { crsId: number; name: string; color?: string; position?: number; isTerminal?: boolean; createdById: number }) {
   const db = await getDb();
@@ -338,9 +405,10 @@ export async function deletePhase(id: number) {
 }
 
 // ─── Tasks ─────────────────────────────────────────────────────────────────────
-export async function getTasksByCrs(crsId: number, filters?: { phaseId?: number; priority?: string; assigneeId?: number; search?: string }) {
+export async function getTasksByCrs(crsId: number, filters?: { phaseId?: number; priority?: string; assigneeId?: number; search?: string }, companyId?: number | null) {
   const db = await getDb();
   const conditions: any[] = [eq(tasks.crsId, crsId)];
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
   if (filters?.phaseId) conditions.push(eq(tasks.phaseId, filters.phaseId));
   if (filters?.priority) conditions.push(eq(tasks.priority, filters.priority as any));
   if (filters?.assigneeId) conditions.push(eq(tasks.assigneeId, filters.assigneeId));
@@ -367,7 +435,7 @@ export async function getTasksByCrs(crsId: number, filters?: { phaseId?: number;
     .where(and(...conditions))
     .orderBy(tasks.position, tasks.createdAt);
 }
-export async function getTaskById(id: number) {
+export async function getTaskById(id: number, companyId?: number | null) {
   const db = await getDb();
   const r = await db.select({
     id: tasks.id, crsId: tasks.crsId, phaseId: tasks.phaseId,
@@ -381,7 +449,8 @@ export async function getTaskById(id: number) {
     assigneeName: users.name, assigneeCompany: users.company,
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
-    .where(eq(tasks.id, id)).limit(1);
+    .leftJoin(crs, eq(tasks.crsId, crs.id))
+    .where(and(eq(tasks.id, id), ...(companyId != null ? [eq(crs.companyId, companyId)] : []))).limit(1);
   if (!r[0]) return undefined;
   const attachments = await db.select({
     id: taskAttachments.id,
@@ -635,6 +704,11 @@ export async function isUserOnVacation(userId: number, date: Date): Promise<bool
 // ─── Notifications ─────────────────────────────────────────────────────────────
 export async function notifyUser(data: { userId: number; title: string; message: string; notificationType: any; relatedCrsId?: number; relatedTaskId?: number }) {
   const db = await getDb();
+  const [preference] = await db.select({ inApp: notificationPreferences.inApp })
+    .from(notificationPreferences)
+    .where(and(eq(notificationPreferences.userId, data.userId), eq(notificationPreferences.notificationType, String(data.notificationType))))
+    .limit(1);
+  if (preference && !preference.inApp) return;
   await db.execute(
     sql`INSERT INTO notifications (userId, title, message, notificationType, isRead, relatedCrsId, relatedTaskId, createdAt)
         VALUES (${data.userId}, ${data.title}, ${data.message}, ${data.notificationType}, 0, ${data.relatedCrsId ?? null}, ${data.relatedTaskId ?? null}, NOW())`
@@ -656,6 +730,14 @@ export async function markAllNotificationsRead(userId: number) {
 export async function getNotificationPreferences(userId: number) {
   const db = await getDb();
   return db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+}
+
+export async function updateNotificationTypePreference(userId: number, notificationType: string, enabled: boolean) {
+  const db = await getDb();
+  await db.execute(sql`INSERT INTO notification_preferences (userId, notificationType, inApp, email, deadlineAlertDays, updatedAt)
+    VALUES (${userId}, ${notificationType}, ${enabled ? 1 : 0}, ${enabled ? 1 : 0}, 3, NOW())
+    ON DUPLICATE KEY UPDATE inApp = ${enabled ? 1 : 0}, email = ${enabled ? 1 : 0}, updatedAt = NOW()`);
+  return { notificationType, enabled };
 }
 
 export async function getDeadlineAlertDays(userId: number): Promise<number> {
@@ -694,20 +776,21 @@ export async function getDisciplines(activeOnly = true) {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
-export async function getDashboardCompanies() {
+export async function getDashboardCompanies(companyId?: number | null) {
   const db = await getDb();
   const rows = await db.select({ company: users.company })
     .from(users)
-    .where(and(isNotNull(users.company), sql`TRIM(${users.company}) <> ''`))
+    .where(and(isNotNull(users.company), sql`TRIM(${users.company}) <> ''`, ...(companyId != null ? [eq(users.companyId, companyId)] : [])))
     .orderBy(asc(users.company));
   return Array.from(new Set(rows.map((row: { company: string | null }) => row.company?.trim()).filter((company: string | undefined): company is string => Boolean(company))));
 }
 
-export async function getContractsByState(company?: string, clientId?: number) {
+export async function getContractsByState(company?: string, clientId?: number, companyId?: number | null) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const conditions: any[] = [eq(crs.status, "active")];
   if (clientId != null) conditions.push(eq(crs.clientId, clientId));
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
   if (normalizedCompany) {
     const assignedRows = await db.select({ crsId: tasks.crsId })
       .from(tasks)
@@ -740,7 +823,7 @@ export async function getContractsByState(company?: string, clientId?: number) {
   })).sort((a, b) => b.count - a.count);
 }
 
-export async function getDashboardStats(clientId?: number, company?: string) {
+export async function getDashboardStats(clientId?: number, company?: string, companyId?: number | null) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
   const companyCrsRows = normalizedCompany
@@ -754,13 +837,16 @@ export async function getDashboardStats(clientId?: number, company?: string) {
       .filter((id: number | null): id is number => id !== null),
   ));
   const hasCompanyScope = !normalizedCompany || companyCrsIds.length > 0;
-  const totalClients = await db.select({ count: sql<number>`COUNT(*)` }).from(clients).where(eq(clients.status, "active"));
+  const totalClients = companyId != null
+    ? await db.select({ count: sql<number>`COUNT(DISTINCT ${clients.id})` }).from(clients).innerJoin(crs, eq(clients.id, crs.clientId)).where(and(eq(clients.status, "active"), eq(crs.companyId, companyId)))
+    : await db.select({ count: sql<number>`COUNT(*)` }).from(clients).where(eq(clients.status, "active"));
   // CRS filtered by clientId and, when selected, by contracts with tasks assigned to the company
   const crsConditions = hasCompanyScope
     ? and(
         eq(crs.status, "active"),
         ...(clientId ? [eq(crs.clientId, clientId)] : []),
         ...(normalizedCompany ? [inArray(crs.id, companyCrsIds)] : []),
+        ...(companyId != null ? [eq(crs.companyId, companyId)] : []),
       )
     : sql`1 = 0`;
   const totalCrs = await db.select({ count: sql<number>`COUNT(*)` }).from(crs).where(crsConditions);
@@ -770,8 +856,8 @@ export async function getDashboardStats(clientId?: number, company?: string) {
     id: tasks.id, progress: tasks.progress, dueDate: tasks.dueDate, crsId: tasks.crsId,
     assigneeCompany: users.company,
   }).from(tasks).leftJoin(users, eq(tasks.assigneeId, users.id));
-  const allTasksQuery = clientId
-    ? taskQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+  const allTasksQuery = clientId || companyId != null
+    ? taskQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), ...(clientId ? [eq(crs.clientId, clientId)] : []), ...(companyId != null ? [eq(crs.companyId, companyId)] : [])))
     : taskQuery;
   const allTasksRows = await allTasksQuery;
   const allTasksRaw = normalizedCompany
@@ -792,8 +878,8 @@ export async function getDashboardStats(clientId?: number, company?: string) {
   }).from(checklistItems)
     .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
     .leftJoin(users, eq(tasks.assigneeId, users.id));
-  const allChecklistRows = clientId
-    ? await checklistQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), eq(crs.clientId, clientId)))
+  const allChecklistRows = clientId || companyId != null
+    ? await checklistQuery.innerJoin(crs, and(eq(tasks.crsId, crs.id), ...(clientId ? [eq(crs.clientId, clientId)] : []), ...(companyId != null ? [eq(crs.companyId, companyId)] : [])))
     : await checklistQuery;
   const allChecklist = normalizedCompany
     ? allChecklistRows.filter((item: any) => item.assigneeCompany === normalizedCompany)
@@ -841,18 +927,22 @@ export async function getDashboardStats(clientId?: number, company?: string) {
   };
 }
 
-export async function getClientProgress(company?: string, clientId?: number) {
+export async function getClientProgress(company?: string, clientId?: number, companyId?: number | null) {
   const db = await getDb();
   const normalizedCompany = company?.trim() || undefined;
-  const companyCrsIds: number[] | undefined = normalizedCompany
+  const companyScopeConditions: any[] = [];
+  if (normalizedCompany) companyScopeConditions.push(eq(users.company, normalizedCompany));
+  if (companyId != null) companyScopeConditions.push(eq(crs.companyId, companyId));
+  const companyCrsIds: number[] | undefined = companyScopeConditions.length > 0
     ? Array.from(new Set((await db.select({ crsId: tasks.crsId })
       .from(tasks)
       .leftJoin(users, eq(tasks.assigneeId, users.id))
-      .where(eq(users.company, normalizedCompany)))
+      .innerJoin(crs, eq(tasks.crsId, crs.id))
+      .where(and(...companyScopeConditions)))
       .map((row: any) => Number(row.crsId))
       .filter((id: number) => Number.isInteger(id) && id > 0))) as number[]
     : undefined;
-  if (normalizedCompany && companyCrsIds?.length === 0) return [];
+  if ((normalizedCompany || companyId != null) && companyCrsIds?.length === 0) return [];
   if (clientId != null) {
     const requestedClient = await db.select({ id: clients.id })
       .from(clients)
@@ -868,7 +958,7 @@ export async function getClientProgress(company?: string, clientId?: number) {
     crsId: crs.id,
     crsProgress: crs.progress,
   }).from(clients)
-    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active"), ...(clientId != null ? [eq(crs.clientId, clientId)] : []), ...(companyCrsIds ? [inArray(crs.id, companyCrsIds)] : [])))
+    .leftJoin(crs, and(eq(crs.clientId, clients.id), eq(crs.status, "active"), ...(clientId != null ? [eq(crs.clientId, clientId)] : []), ...(companyCrsIds ? [inArray(crs.id, companyCrsIds)] : []), ...(companyId != null ? [eq(crs.companyId, companyId)] : [])))
     .where(eq(clients.status, "active"))
     .orderBy(asc(clients.name));
   // Group by client
@@ -888,7 +978,7 @@ export async function getClientProgress(company?: string, clientId?: number) {
     avgProgress: c.crsCount > 0 ? Math.round(c.avgProgress / c.crsCount) : 0,
   }));
 }
-export async function getWorldMapData() {
+export async function getWorldMapData(companyId?: number | null) {
   const db = await getDb();
   const rows = await db.select({
     id: crs.id, name: crs.name, code: crs.code, country: crs.country,
@@ -897,10 +987,10 @@ export async function getWorldMapData() {
     tipoObra: crs.tipoObra, extensaoKm: crs.extensaoKm, areaHa: crs.areaHa, perimetroUrbano: crs.perimetroUrbano,
   }).from(crs)
     .leftJoin(clients, eq(crs.clientId, clients.id))
-    .where(eq(crs.status, "active"));
+    .where(and(eq(crs.status, "active"), ...(companyId != null ? [eq(crs.companyId, companyId)] : [])));
   return rows;
 }
-export async function getWeekDeliveries() {
+export async function getWeekDeliveries(companyId?: number | null) {
   const db = await getDb();
   const now = new Date();
   const startOfWeek = new Date(now);
@@ -917,7 +1007,7 @@ export async function getWeekDeliveries() {
   }).from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .leftJoin(crs, eq(tasks.crsId, crs.id))
-    .where(and(sql`${tasks.dueDate} >= ${startOfWeek}`, sql`${tasks.dueDate} <= ${endOfWeek}`))
+    .where(and(sql`${tasks.dueDate} >= ${startOfWeek}`, sql`${tasks.dueDate} <= ${endOfWeek}`, ...(companyId != null ? [eq(crs.companyId, companyId)] : [])))
     .orderBy(asc(tasks.dueDate));
 }
 
@@ -1167,7 +1257,7 @@ export async function removeChecklistItemFromSprint(sprintId: number, checklistI
 
 // ─── CRS Discipline Progress ─────────────────────────────────────────────────
 /** Returns progress per discipline for a given CRS, based on checklist items grouped by task.setor */
-export async function getCrsDisciplineProgress(crsId: number) {
+export async function getCrsDisciplineProgress(crsId: number, companyId?: number | null) {
   const db = await getDb();
   // Get all checklist items for this CRS, joining tasks to get setor (discipline)
   const rows = await db.select({
@@ -1176,7 +1266,8 @@ export async function getCrsDisciplineProgress(crsId: number) {
   })
     .from(checklistItems)
     .innerJoin(tasks, eq(checklistItems.taskId, tasks.id))
-    .where(eq(tasks.crsId, crsId));
+    .innerJoin(crs, eq(tasks.crsId, crs.id))
+    .where(and(eq(tasks.crsId, crsId), ...(companyId != null ? [eq(crs.companyId, companyId)] : [])));
 
   // Group by setor
   const map: Record<string, { total: number; done: number }> = {};
@@ -1433,10 +1524,11 @@ export async function getTaskTrend(clientId?: number) {
 }
 
 // ─── Member Performance ───────────────────────────────────────────────────────
-export async function getMemberPerformance(crsId?: number) {
+export async function getMemberPerformance(crsId?: number, companyId?: number | null) {
   const db = await getDb();
-  // Use raw SQL for aggregation with conditional crsId filter
+  // Use raw SQL for aggregation with conditional CRS and tenant filters
   const crsFilter = crsId ? `AND t.crsId = ${Number(crsId)}` : "";
+  const taskTenantFilter = companyId != null ? `AND EXISTS (SELECT 1 FROM crs scoped_c WHERE scoped_c.id = t.crsId AND scoped_c.companyId = ${Number(companyId)})` : "";
   const [rows] = await (db as any).$client.query(`
     SELECT
       u.id as userId,
@@ -1451,7 +1543,8 @@ export async function getMemberPerformance(crsId?: number) {
       SUM(CASE WHEN (kp.isTerminal = 0 OR kp.isTerminal IS NULL) AND t.status = 'pending' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN t.dueDate < NOW() AND (kp.isTerminal = 0 OR kp.isTerminal IS NULL) THEN 1 ELSE 0 END) as overdue
     FROM users u
-    LEFT JOIN tasks t ON t.assigneeId = u.id ${crsFilter}
+    LEFT JOIN tasks t ON t.assigneeId = u.id ${crsFilter} ${taskTenantFilter}
+    LEFT JOIN crs c ON c.id = t.crsId
     LEFT JOIN kanban_phases kp ON kp.id = t.phaseId
     GROUP BY u.id, u.name, u.avatarUrl, u.role
     ORDER BY total DESC, u.name ASC

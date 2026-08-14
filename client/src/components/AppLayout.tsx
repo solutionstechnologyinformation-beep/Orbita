@@ -26,6 +26,7 @@ import {
   PanelLeftOpen,
   PenSquare,
   Shield,
+  Building2,
   Target,
   User,
   X,
@@ -71,6 +72,7 @@ const navItems = [
 
 const adminItems = [
   { href: "/admin", icon: Shield, label: "Admin" },
+  { href: "/company-admin", icon: Building2, label: "Admin da empresa" },
 ];
 
 const helpItems = [
@@ -329,7 +331,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
           );
         })}
 
-        {user?.role === "admin" && (
+        {(user?.role === "admin" || user?.role === "master_admin" || user?.role === "company_admin") && (
           <>
             {!compact && (
               <div className="pt-4 pb-1 px-3">

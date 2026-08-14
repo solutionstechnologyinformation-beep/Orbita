@@ -17,11 +17,27 @@ const DEFAULT_PREFS = {
 const ALERT_DAY_OPTIONS = [1, 3, 7] as const;
 
 type PreferenceKey = keyof typeof DEFAULT_PREFS;
+const SERVER_TYPES: Record<PreferenceKey, "task_assigned" | "task_due" | "phase_change" | "vacation_conflict" | "system_alerts"> = {
+  taskAssigned: "task_assigned",
+  taskDue: "task_due",
+  phaseChange: "phase_change",
+  vacationConflict: "vacation_conflict",
+  systemAlerts: "system_alerts",
+};
 
 export default function NotificationPreferences() {
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [deadlineAlertDays, setDeadlineAlertDays] = useState<number>(3);
+  const prefsQ = trpc.notificationPreferences.list.useQuery();
   const deadlineQ = trpc.notificationPreferences.deadlineAlertDays.useQuery();
+  const utils = trpc.useUtils();
+  const updateTypeMut = trpc.notificationPreferences.updateType.useMutation({
+    onSuccess: async () => {
+      await utils.notificationPreferences.list.invalidate();
+      toast.success("Preferência atualizada");
+    },
+    onError: (error) => toast.error(error.message),
+  });
   const updateDeadlineMut = trpc.notificationPreferences.updateDeadlineAlertDays.useMutation({
     onSuccess: (data) => {
       setDeadlineAlertDays(data.days);
@@ -34,9 +50,22 @@ export default function NotificationPreferences() {
     if (deadlineQ.data?.days) setDeadlineAlertDays(deadlineQ.data.days);
   }, [deadlineQ.data?.days]);
 
+  useEffect(() => {
+    if (!prefsQ.data) return;
+    setPrefs((current) => {
+      const next = { ...current };
+      for (const row of prefsQ.data) {
+        const key = (Object.keys(SERVER_TYPES) as PreferenceKey[]).find((candidate) => SERVER_TYPES[candidate] === row.notificationType);
+        if (key) next[key] = Boolean(row.inApp);
+      }
+      return next;
+    });
+  }, [prefsQ.data]);
+
   const handleToggle = (key: PreferenceKey) => {
-    setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
-    toast.success("Preferência atualizada");
+    const enabled = !prefs[key];
+    setPrefs((prev) => ({ ...prev, [key]: enabled }));
+    updateTypeMut.mutate({ notificationType: SERVER_TYPES[key], enabled });
   };
 
   const items = [
@@ -69,7 +98,7 @@ export default function NotificationPreferences() {
                   <Label className="text-sm font-medium">{item.label}</Label>
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
-                <Switch checked={prefs[item.key]} onCheckedChange={() => handleToggle(item.key)} />
+                <Switch checked={prefs[item.key]} disabled={prefsQ.isLoading || updateTypeMut.isPending} onCheckedChange={() => handleToggle(item.key)} />
               </div>
             ))}
           </CardContent>

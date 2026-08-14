@@ -169,9 +169,9 @@
 - [x] Backend: migrar banco (novas tabelas e colunas)
 - [x] Backend: procedures companies.list, create, update, delete (master_admin)
 - [ ] Backend: isolamento de queries por companyId (users, projects, tasks)
-- [ ] Backend: companyAdminProcedure — guard que verifica role company_admin
-- [ ] Backend: procedures para Company Admin gerenciar usuários da sua empresa
-- [ ] Frontend: painel /company-admin com abas Usuários e Projetos da empresa
+- [x] Backend: companyAdminProcedure — guard que verifica role company_admin
+- [x] Backend: procedures para Company Admin gerenciar usuários da sua empresa
+- [x] Frontend: painel /company-admin com abas Usuários e Projetos da empresa
 - [ ] Frontend Admin Master: aba "Empresas" para criar/editar/excluir empresas
 - [ ] Frontend Admin Master: exibir empresa junto ao responsável nas tarefas
 - [x] Frontend: filtro por empresa no Kanban e Dashboard
@@ -987,3 +987,9 @@
 - [x] Importação KML/KMZ: preservar nome, descrição e atributos dos elementos e exibi-los no mapa e na lista de trechos
 
 - [x] Mapa KML/KMZ: diferenciar elementos por cores/ícones, adicionar busca rápida e exportar os dados atualizados em CSV
+
+- [x] Mapa KML/KMZ: abrir painel lateral com detalhes completos do elemento ao clicar em ponto ou trecho
+
+- [x] Company Admin: substituir seções contínuas por abas explícitas Usuários e Projetos da empresa
+
+- [x] Alertas: notifyUser agora consulta notification_preferences.inApp e não cria alertas de tipos desativados pelo usuário

@@ -24,7 +24,7 @@ import { MapView } from "@/components/Map";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type MapPoint } from "@/lib/segment-map";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { buildMapElementsCsv, extractMapElementRecords, type MapElementRecord } from "../../../shared/map-element-data";
+import { buildMapElementsCsv, extractMapElementRecords, findMapElementRecord, type MapElementRecord } from "../../../shared/map-element-data";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -124,6 +124,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
     if (!query) return mapElementRecords.slice(0, 30);
     return mapElementRecords.filter((record) => [record.elementName, record.description, record.crsName, record.segmentName, record.geometryType].some((value) => value.toLocaleLowerCase("pt-BR").includes(query))).slice(0, 30);
   }, [elementSearch, mapElementRecords]);
+  const selectedElement = useMemo(() => findMapElementRecord(mapElementRecords, selectedElementKey), [mapElementRecords, selectedElementKey]);
   const focusElement = useCallback((record: MapElementRecord) => {
     setSelectedElementKey(record.key);
     setSegmentVisibility((current) => ({ ...current, [record.segmentId]: true }));
@@ -223,8 +224,9 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
       try {
         const collection = JSON.parse(segment.geometryJson);
         const features = Array.isArray(collection.features) ? collection.features : [];
-        features.forEach((feature: any) => {
+        features.forEach((feature: any, featureIndex: number) => {
           const geometry = feature?.geometry;
+          const featureKey = `${segment.id}:${featureIndex}`;
           const featName = feature?.properties?.name || segment.name;
           const featDesc = feature?.properties?.description;
 
@@ -253,6 +255,9 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
               });
               const line = new g.Polyline({ map, path, geodesic: true, strokeColor, strokeOpacity: 0.9, strokeWeight: 4, clickable: true });
               line.addListener("click", () => {
+                setSelectedElementKey(featureKey);
+                map.panTo(path[Math.floor(path.length / 2)]);
+                map.setZoom(Math.max(map.getZoom() ?? 6, 10));
                 infoWindow.setPosition(path[Math.floor(path.length / 2)]);
                 infoWindow.open({ map });
                 setTimeout(() => {
@@ -283,6 +288,9 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
                 icon: { path: g.SymbolPath.CIRCLE, scale: pointStyle.scale, fillColor: pointStyle.fillColor, fillOpacity: 0.95, strokeColor: pointStyle.strokeColor, strokeWeight: 1.5 },
               });
               marker.addListener("click", () => {
+                setSelectedElementKey(featureKey);
+                map.panTo(position);
+                map.setZoom(Math.max(map.getZoom() ?? 6, 12));
                 infoWindow.open({ map, anchor: marker });
               });
               segmentMarkersRef.current.push(marker);
@@ -511,6 +519,28 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
           initialZoom={4}
           onMapReady={handleMapReady}
         />
+        {selectedElement && (
+          <aside data-map-control="true" className="absolute bottom-3 right-3 z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm" aria-label="Detalhes do elemento importado">
+            <div className="mb-3 flex items-start justify-between gap-3 border-b border-gray-100 pb-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Detalhes do elemento</p>
+                <h3 className="truncate text-sm font-bold text-gray-900" title={selectedElement.elementName}>{selectedElement.elementName}</h3>
+              </div>
+              <button type="button" onClick={() => setSelectedElementKey(null)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Fechar detalhes do elemento"><X className="h-4 w-4" /></button>
+            </div>
+            <dl className="space-y-2 text-[11px]">
+              <div><dt className="font-semibold text-gray-400">Tipo</dt><dd className="text-gray-700">{selectedElement.geometryType === "Point" ? "Ponto" : "Trecho linear"}</dd></div>
+              <div><dt className="font-semibold text-gray-400">Contrato</dt><dd className="text-gray-700">{selectedElement.crsName}</dd></div>
+              <div><dt className="font-semibold text-gray-400">Arquivo / OS</dt><dd className="break-words text-gray-700">{selectedElement.segmentName}</dd></div>
+              {selectedElement.workType && <div><dt className="font-semibold text-gray-400">Tipo de obra</dt><dd className="text-gray-700">{TIPO_OBRA_MAP[selectedElement.workType] ?? selectedElement.workType}</dd></div>}
+              {selectedElement.extensionKm !== null && <div><dt className="font-semibold text-gray-400">Extensão do contrato</dt><dd className="text-gray-700">{selectedElement.extensionKm.toLocaleString("pt-BR")} km</dd></div>}
+              {selectedElement.description && <div><dt className="font-semibold text-gray-400">Descrição</dt><dd className="whitespace-pre-wrap break-words rounded-md bg-gray-50 p-2 text-gray-700">{selectedElement.description}</dd></div>}
+              {selectedElement.attributes && <div><dt className="font-semibold text-gray-400">Atributos</dt><dd className="max-h-32 overflow-auto rounded-md bg-gray-950 p-2 font-mono text-[10px] text-green-200">{selectedElement.attributes}</dd></div>}
+              {selectedElement.center && <div><dt className="font-semibold text-gray-400">Centro geográfico</dt><dd className="text-gray-700">Lat. {selectedElement.center.lat.toFixed(6)} · Lng. {selectedElement.center.lng.toFixed(6)}</dd></div>}
+            </dl>
+            <button type="button" onClick={() => onNavigate(`/kanban?crs=${selectedElement.crsId}`)} className="mt-4 w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Abrir contrato no Kanban</button>
+          </aside>
+        )}
       </div>
       <div data-map-control="true" className="absolute top-3 right-3 z-20 flex flex-wrap justify-end gap-1 rounded-lg bg-white/95 p-1 shadow-sm border border-gray-100" role="group" aria-label="Tipo de visualização, ampliação e exportação do mapa">
         <button type="button" onClick={() => setIsMapExpanded((expanded) => !expanded)} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100" aria-pressed={isMapExpanded} title={isMapExpanded ? "Sair da visualização ampliada" : "Ampliar mapa"}>

@@ -33,3 +33,11 @@ describe("map element data", () => {
     expect(csv).toContain('"SRE, trecho"');
   });
 });
+
+  it("localiza o elemento selecionado pelo identificador e retorna nulo para seleção fechada", async () => {
+    const { findMapElementRecord } = await import("../shared/map-element-data");
+    const record = { key: "8:2", segmentId: 8, segmentName: "arquivo.kml", crsId: 9, crsName: "Contrato 9", geometryType: "Point" as const, elementName: "KM 220", description: "Marco", attributes: "", coordinates: [[-49.7, -17.1]], center: { lat: -17.1, lng: -49.7 }, workType: "", extensionKm: null };
+    expect(findMapElementRecord([record], "8:2")).toEqual(record);
+    expect(findMapElementRecord([record], null)).toBeNull();
+    expect(findMapElementRecord([record], "missing")).toBeNull();
+  });

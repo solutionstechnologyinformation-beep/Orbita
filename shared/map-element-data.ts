@@ -60,6 +60,11 @@ export function extractMapElementRecords(segments: Array<any>): MapElementRecord
   return records;
 }
 
+export function findMapElementRecord(records: MapElementRecord[], key: string | null): MapElementRecord | null {
+  if (!key) return null;
+  return records.find((record) => record.key === key) ?? null;
+}
+
 export function escapeCsvCell(value: unknown): string {
   const text = value == null ? "" : String(value);
   return /[",\n\r;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
