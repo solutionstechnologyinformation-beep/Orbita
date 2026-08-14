@@ -1169,3 +1169,9 @@
 - [x] Adicionar transição suave de opacidade, escala e deslocamento ao expandir e minimizar
 - [x] Preservar foco, Escape, redimensionamento do mapa e prefers-reduced-motion
 - [x] Adicionar testes de animação e validar TypeScript e preview
+
+## Mapa — Painel lateral retrátil em tela cheia
+- [x] Auditar dados de contratos, trechos, extensões, tipos de obra e visibilidade já disponíveis
+- [x] Criar resumo rápido com métricas e lista de trechos importados
+- [x] Implementar recolhimento, busca, seleção e integração com o destaque do mapa
+- [x] Adicionar testes de interação, tema, acessibilidade e validar TypeScript

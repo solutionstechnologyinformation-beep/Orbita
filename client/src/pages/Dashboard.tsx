@@ -18,7 +18,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
     MapPin, Activity, Users, FolderOpen, ChevronRight,
-  Target, CalendarClock, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2, MessageSquare, UserCheck, GripVertical, RotateCcw,
+  Target, CalendarClock, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, ChevronLeft, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2, MessageSquare, UserCheck, GripVertical, RotateCcw,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -144,6 +144,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   const isDark = theme === "dark";
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isMapMinimizing, setIsMapMinimizing] = useState(false);
+  const [isMapSummaryPanelOpen, setIsMapSummaryPanelOpen] = useState(true);
   const [mapDataTimestamp, setMapDataTimestamp] = useState(() => new Date());
   const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
   const mapStyles = mapType === "roadmap" ? (isDark ? DARK_MAP_STYLES : LIGHT_MAP_STYLES) : undefined;
@@ -170,6 +171,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       return;
     }
     setIsMapMinimizing(false);
+    setIsMapSummaryPanelOpen(true);
     setIsMapExpanded(true);
   }, [clearMapAnimationTimer, isMapExpanded, minimizeMap]);
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
@@ -275,6 +277,31 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       return null;
     }
   }, []);
+  const totalImportedExtensionKm = useMemo(
+    () => segments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0),
+    [segments, getSegmentExtensionKm],
+  );
+  const visibleExtensionKm = useMemo(
+    () => visibleSegments.reduce((total, segment) => total + (getSegmentExtensionKm(segment) ?? 0), 0),
+    [visibleSegments, getSegmentExtensionKm],
+  );
+  const segmentTypeSummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    segments.forEach((segment) => {
+      const typeKey = getSegmentTypeKey(segment);
+      counts.set(typeKey, (counts.get(typeKey) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort(([, countA], [, countB]) => countB - countA)
+      .map(([typeKey, count]) => ({ typeKey, label: TIPO_OBRA_MAP[typeKey] ?? typeKey, count }));
+  }, [getSegmentTypeKey, segments]);
+  const filteredSummarySegments = useMemo(() => {
+    const query = elementSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return segments;
+    return segments.filter((segment) => [segment.name, segment.fileName, segment.crsName, segment.tipoObra]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(query)));
+  }, [elementSearch, segments]);
   useEffect(() => {
     window.localStorage.setItem("orbita-map-segment-colors", JSON.stringify(segmentColors));
   }, [segmentColors]);
@@ -664,7 +691,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
           onMapReady={handleMapReady}
         />
         {selectedElement && (
-          <aside data-map-control="true" className={`absolute bottom-3 right-3 z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border ${mapPanelSurface} p-4 shadow-xl backdrop-blur-sm`} aria-label="Detalhes do elemento importado">
+          <aside data-map-control="true" className={`absolute ${isMapExpanded ? "bottom-16 left-3" : "bottom-3 right-3"} z-30 max-h-[calc(100%-5rem)] w-[330px] max-w-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border ${mapPanelSurface} p-4 shadow-xl backdrop-blur-sm`} aria-label="Detalhes do elemento importado">
             <div className={`mb-3 flex items-start justify-between gap-3 border-b ${isDark ? "border-slate-700" : "border-gray-100"} pb-2`}>
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Detalhes do elemento</p>
@@ -683,6 +710,119 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
               {selectedElement.center && <div><dt className={`font-semibold ${mapPanelMuted}`}>Centro geográfico</dt><dd className={isDark ? "text-slate-200" : "text-gray-700"}>Lat. {selectedElement.center.lat.toFixed(6)} · Lng. {selectedElement.center.lng.toFixed(6)}</dd></div>}
             </dl>
             <button type="button" onClick={() => onNavigate(`/kanban?crs=${selectedElement.crsId}`)} className="mt-4 w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">Abrir contrato no Kanban</button>
+          </aside>
+        )}
+        {isMapExpanded && (
+          <aside
+            data-map-control="true"
+            className={`map-summary-panel absolute right-0 top-0 z-40 flex h-full flex-col overflow-hidden border-l ${mapPanelSurface} shadow-2xl backdrop-blur-sm transition-[width] duration-200 ease-out ${isMapSummaryPanelOpen ? "map-summary-panel-open w-[min(24rem,calc(100vw-1rem))]" : "map-summary-panel-closed w-16"}`}
+            aria-label="Resumo rápido do mapa e trechos importados"
+          >
+            <div className="flex min-h-14 items-center gap-2 border-b border-inherit px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setIsMapSummaryPanelOpen((open) => !open)}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${mapPanelMuted} ${isDark ? "hover:bg-slate-800 hover:text-slate-100" : "hover:bg-gray-100 hover:text-gray-700"}`}
+                aria-label={isMapSummaryPanelOpen ? "Recolher resumo do mapa" : "Expandir resumo do mapa"}
+                aria-expanded={isMapSummaryPanelOpen}
+                title={isMapSummaryPanelOpen ? "Recolher painel" : "Expandir painel"}
+              >
+                {isMapSummaryPanelOpen ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+              </button>
+              <div className={`min-w-0 transition-opacity ${isMapSummaryPanelOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+                <h2 className={`truncate text-sm font-bold ${mapPanelText}`}>Resumo do mapa</h2>
+                <p className={`truncate text-[10px] ${mapPanelMuted}`}>Dados atualizados em {formatDashboardMapTimestamp(mapDataTimestamp)}</p>
+              </div>
+            </div>
+            {isMapSummaryPanelOpen && (
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-3">
+              <div className="grid grid-cols-2 gap-2" aria-label="Métricas rápidas do mapa">
+                {[
+                  { label: "Trechos", value: segments.length },
+                  { label: "Visíveis", value: visibleSegments.length },
+                  { label: "Contratos", value: new Set(segments.map((segment) => segment.crsId)).size },
+                  { label: "Elementos", value: mapElementRecords.length },
+                ].map((metric) => (
+                  <div key={metric.label} className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
+                    <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>{metric.label}</p>
+                    <p className={`mt-1 text-lg font-bold ${mapPanelText}`}>{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
+                  <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>Extensão total</p>
+                  <p className={`mt-1 text-sm font-bold ${mapPanelText}`}>{totalImportedExtensionKm.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km</p>
+                </div>
+                <div className={`rounded-lg border ${isDark ? "border-slate-700 bg-slate-800/80" : "border-gray-100 bg-gray-50"} p-2.5`}>
+                  <p className={`text-[10px] uppercase tracking-wide ${mapPanelMuted}`}>Visível</p>
+                  <p className={`mt-1 text-sm font-bold ${mapPanelText}`}>{visibleExtensionKm.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km</p>
+                </div>
+              </div>
+              <label className="mt-4 block">
+                <span className={`mb-1 block text-[10px] font-semibold uppercase tracking-wide ${mapPanelMuted}`}>Busca rápida</span>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+                  <input
+                    value={elementSearch}
+                    onChange={(event) => setElementSearch(event.target.value)}
+                    placeholder="Contrato, arquivo ou tipo"
+                    className={`w-full rounded-md border ${mapPanelInput} py-2 pl-7 pr-2 text-[11px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500`}
+                    aria-label="Pesquisar trechos importados no resumo do mapa"
+                  />
+                </div>
+              </label>
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className={`text-xs font-semibold ${mapPanelText}`}>Trechos importados</h3>
+                  <span className={`text-[10px] ${mapPanelMuted}`}>{filteredSummarySegments.length}/{segments.length}</span>
+                </div>
+                {filteredSummarySegments.length === 0 ? (
+                  <p className={`rounded-md ${isDark ? "bg-slate-800 text-slate-400" : "bg-gray-50 text-gray-500"} px-2 py-3 text-[10px]`}>Nenhum trecho encontrado.</p>
+                ) : (
+                  <div className="space-y-1.5" role="group" aria-label="Trechos importados no resumo">
+                    {filteredSummarySegments.slice(0, 30).map((segment) => {
+                      const typeKey = getSegmentTypeKey(segment);
+                      const extension = getSegmentExtensionKm(segment);
+                      const visible = segmentVisibility[segment.id] !== false;
+                      return (
+                        <button
+                          key={segment.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSegmentId(segment.id);
+                            setSegmentVisibility((current) => ({ ...current, [segment.id]: true }));
+                          }}
+                          className={`w-full rounded-lg border px-2.5 py-2 text-left transition-colors ${selectedSegmentId === segment.id ? (isDark ? "border-blue-700 bg-blue-950/60" : "border-blue-200 bg-blue-50") : (isDark ? "border-slate-700 bg-slate-800/70 hover:bg-slate-700" : "border-gray-100 bg-gray-50 hover:bg-gray-100")}`}
+                        >
+                          <span className="flex items-start gap-2">
+                            <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${visible ? "bg-emerald-500" : "bg-slate-400"}`} aria-label={visible ? "Trecho visível" : "Trecho oculto"} />
+                            <span className="min-w-0 flex-1">
+                              <span className={`block truncate text-[11px] font-semibold ${mapPanelText}`}>{segment.crsName ?? `Contrato #${segment.crsId}`}</span>
+                              <span className={`mt-0.5 block truncate text-[10px] ${mapPanelMuted}`}>{segment.name}</span>
+                              <span className={`mt-1 block text-[10px] ${mapPanelMuted}`}>{TIPO_OBRA_MAP[typeKey] ?? typeKey}{extension !== null ? ` · ${extension.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km` : ""}</span>
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {filteredSummarySegments.length > 30 && <p className={`pt-1 text-center text-[10px] ${mapPanelMuted}`}>Mostrando 30 de {filteredSummarySegments.length} trechos. Use a busca para refinar.</p>}
+                  </div>
+                )}
+              </div>
+              <div className="mt-4">
+                <h3 className={`mb-2 text-xs font-semibold ${mapPanelText}`}>Por tipo de obra</h3>
+                <div className="space-y-1.5">
+                  {segmentTypeSummary.map((item) => (
+                    <div key={item.typeKey} className="flex items-center justify-between gap-2 text-[10px]">
+                      <span className={mapPanelMuted}>{item.label}</span>
+                      <span className={`font-semibold ${mapPanelText}`}>{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            )}
           </aside>
         )}
         <div data-map-control="true" data-map-stamp="true" className={`absolute bottom-3 left-3 z-20 inline-flex items-center gap-1.5 rounded-lg ${mapPanelSurface} px-2.5 py-1.5 text-[10px] font-medium ${mapPanelMuted} shadow-sm`}>

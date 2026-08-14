@@ -293,6 +293,21 @@ html.theme-transition body *::after {
   }
 }
 
+@keyframes orbitaMapSummaryOpen {
+  0% {
+    opacity: 0.72;
+    transform: translateX(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.map-summary-panel-open {
+  animation: orbitaMapSummaryOpen 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .map-fullscreen-enter,
 .map-fullscreen-exit {
   transform-origin: center;
@@ -362,7 +377,9 @@ html.theme-transition body *::after {
   .dashboard-widget-frame,
   .dashboard-widget-drop-target,
   .map-fullscreen-enter,
-  .map-fullscreen-exit {
+  .map-fullscreen-exit,
+  .map-summary-panel,
+  .map-summary-panel-open {
     transition: none;
     animation: none;
     transform: none;

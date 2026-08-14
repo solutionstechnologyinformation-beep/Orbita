@@ -46,4 +46,25 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(stylesheet).toContain(".map-fullscreen-exit {");
     expect(stylesheet).toContain("animation: none;");
   });
+
+  it("provides a retractable fullscreen summary panel with real map data and accessible controls", () => {
+    expect(dashboardSource).toContain("isMapSummaryPanelOpen");
+    expect(dashboardSource).toContain("Resumo rápido do mapa e trechos importados");
+    expect(dashboardSource).toContain("Recolher resumo do mapa");
+    expect(dashboardSource).toContain("Expandir resumo do mapa");
+    expect(dashboardSource).toContain("Trechos importados");
+    expect(dashboardSource).toContain("totalImportedExtensionKm");
+    expect(dashboardSource).toContain("visibleExtensionKm");
+    expect(dashboardSource).toContain("filteredSummarySegments");
+    expect(dashboardSource).toContain("setSelectedSegmentId(segment.id)");
+  });
+
+  it("animates opening and retracting the summary panel while respecting reduced motion", () => {
+    expect(dashboardSource).toContain("map-summary-panel-open");
+    expect(dashboardSource).toContain("map-summary-panel-closed w-16");
+    expect(stylesheet).toContain("@keyframes orbitaMapSummaryOpen");
+    expect(stylesheet).toContain(".map-summary-panel-open");
+    expect(stylesheet).toContain(".map-summary-panel");
+    expect(stylesheet).toContain(".map-summary-panel-open {");
+  });
 });
