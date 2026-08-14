@@ -17,7 +17,7 @@ import {
 import {
   TrendingUp, AlertTriangle, CheckCircle2, Clock, Layers, ArrowUpRight,
     MapPin, Activity, Users, FolderOpen, ChevronRight,
-  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2, MessageSquare, UserCheck,
+  Target, CalendarClock, TrendingDown, ArrowRight, FileDown, Filter, Route, Map as MapIcon, Satellite, Palette, Eye, EyeOff, ChevronDown, ChevronUp, SlidersHorizontal, Maximize2, Minimize2, X, Search, Loader2, MessageSquare, UserCheck, GripVertical, RotateCcw,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 import { buildChatActivityChartData, buildChatActivityDisciplineDetails, buildUnreadBadgeAnimationKey, CHAT_ACTIVITY_METRICS, formatUnreadBadgeLabel, type ChatActivityMetric } from "../../../shared/chat-activity";
 import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
+import { DEFAULT_DASHBOARD_WIDGET_ORDERS, getDashboardWidgetStorageKey, moveDashboardWidget, readDashboardWidgetOrders, type DashboardWidgetGroup, type DashboardWidgetId, type DashboardWidgetOrders } from "./dashboard-widget-order";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -821,6 +822,55 @@ function StatRow({ icon, label, value, valueColor }: {
 // ── View Toggle ────────────────────────────────────────────────────────────────
 type DashView = "geral" | "detalhada";
 
+type WidgetFrameProps = {
+  group: DashboardWidgetGroup;
+  id: DashboardWidgetId;
+  label: string;
+  order: DashboardWidgetId[];
+  draggedWidget: { group: DashboardWidgetGroup; id: DashboardWidgetId } | null;
+  dragOverWidget: { group: DashboardWidgetGroup; id: DashboardWidgetId } | null;
+  onDragStart: (group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver: (group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  onKeyDown: (group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.KeyboardEvent<HTMLDivElement>) => void;
+  children: React.ReactNode;
+  className?: string;
+};
+
+function DashboardWidgetFrame({ group, id, label, order, draggedWidget, dragOverWidget, onDragStart, onDragOver, onDrop, onDragEnd, onKeyDown, children, className = "" }: WidgetFrameProps) {
+  const isDragging = draggedWidget?.group === group && draggedWidget.id === id;
+  const isDragOver = dragOverWidget?.group === group && dragOverWidget.id === id && !isDragging;
+  return (
+    <div
+      draggable
+      tabIndex={0}
+      role="group"
+      aria-label={`${label}. Use as setas para reordenar.`}
+      aria-grabbed={isDragging}
+      onDragStart={(event) => onDragStart(group, id, event)}
+      onDragOver={(event) => onDragOver(group, id, event)}
+      onDrop={(event) => onDrop(group, id, event)}
+      onDragEnd={onDragEnd}
+      onKeyDown={(event) => onKeyDown(group, id, event)}
+      style={{ order: order.indexOf(id) }}
+      className={`dashboard-widget-frame relative min-w-0 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] ${isDragging ? "opacity-50" : ""} ${isDragOver ? "ring-2 ring-[#ffc30d] ring-offset-2" : ""} ${className}`}
+    >
+      <button
+        type="button"
+        draggable={false}
+        className="dashboard-widget-handle absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d]"
+        aria-label={`Arrastar widget ${label}`}
+        title="Arrastar para reordenar"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <GripVertical className="h-4 w-4" aria-hidden="true" />
+      </button>
+      {children}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -831,7 +881,81 @@ export default function Dashboard() {
   const [chatMetric, setChatMetric] = useState<ChatActivityMetric>("onlineCount");
   const [clientFilterOpen, setClientFilterOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [widgetOrders, setWidgetOrders] = useState<DashboardWidgetOrders>(() => readDashboardWidgetOrders(undefined));
+  const [draggedWidget, setDraggedWidget] = useState<{ group: DashboardWidgetGroup; id: DashboardWidgetId } | null>(null);
+  const [dragOverWidget, setDragOverWidget] = useState<{ group: DashboardWidgetGroup; id: DashboardWidgetId } | null>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setWidgetOrders(readDashboardWidgetOrders(user?.id));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id !== undefined && typeof window !== "undefined") {
+      window.localStorage.setItem(getDashboardWidgetStorageKey(user.id), JSON.stringify(widgetOrders));
+    }
+  }, [user?.id, widgetOrders]);
+
+  const updateWidgetOrder = useCallback((group: DashboardWidgetGroup, sourceId: DashboardWidgetId, targetId: DashboardWidgetId) => {
+    setWidgetOrders((current) => ({ ...current, [group]: moveDashboardWidget(current[group], sourceId, targetId) }));
+  }, []);
+
+  const handleWidgetDragStart = useCallback((group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.DragEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, select, textarea, a")) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `${group}:${id}`);
+    setDraggedWidget({ group, id });
+    setDragOverWidget(null);
+  }, []);
+
+  const handleWidgetDragOver = useCallback((group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.DragEvent<HTMLDivElement>) => {
+    if (!draggedWidget || draggedWidget.group !== group || draggedWidget.id === id) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverWidget({ group, id });
+  }, [draggedWidget]);
+
+  const clearWidgetDrag = useCallback(() => {
+    setDraggedWidget(null);
+    setDragOverWidget(null);
+  }, []);
+
+  const handleWidgetDrop = useCallback((group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (draggedWidget && draggedWidget.group === group) updateWidgetOrder(group, draggedWidget.id, id);
+    clearWidgetDrag();
+  }, [clearWidgetDrag, draggedWidget, updateWidgetOrder]);
+
+  const handleWidgetKeyDown = useCallback((group: DashboardWidgetGroup, id: DashboardWidgetId, event: React.KeyboardEvent<HTMLDivElement>) => {
+    const order = widgetOrders[group];
+    const currentIndex = order.indexOf(id);
+    if (currentIndex < 0) return;
+    const direction = event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : 0;
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      const targetIndex = event.key === "Home" ? 0 : order.length - 1;
+      if (targetIndex !== currentIndex) updateWidgetOrder(group, id, order[targetIndex]);
+      return;
+    }
+    if (!direction) return;
+    const targetIndex = Math.max(0, Math.min(order.length - 1, currentIndex + direction));
+    if (targetIndex !== currentIndex) {
+      event.preventDefault();
+      updateWidgetOrder(group, id, order[targetIndex]);
+    }
+  }, [updateWidgetOrder, widgetOrders]);
+
+  const resetWidgetOrders = useCallback(() => {
+    setWidgetOrders(DEFAULT_DASHBOARD_WIDGET_ORDERS);
+    if (user?.id !== undefined && typeof window !== "undefined") {
+      window.localStorage.removeItem(getDashboardWidgetStorageKey(user.id));
+    }
+    toast.success("Ordem padrão dos widgets restaurada.");
+  }, [user?.id]);
 
   // ── Alerta automático de prazo ────────────────────────────────────────────────────
   const checkDeadlineAlertsMut = trpc.dashboard.checkDeadlineAlerts.useMutation();
@@ -1213,6 +1337,21 @@ export default function Dashboard() {
     }, 800);
   }, [chatActivity]);
 
+  const widgetFrameProps = (group: DashboardWidgetGroup, id: DashboardWidgetId, label: string, className = "") => ({
+    group,
+    id,
+    label,
+    order: widgetOrders[group],
+    draggedWidget,
+    dragOverWidget,
+    onDragStart: handleWidgetDragStart,
+    onDragOver: handleWidgetDragOver,
+    onDrop: handleWidgetDrop,
+    onDragEnd: clearWidgetDrag,
+    onKeyDown: handleWidgetKeyDown,
+    className,
+  });
+
   return (
     <AppLayout title="Dashboard">
       <div className="dashboard-page p-6 space-y-6 bg-background min-h-full">
@@ -1301,6 +1440,16 @@ export default function Dashboard() {
               <FileDown className="w-4 h-4" />
               {isExporting ? "Exportando..." : "Exportar PDF"}
             </button>
+            <button
+              type="button"
+              onClick={resetWidgetOrders}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d]"
+              title="Restaurar a ordem padrão dos widgets"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden xl:inline">Restaurar widgets</span>
+              <span className="sr-only xl:hidden">Restaurar ordem dos widgets</span>
+            </button>
             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
               <button
                 onClick={() => setView("geral")}
@@ -1328,25 +1477,28 @@ export default function Dashboard() {
         {view === "geral" && (
           <div className="grid grid-cols-12 gap-5">
             {/* ── Coluna esquerda: Mapa + Stats + Vencimentos ── */}
-            <div className="col-span-12 lg:col-span-6 space-y-4">
+            <div className="col-span-12 lg:col-span-6 flex flex-col gap-4">
               {/* Mapa */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                {contractsByStateQ.isLoading ? (
-                  <Skeleton className="h-64 w-full rounded-lg" />
-                ) : (
-                  <ContractsMap
-                    locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0, contracts: s.contracts ?? [] }))}
-                    segments={(segmentsQ.data ?? []) as SegmentOverlay[]}
-                    segmentsLoading={segmentsQ.isLoading}
-                    onNavigate={navigate}
-                    mapExportRef={mapExportRef}
-                  />
-                )}
-              </div>
+              <DashboardWidgetFrame {...widgetFrameProps("generalLeft", "map", "Mapa de contratos", "shrink-0")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                  {contractsByStateQ.isLoading ? (
+                    <Skeleton className="h-64 w-full rounded-lg" />
+                  ) : (
+                    <ContractsMap
+                      locations={stateData.map((s: any) => ({ name: s.state ?? s.code, state: s.state ?? s.code, country: "Brasil", count: s.count, avgProgress: s.avgProgress ?? 0, contracts: s.contracts ?? [] }))}
+                      segments={(segmentsQ.data ?? []) as SegmentOverlay[]}
+                      segmentsLoading={segmentsQ.isLoading}
+                      onNavigate={navigate}
+                      mapExportRef={mapExportRef}
+                    />
+                  )}
+                </div>
+              </DashboardWidgetFrame>
 
               {/* Stat rows */}
-              <div className="space-y-2">
-                {isLoading ? (
+              <DashboardWidgetFrame {...widgetFrameProps("generalLeft", "stats", "Resumo de indicadores", "shrink-0")}>
+                <div className="space-y-2">
+                  {isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)
                 ) : (
                   <>
@@ -1396,10 +1548,12 @@ export default function Dashboard() {
                       )}
                     </div>
                   </>
-                )}
-              </div>
+                  )}
+                </div>
+              </DashboardWidgetFrame>
               {/* ── Linha do Tempo de Vencimentos ──────────────────────────────── */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <DashboardWidgetFrame {...widgetFrameProps("generalLeft", "deadlines", "Vencimentos próximos", "shrink-0")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                     <CalendarClock className="w-4 h-4 text-orange-500" /> Vencimentos Próximos
@@ -1448,14 +1602,16 @@ export default function Dashboard() {
                       </div>
                     </div>
                   );
-                })()}
-              </div>
+                  })()}
+                </div>
+              </DashboardWidgetFrame>
             </div>
 
             {/* ── Coluna direita: KPIs + Burndown + Contratos por Estado ── */}
-            <div className="col-span-12 lg:col-span-6 space-y-4">
+            <div className="col-span-12 lg:col-span-6 flex flex-col gap-4">
               {/* KPI cards */}
-              <div className="grid grid-cols-3 gap-3">
+              <DashboardWidgetFrame {...widgetFrameProps("generalRight", "primary-kpis", "Indicadores principais", "shrink-0")}>
+                <div className="grid grid-cols-3 gap-3">
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
                 ) : (
@@ -1480,10 +1636,12 @@ export default function Dashboard() {
                     />
                   </>
                 )}
-              </div>
+                </div>
+              </DashboardWidgetFrame>
 
               {/* KPI cards para extensao, area e perimetro urbano */}
-              <div className="grid grid-cols-3 gap-3">
+              <DashboardWidgetFrame {...widgetFrameProps("generalRight", "secondary-kpis", "Indicadores de extensão", "shrink-0")}>
+                <div className="grid grid-cols-3 gap-3">
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
                 ) : (
@@ -1508,10 +1666,12 @@ export default function Dashboard() {
                     />
                   </>
                 )}
-              </div>
+                </div>
+              </DashboardWidgetFrame>
 
               {/* Distribuição visual da extensão por tipo de obra */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <DashboardWidgetFrame {...widgetFrameProps("generalRight", "distribution", "Distribuição da extensão", "shrink-0")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800">Distribuição da Extensão</h3>
@@ -1560,10 +1720,12 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-              </div>
+                </div>
+              </DashboardWidgetFrame>
 
               {/* Atividade do chat e presença por disciplina */}
-              <div className="chat-activity-panel bg-white rounded-xl border border-gray-100 shadow-sm p-4" aria-live="polite">
+              <DashboardWidgetFrame {...widgetFrameProps("generalRight", "chat", "Atividade do chat por disciplina", "shrink-0")}>
+                <div className="chat-activity-panel bg-white rounded-xl border border-gray-100 shadow-sm p-4" aria-live="polite">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-start gap-2.5">
                     <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center text-teal-700 shrink-0">
@@ -1720,12 +1882,14 @@ export default function Dashboard() {
                     )}
                   </>
                 )}
-              </div>
+                </div>
+              </DashboardWidgetFrame>
 
               {/* Burndown + Contratos por Estado lado a lado */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Burndown da Sprint Atual */}
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <DashboardWidgetFrame {...widgetFrameProps("generalRight", "burndown", "Burndown da sprint", "min-w-0")}>
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                   <h3 className="text-sm font-semibold text-gray-800 mb-3">Burndown da Sprint Atual</h3>
                   {activeSprintQ.isLoading ? (
                     <Skeleton className="h-40 w-full" />
@@ -1758,10 +1922,12 @@ export default function Dashboard() {
                       </span>
                     </div>
                   )}
-                </div>
+                  </div>
+                </DashboardWidgetFrame>
 
                 {/* Contratos por Estado */}
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <DashboardWidgetFrame {...widgetFrameProps("generalRight", "contracts-state", "Contratos por estado", "min-w-0")}>
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                   <h3 className="text-sm font-semibold text-gray-800 mb-3">Contratos por Estado</h3>
                   {contractsByStateQ.isLoading ? (
                     <Skeleton className="h-40 w-full" />
@@ -1797,11 +1963,13 @@ export default function Dashboard() {
                       })}
                     </div>
                   )}
-                </div>
+                  </div>
+                </DashboardWidgetFrame>
               </div>
 
               {/* ── Painel SLA / Pontualidade ───────────────────────────────── */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <DashboardWidgetFrame {...widgetFrameProps("generalRight", "sla", "SLA e pontualidade", "shrink-0")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
                     <Target className="w-4 h-4 text-blue-600" /> SLA / Pontualidade
@@ -1864,8 +2032,8 @@ export default function Dashboard() {
                     </div>
                   );
                 })()}
-              </div>
-
+                </div>
+              </DashboardWidgetFrame>
 
             </div>
           </div>
@@ -1878,7 +2046,8 @@ export default function Dashboard() {
             {/* Row 1: A + B + C */}
             <div className="grid grid-cols-12 gap-5">
               {/* A — Status das Atividades */}
-              <div className="col-span-12 lg:col-span-4 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <DashboardWidgetFrame {...widgetFrameProps("detailTop", "activity-status", "Status das atividades", "col-span-12 lg:col-span-4")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">A</span>
                   <h3 className="text-sm font-semibold text-gray-800">Status das Atividades</h3>
@@ -1920,9 +2089,11 @@ export default function Dashboard() {
                   </>
                 )}
               </div>
+              </DashboardWidgetFrame>
 
               {/* B — Tipo de Obra */}
-              <div className="col-span-12 lg:col-span-4 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <DashboardWidgetFrame {...widgetFrameProps("detailTop", "work-type", "Tipo de obra", "col-span-12 lg:col-span-4")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">B</span>
                   <h3 className="text-sm font-semibold text-gray-800">Tipo de Obra</h3>
@@ -1957,9 +2128,11 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+              </DashboardWidgetFrame>
 
               {/* C — Progresso por Cliente */}
-              <div className="col-span-12 lg:col-span-4 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <DashboardWidgetFrame {...widgetFrameProps("detailTop", "client-progress", "Progresso por cliente", "col-span-12 lg:col-span-4")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">C</span>
                   <h3 className="text-sm font-semibold text-gray-800">Progresso por Cliente</h3>
@@ -1986,11 +2159,13 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </div>
+                </div>
+              </DashboardWidgetFrame>
             </div>
 
             {/* Row 2: Atividade detalhada do chat */}
-            <div className="chat-activity-panel bg-white rounded-xl border border-gray-100 shadow-sm p-5" aria-labelledby="detailed-chat-activity-title">
+            <DashboardWidgetFrame {...widgetFrameProps("detailBottom", "chat-detail", "Atividade detalhada do chat", "") }>
+              <div className="chat-activity-panel bg-white rounded-xl border border-gray-100 shadow-sm p-5" aria-labelledby="detailed-chat-activity-title">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-teal-50 flex items-center justify-center text-xs font-bold text-teal-700">D</span>
@@ -2064,12 +2239,14 @@ export default function Dashboard() {
                   })}
                 </div>
               )}
-            </div>
+              </div>
+            </DashboardWidgetFrame>
 
             {/* Row 3: E + F */}
             <div className="grid grid-cols-12 gap-5">
               {/* D — Minhas Tarefas */}
-              <div className="col-span-12 lg:col-span-7 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <DashboardWidgetFrame {...widgetFrameProps("detailBottom", "my-tasks", "Minhas tarefas", "col-span-12 lg:col-span-7")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">E</span>
                   <h3 className="text-sm font-semibold text-gray-800">Minhas Tarefas</h3>
@@ -2107,9 +2284,11 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+              </DashboardWidgetFrame>
 
               {/* E — Projetos Ativos */}
-              <div className="col-span-12 lg:col-span-5 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <DashboardWidgetFrame {...widgetFrameProps("detailBottom", "active-projects", "Projetos ativos", "col-span-12 lg:col-span-5")}>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">F</span>
                   <h3 className="text-sm font-semibold text-gray-800">Projetos Ativos</h3>
@@ -2151,7 +2330,8 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </div>
+                </div>
+              </DashboardWidgetFrame>
             </div>
           </div>
         )}

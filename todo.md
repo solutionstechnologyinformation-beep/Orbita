@@ -1082,3 +1082,9 @@
 - [x] Aplicar fundo escuro aos cartões e caixas de informação do Dashboard
 - [x] Ajustar caixas internas, métricas, bordas e estados vazios para o tema escuro
 - [x] Adicionar testes de tema para os cartões do Dashboard
+
+## Dashboard — Reordenação de widgets
+- [x] Permitir arrastar e soltar para reordenar os widgets do Dashboard
+- [x] Exibir feedback visual e controles acessíveis durante a reordenação
+- [x] Persistir a ordem por usuário e permitir restaurar a ordem padrão
+- [x] Adicionar testes para reordenação, persistência e teclado
