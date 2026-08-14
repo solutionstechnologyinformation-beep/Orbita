@@ -140,3 +140,21 @@ describe("dashboard map viewport preservation", () => {
     expect(dashboardSource).not.toContain("focusContract(first.item.crsId, first.position)");
   });
 });
+
+describe("dashboard map viewport across fullscreen transitions", () => {
+  it("captures the viewport before entering or leaving fullscreen", () => {
+    expect(dashboardSource).toContain("const mapViewportRef = useRef");
+    expect(dashboardSource).toContain("const captureMapViewport = useCallback");
+    expect(dashboardSource).toContain("captureMapViewport();");
+    expect(dashboardSource).toContain("onExpandedChange(false)");
+    expect(dashboardSource).toContain("onExpandedChange(true)");
+  });
+
+  it("restores the exact center and zoom after the map resize", () => {
+    expect(dashboardSource).toContain("const restoreMapViewport = useCallback");
+    expect(dashboardSource).toContain("map.setCenter(viewport.center);");
+    expect(dashboardSource).toContain("map.setZoom(viewport.zoom);");
+    expect(dashboardSource).toContain("window.google.maps.event.trigger(mapRef.current, \"resize\")");
+    expect(dashboardSource).toContain("restoreViewportFrame = window.requestAnimationFrame(restoreMapViewport);");
+  });
+});

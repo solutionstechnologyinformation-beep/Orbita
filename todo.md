@@ -1228,11 +1228,16 @@
 - [x] Adicionar testes de preservação da viewport e validar TypeScript
 
 ## Tema escuro — Superfícies das abas administrativas
-- [ ] Auditar fundos cinza em Projetos, Sprints, Programação, Calendário, Relatórios e Notificações
-- [ ] Substituir superfícies cinza por tokens escuros preservando o tema claro
-- [ ] Adicionar testes de regressão e validar TypeScript
+- [x] Auditar fundos cinza em Projetos, Sprints, Programação, Calendário, Relatórios e Notificações
+- [x] Substituir superfícies cinza por tokens escuros preservando o tema claro
+- [x] Adicionar testes de regressão e validar TypeScript
 
 ## Mapa — Redução adicional em tela cheia
 - [x] Auditar a largura atual do canvas e do painel no modo ampliado
 - [x] Reduzir moderadamente a área útil do mapa mantendo o painel dentro da viewport
 - [x] Validar testes, TypeScript e ausência de overflow horizontal
+
+## Mapa — Preservação da viewport entre modos
+- [x] Auditar expansão, minimização, resize e restauração da viewport
+- [x] Capturar e restaurar centro e zoom ao alternar entre modo normal e tela cheia
+- [x] Adicionar testes de regressão e validar TypeScript

@@ -152,6 +152,7 @@ type ContractMarkerData = { crsId: number; name: string; number: number | string
 type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.Marker; baseColor?: string; baseIcon?: google.maps.Symbol };
   function ContractsMap({ locations, segments, segmentsLoading, onNavigate, mapExportRef, isMapExpanded, onExpandedChange }: { locations: ContractLocation[]; segments: SegmentOverlay[]; segmentsLoading: boolean; onNavigate: (path: string) => void; mapExportRef: React.RefObject<HTMLDivElement | null>; isMapExpanded: boolean; onExpandedChange: (expanded: boolean) => void }) {
   const mapRef = useRef<google.maps.Map | null>(null);
+  const mapViewportRef = useRef<{ center: google.maps.LatLngLiteral; zoom: number } | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const segmentLinesRef = useRef<google.maps.Polyline[]>([]);
   const segmentMarkersRef = useRef<google.maps.Marker[]>([]);
@@ -176,26 +177,42 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       mapAnimationTimerRef.current = null;
     }
   }, []);
+  const captureMapViewport = useCallback(() => {
+    const map = mapRef.current;
+    const center = map?.getCenter();
+    const zoom = map?.getZoom();
+    if (!center || typeof zoom !== "number") return;
+    mapViewportRef.current = { center: center.toJSON(), zoom };
+  }, []);
+  const restoreMapViewport = useCallback(() => {
+    const map = mapRef.current;
+    const viewport = mapViewportRef.current;
+    if (!map || !viewport) return;
+    map.setCenter(viewport.center);
+    map.setZoom(viewport.zoom);
+  }, []);
   const minimizeMap = useCallback(() => {
     clearMapAnimationTimer();
     if (!isMapExpanded) return;
+    captureMapViewport();
     setIsMapMinimizing(true);
     mapAnimationTimerRef.current = window.setTimeout(() => {
       onExpandedChange(false);
       setIsMapMinimizing(false);
       mapAnimationTimerRef.current = null;
     }, MAP_FULLSCREEN_ANIMATION_DURATION_MS);
-  }, [clearMapAnimationTimer, isMapExpanded, onExpandedChange]);
+  }, [captureMapViewport, clearMapAnimationTimer, isMapExpanded, onExpandedChange]);
   const toggleMapExpanded = useCallback(() => {
     clearMapAnimationTimer();
     if (isMapExpanded) {
       minimizeMap();
       return;
     }
+    captureMapViewport();
     setIsMapMinimizing(false);
     setIsMapSummaryPanelOpen(true);
     onExpandedChange(true);
-  }, [clearMapAnimationTimer, isMapExpanded, minimizeMap, onExpandedChange]);
+  }, [captureMapViewport, clearMapAnimationTimer, isMapExpanded, minimizeMap, onExpandedChange]);
   const [segmentVisibility, setSegmentVisibility] = useState<Record<number, boolean>>({});
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | "all">("all");
   const [segmentColors, setSegmentColors] = useState<Record<string, string>>(() => {
@@ -745,16 +762,22 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleEscape);
     }
+    let restoreViewportFrame: number | null = null;
     const resizeTimer = window.setTimeout(() => {
-      if (mapRef.current && window.google?.maps?.event) window.google.maps.event.trigger(mapRef.current, "resize");
+      if (mapRef.current && window.google?.maps?.event) {
+        window.google.maps.event.trigger(mapRef.current, "resize");
+        restoreMapViewport();
+        restoreViewportFrame = window.requestAnimationFrame(restoreMapViewport);
+      }
       window.dispatchEvent(new Event("resize"));
     }, 180);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
       window.clearTimeout(resizeTimer);
+      if (restoreViewportFrame !== null) window.cancelAnimationFrame(restoreViewportFrame);
     };
-  }, [isMapExpanded, isMapSummaryPanelOpen, minimizeMap]);
+  }, [isMapExpanded, isMapSummaryPanelOpen, minimizeMap, restoreMapViewport]);
 
   useEffect(() => {
     if (mapRef.current && (locations.length > 0 || segments.length > 0)) {
@@ -824,7 +847,10 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
             <div className="flex min-h-14 items-center gap-2 border-b border-inherit px-3 py-2">
               <button
                 type="button"
-                onClick={() => setIsMapSummaryPanelOpen((open) => !open)}
+                onClick={() => {
+                  captureMapViewport();
+                  setIsMapSummaryPanelOpen((open) => !open);
+                }}
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${mapPanelMuted} ${isDark ? "hover:bg-slate-800 hover:text-slate-100" : "hover:bg-gray-100 hover:text-gray-700"}`}
                 aria-label={isMapSummaryPanelOpen ? "Recolher resumo do mapa" : "Expandir resumo do mapa"}
                 aria-expanded={isMapSummaryPanelOpen}

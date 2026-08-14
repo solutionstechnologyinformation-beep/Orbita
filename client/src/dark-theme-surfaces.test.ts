@@ -12,6 +12,10 @@ describe("dark theme surfaces across application tabs", () => {
     expect(stylesheet).toContain(".dark .bg-white");
     expect(stylesheet).toContain(".dark .bg-slate-50");
     expect(stylesheet).toContain(".dark .bg-gray-100");
+    expect(stylesheet).toContain(".dark .bg-gray-200");
+    expect(stylesheet).toContain(".dark .bg-gray-300");
+    expect(stylesheet).toContain(".dark .bg-slate-300");
+    expect(stylesheet).toContain(".dark .bg-zinc-50");
     expect(stylesheet).toContain("background-color: color-mix(in srgb, var(--brand-accent) 16%, var(--card)) !important;");
     expect(stylesheet).toContain(".dark .text-slate-900");
     expect(stylesheet).toContain(".dark .border-slate-200");
