@@ -874,13 +874,14 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
                   type="button"
                   data-map-status-legend-filter={option.value}
                   aria-pressed={active}
-                  aria-label={`Filtrar mapa por obras ${option.label.toLocaleLowerCase("pt-BR")}`}
-                  title={`Filtrar mapa: ${option.label}`}
+                  aria-label={`Filtrar mapa por obras ${option.label.toLocaleLowerCase("pt-BR")}: ${workStatusCounts[option.value]} obras`}
+                  title={`Filtrar mapa: ${option.label} — ${workStatusCounts[option.value]} obras`}
                   onClick={() => setWorkStatusFilter(option.value)}
                   className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${active ? (isDark ? "bg-slate-700 text-slate-100" : "bg-blue-50 text-blue-700") : `${mapPanelText} hover:bg-black/5 dark:hover:bg-white/10`}`}
                 >
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 ${active ? "scale-110" : "opacity-80"}`} style={{ backgroundColor: statusColor.color, border: `1px solid ${statusColor.stroke}` }} aria-hidden="true" />
-                  {option.label}
+                  <span className="whitespace-nowrap">{option.label}</span>
+                  <span className={`min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[9px] font-bold leading-none ${active ? (isDark ? "bg-slate-600 text-slate-100" : "bg-blue-100 text-blue-700") : (isDark ? "bg-slate-700 text-slate-300" : "bg-gray-200 text-gray-600")}`} aria-label={`${workStatusCounts[option.value]} obras`}>{workStatusCounts[option.value]}</span>
                 </button>
               );
             })}

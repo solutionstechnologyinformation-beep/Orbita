@@ -1262,3 +1262,8 @@
 - [x] Auditar o estado atual do filtro e da legenda visual
 - [x] Tornar os itens de status clicáveis e sincronizados com o filtro lateral e os marcadores
 - [x] Adicionar destaque ativo, suporte a teclado, aria-pressed e testes
+
+## Mapa — Contagens na legenda de status
+- [x] Auditar a contagem de status e a estrutura da legenda clicável
+- [x] Adicionar badges de quantidade sincronizados aos botões da legenda
+- [x] Validar atualização dinâmica, acessibilidade, testes e TypeScript

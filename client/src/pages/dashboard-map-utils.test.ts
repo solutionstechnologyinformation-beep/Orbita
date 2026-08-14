@@ -199,6 +199,8 @@ describe("dashboard map work-status legend", () => {
     expect(dashboardSource).toContain("data-map-status-legend-filter={option.value}");
     expect(dashboardSource).toContain("aria-pressed={active}");
     expect(dashboardSource).toContain("onClick={() => setWorkStatusFilter(option.value)}");
+    expect(dashboardSource).toContain("workStatusCounts[option.value]");
+    expect(dashboardSource).toContain("aria-label={`${workStatusCounts[option.value]} obras`}");
     expect(dashboardSource).toContain("MAP_WORK_STATUS_COLORS");
     expect(dashboardSource).toContain('"in-progress": { color: "#2563eb"');
     expect(dashboardSource).toContain('completed: { color: "#16a34a"');
