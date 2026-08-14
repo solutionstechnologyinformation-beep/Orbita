@@ -28,6 +28,7 @@ import { buildContractNumbers, clusterMapPoints, filterVisibleSegments, type Map
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buildMapElementsCsv, extractMapElementRecords, filterMapElementRecords, findMapElementRecord, getMapElementFocusZoom, getMapElementHighlightStyle, getMapElementPanelState, getNextMapElementVisibleCount, parseMapElementAttributes, type MapElementRecord, type MapElementSort } from "../../../shared/map-element-data";
 import { buildChatActivityChartData, CHAT_ACTIVITY_METRICS, type ChatActivityMetric } from "../../../shared/chat-activity";
+import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const TIPO_OBRA_MAP: Record<string, string> = {
@@ -1511,11 +1512,11 @@ export default function Dashboard() {
                         <div className="mt-1 text-xl font-bold text-violet-800">{chatActivity?.totals.typingCount ?? 0}</div>
                       </div>
                     </div>
-                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/60 p-3" role="img" aria-label={`Comparação de ${chatMetricLabel.toLowerCase()} entre disciplinas`}>
+                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/60 p-3" role="group" aria-label={`Comparação de ${chatMetricLabel.toLowerCase()} entre disciplinas`}>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold text-gray-700">Comparativo por disciplina</p>
-                          <p className="text-[10px] text-gray-400">Barras ordenadas do maior para o menor valor</p>
+                          <p className="text-[10px] text-gray-400">Clique em uma barra para abrir o chat da disciplina</p>
                         </div>
                         <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500" htmlFor="chat-activity-metric">
                           Métrica
@@ -1551,10 +1552,28 @@ export default function Dashboard() {
                               contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #dbe3ea" }}
                               formatter={(value: any) => [value, chatMetricLabel]}
                             />
-                            <Bar dataKey="value" name={chatMetricLabel} fill="#0f766e" radius={[0, 4, 4, 0]} barSize={14} />
+                            <Bar
+                              dataKey="value"
+                              name={chatMetricLabel}
+                              fill="#0f766e"
+                              radius={[0, 4, 4, 0]}
+                              barSize={14}
+                              style={{ cursor: "pointer" }}
+                              onClick={(barData: any, index: number) => {
+                                const selected = barData?.payload ?? chatActivityChartData[index];
+                                if (selected?.discipline) navigate(buildTeamChatDisciplineUrl(selected.discipline));
+                              }}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       )}
+                      <div className="sr-only">
+                        {chatActivityChartData.map((datum) => (
+                          <button key={`chat-chart-action-${datum.discipline}`} type="button" onClick={() => navigate(buildTeamChatDisciplineUrl(datum.discipline))}>
+                            Abrir chat da disciplina {datum.discipline}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     {(chatActivity?.disciplines ?? []).length === 0 ? (
                       <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-xs text-gray-400">

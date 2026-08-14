@@ -1031,3 +1031,8 @@
 - [x] Dashboard: gráfico de barras compacto para comparar métricas de atividade entre disciplinas
 - [x] Dashboard: seletor acessível de métrica para alternar entre online, mensagens em 24h e usuários digitando
 - [x] Testes: cobrir transformação dos dados do gráfico e estado vazio
+
+## Widget de atividade — Navegação por disciplina
+- [ ] Dashboard: tornar barras do gráfico de atividade clicáveis
+- [ ] Chat: abrir conversa filtrada pela disciplina selecionada a partir do gráfico
+- [ ] Testes: cobrir a construção do destino e a acessibilidade da interação

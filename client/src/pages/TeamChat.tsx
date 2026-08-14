@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,9 +15,13 @@ import { ptBR } from "date-fns/locale";
 import { PresenceDot } from "@/components/PresenceDot";
 import { toast } from "sonner";
 import { formatTypingLabel, getChatPollInterval } from "./team-chat-utils";
+import { filterDirectConversationsByDiscipline, filterUsersByDiscipline } from "./team-chat-navigation";
 
 export default function TeamChat() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const queryString = useSearch();
+  const disciplineFilter = useMemo(() => new URLSearchParams(queryString).get("discipline")?.trim() ?? "", [queryString]);
   const [selectedConvId, setSelectedConvId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [searchUser, setSearchUser] = useState("");
@@ -101,11 +106,28 @@ export default function TeamChat() {
   const directConvs = (convsQ.data ?? []) as any[];
   const groupConvs = (groupConvsQ.data ?? []) as any[];
   const allUsers = (usersQ.data ?? []) as any[];
-  // Only show users registered in the system (not the current user)
-  const otherUsers = allUsers.filter((u: any) => u.id !== user?.id);
+  const visibleDirectConvs = useMemo(
+    () => filterDirectConversationsByDiscipline(directConvs, allUsers, disciplineFilter),
+    [directConvs, allUsers, disciplineFilter],
+  );
+  // Only show users registered in the system (not the current user), optionally scoped to the selected discipline.
+  const otherUsers = useMemo(
+    () => filterUsersByDiscipline(allUsers.filter((u: any) => u.id !== user?.id), disciplineFilter),
+    [allUsers, user?.id, disciplineFilter],
+  );
   const filteredUsers = searchUser
     ? otherUsers.filter((u: any) => (u.name ?? u.email).toLowerCase().includes(searchUser.toLowerCase()))
     : otherUsers;
+  useEffect(() => {
+    if (activeTab === "direct" && selectedConvId && !visibleDirectConvs.some((conversation) => conversation.id === selectedConvId)) {
+      setSelectedConvId(null);
+    }
+  }, [activeTab, selectedConvId, visibleDirectConvs]);
+  useEffect(() => {
+    if (disciplineFilter && activeTab === "direct" && !selectedConvId && visibleDirectConvs.length > 0) {
+      setSelectedConvId(visibleDirectConvs[0].id);
+    }
+  }, [disciplineFilter, activeTab, selectedConvId, visibleDirectConvs]);
 
   const stopTyping = () => {
     if (!selectedConvId) return;
@@ -147,7 +169,7 @@ export default function TeamChat() {
   };
 
   const selectedConv = activeTab === "direct"
-    ? directConvs.find((c: any) => c.id === selectedConvId)
+    ? visibleDirectConvs.find((c: any) => c.id === selectedConvId)
     : groupConvs.find((c: any) => c.id === selectedConvId);
 
   const convTitle = activeTab === "direct"
@@ -176,6 +198,15 @@ export default function TeamChat() {
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" /> Chat da Equipe
             </h2>
+            {disciplineFilter && (
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2" role="status">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-primary">Filtro do Dashboard</p>
+                  <p className="truncate text-xs font-semibold text-foreground">Disciplina: {disciplineFilter}</p>
+                </div>
+                <button type="button" className="shrink-0 text-[10px] font-medium text-primary underline-offset-2 hover:underline" onClick={() => navigate("/team-chat")}>Limpar</button>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}
@@ -187,10 +218,11 @@ export default function TeamChat() {
               <Lock className="h-3.5 w-3.5" /> Privado
             </button>
             <button
-              className={"flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1 transition-colors " + (activeTab === "groups" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground")}
-              onClick={() => setActiveTab("groups")}
+              className={"flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1 transition-colors " + (activeTab === "groups" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground") + (disciplineFilter ? " opacity-50" : "")}
+              onClick={() => { if (!disciplineFilter) setActiveTab("groups"); }}
+              disabled={Boolean(disciplineFilter)}
             >
-              <Hash className="h-3.5 w-3.5" /> Grupos
+              <Hash className="h-3.5 w-3.5" /> Grupos{disciplineFilter ? " (selecione sem filtro)" : ""}
             </button>
           </div>
 
@@ -242,12 +274,12 @@ export default function TeamChat() {
 
               {/* Direct conversations list */}
               <div className="flex-1 overflow-y-auto">
-                {directConvs.length === 0 && (
+                {visibleDirectConvs.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8 px-4">
-                    Nenhuma conversa ainda. Busque um membro para iniciar.
+                    {disciplineFilter ? `Nenhuma conversa da disciplina ${disciplineFilter}. Busque um membro abaixo para iniciar.` : "Nenhuma conversa ainda. Busque um membro para iniciar."}
                   </p>
                 )}
-                {directConvs.map((conv: any) => {
+                {visibleDirectConvs.map((conv: any) => {
                   const name = conv.otherUserName ?? conv.otherUser?.name ?? "Usuário";
                   const avatar = conv.otherUserAvatar ?? conv.otherUser?.avatarUrl ?? "";
                   const isSelected = conv.id === selectedConvId;
