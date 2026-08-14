@@ -168,14 +168,14 @@
 - [x] Schema: enum role expandido: "master_admin" | "company_admin" | "user"
 - [x] Backend: migrar banco (novas tabelas e colunas)
 - [x] Backend: procedures companies.list, create, update, delete (master_admin)
-- [ ] Backend: isolamento de queries por companyId (users, projects, tasks)
+- [x] Backend: isolamento de queries por companyId (users, projects, tasks)
 - [x] Backend: companyAdminProcedure — guard que verifica role company_admin
 - [x] Backend: procedures para Company Admin gerenciar usuários da sua empresa
 - [x] Frontend: painel /company-admin com abas Usuários e Projetos da empresa
 - [ ] Frontend Admin Master: aba "Empresas" para criar/editar/excluir empresas
 - [ ] Frontend Admin Master: exibir empresa junto ao responsável nas tarefas
 - [x] Frontend: filtro por empresa no Kanban e Dashboard
-- [ ] Frontend: campo empresa visível no perfil do usuário
+- [x] Frontend: campo empresa visível no perfil do usuário
 
 ## Gráfico de Gantt v3.10
 - [x] Schema: campos startDate e endDate na tabela tasks
