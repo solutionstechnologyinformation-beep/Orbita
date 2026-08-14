@@ -40,8 +40,8 @@ describe("dashboard map fullscreen and timestamp", () => {
   it("defines smooth map keyframes and disables them for reduced motion", () => {
     expect(stylesheet).toContain("@keyframes orbitaMapFullscreenEnter");
     expect(stylesheet).toContain("@keyframes orbitaMapFullscreenExit");
-    expect(stylesheet).toContain("animation: orbitaMapFullscreenEnter 320ms");
-    expect(stylesheet).toContain("animation: orbitaMapFullscreenExit 320ms");
+    expect(stylesheet).toContain("animation: orbitaMapFullscreenEnter 380ms");
+    expect(stylesheet).toContain("animation: orbitaMapFullscreenExit 340ms");
     expect(stylesheet).toContain(".map-fullscreen-enter,");
     expect(stylesheet).toContain(".map-fullscreen-exit {");
     expect(stylesheet).toContain("animation: none;");
@@ -77,6 +77,18 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(stylesheet).toContain(".map-summary-panel-open");
     expect(stylesheet).toContain(".map-summary-panel");
     expect(stylesheet).toContain(".map-summary-panel-open {");
+  });
+
+  it("animates entering and leaving fullscreen with a smooth scale and fade", () => {
+    expect(dashboardSource).toContain("map-fullscreen-enter");
+    expect(dashboardSource).toContain("map-fullscreen-exit");
+    expect(stylesheet).toContain("@keyframes orbitaMapFullscreenEnter");
+    expect(stylesheet).toContain("@keyframes orbitaMapFullscreenExit");
+    expect(stylesheet).toContain("animation: orbitaMapFullscreenEnter 380ms");
+    expect(stylesheet).toContain("animation: orbitaMapFullscreenExit 340ms");
+    expect(stylesheet).toContain("backface-visibility: hidden;");
+    expect(stylesheet).toContain(".map-fullscreen-enter,");
+    expect(stylesheet).toContain(".map-fullscreen-exit,");
   });
 
   it("shows a quick preview on marker hover and focus before opening full details", () => {
