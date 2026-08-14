@@ -148,7 +148,7 @@
 - [x] Backend: migrar banco (ALTER TABLE users ADD COLUMN company)
 - [ ] Backend: importar upsertUser e deleteUser no routers.ts
 - [x] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
-- [ ] Backend: procedure admin.deleteUser
+- [x] Backend: procedure admin.deleteUser
 - [x] Backend: procedure profile.update aceitar campo company
 - [ ] Backend: listTasks e getProjectMembers retornar company do responsável
 - [x] Frontend: card do Kanban exibir empresa do responsável abaixo do nome
@@ -967,3 +967,5 @@
 - [x] Auth/Profile: cobrir a inicialização e atualização de company com teste unitário
 - [x] Kanban: ajustar o card para renderizar a empresa do responsável em uma segunda linha abaixo do nome
 - [x] Kanban: validar visualmente ou por teste que assigneeCompany aparece abaixo do nome somente quando existir
+- [x] Backend: criar alias admin.deleteUser com as mesmas proteções de users.deleteUser
+- [x] Backend: testar o contrato admin.deleteUser contra autoexclusão e remoção do administrador principal

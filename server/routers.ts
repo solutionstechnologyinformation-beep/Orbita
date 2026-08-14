@@ -42,6 +42,7 @@ import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry
 import { summarizePdfAttachment } from "./pdf-summary";
 import { processFloatingAgentCommand } from "./floating-agent";
 import { generateTaskContextSuggestions } from "./task-ai-suggestions";
+import { assertCanDeleteUser } from "./admin-delete-policy";
 import { notifyOwner } from "./_core/notification";
 import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
@@ -63,6 +64,16 @@ const leaderProcedure = protectedProcedure.use(({ ctx, next }) => {
   }
   return next({ ctx });
 });
+
+async function deleteUserWithAdminGuards(actorId: number, targetUserId: number) {
+  const allUsers = await getAllUsers();
+  const targetUser = allUsers.find((u: any) => u.id === targetUserId);
+  if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado." });
+  assertCanDeleteUser(actorId, targetUserId, targetUser.role);
+  await deleteUser(targetUserId);
+  await logActivity({ userId: actorId, action: "deleted_user", entityType: "user", entityId: targetUserId, metadata: JSON.stringify({ name: targetUser.name ?? targetUser.email }) });
+  return { success: true };
+}
 
 export const appRouter = router({
   // ─── Auth ──────────────────────────────────────────────────────────────────
@@ -170,25 +181,17 @@ export const appRouter = router({
       }),
     delete: adminProcedure
       .input(z.object({ userId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        if (input.userId === ctx.user.id) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Você não pode remover sua própria conta." });
-        }
-        const allUsers = await getAllUsers();
-        const targetUser = allUsers.find((u: any) => u.id === input.userId);
-        if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado." });
-        if (targetUser.role === "master_admin") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "O administrador principal não pode ser removido." });
-        }
-        await deleteUser(input.userId);
-        await logActivity({ userId: ctx.user.id, action: "deleted_user", entityType: "user", entityId: input.userId, metadata: JSON.stringify({ name: targetUser.name ?? targetUser.email }) });
-        return { success: true };
-      }),
+      .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId)),
     memberPerformance: protectedProcedure
       .input(z.object({ crsId: z.number().optional() }))
       .query(async ({ input }) => {
         return getMemberPerformance(input.crsId);
       }),
+  }),
+  admin: router({
+    deleteUser: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ ctx, input }) => deleteUserWithAdminGuards(ctx.user.id, input.userId)),
   }),
   // ─── Registros (Activity Logs) ───────────────────────────────────────────────────────────
   registros: router({
