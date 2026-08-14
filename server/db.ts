@@ -7,7 +7,7 @@ import {
   checklistItemComments, checklistItemHistory, taskComments,
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
-  conversations, conversationParticipants, directMessages,
+  conversations, conversationParticipants, directMessages, chatTypingStates,
   sprintChecklistItems, whiteboards, userDisciplines,
   googleCalendarTokens, googleCalendarEvents, meetings, crsSegments,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
@@ -978,6 +978,81 @@ export async function getClientProgress(company?: string, clientId?: number, com
     avgProgress: c.crsCount > 0 ? Math.round(c.avgProgress / c.crsCount) : 0,
   }));
 }
+export async function getDashboardContractDetails(clientId?: number, company?: string, companyId?: number | null) {
+  const db = await getDb();
+  const normalizedCompany = company?.trim() || undefined;
+  const conditions: any[] = [eq(crs.status, "active")];
+  if (clientId != null) conditions.push(eq(crs.clientId, clientId));
+  if (companyId != null) conditions.push(eq(crs.companyId, companyId));
+  if (normalizedCompany) {
+    conditions.push(sql`EXISTS (SELECT 1 FROM tasks assignedTask INNER JOIN users assignedUser ON assignedUser.id = assignedTask.assigneeId WHERE assignedTask.crsId = ${crs.id} AND assignedUser.company = ${normalizedCompany})`);
+  }
+
+  const rows = await db.select({
+    id: crs.id,
+    name: crs.name,
+    code: crs.code,
+    clientName: clients.name,
+    state: crs.state,
+    tipoObra: crs.tipoObra,
+    extensaoKm: crs.extensaoKm,
+    perimetroUrbano: crs.perimetroUrbano,
+    techDataByType: crs.techDataByType,
+    taskCount: sql<number>`COUNT(DISTINCT ${tasks.id})`,
+    completedTaskCount: sql<number>`COUNT(DISTINCT CASE WHEN (${kanbanPhases.isTerminal} = 1 OR ${tasks.progress} >= 100) THEN ${tasks.id} END)`,
+    checklistCount: sql<number>`COUNT(DISTINCT ${checklistItems.id})`,
+    completedChecklistCount: sql<number>`COUNT(DISTINCT CASE WHEN (${checklistItems.status} IN ('published', 'archived') OR ${checklistItems.completedAt} IS NOT NULL) THEN ${checklistItems.id} END)`,
+  }).from(crs)
+    .leftJoin(clients, eq(crs.clientId, clients.id))
+    .leftJoin(tasks, eq(tasks.crsId, crs.id))
+    .leftJoin(kanbanPhases, eq(tasks.phaseId, kanbanPhases.id))
+    .leftJoin(checklistItems, eq(checklistItems.taskId, tasks.id))
+    .where(and(...conditions))
+    .groupBy(crs.id, crs.name, crs.code, clients.name, crs.state, crs.tipoObra, crs.extensaoKm, crs.perimetroUrbano, crs.techDataByType)
+    .orderBy(asc(crs.name));
+
+  const disciplineConditions: any[] = [eq(crs.status, "active")];
+  if (clientId != null) disciplineConditions.push(eq(crs.clientId, clientId));
+  if (companyId != null) disciplineConditions.push(eq(crs.companyId, companyId));
+  if (normalizedCompany) {
+    disciplineConditions.push(sql`EXISTS (SELECT 1 FROM tasks assignedTask INNER JOIN users assignedUser ON assignedUser.id = assignedTask.assigneeId WHERE assignedTask.crsId = ${crs.id} AND assignedUser.company = ${normalizedCompany})`);
+  }
+  const disciplineRows = await db.select({
+    crsId: tasks.crsId,
+    discipline: tasks.setor,
+    taskCount: sql<number>`COUNT(DISTINCT ${tasks.id})`,
+    checklistCount: sql<number>`COUNT(DISTINCT ${checklistItems.id})`,
+    completedChecklistCount: sql<number>`COUNT(DISTINCT CASE WHEN (${checklistItems.status} IN ('published', 'archived') OR ${checklistItems.completedAt} IS NOT NULL) THEN ${checklistItems.id} END)`,
+  }).from(tasks)
+    .innerJoin(crs, eq(tasks.crsId, crs.id))
+    .leftJoin(checklistItems, eq(checklistItems.taskId, tasks.id))
+    .where(and(...disciplineConditions))
+    .groupBy(tasks.crsId, tasks.setor)
+    .orderBy(asc(tasks.crsId), asc(tasks.setor));
+
+  const disciplinesByCrs = new Map<number, any[]>();
+  for (const row of disciplineRows as any[]) {
+    const crsId = Number(row.crsId);
+    const list = disciplinesByCrs.get(crsId) ?? [];
+    list.push({
+      discipline: row.discipline || "Sem disciplina",
+      taskCount: Number(row.taskCount ?? 0),
+      checklistCount: Number(row.checklistCount ?? 0),
+      completedChecklistCount: Number(row.completedChecklistCount ?? 0),
+    });
+    disciplinesByCrs.set(crsId, list);
+  }
+
+  return (rows as any[]).map((row) => ({
+    ...row,
+    taskCount: Number(row.taskCount ?? 0),
+    completedTaskCount: Number(row.completedTaskCount ?? 0),
+    checklistCount: Number(row.checklistCount ?? 0),
+    completedChecklistCount: Number(row.completedChecklistCount ?? 0),
+    disciplineSummary: disciplinesByCrs.get(Number(row.id)) ?? [],
+  }));
+}
+
 export async function getWorldMapData(companyId?: number | null) {
   const db = await getDb();
   const rows = await db.select({
@@ -1194,6 +1269,31 @@ export async function getConversationMembers(conversationId: number) {
   }).from(conversationParticipants)
     .leftJoin(users, eq(conversationParticipants.userId, users.id))
     .where(eq(conversationParticipants.conversationId, conversationId));
+}
+
+export async function setChatTypingState(conversationId: number, userId: number) {
+  const db = await getDb();
+  await db.execute(sql`INSERT INTO chat_typing_states (conversationId, userId, lastTypedAt)
+    VALUES (${conversationId}, ${userId}, NOW())
+    ON DUPLICATE KEY UPDATE lastTypedAt = NOW()`);
+}
+
+export async function clearChatTypingState(conversationId: number, userId: number) {
+  const db = await getDb();
+  await db.delete(chatTypingStates).where(and(eq(chatTypingStates.conversationId, conversationId), eq(chatTypingStates.userId, userId)));
+}
+
+export async function getChatTypingUsers(conversationId: number, currentUserId: number) {
+  const db = await getDb();
+  const cutoff = new Date(Date.now() - 5000);
+  return db.select({ id: users.id, name: users.name })
+    .from(chatTypingStates)
+    .innerJoin(users, eq(chatTypingStates.userId, users.id))
+    .where(and(
+      eq(chatTypingStates.conversationId, conversationId),
+      sql`${chatTypingStates.lastTypedAt} >= ${cutoff}`,
+      sql`${chatTypingStates.userId} <> ${currentUserId}`,
+    ));
 }
 // ─── Sprints ───────────────────────────────────────────────────────────────────
 export async function getSprintsByCrs(crsId: number) {

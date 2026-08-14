@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import { aggregateCompletedTasksByAssignee } from "../../../shared/report-summary";
 import { resolvePrintWindow } from "./report-export-utils";
-import { ORBITA_LOGO_URL } from "@/branding";
+import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
+import { REPORT_PALETTE } from "./report-palette";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -853,6 +854,7 @@ export default function Dashboard() {
   const companiesQ = trpc.dashboard.companies.useQuery();
   const clientsQ = trpc.clients.list.useQuery();
   const statsQ = trpc.dashboard.stats.useQuery(dashboardDataInput);
+  const contractDetailsQ = trpc.dashboard.contractDetails.useQuery(dashboardDataInput);
   const clientProgressQ = trpc.dashboard.clientProgress.useQuery(dashboardDataInput);
   const myTasksQ = trpc.dashboard.myTasks.useQuery();
   const completedTasksQ = trpc.dashboard.completedTasksSummary.useQuery({ limit: 100 });
@@ -872,6 +874,7 @@ export default function Dashboard() {
   const activeSprint = activeSprintQ.data as any;
   const stateData = (contractsByStateQ.data ?? []) as any[];
   const crsItems = (crsQ.data ?? []) as any[];
+  const contractDetails = (contractDetailsQ.data ?? []) as any[];
 
   // ── Tipo de Obra stats ────────────────────────────────────────────────────────
   const tipoObraStats = useMemo(() => {
@@ -958,6 +961,21 @@ export default function Dashboard() {
       const sla = slaQ.data;
       const upcoming = upcomingQ.data;
       const stateRows = stateData;
+      const stateMapHeight = Math.max(220, Math.ceil(Math.max(stateRows.length, 1) / 5) * 58 + 34);
+      const stateMarkersHtml = stateRows.map((state: any, index: number) => {
+        const column = index % 5;
+        const row = Math.floor(index / 5);
+        const left = 8 + column * 21;
+        const top = 16 + row * 58;
+        return `<div class="state-marker" style="left:${left}%;top:${top}px" title="${escapeInfoWindowHtml(state.state ?? "Estado não informado")}"><span>${escapeInfoWindowHtml(state.state ?? "—")}</span><strong>${Number(state.count ?? 0)}</strong></div>`;
+      }).join("");
+      const contractDetailRows = contractDetails.slice(0, 50).map((contract: any) => {
+        const types = parseTipoObra(contract.tipoObra).map((type) => TIPO_OBRA_MAP[type] ?? type).join(", ") || "Outro";
+        const extension = contract.extensaoKm == null ? "—" : `${Number(contract.extensaoKm).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`;
+        const perimeter = contract.perimetroUrbano == null ? "—" : `${Number(contract.perimetroUrbano).toLocaleString("pt-BR")} Un`;
+        const disciplineRows = (contract.disciplineSummary ?? []).map((discipline: any) => `<div class="discipline-row"><strong>${escapeInfoWindowHtml(discipline.discipline)}</strong><span>${Number(discipline.taskCount ?? 0)} tarefa(s) · checklist ${Number(discipline.completedChecklistCount ?? 0)}/${Number(discipline.checklistCount ?? 0)}</span></div>`).join("") || '<div class="discipline-row muted">Sem tarefas ou checklist por disciplina.</div>';
+        return `<tr><td><strong>${escapeInfoWindowHtml(contract.name ?? "Contrato sem nome")}</strong>${contract.code ? `<div class="muted">${escapeInfoWindowHtml(contract.code)}</div>` : ""}</td><td>${escapeInfoWindowHtml(contract.clientName ?? "—")}</td><td>${escapeInfoWindowHtml(contract.state ?? "—")}</td><td>${escapeInfoWindowHtml(types)}<div class="muted">Extensão: ${extension} · Perímetro: ${perimeter}</div></td><td>${Number(contract.completedTaskCount ?? 0)}/${Number(contract.taskCount ?? 0)}<div class="muted">Checklist: ${Number(contract.completedChecklistCount ?? 0)}/${Number(contract.checklistCount ?? 0)}</div></td><td><div class="discipline-list">${disciplineRows}</div></td></tr>`;
+      }).join("");
       const completedRows = completedTasks.slice(0, 100);
       const completedByAssignee = aggregateCompletedTasksByAssignee(completedTasks);
       const completedContracts = new Set(completedTasks.map((task: any) => task.crsName).filter(Boolean)).size;
@@ -970,23 +988,23 @@ export default function Dashboard() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
-  .header { background: #0f172a; border-bottom: 4px solid #ffbe00; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .header { background: ${REPORT_PALETTE.navy}; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
   .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
   .body { padding: 28px 36px; }
-  .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #ffbe00; padding-left: 10px; margin: 24px 0 12px; }
+  .section-title { font-size: 14px; font-weight: 700; color: ${REPORT_PALETTE.navy}; border-left: 4px solid ${REPORT_PALETTE.yellow}; padding-left: 10px; margin: 24px 0 12px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .card { background: white; border-radius: 10px; border: 1px solid #dbe3ea; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.06); }
   .card-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .card-value { font-size: 28px; font-weight: 800; color: #0f172a; }
+  .card-value { font-size: 28px; font-weight: 800; color: ${REPORT_PALETTE.navy}; }
   .card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
   .sla-bar-bg { background: #dbe3ea; border-radius: 6px; height: 8px; margin: 8px 0; }
   .sla-bar { height: 8px; border-radius: 6px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .green { color: #16a34a; } .yellow { color: #d97706; } .red { color: #dc2626; }
-  .bg-green { background: #22c55e; } .bg-yellow { background: #ffbe00; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
+  .bg-green { background: #22c55e; } .bg-yellow { background: ${REPORT_PALETTE.yellow}; } .bg-red { background: #ef4444; } .bg-gray { background: #94a3b8; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #0f172a; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  th { background: ${REPORT_PALETTE.navy}; color: white; padding: 8px 12px; text-align: left; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   td { padding: 7px 12px; border-bottom: 1px solid #eef2f7; }
   tr:nth-child(even) td { background: #f7f8fa; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
@@ -996,12 +1014,22 @@ export default function Dashboard() {
   .assignee-chart-track { background: #dbe3ea; border-radius: 999px; height: 12px; overflow: hidden; }
   .assignee-chart-fill { height: 100%; border-radius: 999px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .assignee-chart-value { color: #475569; font-size: 11px; text-align: right; white-space: nowrap; }
-  .footer { background: #0f172a; border-top: 4px solid #ffbe00; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .state-map { position: relative; min-height: 220px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #bfdbfe 100%); border: 1px solid #bfdbfe; border-radius: 12px; overflow: hidden; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .state-map::before { content: ""; position: absolute; inset: 16px; border: 1px dashed rgba(37,99,235,.25); border-radius: 40% 55% 45% 60%; transform: rotate(-4deg); }
+  .state-marker { position: absolute; z-index: 1; transform: translate(-50%, 0); min-width: 46px; padding: 5px 7px; border-radius: 999px; background: #2563eb; color: white; text-align: center; box-shadow: 0 4px 10px rgba(30,64,175,.28); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .state-marker span { display: block; font-size: 8px; font-weight: 700; letter-spacing: .3px; opacity: .88; }
+  .state-marker strong { display: block; font-size: 16px; line-height: 17px; }
+  .map-legend { font-size: 10px; color: #475569; margin-top: 8px; }
+  .muted { color: #64748b; font-size: 10px; margin-top: 3px; }
+  .discipline-list { display: grid; gap: 4px; min-width: 170px; }
+  .discipline-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; line-height: 1.25; }
+  .discipline-row span { color: #475569; text-align: right; }
+  .footer { background: ${REPORT_PALETTE.navy}; border-top: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
   @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
 <div class="header">
-  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Orbita" /><div><h1>Orbita GIS &amp; OS</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /><div><h1>LS Solutions · Orbita GIS &amp; OS</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
   <div style="text-align:right"><p style="font-size:13px;font-weight:700">Visão Geral</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
 </div>
 <div class="body">
@@ -1028,10 +1056,24 @@ export default function Dashboard() {
       </div>
     </div>
   </div>
-  <div class="section-title">Visão Geral do Mapa e Contratos por Estado</div>
-  ${mapDataUrl ? `<div style="margin-bottom:16px;text-align:center;"><img src="${mapDataUrl}" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #e2e8f0;" /></div>` : ''}
+  <div class="section-title">Visão Geográfica — Contratos por Estado</div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Mapa esquemático de contratos</div>
+      <div class="state-map" style="min-height:${stateMapHeight}px">${stateMarkersHtml || '<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:12px;">Nenhum contrato por estado para exibir.</div>'}</div>
+      <div class="map-legend">As bolhas azuis representam a quantidade de contratos ativos em cada estado filtrado.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Captura do mapa atual</div>
+      ${mapDataUrl ? `<img src="${mapDataUrl}" style="width:100%;height:auto;max-height:300px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" alt="Mapa atual do Dashboard" />` : '<div style="padding:80px 20px;text-align:center;color:#64748b;font-size:12px;">A captura do mapa não ficou disponível nesta exportação.</div>'}
+    </div>
+  </div>
   <table><thead><tr><th>Estado</th><th>Contratos</th><th>Progresso Médio</th><th>Status</th></tr></thead><tbody>
     ${stateRows.map((s: any) => `<tr><td>${s.state}</td><td>${s.count}</td><td>${s.avgProgress ?? 0}%</td><td><span class="badge" style="background:${(s.avgProgress ?? 0) >= 80 ? '#dcfce7;color:#16a34a' : (s.avgProgress ?? 0) >= 50 ? '#fef9c3;color:#d97706' : '#fee2e2;color:#dc2626'}">${(s.avgProgress ?? 0) >= 80 ? 'Em Dia' : (s.avgProgress ?? 0) >= 50 ? 'Atenção' : 'Crítico'}</span></td></tr>`).join('')}
+  </tbody></table>
+  <div class="section-title">Detalhamento Técnico por Contrato e Disciplina</div>
+  <table><thead><tr><th>Contrato</th><th>Cliente</th><th>Estado</th><th>Tipo de obra e medidas</th><th>Tarefas / checklist</th><th>Disciplinas</th></tr></thead><tbody>
+    ${contractDetailRows || '<tr><td colspan="6" style="color:#64748b;text-align:center;">Nenhum detalhe de contrato disponível para os filtros atuais.</td></tr>'}
   </tbody></table>
   <div class="section-title">Tarefas Concluídas no Kanban</div>
   <div class="grid3">
@@ -1052,7 +1094,7 @@ export default function Dashboard() {
   </div>
   ${(upcoming?.tasks ?? []).length > 0 ? `<table><thead><tr><th>Tarefa</th><th>Contrato</th><th>Fase</th><th>Vencimento</th><th>Prioridade</th></tr></thead><tbody>${(upcoming?.tasks as any[] ?? []).map((t: any) => `<tr><td>${t.title}</td><td>${t.crsName ?? '—'}</td><td>${t.phaseName ?? '—'}</td><td>${t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-BR') : '—'}</td><td>${t.priority ?? '—'}</td></tr>`).join('')}</tbody></table>` : '<p style="color:#94a3b8;font-size:12px">Nenhuma tarefa com vencimento próximo.</p>'}
 </div>
-<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Orbita" /> Orbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
+<div class="footer"><span style="display:flex;align-items:center;gap:8px;"><img class="brand-logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" /> LS Solutions · Orbita GIS &amp; OS — Sistema de Gestão de Contratos</span><span>Página 1 de 1 — ${now.toLocaleDateString('pt-BR')}</span></div>
 </body></html>`;
       printWindow.document.open();
       printWindow.document.write(html);
@@ -1068,7 +1110,7 @@ export default function Dashboard() {
     } finally {
       setIsExporting(false);
     }
-  }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod, completedTasks]);
+  }, [slaQ.data, upcomingQ.data, stateData, stats, slaPeriod, completedTasks, contractDetails]);
 
   return (
     <AppLayout title="Dashboard">

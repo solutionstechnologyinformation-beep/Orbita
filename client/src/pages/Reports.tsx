@@ -2,13 +2,14 @@ import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter, CalendarDays } from "lucide-react";
+import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Filter, CalendarDays, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { ORBITA_LOGO_URL } from "@/branding";
+import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE, getReportRateColor } from "./report-palette";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ function pdfHeader(title: string, subtitle?: string) {
     <div style="background:${BLUE};color:${WHITE};padding:28px 36px 20px;border-radius:10px 10px 0 0;border-bottom:4px solid ${YELLOW};">
       <div style="display:flex;align-items:center;gap:16px;">
         <div style="width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:4px;">
-          <img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:100%;height:100%;object-fit:contain;" />
+          <img src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" style="width:100%;height:100%;object-fit:contain;" />
         </div>
         <div>
           <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:2px;">Orbita — Gerenciamento de Projetos</div>
@@ -40,7 +41,7 @@ function pdfHeader(title: string, subtitle?: string) {
 function pdfFooter() {
   return `
     <div style="margin-top:40px;padding:14px 36px;background:${BLUE};border-top:4px solid ${YELLOW};border-radius:0 0 10px 10px;display:flex;align-items:center;gap:10px;">
-      <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:${WHITE};"><img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Orbita GIS &amp; OS</span>
+      <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:${WHITE};"><img src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> LS Solutions · Orbita GIS &amp; OS</span>
       <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.55);">Relatório gerado automaticamente</span>
     </div>`;
 }
@@ -313,7 +314,7 @@ function exportSprintReport(sprint: any, tasks: any[], dataPoints: any[]) {
 // ─── Blocked Tasks Report ─────────────────────────────────────────────────────
 function exportBlockedReport(blockedTasks: any[], clientName?: string) {
   const priorityLabel: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", urgent: "Urgente" };
-  const priorityColor: Record<string, string> = { low: "#475569", medium: "#ffbe00", high: "#ef4444", urgent: "#0f172a" };
+  const priorityColor: Record<string, string> = { low: "#475569", medium: REPORT_PALETTE.yellow, high: "#ef4444", urgent: "#0f172a" };
 
   const rows = blockedTasks.map(t => `
     <tr>
@@ -368,7 +369,7 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
   const chartW = 820, labelW = 180, barAreaW = chartW - labelW - 70, barH = 22, gap = 10;
   const chartRows = members.map((m, i) => {
     const bw = Math.max(Math.round((m.completionRate / 100) * barAreaW), 2);
-    const color = m.completionRate >= 80 ? "#16a34a" : m.completionRate >= 50 ? "#ffbe00" : "#ef4444";
+    const color = m.completionRate >= 80 ? "#16a34a" : m.completionRate >= 50 ? REPORT_PALETTE.yellow : "#ef4444";
     const y = i * (barH + gap) + 4;
     const label = (m.userName ?? "?").length > 22 ? (m.userName ?? "?").slice(0, 22) + "…" : (m.userName ?? "?");
     return `
@@ -385,7 +386,7 @@ function exportMemberPerformanceReport(members: any[], projectName?: string, cli
     const segments = [
       { val: m.completed, color: "#16a34a" },
       { val: m.inProgress, color: "#2563eb" },
-      { val: m.shared, color: "#ffbe00" },
+      { val: m.shared, color: REPORT_PALETTE.yellow },
       { val: m.blocked, color: "#ef4444" },
       { val: m.pending, color: "#94a3b8" },
     ];
@@ -519,7 +520,7 @@ function exportAnnualReport(data: any, clientName?: string) {
       <td style="padding:8px 12px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <div style="flex:1;height:6px;background:#dbe3ea;border-radius:3px;overflow:hidden;">
-            <div style="width:${c.progress}%;height:100%;background:${c.progress >= 80 ? '#16a34a' : c.progress >= 50 ? '#2563eb' : '#ffbe00'};border-radius:3px;"></div>
+            <div style="width:${c.progress}%;height:100%;background:${c.progress >= 80 ? '#16a34a' : c.progress >= 50 ? '#2563eb' : REPORT_PALETTE.yellow};border-radius:3px;"></div>
           </div>
           <span style="font-size:11px;font-weight:600;color:#0f3b5f;min-width:30px;">${c.progress}%</span>
         </div>
@@ -541,7 +542,7 @@ function exportAnnualReport(data: any, clientName?: string) {
       <td style="padding:8px 12px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <div style="flex:1;height:6px;background:#dbe3ea;border-radius:3px;overflow:hidden;">
-            <div style="width:${m.completionRate}%;height:100%;background:${m.completionRate >= 80 ? '#16a34a' : m.completionRate >= 50 ? '#ffbe00' : '#ef4444'};border-radius:3px;"></div>
+            <div style="width:${m.completionRate}%;height:100%;background:${m.completionRate >= 80 ? '#16a34a' : m.completionRate >= 50 ? REPORT_PALETTE.yellow : '#ef4444'};border-radius:3px;"></div>
           </div>
           <span style="font-size:11px;font-weight:600;min-width:30px;">${m.completionRate}%</span>
         </div>
@@ -559,7 +560,7 @@ function exportAnnualReport(data: any, clientName?: string) {
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
         ${kpiBox('Em Andamento', summary.inProgressTasks, '#2563eb')}
-        ${kpiBox('Pendentes', summary.pendingTasks, '#ffbe00')}
+        ${kpiBox('Pendentes', summary.pendingTasks, REPORT_PALETTE.yellow)}
         ${kpiBox('Em Atraso', summary.overdueTasks, '#ef4444')}
       </div>
       <h3 style="font-size:14px;font-weight:600;color:${BLUE};margin-bottom:8px;">Tendência Mensal de Tarefas</h3>
@@ -595,7 +596,9 @@ function exportAnnualReport(data: any, clientName?: string) {
 
 // ─── Main Component ──────────────────────────────────────────────────────
 export default function Reports() {
+  const [, navigate] = useLocation();
   const [selectedClient, setSelectedClient] = useState("all");
+  const [selectedReportProject, setSelectedReportProject] = useState("all");
   const [selectedSprint, setSelectedSprint] = useState("none");
   const [selectedProjectForMembers, setSelectedProjectForMembers] = useState("none");
   const [loadingReport, setLoadingReport] = useState<string | null>(null);
@@ -622,16 +625,17 @@ export default function Reports() {
 
   // Filter projects and sprints by selected client
   const projects = useMemo(() => {
-    if (selectedClient === "all") return allProjects;
-    return allProjects.filter((p: any) => String(p.clientId) === selectedClient);
-  }, [allProjects, selectedClient]);
+    const byClient = selectedClient === "all"
+      ? allProjects
+      : allProjects.filter((p: any) => String(p.clientId) === selectedClient);
+    if (selectedReportProject === "all") return byClient;
+    return byClient.filter((p: any) => String(p.id) === selectedReportProject);
+  }, [allProjects, selectedClient, selectedReportProject]);
 
   const sprints = useMemo(() => {
-    if (selectedClient === "all") return allSprints;
-    // Filter sprints by projects belonging to selected client
-    const clientProjectIds = new Set(projects.map((p: any) => p.id));
-    return allSprints.filter((s: any) => clientProjectIds.has(s.crsId));
-  }, [allSprints, projects, selectedClient]);
+    const projectIds = new Set(projects.map((p: any) => p.id));
+    return allSprints.filter((s: any) => projectIds.has(s.crsId));
+  }, [allSprints, projects]);
 
   const selectedClientObj = useMemo(
     () => clients.find((c: any) => String(c.id) === selectedClient),
@@ -639,6 +643,8 @@ export default function Reports() {
   );
 
   const isLoading = projectsQ.isLoading || sprintsQ.isLoading;
+  const previewTaskCount = projects.reduce((sum: number, project: any) => sum + (project.taskCounts?.total ?? 0), 0);
+  const previewCompletedCount = projects.reduce((sum: number, project: any) => sum + (project.taskCounts?.published ?? 0) + (project.taskCounts?.archived ?? 0), 0);
 
   // Sprint detail query (only when sprint selected) - includes tasks and dataPoints
   const sprintDetailQ = trpc.sprints.get.useQuery(
@@ -668,7 +674,9 @@ export default function Reports() {
     setLoadingReport(type);
     const clientName = selectedClientObj?.name;
     try {
-      if (type === "dashboard") {
+      if (type === "ai-chat") {
+        navigate("/ai-chat");
+      } else if (type === "dashboard") {
         exportDashboardReport(projects, stats, sprints, clientName);
       } else if (type === "projects") {
         exportProjectsReport(projects, clients, clientName);
@@ -703,6 +711,16 @@ export default function Reports() {
   }
 
   const reportCards = [
+    {
+      id: "ai-chat",
+      icon: MessageSquare,
+      title: "Relatório do Chat IA",
+      description: "Abra o assistente para revisar a conversa atual e exportar a última resposta da IA em PDF com a identidade LS Solutions.",
+      badge: "IA",
+      badgeColor: "bg-teal-50 text-teal-700",
+      actionLabel: "Abrir Chat IA",
+      extra: null,
+    },
     {
       id: "dashboard",
       icon: BarChart2,
@@ -829,6 +847,7 @@ export default function Reports() {
                 <p className="text-xs font-medium text-muted-foreground">Filtrar por cliente</p>
                 <Select value={selectedClient} onValueChange={(v) => {
                   setSelectedClient(v);
+                  setSelectedReportProject("all");
                   setSelectedSprint("none");
                   setSelectedProjectForMembers("none");
                 }}>
@@ -842,13 +861,26 @@ export default function Reports() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs font-medium text-muted-foreground mt-4">Filtrar por projeto</p>
+                <Select value={selectedReportProject} onValueChange={(v) => { setSelectedReportProject(v); setSelectedSprint("none"); setSelectedProjectForMembers("none"); }}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Todos os projetos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os projetos</SelectItem>
+                    {allProjects.filter((p: any) => selectedClient === "all" || String(p.clientId) === selectedClient).map((p: any) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs font-medium text-muted-foreground mt-4">Período de referência</p>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>{yearOptions.map((year) => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}</SelectContent>
+                </Select>
                 {selectedClient !== "all" && selectedClientObj && (
                   <div className="space-y-1">
                     <Badge variant="secondary" className="gap-1 text-xs w-full justify-start">
                       <Filter className="w-3 h-3" />
                       {selectedClientObj.name}
                     </Badge>
-                    <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setSelectedClient("all"); setSelectedSprint("none"); setSelectedProjectForMembers("none"); }}>Limpar filtro</button>
+                    <button className="text-xs text-muted-foreground hover:text-foreground underline" onClick={() => { setSelectedClient("all"); setSelectedReportProject("all"); setSelectedSprint("none"); setSelectedProjectForMembers("none"); }}>Limpar filtro</button>
                   </div>
                 )}
               </div>
@@ -859,9 +891,20 @@ export default function Reports() {
           <SplitPanelContent noPadding>
             <div className="p-4 space-y-5 overflow-y-auto h-full">
 
+        {/* Filtered data preview */}
+        <Card className="border-primary/20 bg-primary/[0.03]">
+          <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Filter className="w-4 h-4 text-primary" />Prévia dos dados filtrados</CardTitle><CardDescription>Confira o escopo atual antes de gerar qualquer PDF.</CardDescription></CardHeader>
+          <CardContent><div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-lg bg-background border border-border p-3"><p className="text-xs text-muted-foreground">Projetos</p><p className="text-xl font-bold text-foreground">{projects.length}</p></div>
+            <div className="rounded-lg bg-background border border-border p-3"><p className="text-xs text-muted-foreground">Tarefas</p><p className="text-xl font-bold text-foreground">{previewTaskCount}</p></div>
+            <div className="rounded-lg bg-background border border-border p-3"><p className="text-xs text-muted-foreground">Concluídas</p><p className="text-xl font-bold text-green-600">{previewCompletedCount}</p></div>
+            <div className="rounded-lg bg-background border border-border p-3"><p className="text-xs text-muted-foreground">Sprints</p><p className="text-xl font-bold text-foreground">{sprints.length}</p></div>
+          </div></CardContent>
+        </Card>
+
         {/* Report Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {reportCards.map(({ id, icon: Icon, title, description, badge, badgeColor, extra }) => (
+          {reportCards.map(({ id, icon: Icon, title, description, badge, badgeColor, extra, actionLabel }) => (
             <Card key={id} className="flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
@@ -898,7 +941,7 @@ export default function Reports() {
                     ) : (
                       <FileDown className="w-4 h-4" />
                     )}
-                    Exportar PDF
+                    {actionLabel ?? "Exportar PDF"}
                   </Button>
                 </div>
               </CardContent>

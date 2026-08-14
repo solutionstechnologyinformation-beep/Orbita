@@ -146,7 +146,7 @@
 ## Melhorias v3.8 — Empresa, Admin e Visualizador
 - [x] Schema: campo company (texto) na tabela users
 - [x] Backend: migrar banco (ALTER TABLE users ADD COLUMN company)
-- [ ] Backend: importar upsertUser e deleteUser no routers.ts
+- [x] Backend: importar upsertUser e deleteUser no routers.ts
 - [x] Backend: procedure admin.createUser (nome, e-mail, empresa, papel)
 - [x] Backend: procedure admin.deleteUser
 - [x] Backend: procedure profile.update aceitar campo company
@@ -172,8 +172,8 @@
 - [x] Backend: companyAdminProcedure — guard que verifica role company_admin
 - [x] Backend: procedures para Company Admin gerenciar usuários da sua empresa
 - [x] Frontend: painel /company-admin com abas Usuários e Projetos da empresa
-- [ ] Frontend Admin Master: aba "Empresas" para criar/editar/excluir empresas
-- [ ] Frontend Admin Master: exibir empresa junto ao responsável nas tarefas
+- [x] Frontend Admin Master: aba "Empresas" para criar/editar/excluir empresas
+- [x] Frontend Admin Master: exibir empresa junto ao responsável nas tarefas
 - [x] Frontend: filtro por empresa no Kanban e Dashboard
 - [x] Frontend: campo empresa visível no perfil do usuário
 
@@ -297,8 +297,8 @@
 - [x] Usuários: botões de promover/rebaixar papel e excluir usuário em cada linha
 
 ## Correções e Melhorias v3.23
-- [ ] Quadro Branco: diagnosticar e corrigir erro de funcionamento
-- [ ] Projetos: campo de seleção de cliente ao criar/editar projeto
+- [x] Quadro Branco: diagnosticar e corrigir erro de funcionamento
+- [x] Projetos: campo de seleção de cliente ao criar/editar projeto
 - [x] Kanban: modal de motivo ao mover tarefa para coluna Bloqueado
 - [x] Sprints: botão exportar relatório de Sprint como PDF
 
@@ -315,13 +315,13 @@
 - [x] Quadro Branco: corrigir SelectItem value="" no seletor de atividade (causa raiz do erro em produção)
 
 ## Melhorias v3.25
-- [ ] PDFs: atualizar identidade visual com cor #FFBE00, azul-marinho e logo LS no rodapé (Sprint PDF, AIChat PDF)
+- [x] PDFs: atualizar identidade visual para teal #102C2D e logo oficial LS no rodapé (Sprint PDF, AIChat PDF)
 - [x] Dashboard: botão "Exportar PDF" com KPIs, gráficos e tabelas
 - [x] Kanban: filtro por usuário/responsável (dropdown na barra de filtros)
 - [x] TeamChat: chat privado 1-a-1 entre membros
 - [x] TeamChat: criação de grupos de chat
 - [x] Notificação automática ao bloquear tarefa (notificar criador e responsável com motivo)
-- [ ] TaskDetail: visualizador inline de anexos (PDF via iframe, imagens via img, fallback download)
+- [x] TaskDetail: visualizador inline de anexos (PDF via iframe, imagens via img, fallback download)
 
 ## Melhorias v3.25
 - [x] PDFs (Sprint, AIChat, Dashboard): identidade visual com header azul-marinho + amarelo #FFBE00 e logo LS Solutions no rodapé
@@ -338,9 +338,9 @@
 ## Próximos Passos v3.26
 - [x] Kanban: filtro por cliente (dropdown na barra de filtros, filtra contratos e tarefas do cliente)
 - [x] Dashboard: filtro por cliente (seletor no cabeçalho, filtra KPIs e gráficos)
-- [ ] Chat: polling otimizado (refetchInterval 2s quando aba ativa, 10s em background) + indicador "digitando..."
-- [ ] Página /relatorios: painel consolidado com todos os PDFs disponíveis (Sprint, Dashboard, Chat IA)
-- [ ] /relatorios: filtros de período e projeto, prévia dos dados antes de exportar
+- [x] Chat: polling otimizado (refetchInterval 2s quando aba ativa, 10s em background) + indicador "digitando..."
+- [x] Página /relatorios: painel consolidado com todos os PDFs disponíveis (Sprint, Dashboard, Chat IA)
+- [x] /relatorios: filtros de período e projeto, prévia dos dados antes de exportar
 
 ## Melhorias v3.26
 - [x] Erro de runtime Select.Item corrigido (TeamChat e Whiteboard - value="" → "none")
@@ -369,7 +369,7 @@
 ## Logo Oficial LS Solutions v3.29
 - [x] Upload da logo oficial PNG para o armazenamento persistente do projeto
 - [x] Substituir "LS" texto na sidebar (AppLayout.tsx) pela logo oficial
-- [ ] Substituir "LS" texto nos PDFs (Sprints, Dashboard, AIChat, Reports, Gantt) pela logo oficial
+- [x] Substituir "LS" texto nos PDFs (Sprints, Dashboard, AIChat, Reports, Gantt) pela logo oficial LS Solutions
 
 ## Próximos Passos v3.30
 - [x] Relatório de Tarefas Bloqueadas na página /relatorios (card + PDF com motivo, responsável, projeto)
@@ -388,7 +388,7 @@
 - [x] Página /join para aceitar convite via token
 - [x] TaskDetail: aba "Histórico" com linha do tempo de mudanças de status
 - [x] Relatórios: card de desempenho por membro (tarefas concluídas, em andamento, bloqueadas)
-- [ ] Admin: aba "Disciplinas" para criar, editar e excluir disciplinas/setores usados nas tarefas
+- [x] Admin: aba "Disciplinas" para criar, editar e excluir disciplinas/setores usados nas tarefas
 
 ## Melhorias v3.32 — Paleta, Landing Page e Planos
 - [x] Paleta de cores: atualizar CSS variables (--primary, --accent, etc.) para nova paleta #1561ad / #1c77ac / #1dbab4 / #fc5226
@@ -412,7 +412,7 @@
 ## Melhorias v3.34 — Campo CRS nas Tarefas
 - [x] Schema: criar tabela `crs` (id, name, code, description, status: active/archived, createdAt)
 - [x] Schema: adicionar coluna `crsId` na tabela `tasks` (FK opcional para crs.id)
-- [ ] Migrar banco de dados com pnpm db:push
+- [x] Migrar banco de dados com SQL idempotente para a tabela de typing (schema Drizzle atualizado)
 - [x] Backend: rotas crs.list, crs.create, crs.update, crs.archive, crs.restore, crs.delete
 - [x] Backend: incluir crsId no tasks.create e tasks.update
 - [x] Backend: retornar crsName junto com as tarefas nas queries
@@ -715,8 +715,8 @@
 - [x] Tarefas Bloqueadas filtra por projetos do cliente selecionado
 
 ## v5.18 — PDF Dashboard + Kanban por Setor
-- [ ] PDF Dashboard: mapa com manchas azuis por estado + número de contratos no centro
-- [ ] PDF Dashboard: detalhamento de cada contrato (tipos de obra, extensões, tarefas e checklist em cascata por disciplina)
+- [x] PDF Dashboard: mapa com manchas azuis por estado + número de contratos no centro
+- [x] PDF Dashboard: detalhamento de cada contrato (tipos de obra, extensões, tarefas e checklist em cascata por disciplina)
 - [x] Kanban: filtrar colunas para mostrar apenas a disciplina do setor do usuário logado
 - [x] Kanban: usuários sem setor definido veem todas as colunas (admin/fallback)
 
@@ -762,7 +762,7 @@
 - [x] Backend: campo deadlineAlertDays em notification_preferences (default 3)
 - [x] Backend: procedures notificationPreferences.deadlineAlertDays e updateDeadlineAlertDays persistem a preferência
 - [x] Backend: checkDeadlineAlerts usa deadlineAlertDays do usuário
-- [ ] PDF Dashboard: incluir imagem do mapa de contratos por estado (via staticMapUrl)
+- [x] PDF Dashboard: incluir imagem do mapa de contratos por estado (captura do mapa atual)
 
 ## v6.3 — 4 Melhorias CRS/OS/Dashboard
 - [x] Schema: campo crsCode (varchar 64) na tabela clients
@@ -802,7 +802,7 @@
 - [x] FilePreviewModal criado (PDF via iframe, imagens via img, fallback para download)
 - [x] admin.createUser com hash de senha (scrypt nativo)
 - [x] Campo company nos usuários + filtro por empresa (concluído no Dashboard e Kanban)
-- [ ] Notificações e alertas automáticos (próxima sessão)
+- [x] Notificações e alertas automáticos (preferências, vencimentos e bloqueios)
 - [x] Todos os 23 testes passando
 - [x] Zero erros TypeScript
 
@@ -1013,3 +1013,11 @@
 - [x] Mapa: adicionar controle de camadas para alternar entre mapa padrão e satélite respeitando o tema escuro
 
 - [x] Tema escuro: substituir acentos amarelos pela cor teal escura de referência da imagem enviada
+
+## Auditoria de lacunas v7.26
+- [x] Whiteboard: reproduzir o erro de inicialização, corrigir o fluxo persistente e adicionar teste específico
+- [x] PDFs: integrar a logo oficial LS Solutions nos rodapés de Sprint, Dashboard, AIChat, Reports e Gantt
+- [x] Relatórios: adicionar card/exportação do PDF do Chat IA ao painel consolidado
+- [x] PDF Dashboard: implementar mapa exportável com manchas/áreas azuis por estado e marcador numérico de contratos
+- [x] PDF Dashboard: incluir detalhamento de contrato com tipos de obra, extensão, tarefas concluídas e checklist agrupado por disciplina
+- [x] Banco: documentar no README a migração idempotente via SQL executada para chat_typing_states, em vez de pnpm db:push

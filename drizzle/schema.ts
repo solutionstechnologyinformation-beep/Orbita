@@ -8,6 +8,7 @@ import {
   boolean,
   float,
   mediumtext,
+  primaryKey,
 } from "drizzle-orm/mysql-core";
 
 // ─── Companies (Multi-Tenant v3.9) ────────────────────────────────────────────
@@ -375,7 +376,18 @@ export const directMessages = mysqlTable("direct_messages", {
 });
 export type DirectMessage = typeof directMessages.$inferSelect;
 
+// ─── Chat typing presence ─────────────────────────────────────────────────────
+export const chatTypingStates = mysqlTable("chat_typing_states", {
+  conversationId: int("conversationId").notNull(),
+  userId: int("userId").notNull(),
+  lastTypedAt: timestamp("lastTypedAt").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.conversationId, table.userId] }),
+}));
+export type ChatTypingState = typeof chatTypingStates.$inferSelect;
+
 // ─── Disciplines (Setores/Disciplinas gerenciáveis pelo Admin) ────────────────
+
 export const disciplines = mysqlTable("disciplines", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 128 }).notNull().unique(),

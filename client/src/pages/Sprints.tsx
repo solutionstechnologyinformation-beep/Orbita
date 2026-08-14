@@ -17,7 +17,8 @@ import {
 import { Plus, Target, Calendar, CheckCircle2, Trash2, ChevronRight, FileDown, ListChecks, X, User, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ORBITA_LOGO_URL } from "@/branding";
+import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
+import { REPORT_PALETTE } from "./report-palette";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "bg-gray-100 text-gray-700",
@@ -245,10 +246,10 @@ export default function Sprints() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; background: #f7f8fa; padding: 32px; }
-    .header { display: flex; align-items: center; justify-content: space-between; background: #0f172a; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 4px solid #ffbe00; }
+    .header { display: flex; align-items: center; justify-content: space-between; background: ${REPORT_PALETTE.navy}; color: #ffffff; padding: 16px 24px; border-radius: 8px 8px 0 0; margin-bottom: 24px; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; }
     .logo { width: 48px; height: 48px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
     .logo span { color: #ffffff; }
-    .subtitle { font-size: 11px; color: #ffdc78; margin-top: 2px; }
+    .subtitle { font-size: 11px; color: ${REPORT_PALETTE.yellowSoft}; margin-top: 2px; }
     h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
@@ -256,15 +257,15 @@ export default function Sprints() {
     .kpi-value { font-size: 28px; font-weight: 800; }
     .kpi-label { font-size: 11px; color: #64748b; margin-top: 2px; }
     .kpi-completed .kpi-value { color: #22c55e; }
-    .kpi-progress .kpi-value { color: #0f3b5f; }
+    .kpi-progress .kpi-value { color: ${REPORT_PALETTE.navyBlue}; }
     .kpi-blocked .kpi-value { color: #dc2626; }
-    .kpi-rate .kpi-value { color: #0f3b5f; }
+    .kpi-rate .kpi-value { color: ${REPORT_PALETTE.navyBlue}; }
     .progress-bar { background: #dbe3ea; border-radius: 99px; height: 10px; margin: 8px 0 20px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 99px; background: #ffbe00; }
+    .progress-fill { height: 100%; border-radius: 99px; background: ${REPORT_PALETTE.yellow}; }
     section { margin-bottom: 24px; }
-    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #0f172a; border-left: 3px solid #ffbe00; padding-left: 8px; }
+    h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: ${REPORT_PALETTE.navy}; border-left: 3px solid ${REPORT_PALETTE.yellow}; padding-left: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { background: #eef2f7; padding: 6px 8px; text-align: left; border: 1px solid #dbe3ea; font-weight: 700; color: #0f172a; }
+    th { background: #eef2f7; padding: 6px 8px; text-align: left; border: 1px solid #dbe3ea; font-weight: 700; color: ${REPORT_PALETTE.navy}; }
     .footer { margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
     @media print { body { padding: 20px; } }
   </style>
@@ -273,7 +274,7 @@ export default function Sprints() {
   <div class="header">
     <div style="display:flex;align-items:center;gap:12px;">
       <div>
-        <img class="logo" src="${ORBITA_LOGO_URL}" alt="Logo Orbita" />
+        <img class="logo" src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" />
         <div class="subtitle">Sistema de Gerenciamento de Projetos</div>
       </div>
     </div>
@@ -371,9 +372,9 @@ export default function Sprints() {
   </section>`;
       })() : ''}
 
-  <div style="margin-top:32px;padding:12px 24px;background:#0f172a;border-top:4px solid #ffbe00;border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
-    <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#ffffff;"><img src="${ORBITA_LOGO_URL}" alt="Logo Orbita" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> Orbita GIS &amp; OS</span>
-    <span style="margin-left:auto;font-size:11px;color:#ffdc78;">Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
+  <div style="margin-top:32px;padding:12px 24px;background:${REPORT_PALETTE.navy};border-top:4px solid ${REPORT_PALETTE.yellow};border-radius:0 0 8px 8px;display:flex;align-items:center;gap:10px;">
+    <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#ffffff;"><img src="${LS_SOLUTIONS_LOGO_URL}" alt="Logo LS Solutions" style="width:28px;height:28px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:5px;padding:2px;" /> LS Solutions · Orbita GIS &amp; OS</span>
+    <span style="margin-left:auto;font-size:11px;color:${REPORT_PALETTE.yellowSoft};">LS Solutions · Sprint: ${selectedSprint.name} | ${startDate} – ${endDate}</span>
   </div>
 </body>
 </html>`;

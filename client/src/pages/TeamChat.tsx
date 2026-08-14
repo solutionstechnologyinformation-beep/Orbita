@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PresenceDot } from "@/components/PresenceDot";
 import { toast } from "sonner";
+import { formatTypingLabel, getChatPollInterval } from "./team-chat-utils";
 
 export default function TeamChat() {
   const { user } = useAuth();
@@ -23,13 +24,27 @@ export default function TeamChat() {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
+  const [isPageVisible, setIsPageVisible] = useState(() => typeof document === "undefined" || document.visibilityState === "visible");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingStopTimer = useRef<number | null>(null);
+  const lastTypingSignalAt = useRef(0);
+  const pollInterval = getChatPollInterval(isPageVisible);
 
-  const convsQ = trpc.messages.getConversations.useQuery(undefined, { refetchInterval: 3000 });
-  const groupConvsQ = trpc.messages.getGroupConversations.useQuery(undefined, { refetchInterval: 3000 });
+  useEffect(() => {
+    const handleVisibility = () => setIsPageVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  const convsQ = trpc.messages.getConversations.useQuery(undefined, { refetchInterval: isPageVisible ? 5000 : 15000 });
+  const groupConvsQ = trpc.messages.getGroupConversations.useQuery(undefined, { refetchInterval: isPageVisible ? 5000 : 15000 });
   const msgsQ = trpc.messages.getMessages.useQuery(
     { conversationId: selectedConvId! },
-    { enabled: !!selectedConvId, refetchInterval: 2000 }
+    { enabled: !!selectedConvId, refetchInterval: pollInterval }
+  );
+  const typingQ = trpc.messages.getTypingUsers.useQuery(
+    { conversationId: selectedConvId! },
+    { enabled: !!selectedConvId, refetchInterval: pollInterval }
   );
   const membersQ = trpc.messages.getMembers.useQuery(
     { conversationId: selectedConvId! },
@@ -67,9 +82,11 @@ export default function TeamChat() {
     onError: (e) => toast.error(e.message),
   });
 
+  const setTypingM = trpc.messages.setTyping.useMutation();
   const sendM = trpc.messages.send.useMutation({
     onSuccess: () => {
       utils.messages.getMessages.invalidate({ conversationId: selectedConvId! });
+      utils.messages.getTypingUsers.invalidate({ conversationId: selectedConvId! });
       utils.messages.getConversations.invalidate();
       utils.messages.getGroupConversations.invalidate();
       setMessage("");
@@ -90,8 +107,32 @@ export default function TeamChat() {
     ? otherUsers.filter((u: any) => (u.name ?? u.email).toLowerCase().includes(searchUser.toLowerCase()))
     : otherUsers;
 
+  const stopTyping = () => {
+    if (!selectedConvId) return;
+    if (typingStopTimer.current) window.clearTimeout(typingStopTimer.current);
+    typingStopTimer.current = null;
+    setTypingM.mutate({ conversationId: selectedConvId, isTyping: false });
+  };
+
+  const handleMessageChange = (value: string) => {
+    setMessage(value);
+    if (!selectedConvId) return;
+    const now = Date.now();
+    if (value.trim() && now - lastTypingSignalAt.current >= 1500) {
+      lastTypingSignalAt.current = now;
+      setTypingM.mutate({ conversationId: selectedConvId, isTyping: true });
+    }
+    if (typingStopTimer.current) window.clearTimeout(typingStopTimer.current);
+    if (value.trim()) {
+      typingStopTimer.current = window.setTimeout(stopTyping, 3000);
+    } else {
+      stopTyping();
+    }
+  };
+
   const handleSend = () => {
     if (!message.trim() || !selectedConvId) return;
+    stopTyping();
     sendM.mutate({ conversationId: selectedConvId, content: message.trim() });
   };
 
@@ -123,6 +164,8 @@ export default function TeamChat() {
 
   const messages = (msgsQ.data ?? []) as any[];
   const groupMembers = (membersQ.data ?? []) as any[];
+  const typingUsers = (typingQ.data ?? []) as any[];
+  const typingLabel = formatTypingLabel(typingUsers);
 
   return (
     <AppLayout>
@@ -318,7 +361,7 @@ export default function TeamChat() {
                   )}
                   <div>
                     <p className="font-medium text-sm">{convTitle}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{convSubtitle}</p>
+                    <p className={`text-xs capitalize ${typingLabel ? "text-primary font-medium" : "text-muted-foreground"}`}>{typingLabel ?? convSubtitle}</p>
                   </div>
                 </div>
                 {activeTab === "groups" && groupMembers.length > 0 && (
@@ -385,7 +428,8 @@ export default function TeamChat() {
                   <Input
                     placeholder="Digite uma mensagem..."
                     value={message}
-                    onChange={e => setMessage(e.target.value)}
+                    onChange={e => handleMessageChange(e.target.value)}
+                    onBlur={stopTyping}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                     className="flex-1"
                   />

@@ -79,10 +79,21 @@ DATABASE_URL=mysql://usuario:senha@host:porta/banco
 JWT_SECRET=seu_segredo_jwt
 ```
 
-### 4. Executar a Migração do Banco de Dados
-```bash
-pnpm db:push
+### 4. Executar as Migrações do Banco de Dados
+As alterações de schema devem ser revisadas e aplicadas de forma idempotente no banco conectado, respeitando a ordem das dependências. Não execute `pnpm db:push` cegamente em uma base com dados operacionais; use o fluxo de migração SQL aprovado pelo ambiente e valide cada alteração antes de prosseguir.
+
+Para habilitar a presença efêmera de digitação do chat, a tabela abaixo pode ser aplicada uma única vez:
+
+```sql
+CREATE TABLE IF NOT EXISTS chat_typing_states (
+  conversationId INT NOT NULL,
+  userId INT NOT NULL,
+  lastTypedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (conversationId, userId)
+);
 ```
+
+O schema Drizzle correspondente está em `drizzle/schema.ts`, e os helpers tRPC estão em `server/db.ts` e `server/routers.ts`. Em ambientes gerenciados, aplique o SQL pelo executor de banco do projeto ou por uma ferramenta de migração controlada; mantenha o comando e o resultado registrados no histórico da entrega.
 
 ### 5. Executar os Testes Unitários
 Para garantir a integridade da aplicação antes de iniciar o servidor, execute a suíte de testes automatizados com Vitest [4]:

@@ -509,7 +509,9 @@ export default function Projects() {
   function handleUpdate() {
     if (!editingCrs) return;
     updateMut.mutate({
-      id: editingCrs.id, name: form.name.trim() || editingCrs.name,
+      id: editingCrs.id,
+      clientId: form.clientId ? parseInt(form.clientId) : undefined,
+      name: form.name.trim() || editingCrs.name,
       code: form.code.trim() || undefined, description: form.description.trim() || undefined,
       country: form.country || undefined, countryCode: form.countryCode || undefined,
       state: form.state.trim() || undefined, stateCode: form.stateCode.trim() || undefined,
@@ -815,6 +817,13 @@ export default function Projects() {
           <DialogHeader><DialogTitle>Editar Contrato</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Cliente *</Label>
+                <Select value={form.clientId} onValueChange={(v) => setForm((f) => ({ ...f, clientId: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.crsCode ? `${c.crsCode} — ${c.name}` : c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div><Label>OS *</Label><Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
               <div><Label>Código CRS</Label><Input className="mt-1" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} /></div>
             </div>

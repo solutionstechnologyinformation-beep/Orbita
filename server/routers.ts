@@ -6,7 +6,7 @@ import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
 import { getKanbanStatusForPhase } from "../shared/kanban-status";
 import {
-  updateUser, getProjectMembers, deleteUser, getMemberPerformance,
+  updateUser, upsertUser, getProjectMembers, deleteUser, getMemberPerformance,
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
   getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
@@ -17,10 +17,10 @@ import {
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
-  logActivity, getDisciplines, getDashboardStats, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
+  logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
   getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, deleteCompany,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
-  getChatMessages, createChatMessage,
+  getChatMessages, createChatMessage, setChatTypingState, clearChatTypingState, getChatTypingUsers,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
   createGroupConversation, getGroupConversations, getConversationMembers, getTasksInVacationPeriod,
   getSprintsByCrs, getSprintChecklistItems, addChecklistItemToSprint, removeChecklistItemFromSprint,
@@ -373,6 +373,7 @@ export const appRouter = router({
     update: adminProcedure
       .input(z.object({
         id: z.number(),
+        clientId: z.number().optional(),
         name: z.string().optional(),
         code: z.string().optional(),
         description: z.string().optional(),
@@ -1080,6 +1081,9 @@ export const appRouter = router({
     stats: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }))
       .query(async ({ ctx, input }) => getDashboardStats(input.clientId, input.company, tenantCompanyId(ctx.user))),
+    contractDetails: protectedProcedure
+      .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }))
+      .query(async ({ ctx, input }) => getDashboardContractDetails(input.clientId, input.company, tenantCompanyId(ctx.user))),
     worldMap: protectedProcedure.query(async ({ ctx }) => getWorldMapData(tenantCompanyId(ctx.user))),
     weekDeliveries: protectedProcedure.query(async ({ ctx }) => getWeekDeliveries(tenantCompanyId(ctx.user))),
     myTasks: protectedProcedure.query(async ({ ctx }) => getMyTasks(ctx.user.id)),
@@ -1670,10 +1674,24 @@ export const appRouter = router({
     getMessages: protectedProcedure
       .input(z.object({ conversationId: z.number() }))
       .query(async ({ input }) => getDirectMessages(input.conversationId)),
+    getTypingUsers: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .query(async ({ ctx, input }) => getChatTypingUsers(input.conversationId, ctx.user.id)),
+    setTyping: protectedProcedure
+      .input(z.object({ conversationId: z.number(), isTyping: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.isTyping) {
+          await setChatTypingState(input.conversationId, ctx.user.id);
+        } else {
+          await clearChatTypingState(input.conversationId, ctx.user.id);
+        }
+        return { success: true };
+      }),
     send: protectedProcedure
       .input(z.object({ conversationId: z.number(), content: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
         const id = await sendDirectMessage({ conversationId: input.conversationId, senderId: ctx.user.id, content: input.content });
+        await clearChatTypingState(input.conversationId, ctx.user.id);
         // Notify other members of the conversation
         try {
           const members = await getConversationMembers(input.conversationId);

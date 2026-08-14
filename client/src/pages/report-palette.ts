@@ -1,8 +1,8 @@
 export const REPORT_PALETTE = {
-  navy: "#0f172a",
-  navyBlue: "#0f3b5f",
-  yellow: "#ffbe00",
-  yellowSoft: "#ffdc78",
+  navy: "#102C2D",
+  navyBlue: "#1d5557",
+  yellow: "#102C2D",
+  yellowSoft: "#6d9a99",
   ink: "#111827",
   green: "#16a34a",
   red: "#dc2626",

@@ -18,19 +18,26 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import jsPDF from "jspdf";
+import { LS_SOLUTIONS_LOGO_URL } from "@/branding";
 
 // ── Export last AI response as PDF ───────────────────────────────────────────
-function drawOrbitaPdfMark(doc: jsPDF, x: number, y: number) {
-  doc.setFillColor(255, 190, 0);
-  doc.circle(x + 5, y + 5, 4.5, "F");
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.9);
-  doc.circle(x + 5, y + 5, 3.4, "S");
-  doc.setFillColor(15, 23, 42);
-  doc.circle(x + 5, y + 5, 1.2, "F");
+async function loadPdfLogoDataUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
-function exportLastResponseToPDF(history: any[], projectName?: string) {
+async function exportLastResponseToPDF(history: any[], projectName?: string) {
   const lastAI = [...history].reverse().find((m: any) => m.role === "assistant");
   if (!lastAI) { toast.error("Nenhuma resposta da IA para exportar."); return; }
 
@@ -38,20 +45,21 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
   const maxW = pageW - margin * 2;
+  const logoDataUrl = await loadPdfLogoDataUrl(LS_SOLUTIONS_LOGO_URL);
 
-  doc.setFillColor(15, 23, 42);
+  doc.setFillColor(16, 44, 45);
   doc.rect(0, 0, pageW, 20, "F");
-  drawOrbitaPdfMark(doc, margin, 5);
+  if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, 4, 12, 12);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("Orbita GIS & OS", margin + 13, 11.5);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(255, 220, 120);
+  doc.setTextColor(180, 220, 218);
   doc.text("— Análise IA", margin + 57, 11.5);
   if (projectName) {
-    doc.setTextColor(255, 190, 0);
+    doc.setTextColor(180, 220, 218);
     doc.text(projectName, pageW - margin, 11.5, { align: "right" });
   }
 
@@ -81,12 +89,14 @@ function exportLastResponseToPDF(history: any[], projectName?: string) {
   const totalPages = (doc.internal as any).getNumberOfPages();
   for (let pg = 1; pg <= totalPages; pg++) {
     doc.setPage(pg);
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, doc.internal.pageSize.getHeight() - 10, pageW, 10, "F");
-    doc.setTextColor(255, 190, 0);
+    const footerY = doc.internal.pageSize.getHeight() - 10;
+    doc.setFillColor(16, 44, 45);
+    doc.rect(0, footerY, pageW, 10, "F");
+    if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, footerY + 1.5, 7, 7);
+    doc.setTextColor(180, 220, 218);
     doc.setFontSize(7);
-    doc.text("Orbita — Plataforma de Gestão de Projetos", margin, doc.internal.pageSize.getHeight() - 3.5);
-    doc.setTextColor(255, 190, 0);
+    doc.text("LS Solutions · Orbita — Plataforma de Gestão de Projetos", margin + 9, footerY + 6.5);
+    doc.setTextColor(180, 220, 218);
     doc.text(`Pág. ${pg}/${totalPages}`, pageW - margin, doc.internal.pageSize.getHeight() - 3.5, { align: "right" });
   }
   doc.save(`orbita-analise-${Date.now()}.pdf`);

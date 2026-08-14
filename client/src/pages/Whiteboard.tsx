@@ -10,6 +10,7 @@ import {
   Plus, X, Check, Edit2, Save,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
+import { resolveActivePageIndex } from "./whiteboard-utils";
 
 type Tool = "pen" | "line" | "rect" | "ellipse" | "text" | "eraser" | "move";
 
@@ -58,6 +59,11 @@ export default function Whiteboard() {
   }, [activePage, boards, saveMut]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [canvasNode, setCanvasNode] = useState<HTMLCanvasElement | null>(null);
+  const setCanvasElement = useCallback((node: HTMLCanvasElement | null) => {
+    canvasRef.current = node;
+    setCanvasNode(node);
+  }, []);
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState("#1e293b");
   const [lineWidth, setLineWidth] = useState(3);
@@ -95,22 +101,37 @@ export default function Whiteboard() {
     setRedoStack([]);
   }, [getCtx]);
 
-  // Load board data when page changes
+  // Reconcile the active page with persisted pages after the list loads.
+  useEffect(() => {
+    const resolvedPage = resolveActivePageIndex(sortedBoards, activePage);
+    if (resolvedPage !== activePage) setActivePage(resolvedPage);
+  }, [sortedBoards, activePage]);
+
+  // Load board data when the page or the canvas node changes. The callback ref is
+  // essential because the first effect pass can happen before the canvas mounts.
   useEffect(() => {
     const ctx = getCtx();
-    const canvas = canvasRef.current;
+    const canvas = canvasNode ?? canvasRef.current;
     if (!ctx || !canvas) return;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHistory([]);
     setRedoStack([]);
     const board = boards.find((b: any) => b.pageIndex === activePage);
+    let cancelled = false;
     if (board?.dataUrl) {
       const img = new Image();
-      img.onload = () => { ctx.drawImage(img, 0, 0); };
+      img.onload = () => { if (!cancelled) ctx.drawImage(img, 0, 0); };
       img.src = board.dataUrl;
     }
-  }, [activePage, boards, getCtx]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, boards, canvasNode, getCtx]);
+
+  useEffect(() => () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  }, []);
 
   const undo = useCallback(() => {
     const ctx = getCtx();
@@ -381,7 +402,7 @@ export default function Whiteboard() {
         {/* Canvas area */}
         <div className="flex-1 relative overflow-hidden bg-gray-100" style={{ cursor }}>
           <canvas
-            ref={canvasRef}
+            ref={setCanvasElement}
             width={2400}
             height={1600}
             style={{

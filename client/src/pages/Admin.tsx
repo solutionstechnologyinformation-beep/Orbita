@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 import { PresenceDot } from "@/components/PresenceDot";
+import { normalizeCompanySlug } from "./admin-company-utils";
 
 const COUNTRIES = [
   "Brasil","Argentina","Chile","Colombia","Peru","Uruguai","Paraguai","Bolivia","Venezuela","Ecuador",
@@ -139,6 +140,7 @@ function UserDisciplinesDialog({
 export default function Admin() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "master_admin";
+  const isMasterAdmin = user?.role === "master_admin";
 
   // Clients state
   const [showClientDialog, setShowClientDialog] = useState(false);
@@ -153,7 +155,13 @@ export default function Admin() {
 
   // Disciplines state
   const [showDisciplineDialog, setShowDisciplineDialog] = useState(false);
+  const [editingDiscipline, setEditingDiscipline] = useState<any>(null);
   const [disciplineForm, setDisciplineForm] = useState({ name: "", color: "#3b82f6", description: "" });
+
+  // Companies state (Master Admin)
+  const [showCompanyDialog, setShowCompanyDialog] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<any>(null);
+  const [companyForm, setCompanyForm] = useState({ name: "", slug: "", color: "#102C2D" });
 
   // Users state
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
@@ -168,6 +176,7 @@ export default function Admin() {
   const [registrosFilter, setRegistrosFilter] = useState("all");
 
   const clientsQ = trpc.clients.list.useQuery();
+  const companiesQ = trpc.companies.list.useQuery(undefined, { enabled: isMasterAdmin });
   const crsQ = trpc.crs.list.useQuery();
   const archivedCrsQ = trpc.crs.listArchived.useQuery(undefined, { enabled: showArchivedCrs });
   const disciplinesQ = trpc.disciplines.list.useQuery();
@@ -192,6 +201,20 @@ export default function Admin() {
     onError: (e) => toast.error("Erro: " + e.message),
   });
 
+  // Company mutations (Master Admin)
+  const createCompanyM = trpc.companies.create.useMutation({
+    onSuccess: () => { utils.companies.list.invalidate(); setShowCompanyDialog(false); setCompanyForm({ name: "", slug: "", color: "#102C2D" }); toast.success("Empresa criada!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const updateCompanyM = trpc.companies.update.useMutation({
+    onSuccess: () => { utils.companies.list.invalidate(); setShowCompanyDialog(false); setEditingCompany(null); toast.success("Empresa atualizada!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const deleteCompanyM = trpc.companies.delete.useMutation({
+    onSuccess: () => { utils.companies.list.invalidate(); toast.success("Empresa excluída!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+
   // CRS mutations
   const createCrsM = trpc.crs.create.useMutation({
     onSuccess: () => { utils.crs.list.invalidate(); setShowCrsDialog(false); setCrsForm({ clientId: "", name: "", code: "", country: "Brasil", state: "", description: "" }); toast.success("CRS criado!"); },
@@ -213,8 +236,13 @@ export default function Admin() {
     onSuccess: () => { utils.disciplines.list.invalidate(); setShowDisciplineDialog(false); setDisciplineForm({ name: "", color: "#3b82f6", description: "" }); toast.success("Disciplina criada!"); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
+  const updateDisciplineM = trpc.disciplines.update.useMutation({
+    onSuccess: () => { utils.disciplines.list.invalidate(); setShowDisciplineDialog(false); setEditingDiscipline(null); toast.success("Disciplina atualizada!"); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
   const deleteDisciplineM = trpc.disciplines.delete.useMutation({
     onSuccess: () => { utils.disciplines.list.invalidate(); toast.success("Disciplina excluida"); },
+    onError: (e) => toast.error("Erro: " + e.message),
   });
 
   const createUserM = trpc.users.createUser.useMutation({
@@ -246,6 +274,7 @@ export default function Admin() {
   });
 
   const clients = (clientsQ.data ?? []) as any[];
+  const companies = (companiesQ.data ?? []) as any[];
   const crsList = (crsQ.data ?? []) as any[];
   const archivedCrsList = (archivedCrsQ.data ?? []) as any[];
   const disciplines = (disciplinesQ.data ?? []) as any[];
@@ -266,6 +295,23 @@ export default function Admin() {
     setEditingClient(client);
     setClientForm({ name: client.name, color: client.color ?? "#3b82f6", country: client.country ?? "Brasil", notes: client.notes ?? "", crsCode: client.crsCode ?? "" });
     setShowClientDialog(true);
+  };
+
+  const openEditCompany = (company: any) => {
+    setEditingCompany(company);
+    setCompanyForm({ name: company.name, slug: company.slug, color: company.color ?? "#102C2D" });
+    setShowCompanyDialog(true);
+  };
+
+  const handleSaveCompany = () => {
+    const name = companyForm.name.trim();
+    const slug = normalizeCompanySlug(companyForm.slug);
+    if (!name || !slug) return;
+    if (editingCompany) {
+      updateCompanyM.mutate({ id: editingCompany.id, name, slug, color: companyForm.color });
+    } else {
+      createCompanyM.mutate({ name, slug, color: companyForm.color });
+    }
   };
 
   const openEditCrs = (crs: any) => {
@@ -308,6 +354,7 @@ export default function Admin() {
   const [adminTab, setAdminTab] = useState("clients");
 
   const adminMenuItems = [
+    ...(isMasterAdmin ? [{ value: "companies", icon: Building2, label: "Empresas" }] : []),
     { value: "clients",     icon: Building2,     label: "Clientes" },
     { value: "crs",         icon: Globe,         label: "Contratos" },
     { value: "disciplines", icon: Tag,           label: "Disciplinas" },
@@ -347,12 +394,43 @@ export default function Admin() {
             <div className="p-5 overflow-y-auto h-full">
         <Tabs value={adminTab} onValueChange={setAdminTab}>
           <TabsList className="sr-only">
+            {isMasterAdmin && <TabsTrigger value="companies">Empresas</TabsTrigger>}
             <TabsTrigger value="clients">Clientes</TabsTrigger>
             <TabsTrigger value="crs">Contrato</TabsTrigger>
             <TabsTrigger value="disciplines">Disciplinas</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="registros">Registros</TabsTrigger>
           </TabsList>
+
+          {/* COMPANIES TAB — Master Admin only */}
+          {isMasterAdmin && (
+            <TabsContent value="companies">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Empresas ({companies.length})</h2>
+                  <p className="text-xs text-muted-foreground">Organizações que isolam usuários, contratos e tarefas.</p>
+                </div>
+                <Button size="sm" onClick={() => { setEditingCompany(null); setCompanyForm({ name: "", slug: "", color: "#102C2D" }); setShowCompanyDialog(true); }}>
+                  <Plus className="w-4 h-4 mr-1" />Nova Empresa
+                </Button>
+              </div>
+              <div className="grid gap-3">
+                {companies.map((company: any) => (
+                  <div key={company.id} className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl">
+                    <span className="w-4 h-4 rounded-full shrink-0" style={{ background: company.color ?? "#102C2D" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">{company.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{company.slug}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">ID {company.id}</Badge>
+                    <Button size="sm" variant="ghost" onClick={() => openEditCompany(company)} title="Editar empresa"><Edit2 className="w-4 h-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => { if (confirm(`Excluir a empresa ${company.name}?`)) deleteCompanyM.mutate({ id: company.id }); }} className="text-destructive hover:text-destructive" title="Excluir empresa"><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                ))}
+                {companies.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhuma empresa cadastrada</p>}
+              </div>
+            </TabsContent>
+          )}
 
           {/* CLIENTS TAB */}
           <TabsContent value="clients">
@@ -448,7 +526,7 @@ export default function Admin() {
           <TabsContent value="disciplines">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Disciplinas ({disciplines.length})</h2>
-              <Button size="sm" onClick={() => { setDisciplineForm({ name: "", color: "#3b82f6", description: "" }); setShowDisciplineDialog(true); }}>
+              <Button size="sm" onClick={() => { setEditingDiscipline(null); setDisciplineForm({ name: "", color: "#3b82f6", description: "" }); setShowDisciplineDialog(true); }}>
                 <Plus className="w-4 h-4 mr-1" />Nova Disciplina
               </Button>
             </div>
@@ -460,9 +538,14 @@ export default function Admin() {
                     <p className="font-medium text-foreground">{d.name}</p>
                     {d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => { if (confirm("Excluir disciplina?")) deleteDisciplineM.mutate({ id: d.id }); }} className="text-destructive hover:text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" title="Editar disciplina" onClick={() => { setEditingDiscipline(d); setDisciplineForm({ name: d.name ?? "", color: d.color ?? "#3b82f6", description: d.description ?? "" }); setShowDisciplineDialog(true); }}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { if (confirm("Excluir disciplina?")) deleteDisciplineM.mutate({ id: d.id }); }} className="text-destructive hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               {disciplines.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhuma disciplina cadastrada</p>}
@@ -605,6 +688,39 @@ export default function Admin() {
           </SplitPanelContent>
         }
       />
+
+      {/* Company Dialog — Master Admin */}
+      {isMasterAdmin && (
+        <Dialog open={showCompanyDialog} onOpenChange={(open) => { setShowCompanyDialog(open); if (!open) setEditingCompany(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Building2 className="w-4 h-4" />{editingCompany ? "Editar Empresa" : "Nova Empresa"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <Label htmlFor="company-name">Nome *</Label>
+                <Input id="company-name" className="mt-1" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} placeholder="LS Solutions" />
+              </div>
+              <div>
+                <Label htmlFor="company-slug">Slug *</Label>
+                <Input id="company-slug" className="mt-1" value={companyForm.slug} onChange={(e) => setCompanyForm({ ...companyForm, slug: e.target.value })} placeholder="ls-solutions" />
+                <p className="text-xs text-muted-foreground mt-1">Identificador único usado no isolamento da organização.</p>
+              </div>
+              <div>
+                <Label htmlFor="company-color">Cor da empresa</Label>
+                <div className="flex items-center gap-2 mt-1"><Input id="company-color" type="color" className="w-14 h-9 p-1" value={companyForm.color} onChange={(e) => setCompanyForm({ ...companyForm, color: e.target.value })} /><span className="text-xs text-muted-foreground font-mono">{companyForm.color}</span></div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCompanyDialog(false)}>Cancelar</Button>
+              <Button onClick={handleSaveCompany} disabled={!companyForm.name.trim() || !companyForm.slug.trim() || createCompanyM.isPending || updateCompanyM.isPending}>
+                {(createCompanyM.isPending || updateCompanyM.isPending) && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+                Salvar Empresa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Create Local User Dialog */}
       <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}>
@@ -797,9 +913,9 @@ export default function Admin() {
       </Dialog>
 
       {/* Discipline Dialog */}
-      <Dialog open={showDisciplineDialog} onOpenChange={setShowDisciplineDialog}>
+      <Dialog open={showDisciplineDialog} onOpenChange={(open) => { setShowDisciplineDialog(open); if (!open) setEditingDiscipline(null); }}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Nova Disciplina</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingDiscipline ? "Editar Disciplina" : "Nova Disciplina"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Nome *</Label><Input value={disciplineForm.name} onChange={(e) => setDisciplineForm({ ...disciplineForm, name: e.target.value })} placeholder="Nome da disciplina" /></div>
             <div>
@@ -813,7 +929,19 @@ export default function Admin() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDisciplineDialog(false)}>Cancelar</Button>
-            <Button onClick={() => { if (disciplineForm.name.trim()) createDisciplineM.mutate(disciplineForm); }} disabled={!disciplineForm.name.trim() || createDisciplineM.isPending}>Criar</Button>
+            <Button
+              onClick={() => {
+                if (!disciplineForm.name.trim()) return;
+                if (editingDiscipline) {
+                  updateDisciplineM.mutate({ id: editingDiscipline.id, ...disciplineForm });
+                } else {
+                  createDisciplineM.mutate(disciplineForm);
+                }
+              }}
+              disabled={!disciplineForm.name.trim() || createDisciplineM.isPending || updateDisciplineM.isPending}
+            >
+              {editingDiscipline ? "Salvar" : "Criar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
