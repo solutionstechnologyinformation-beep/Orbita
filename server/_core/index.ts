@@ -38,6 +38,23 @@ async function startServer() {
   app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleStripeWebhook);
   
   // Configure body parser with larger size limit for file uploads
+  // Redirecionamento de domínios secundários para o domínio primário configurado pela empresa
+  app.use(async (req, res, next) => {
+    try {
+      const host = req.hostname || req.headers.host;
+      if (host) {
+        const { resolveTenantByHost } = await import("../tenant-resolver");
+        const tenant = await resolveTenantByHost(host);
+        if (tenant && !tenant.isPrimary && tenant.primaryDomain && tenant.primaryDomain !== tenant.domain) {
+          const protocol = req.protocol || "https";
+          const originalUrl = req.originalUrl || "/";
+          return res.redirect(301, `${protocol}://${tenant.primaryDomain}${originalUrl}`);
+        }
+      }
+    } catch {}
+    next();
+  });
+
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // Storage proxy for webdev assets

@@ -5,6 +5,8 @@ import { companyDomains, companies } from "../drizzle/schema";
 export type ResolvedTenant = {
   companyId: number;
   domain: string;
+  isPrimary: boolean;
+  primaryDomain: string | null;
   name: string;
   color: string;
   logoUrl: string | null;
@@ -31,6 +33,7 @@ export async function resolveTenantByHost(hostHeader: string | undefined): Promi
     .select({
       companyId: companyDomains.companyId,
       domain: companyDomains.domain,
+      isPrimary: companyDomains.isPrimary,
       name: companies.name,
       color: companies.color,
       logoUrl: companies.logoUrl,
@@ -41,5 +44,26 @@ export async function resolveTenantByHost(hostHeader: string | undefined): Promi
     .where(and(eq(companyDomains.domain, host), eq(companyDomains.status, "verified")))
     .limit(1);
 
-  return record ?? null;
+  if (!record) return null;
+
+  let primaryDomain: string | null = record.isPrimary ? record.domain : null;
+  if (!record.isPrimary) {
+    const [primaryRecord] = await db
+      .select({ domain: companyDomains.domain })
+      .from(companyDomains)
+      .where(and(eq(companyDomains.companyId, record.companyId), eq(companyDomains.isPrimary, true), eq(companyDomains.status, "verified")))
+      .limit(1);
+    primaryDomain = primaryRecord?.domain ?? null;
+  }
+
+  return {
+    companyId: record.companyId,
+    domain: record.domain,
+    isPrimary: record.isPrimary,
+    primaryDomain,
+    name: record.name,
+    color: record.color,
+    logoUrl: record.logoUrl,
+    logoDarkUrl: record.logoDarkUrl,
+  };
 }

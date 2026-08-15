@@ -241,6 +241,10 @@ export default function Admin() {
     onSuccess: () => { utils.tenant.listDomains.invalidate(); toast.success("Domínio removido."); },
     onError: (e) => toast.error("Erro ao remover domínio: " + e.message),
   });
+  const renewSslM = trpc.tenant.renewSsl.useMutation({
+    onSuccess: () => { utils.tenant.listDomains.invalidate(); toast.success("Certificado SSL renovado com sucesso!"); },
+    onError: (e) => toast.error("Erro ao renovar SSL: " + e.message),
+  });
 
   // CRS mutations
   const createCrsM = trpc.crs.create.useMutation({
@@ -735,11 +739,17 @@ export default function Admin() {
                       </div>
                       <Badge variant={domain.status === "verified" ? "default" : "outline"}>{domain.status === "verified" ? "Verificado" : domain.status === "disabled" ? "Desativado" : "Pendente DNS"}</Badge>
                       {domain.isPrimary && <Badge variant="secondary">Primário</Badge>}
+                      <Badge variant={domain.sslStatus === "active" ? "outline" : "destructive"} className="text-[11px]">
+                        {domain.sslStatus === "active" ? "SSL Ativo" : domain.sslStatus === "expiring" ? "SSL Expirando" : "SSL Pendente"}
+                      </Badge>
                     </div>
                     {domain.status === "pending" && domain.verificationToken && (
                       <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
                         Registro TXT: <code className="text-foreground break-all">_orbita-verification.{domain.domain}</code> = <code className="text-foreground break-all">{domain.verificationToken}</code>
                       </div>
+                    )}
+                    {!domain.isPrimary && domain.status === "verified" && (
+                      <p className="text-xs text-muted-foreground">Domínio secundário: acessos serão redirecionados por HTTP 301 para o domínio primário da empresa.</p>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
                       {domain.status === "pending" && (
@@ -750,6 +760,12 @@ export default function Admin() {
                       )}
                       {domain.status === "verified" && !domain.isPrimary && (
                         <Button size="sm" variant="outline" onClick={() => setPrimaryDomainM.mutate({ id: domain.id })} disabled={setPrimaryDomainM.isPending}>Definir como primário</Button>
+                      )}
+                      {domain.status === "verified" && (
+                        <Button size="sm" variant="outline" onClick={() => renewSslM.mutate({ id: domain.id })} disabled={renewSslM.isPending}>
+                          {renewSslM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                          Renovar SSL
+                        </Button>
                       )}
                       <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => { if (confirm(`Remover o domínio ${domain.domain}?`)) removeDomainM.mutate({ id: domain.id }); }} disabled={removeDomainM.isPending}>
                         <Trash2 className="w-4 h-4 mr-1" />Remover

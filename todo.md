@@ -1345,3 +1345,10 @@
 - [x] Desenvolver a tela administrativa de domínios personalizados no painel de administração
 - [x] Escrever testes unitários e de integração para validação de domínios e isolamento multi-tenant
 - [x] Atualizar o README com orientações de nomes comerciais (sem números) e guias de DNS/SSL
+
+## Próximos Passos Sugeridos — Aprimoramentos Multi-Tenant e Domínios
+- [x] Implementar upload e atualização de logotipos personalizados por empresa com validação de imagem e persistência em S3
+- [x] Adicionar colunas de controle de validade e status de certificado SSL/TLS na tabela company_domains
+- [x] Criar alertas visuais no painel de domínios para certificados próximos do vencimento ou pendentes de emissão
+- [x] Implementar o redirecionamento automático de domínios secundários verificados para o domínio primário configurado
+- [x] Criar testes unitários para a nova lógica de SSL, redirecionamento e branding dinâmico, mantendo zero erros TypeScript

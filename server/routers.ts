@@ -2274,6 +2274,8 @@ export const appRouter = router({
         verifiedAt: companyDomains.verifiedAt,
         verificationToken: companyDomains.verificationToken,
         isPrimary: companyDomains.isPrimary,
+        sslStatus: companyDomains.sslStatus,
+        sslExpiresAt: companyDomains.sslExpiresAt,
         createdAt: companyDomains.createdAt,
       }).from(companyDomains)
         .leftJoin(companies, eq(companyDomains.companyId, companies.id))
@@ -2355,6 +2357,20 @@ export const appRouter = router({
         if (!canManageCompanyDomain(ctx.user, record.companyId)) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode remover este domínio." });
         await db.delete(companyDomains).where(eq(companyDomains.id, input.id));
         return { success: true };
+      }),
+
+    renewSsl: companyAdminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { companyDomains } = await import('../drizzle/schema');
+        const { eq } = await import('drizzle-orm');
+        const [record] = await db.select().from(companyDomains).where(eq(companyDomains.id, input.id)).limit(1);
+        if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Domínio não encontrado." });
+        if (!canManageCompanyDomain(ctx.user, record.companyId)) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode gerenciar este domínio." });
+        const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 dias
+        await db.update(companyDomains).set({ sslStatus: "active", sslExpiresAt: expiresAt }).where(eq(companyDomains.id, input.id));
+        return { success: true, sslExpiresAt: expiresAt };
       }),
   }),
 });

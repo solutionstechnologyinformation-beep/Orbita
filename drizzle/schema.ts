@@ -33,6 +33,8 @@ export const companyDomains = mysqlTable("company_domains", {
   verificationToken: varchar("verificationToken", { length: 128 }),
   verifiedAt: timestamp("verifiedAt"),
   isPrimary: boolean("isPrimary").default(false).notNull(),
+  sslStatus: mysqlEnum("sslStatus", ["pending", "active", "expiring", "expired"]).default("pending").notNull(),
+  sslExpiresAt: timestamp("sslExpiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type CompanyDomain = typeof companyDomains.$inferSelect;
