@@ -1417,3 +1417,9 @@
 - [x] Adicionar comandos conversacionais de aprendizado ("Lembre que...", "O que você lembra?")
 - [x] Criar testes unitários para o sistema de memória da IA (`server/ai-memory.test.ts`)
 - [x] Validar compilação TypeScript e aprovação de 100% dos testes Vitest (258/258)
+
+## Atalhos de Voz para o Assistente IA
+- [x] Adicionar reconhecimento de voz nativo em português ao FloatingAgent
+- [x] Exibir estados acessíveis de escuta, permissão, erro e indisponibilidade
+- [x] Preservar fallback para digitação e impedir envio de áudio para serviços externos
+- [x] Criar testes unitários do adaptador e validar TypeScript e suíte completa (261/261 testes aprovados)

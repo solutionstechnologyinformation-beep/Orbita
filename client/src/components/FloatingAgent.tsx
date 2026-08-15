@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
-import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Search, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Search, Send, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   type AgentHistoryEntry,
 } from "./agent-history";
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
+import { extractFinalTranscript, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -61,12 +62,16 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [isInitialScreenEntering, setIsInitialScreenEntering] = useState(false);
   const [activeQuickCommand, setActiveQuickCommand] = useState<string | null>(null);
   const [history, setHistory] = useState<AgentMessage[]>(createInitialAgentHistory);
+  const [voiceState, setVoiceState] = useState<VoiceRecognitionState>("idle");
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
     return () => {
       if (clearHistoryTimeoutRef.current !== null) {
         window.clearTimeout(clearHistoryTimeoutRef.current);
       }
+      recognitionRef.current?.abort();
     };
   }, []);
 
@@ -148,6 +153,64 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     setHistory((items) => [...items, { role: "user", content: trimmed }]);
     setMessage("");
     chatM.mutate({ message: trimmed });
+  };
+
+  const toggleVoiceInput = () => {
+    if (chatM.isPending || isClearingHistory) return;
+
+    if (voiceState === "listening") {
+      recognitionRef.current?.stop();
+      setVoiceState("idle");
+      setVoiceMessage("");
+      return;
+    }
+
+    const Recognition = getSpeechRecognitionConstructor();
+    if (!Recognition) {
+      setVoiceState("unsupported");
+      setVoiceMessage(getVoiceStatusMessage("unsupported"));
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.lang = "pt-BR";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      setVoiceState("listening");
+      setVoiceMessage(getVoiceStatusMessage("listening"));
+    };
+    recognition.onresult = (event) => {
+      const transcript = extractFinalTranscript(event);
+      if (!transcript) {
+        setVoiceState("error");
+        setVoiceMessage(getVoiceStatusMessage("error"));
+        return;
+      }
+      setMessage(transcript);
+      setVoiceState("idle");
+      setVoiceMessage(`Comando reconhecido: ${transcript}`);
+      sendMessage(transcript);
+    };
+    recognition.onerror = (event) => {
+      const nextState = getVoiceErrorState(event.error);
+      setVoiceState(nextState);
+      setVoiceMessage(getVoiceStatusMessage(nextState));
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setVoiceState((current) => current === "listening" ? "idle" : current);
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setVoiceState("error");
+      setVoiceMessage(getVoiceStatusMessage("error"));
+    }
   };
 
   useEffect(() => {
@@ -337,6 +400,12 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           </div>
 
           <div className="border-t bg-slate-50 p-3">
+            {voiceState !== "idle" && (
+              <p className="mb-2 flex items-center gap-2 text-[11px] text-slate-600" role="status" aria-live="polite">
+                {voiceState === "listening" ? <Mic className="h-3.5 w-3.5 text-red-500" aria-hidden="true" /> : <MicOff className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />}
+                {voiceMessage || getVoiceStatusMessage(voiceState)}
+              </p>
+            )}
             <div className="flex gap-2">
               <Input
                 value={message}
@@ -346,6 +415,19 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                 disabled={chatM.isPending || isClearingHistory}
                 aria-label="Mensagem para o Orbita AI"
               />
+              <Button
+                type="button"
+                size="icon"
+                variant={voiceState === "listening" ? "default" : "outline"}
+                onClick={toggleVoiceInput}
+                disabled={chatM.isPending || isClearingHistory}
+                aria-label={voiceState === "listening" ? "Parar reconhecimento de voz" : "Falar comando por voz"}
+                aria-pressed={voiceState === "listening"}
+                title={voiceState === "listening" ? "Parar escuta" : "Comando por voz"}
+                className={voiceState === "listening" ? "bg-red-500 text-white hover:bg-red-600" : ""}
+              >
+                {voiceState === "listening" ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
               <Button type="button" size="icon" onClick={() => sendMessage()} disabled={!message.trim() || chatM.isPending || isClearingHistory} aria-label="Enviar comando">
                 <Send className="h-4 w-4" />
               </Button>
