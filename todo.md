@@ -1359,3 +1359,9 @@
 - [x] Integrar alterações de nome, cores e upload de logo sem persistir antes da confirmação
 - [x] Adicionar reset/cancelamento e estados acessíveis de carregamento e erro
 - [x] Criar testes de regressão e validar TypeScript, responsividade e acessibilidade
+
+## Branding — Feedback visual ao salvar configurações
+- [ ] Adicionar transição suave ao estado de salvamento do branding
+- [ ] Exibir feedback visual acessível para salvando, sucesso e erro
+- [ ] Respeitar prefers-reduced-motion nas animações
+- [ ] Criar testes de estados, acessibilidade e validação TypeScript

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2, FolderKanban, Loader2, Plus, ShieldCheck, UserPlus, Users, Settings, Upload, Image as ImageIcon } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, FolderKanban, Loader2, Plus, ShieldCheck, UserPlus, Users, Settings, Upload } from "lucide-react";
 import { FormEvent, useState, useEffect } from "react";
 
 const roleLabels: Record<string, string> = {
@@ -30,6 +30,9 @@ export default function CompanyAdmin() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const [brandingSaveState, setBrandingSaveState] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [brandingFeedback, setBrandingFeedback] = useState("");
+
   const updateRole = trpc.companyAdmin.updateUserRole.useMutation({
     onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Permissão atualizada."); },
     onError: (error) => toast.error(error.message),
@@ -39,15 +42,33 @@ export default function CompanyAdmin() {
     onError: (error) => toast.error(error.message),
   });
   const updateBranding = trpc.companyAdmin.updateBranding.useMutation({
-    onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Configurações de branding atualizadas."); },
-    onError: (error) => toast.error(error.message),
+    onSuccess: () => {
+      void utils.companyAdmin.dashboard.invalidate();
+      setBrandingSaveState("success");
+      setBrandingFeedback("Branding salvo com sucesso. A nova identidade já está ativa para a empresa.");
+      toast.success("Configurações de branding atualizadas.");
+    },
+    onError: (error) => {
+      setBrandingSaveState("error");
+      setBrandingFeedback(`Não foi possível salvar o branding: ${error.message}`);
+      toast.error(error.message);
+    },
   });
   const uploadLogo = trpc.companyAdmin.uploadLogo.useMutation({
-    onError: (error) => toast.error(error.message),
+    onError: (error) => {
+      setBrandingSaveState("error");
+      setBrandingFeedback(`Não foi possível enviar a logo: ${error.message}`);
+      toast.error(error.message);
+    },
   });
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" as "user" | "leader" | "company_admin" });
   const [brandingForm, setBrandingForm] = useState({ name: "", color: "#2563eb", logoUrl: "", logoDarkUrl: "" });
   const [pendingLogos, setPendingLogos] = useState<{ light?: { base64: string; mimeType: string; fileName: string }; dark?: { base64: string; mimeType: string; fileName: string } }>({});
+  const updateBrandingField = (field: keyof typeof brandingForm, value: string) => {
+    setBrandingForm((current) => ({ ...current, [field]: value }));
+    setBrandingSaveState("idle");
+    setBrandingFeedback("");
+  };
 
   useEffect(() => {
     if (dashboard.data?.company) {
@@ -63,6 +84,8 @@ export default function CompanyAdmin() {
 
   const handleBrandingSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setBrandingSaveState("saving");
+    setBrandingFeedback("Salvando as configurações de branding e preparando a nova identidade...");
     try {
       const uploaded = { logoUrl: brandingForm.logoUrl || null, logoDarkUrl: brandingForm.logoDarkUrl || null };
       if (pendingLogos.light) {
@@ -76,7 +99,9 @@ export default function CompanyAdmin() {
       await updateBranding.mutateAsync({ name: brandingForm.name, color: brandingForm.color, ...uploaded });
       setPendingLogos({});
     } catch {
-      // As mutações exibem o erro via onError, preservamos o preview para nova tentativa.
+      setBrandingSaveState("error");
+      setBrandingFeedback("Não foi possível concluir o salvamento. Revise os dados e tente novamente.");
+      // As mutações exibem o erro via onError; preservamos o preview para nova tentativa.
     }
   };
 
@@ -94,7 +119,7 @@ export default function CompanyAdmin() {
       const result = reader.result as string;
       const base64 = result.split(",")[1];
       if (!base64) return;
-      setBrandingForm((current) => ({ ...current, [variant === "dark" ? "logoDarkUrl" : "logoUrl"]: result }));
+      updateBrandingField(variant === "dark" ? "logoDarkUrl" : "logoUrl", result);
       setPendingLogos((current) => ({ ...current, [variant]: { base64, mimeType: file.type || "image/png", fileName: file.name } }));
     };
     reader.readAsDataURL(file);
@@ -159,7 +184,7 @@ export default function CompanyAdmin() {
 
               <TabsContent value="settings" className="mt-4">
                 <div className="grid gap-6 md:grid-cols-2">
-                  <form onSubmit={handleBrandingSubmit} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                  <form onSubmit={handleBrandingSubmit} aria-busy={brandingSaveState === "saving"} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
                     <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                       <Settings className="h-5 w-5 text-emerald-600" />
                       <div>
@@ -172,7 +197,7 @@ export default function CompanyAdmin() {
                       <Input
                         id="company-name-input"
                         value={brandingForm.name}
-                        onChange={(e) => setBrandingForm((c) => ({ ...c, name: e.target.value }))}
+                        onChange={(e) => updateBrandingField("name", e.target.value)}
                         required
                         className="mt-1"
                       />
@@ -180,8 +205,8 @@ export default function CompanyAdmin() {
                     <div>
                       <Label htmlFor="company-color-input">Cor principal</Label>
                       <div className="mt-1 flex items-center gap-2">
-                        <Input id="company-color-input" type="color" value={brandingForm.color} onChange={(e) => setBrandingForm((c) => ({ ...c, color: e.target.value }))} className="h-10 w-14 cursor-pointer p-1" aria-label="Selecionar cor principal da empresa" />
-                        <Input value={brandingForm.color} onChange={(e) => setBrandingForm((c) => ({ ...c, color: e.target.value }))} pattern="^#[0-9a-fA-F]{6}$" aria-label="Código hexadecimal da cor principal" className="font-mono" />
+                        <Input id="company-color-input" type="color" value={brandingForm.color} onChange={(e) => updateBrandingField("color", e.target.value)} className="h-10 w-14 cursor-pointer p-1" aria-label="Selecionar cor principal da empresa" />
+                        <Input value={brandingForm.color} onChange={(e) => updateBrandingField("color", e.target.value)} pattern="^#[0-9a-fA-F]{6}$" aria-label="Código hexadecimal da cor principal" className="font-mono" />
                       </div>
                     </div>
                     <div>
@@ -189,7 +214,7 @@ export default function CompanyAdmin() {
                       <Input
                         id="logo-url-input"
                         value={brandingForm.logoUrl}
-                        onChange={(e) => setBrandingForm((c) => ({ ...c, logoUrl: e.target.value }))}
+                        onChange={(e) => updateBrandingField("logoUrl", e.target.value)}
                         placeholder="https://..."
                         className="mt-1"
                       />
@@ -199,13 +224,21 @@ export default function CompanyAdmin() {
                       <Input
                         id="logo-dark-url-input"
                         value={brandingForm.logoDarkUrl}
-                        onChange={(e) => setBrandingForm((c) => ({ ...c, logoDarkUrl: e.target.value }))}
+                        onChange={(e) => updateBrandingField("logoDarkUrl", e.target.value)}
                         placeholder="https://..."
                         className="mt-1"
                       />
                     </div>
-                    <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={updateBranding.isPending}>
-                      {updateBranding.isPending ? "Salvando..." : "Salvar alterações de branding"}
+                    <div aria-live="polite" aria-atomic="true" className={`min-h-10 rounded-lg border px-3 py-2 text-xs transition-[opacity,transform,background-color,border-color] duration-300 ease-out motion-reduce:transition-none ${brandingSaveState === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : brandingSaveState === "error" ? "border-red-200 bg-red-50 text-red-800" : brandingSaveState === "saving" ? "border-blue-200 bg-blue-50 text-blue-800" : "border-transparent bg-transparent text-transparent"}`}>
+                      {brandingSaveState !== "idle" && <span className="flex items-center gap-2">
+                        {brandingSaveState === "saving" && <Loader2 className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                        {brandingSaveState === "success" && <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                        {brandingSaveState === "error" && <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                        <span>{brandingFeedback}</span>
+                      </span>}
+                    </div>
+                    <Button type="submit" className="w-full bg-emerald-600 transition-[transform,background-color,box-shadow] duration-300 ease-out hover:bg-emerald-700 hover:shadow-md active:scale-[0.99] motion-reduce:transition-none motion-reduce:transform-none" disabled={updateBranding.isPending || uploadLogo.isPending}>
+                      {brandingSaveState === "saving" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Salvando...</> : brandingSaveState === "success" ? <><CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" /> Branding salvo</> : "Salvar alterações de branding"}
                     </Button>
                   </form>
 
@@ -215,6 +248,8 @@ export default function CompanyAdmin() {
                       if (!company) return;
                       setBrandingForm({ name: company.name ?? "", color: company.color ?? "#2563eb", logoUrl: company.logoUrl ?? "", logoDarkUrl: company.logoDarkUrl ?? "" });
                       setPendingLogos({});
+                      setBrandingSaveState("idle");
+                      setBrandingFeedback("");
                     }} />
                     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
