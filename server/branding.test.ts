@@ -5,7 +5,7 @@ describe("Orbita branding asset", () => {
   it("uses the transparent PNG storage asset consistently", () => {
     expect(ORBITA_LOGO_URL).toMatch(/^\/manus-storage\/orbita-logo-transparent-clean_[a-z0-9]+\.png$/);
     expect(ORBITA_BRAND_NAME).toBe("Órbita GIS & OS");
-    expect(ORBITA_LOGO_DARK_URL).toMatch(/^\/manus-storage\/orbita-logo-dark-white_[a-z0-9]+\.png$/);
+    expect(ORBITA_LOGO_DARK_URL).toMatch(/^\/manus-storage\/orbita-logo-white-transparent_[a-z0-9]+\.png$/);
     expect(getOrbitaLogoUrl("light")).toBe(ORBITA_LOGO_URL);
     expect(getOrbitaLogoUrl("dark")).toBe(ORBITA_LOGO_DARK_URL);
     expect(SIDEBAR_LOGO_TARGET).toBe("/dashboard");

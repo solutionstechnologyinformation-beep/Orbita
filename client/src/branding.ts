@@ -1,5 +1,5 @@
 export const ORBITA_LOGO_URL = "/manus-storage/orbita-logo-transparent-clean_79119bcb.png";
-export const ORBITA_LOGO_DARK_URL = "/manus-storage/orbita-logo-dark-white_25e3eaf3.png";
+export const ORBITA_LOGO_DARK_URL = "/manus-storage/orbita-logo-white-transparent_b9c93a69.png";
 export const ORBITA_NAME = "Órbita";
 export const ORBITA_BRAND_NAME = "Órbita GIS & OS";
 export const ORBITA_SUBTITLE = "GIS & OS";

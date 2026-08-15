@@ -15,7 +15,8 @@ describe("Orbita branding", () => {
 
   it("uses the white current Orbita logo in dark mode", () => {
     expect(getOrbitaLogoUrl("dark")).toBe(ORBITA_LOGO_DARK_URL);
-    expect(ORBITA_LOGO_DARK_URL).toContain("orbita-logo-dark-white");
+    expect(ORBITA_LOGO_DARK_URL).toContain("orbita-logo-white-transparent");
+    expect(ORBITA_LOGO_DARK_URL).toMatch(/\.png$/);
     expect(ORBITA_LOGO_DARK_URL).not.toContain("ls-logo");
   });
 

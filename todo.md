@@ -1386,13 +1386,13 @@
 - [x] Validar compilação TypeScript e execução de 100% dos testes Vitest
 
 ## Funcionalidade 2FA Avançado (SMS e E-mail)
-- [ ] Atualizar schema Drizzle para colunas de 2FA por SMS/Email (phoneNumber, tfaMethod, tfaCode, tfaCodeExpiresAt)
-- [ ] Implementar migração SQL correspondente no banco de dados
-- [ ] Criar adaptadores seguros para envio de código por E-mail (via notifyOwner ou serviço interno) e SMS (simulador/provedor configurável)
-- [ ] Criar procedures tRPC para envio de código SMS/Email, verificação e enrolamento seguro
-- [ ] Atualizar painel de segurança do administrador com opções de escolha de canal (TOTP, E-mail, SMS)
-- [ ] Escrever testes unitários para o fluxo completo de 2FA por SMS/E-mail
-- [ ] Validar tipos TypeScript, suíte de 253+ testes e salvar checkpoint v7.35
+- [x] Atualizar schema Drizzle para colunas de 2FA por SMS/Email (cancelado por solicitação do usuário)
+- [x] Implementar migração SQL correspondente no banco de dados (cancelado por solicitação do usuário)
+- [x] Criar adaptadores seguros para envio de código por E-mail e SMS (cancelado por solicitação do usuário)
+- [x] Criar procedures tRPC para envio de código SMS/Email, verificação e enrolamento seguro (cancelado por solicitação do usuário)
+- [x] Atualizar painel de segurança do administrador com opções de escolha de canal (cancelado por solicitação do usuário)
+- [x] Escrever testes unitários para o fluxo completo de 2FA por SMS/E-mail (cancelado por solicitação do usuário)
+- [x] Validar tipos TypeScript e suíte de testes; checkpoint v7.35 não será criado para esta opção cancelada
 
 ## Integração com Domínio Próprio e Wix (LSSolutions)
 - [x] Configurar subdomínio `app.lssolutions.com.br` para o Orbita
@@ -1404,3 +1404,8 @@
 - [x] Criar documento detalhado com passo a passo de configuração do subdomínio no Wix (`guide-lssolutions-operations.md`)
 - [x] Documentar o fluxo de comercialização de planos (Starter, Basic, Pro) com trial de 15 dias na plataforma Wix
 - [x] Descrever a governança multi-tenant para gerenciamento isolado de cada empresa adquirente via painel master e company_admin
+
+## Logo Branca no Tema Escuro
+- [x] Remover o quadrado cinza da logo e preservar o desenho branco com fundo transparente
+- [x] Integrar a nova asset nas referências da interface e relatórios no tema escuro
+- [x] Validar contraste, renderização e testes da alteração visual (TypeScript + 257 testes Vitest)
