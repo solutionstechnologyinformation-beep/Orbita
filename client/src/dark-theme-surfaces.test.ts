@@ -6,6 +6,7 @@ const ganttSource = readFileSync(new URL("./pages/Gantt.tsx", import.meta.url), 
 const projectsSource = readFileSync(new URL("./pages/Projects.tsx", import.meta.url), "utf8");
 const homeSource = readFileSync(new URL("./pages/Home.tsx", import.meta.url), "utf8");
 const plansSource = readFileSync(new URL("./pages/Plans.tsx", import.meta.url), "utf8");
+const splitLayoutSource = readFileSync(new URL("./components/SplitLayout.tsx", import.meta.url), "utf8");
 
 describe("dark theme surfaces across application tabs", () => {
   it("maps legacy light surfaces and muted text to semantic dark tokens", () => {
@@ -19,6 +20,10 @@ describe("dark theme surfaces across application tabs", () => {
     expect(stylesheet).toContain("background-color: color-mix(in srgb, var(--brand-accent) 16%, var(--card)) !important;");
     expect(stylesheet).toContain(".dark .text-slate-900");
     expect(stylesheet).toContain(".dark .border-slate-200");
+    expect(stylesheet).toContain("--split-panel-header-surface: var(--card);");
+    expect(stylesheet).toContain("--split-panel-content-surface: var(--background);");
+    expect(stylesheet).toContain(".dark .split-panel-header h2");
+    expect(stylesheet).toContain(".dark .split-panel-content .text-gray-600");
   });
 
   it("covers the Gantt root and its arbitrary light timeline surfaces", () => {
@@ -26,6 +31,12 @@ describe("dark theme surfaces across application tabs", () => {
     expect(stylesheet).toContain('[class*="bg-[#f6f8fb]"]');
     expect(stylesheet).toContain('[class*="bg-[#f8fafc]"]');
     expect(stylesheet).toContain('[class*="bg-[#eef5ff]"]');
+  });
+
+  it("uses semantic SplitLayout surfaces instead of a fixed gray background", () => {
+    expect(splitLayoutSource).toContain('style={{ backgroundColor: "var(--split-panel-header-surface)" }}');
+    expect(splitLayoutSource).toContain('style={{ backgroundColor: "var(--split-panel-content-surface)" }}');
+    expect(splitLayoutSource).not.toContain("#dedede");
   });
 
   it("does not force white inline backgrounds in the Projects filters", () => {

@@ -55,6 +55,8 @@
   --brand-highlight: #ffc30d;
   --brand-highlight-soft: #ffe9a3;
   --brand-highlight-foreground: #111827;
+  --split-panel-header-surface: #dedede;
+  --split-panel-content-surface: #dedede;
 
   /* Backgrounds */
   --background:             oklch(0.97 0.003 240);
@@ -116,6 +118,8 @@
   --foreground:             oklch(0.96 0.008 240);
   --card:                   oklch(0.205 0.028 264.7);
   --card-foreground:        oklch(0.96 0.008 240);
+  --split-panel-header-surface: var(--card);
+  --split-panel-content-surface: var(--background);
   --popover:                oklch(0.205 0.028 264.7);
   --popover-foreground:     oklch(0.96 0.008 240);
   --primary:                #102C2D;
@@ -617,6 +621,21 @@ html.theme-transition body *::after {
   .dark .kanban-column {
     background: color-mix(in srgb, var(--brand-accent) 14%, var(--background)) !important;
     border-color: var(--border) !important;
+  }
+
+  /* Dark theme: split panels replace the legacy gray shell with semantic dark surfaces. */
+  .dark .split-panel-header h2,
+  .dark .split-panel-header p,
+  .dark .split-panel-content,
+  .dark .split-panel-content .text-gray-400,
+  .dark .split-panel-content .text-gray-500,
+  .dark .split-panel-content .text-gray-600,
+  .dark .split-panel-content .text-gray-700,
+  .dark .split-panel-content .text-gray-800,
+  .dark .split-panel-content .text-slate-500,
+  .dark .split-panel-content .text-slate-600,
+  .dark .split-panel-content .text-slate-700 {
+    color: var(--foreground) !important;
   }
 
   /* Dark theme: preserve the yellow identity for text that needs emphasis and contrast. */

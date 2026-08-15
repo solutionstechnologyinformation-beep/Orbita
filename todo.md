@@ -1272,3 +1272,8 @@
 - [x] Auditar a base de cálculo e o layout atual dos badges da legenda
 - [x] Calcular percentuais sobre o total de obras e exibir quantidade e percentual
 - [x] Validar atualização dinâmica, acessibilidade, responsividade, testes e TypeScript
+
+## Tema escuro — Fundo cinza e texto branco
+- [x] Auditar a origem do fundo cinza e as classes relacionadas ao texto
+- [x] Aplicar overrides somente no tema escuro para superfície escura e texto branco
+- [x] Validar contraste nas telas afetadas, adicionar testes e checar TypeScript
