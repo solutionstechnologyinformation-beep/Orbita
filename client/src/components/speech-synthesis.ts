@@ -68,6 +68,9 @@ export type AgentActionLike = {
   type?: string;
   targetUrl?: string;
   searchTerm?: string;
+  period?: string;
+  layerType?: string;
+  region?: string;
 };
 
 export function getPreferredUserName(name?: string | null): string {
@@ -76,28 +79,30 @@ export function getPreferredUserName(name?: string | null): string {
 }
 
 export function getAgentActionAnnouncement(action: AgentActionLike, userName?: string | null): string {
-  const name = getPreferredUserName(userName);
-  if (action.type === "agenda") return `${name}, vou consultar sua agenda agora.`;
-  if (action.type === "search") return `${name}, vou pesquisar por ${action.searchTerm || "esse item"}.`;
-  if (action.type === "analyze_workload") return `${name}, vou avaliar as demandas abertas e preparar uma sugestão de distribuição da equipe.`;
-  if (["map_focus", "map_filter_state", "map_highlight_contract", "generate_report_pdf", "map_export_csv", "map_toggle_layer"].includes(action.type ?? "")) {
-    return `${name}, vou executar essa ação no mapa e atualizar a visualização.`;
+  if (action.type === "agenda") return "Consultando sua agenda.";
+  if (action.type === "search") return `Pesquisando por ${action.searchTerm || "esse item"}.`;
+  if (action.type === "analyze_workload") return "Avaliando as demandas abertas.";
+  if (action.type === "generate_report_pdf") return `Emitindo o relatório de ${action.period || "período"}.`;
+  if (action.type === "map_export_csv") return "Exportando os dados do mapa em CSV.";
+  if (action.type === "map_toggle_layer") return `Alternando o mapa para o modo ${action.layerType === "satellite" ? "satélite" : "padrão"}.`;
+  if (["map_focus", "map_filter_state", "map_highlight_contract"].includes(action.type ?? "")) {
+    return `Direcionando para o ${action.region ? `estado de ${action.region}` : "mapa"}.`;
   }
   if (action.type === "navigate") {
     const taskMatch = action.targetUrl?.match(/^\/tasks\/(\d+)$/);
-    if (taskMatch) return `${name}, vou abrir a tarefa número ${taskMatch[1]}.`;
+    if (taskMatch) return `Abrindo a tarefa número ${taskMatch[1]}.`;
     const routeLabels: Record<string, string> = {
-      "/kanban": "o Kanban",
-      "/calendar": "o calendário",
-      "/projects": "os projetos",
-      "/gantt": "o cronograma Gantt",
-      "/sprints": "as Sprints",
-      "/relatorios": "os relatórios",
-      "/dashboard": "o Dashboard",
+      "/kanban": "te direcionando para o Kanban",
+      "/calendar": "te direcionando para a agenda",
+      "/projects": "te direcionando para os projetos",
+      "/gantt": "te direcionando para o cronograma",
+      "/sprints": "te direcionando para as Sprints",
+      "/relatorios": "te direcionando para os relatórios",
+      "/dashboard": "te direcionando para o mapa",
     };
-    return `${name}, vou abrir ${routeLabels[action.targetUrl || ""] || "a área solicitada"}.`;
+    return routeLabels[action.targetUrl || ""] || "Executando navegação.";
   }
-  return `${name}, vou analisar sua solicitação.`;
+  return "";
 }
 
 export function personalizeAssistantReply(reply: string, userName?: string | null): string {

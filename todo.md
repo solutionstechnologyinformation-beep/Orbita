@@ -1486,3 +1486,15 @@
 - [x] Expandir o backend do assistente para lidar com conversas gerais (saudações, dúvidas, etc.)
 - [x] Implementar inteligência para avaliar demandas em aberto e sugerir distribuição de equipe e prazos
 - [x] Validar com testes unitários e garantir zero erros TypeScript (278/278 testes aprovados)
+
+## Simplificação da Fala do Assistente
+- [x] Remover a frase "qualquer coisa é só me chamar" da saudação
+- [x] Configurar a síntese de voz para falar apenas confirmações curtas de ações e saudações
+- [x] Impedir que a resposta detalhada escrita no chat seja lida inteiramente em voz alta
+- [x] Validar com testes unitários e zero erros TypeScript (278/278 testes aprovados)
+
+## Exportação de Sugestões de Distribuição de Equipe
+- [x] Incluir dados estruturados de recomendações (tarefa, responsável, prazo, justificativa) na resposta da análise de demandas
+- [x] Adicionar procedure tRPC ou rota para exportar as recomendações em PDF estruturado
+- [x] Adicionar opção de exportar em planilha CSV diretamente pelo painel do assistente
+- [x] Validar isolamento por tenant, testes unitários e zero erros TypeScript (278/278 testes aprovados)

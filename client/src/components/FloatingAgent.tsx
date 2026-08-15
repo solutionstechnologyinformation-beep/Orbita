@@ -82,6 +82,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   });
   const [wakePhraseState, setWakePhraseState] = useState<VoiceRecognitionState>("idle");
   const [wakePhraseMessage, setWakePhraseMessage] = useState("");
+  const [latestRecommendations, setLatestRecommendations] = useState<Array<{ taskId: number; taskTitle: string; suggestedAssignee: string; suggestedDueDate: string; rationale: string; }>>([]);
   const wakeRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wakeRestartTimeoutRef = useRef<number | null>(null);
   const wakePermissionDeniedRef = useRef(false);
@@ -126,12 +127,22 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         return;
       }
       setActiveQuickCommand(null);
-      const action = data.action;
+      const action = data.action as any;
+      if (action?.recommendations && Array.isArray(action.recommendations)) {
+        setLatestRecommendations(action.recommendations);
+      }
       const actionAnnouncement = getAgentActionAnnouncement(action, userName);
       const personalizedReply = personalizeAssistantReply(data.reply, userName);
       const fullReply = `${actionAnnouncement}\n\n${personalizedReply}`;
       setHistory((items) => [...items, { role: "assistant", content: fullReply }]);
-      speakReply(fullReply);
+      
+      // Falar somente confirmações curtas de ações ou saudações, sem ler o chat detalhado
+      const shortSpeechText = action?.type && action.type !== "none" 
+        ? actionAnnouncement 
+        : (/^(oi|olá|ola|bom dia|boa tarde|boa noite)\b/i.test(data.reply) ? data.reply.split(".")[0] : "");
+      if (shortSpeechText) {
+        speakReply(shortSpeechText);
+      }
       const routeActionTypes = new Set(["navigate", "map_focus", "map_filter_state", "map_highlight_contract", "generate_report_pdf", "map_export_csv", "map_toggle_layer", "analyze_workload"]);
       if (action?.targetUrl && routeActionTypes.has(action.type)) {
         navigate(action.targetUrl);
@@ -629,6 +640,51 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             ))}
             {chatM.isPending && (
               <div className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando o Orbita...</div>
+            )}
+            {latestRecommendations.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100"
+                  onClick={() => {
+                    const csvContent = "data:text/csv;charset=utf-8," + [
+                      ["ID da Tarefa", "Título da Tarefa", "Responsável Sugerido", "Prazo Sugerido", "Justificativa"].join(","),
+                      ...latestRecommendations.map(r => [r.taskId, `"${r.taskTitle.replace(/"/g, '""')}"`, `"${r.suggestedAssignee}"`, r.suggestedDueDate, `"${r.rationale.replace(/"/g, '""')}"`].join(","))
+                    ].join("\n");
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `distribuicao_equipe_${Date.now()}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    toast.success("Planilha CSV exportada com sucesso!");
+                  }}
+                >
+                  Exportar Planilha (CSV)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100"
+                  onClick={() => {
+                    const printWindow = window.open("", "_blank");
+                    if (!printWindow) {
+                      toast.error("Permita pop-ups para gerar o PDF.");
+                      return;
+                    }
+                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório de Distribuição de Equipe</title><style>body{font-family:sans-serif;padding:30px;color:#1e293b}h1{color:#0f172a;font-size:22px;margin-bottom:4px}p.sub{color:#64748b;margin-bottom:24px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #cbd5e1;padding:10px 12px;font-size:13px;text-align:left}th{background:#f1f5f9;font-weight:600}tr:nth-child(even){background:#f8fafc}</style></head><body><h1>Relatório de Planejamento e Distribuição de Equipe</h1><p class="sub">Plataforma Orbita — Gerenciamento Inteligente de Operações</p><table><thead><tr><th>ID</th><th>Tarefa</th><th>Responsável Sugerido</th><th>Prazo Sugerido</th><th>Justificativa</th></tr></thead><tbody>${latestRecommendations.map(r => `<tr><td>#${r.taskId}</td><td>${r.taskTitle}</td><td>${r.suggestedAssignee}</td><td>${r.suggestedDueDate}</td><td>${r.rationale}</td></tr>`).join("")}</tbody></table><script>window.print();</script></body></html>`;
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                    toast.success("Relatório PDF preparado para impressão/salvamento!");
+                  }}
+                >
+                  Exportar Relatório (PDF)
+                </Button>
+              </div>
             )}
           </div>
 

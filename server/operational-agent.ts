@@ -13,6 +13,13 @@ import { invokeLLM } from "./_core/llm";
     layerType?: string; // ex: "satellite" | "roadmap"
     clarificationPrompt?: string;
     searchTerm?: string;
+    recommendations?: Array<{
+      taskId: number;
+      taskTitle: string;
+      suggestedAssignee: string;
+      suggestedDueDate: string;
+      rationale: string;
+    }>;
   };
 
 export type AgentOperationalResponse = {
@@ -130,7 +137,11 @@ async function buildWorkloadAnalysis(userId: number, companyId: number | null): 
     const lines = recommendations.map((item: any, index: number) => `${index + 1}. #${item.taskId} ${item.taskTitle}: ${item.suggestedAssignee} até ${item.suggestedDueDate}. ${item.rationale}`);
     return {
       reply: `${parsed?.summary ?? "Analisei as demandas abertas."}\n\n${lines.length > 0 ? lines.join("\n") : "Não foi possível gerar recomendações específicas com os dados atuais."}`,
-      action: { type: "analyze_workload", targetUrl: "/kanban" },
+      action: {
+        type: "analyze_workload",
+        targetUrl: "/kanban",
+        recommendations,
+      },
     };
   } catch {
     const unassigned = openTasks.filter((task: typeof openTasks[number]) => task.assigneeId == null).length;

@@ -26,9 +26,9 @@ describe("speech synthesis adapter", () => {
     expect(getPreferredUserName(["Luiz", "Otávio"].join(String.fromCharCode(10)))).toBe("Luiz Otávio");
     expect(getPreferredUserName(null)).toBe("Usuário");
     expect(getAgentActionAnnouncement({ type: "navigate", targetUrl: "/kanban" }, "Luiz Otávio"))
-      .toContain("Luiz Otávio, vou abrir o Kanban");
+      .toContain("te direcionando para o Kanban");
     expect(getAgentActionAnnouncement({ type: "search", searchTerm: "tarefa 42" }, "Luiz Otávio"))
-      .toContain("vou pesquisar por tarefa 42");
+      .toContain("Pesquisando por tarefa 42");
     expect(personalizeAssistantReply("Relatório pronto.", "Luiz Otávio"))
       .toBe("Luiz Otávio, Relatório pronto.");
   });
