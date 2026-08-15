@@ -15,7 +15,7 @@ import {
 } from "./agent-history";
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
 import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, getCommandAfterWakePhrase, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
-import { getAgentActionAnnouncement, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
+import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 
 type AgentMessage = AgentHistoryEntry;
@@ -173,8 +173,12 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     speech.synthesis.cancel();
     const utterance = new speech.Utterance(text);
     utterance.lang = "pt-BR";
-    utterance.rate = 1;
-    utterance.pitch = 1;
+    utterance.rate = 1.02; // Ritmo levemente mais fluido e natural
+    utterance.pitch = 1.0;
+    const bestVoice = getBestPortugueseVoice(speech.synthesis);
+    if (bestVoice) {
+      (utterance as any).voice = bestVoice;
+    }
     utterance.onstart = () => setSpeechState("speaking");
     utterance.onpause = () => setSpeechState("paused");
     utterance.onresume = () => setSpeechState("speaking");

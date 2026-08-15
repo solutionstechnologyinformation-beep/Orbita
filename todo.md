@@ -1458,3 +1458,8 @@
 - [x] Implementar comandos de voz e texto para geração de relatórios PDF por período (ex: Agosto)
 - [x] Criar módulo de backend processOperationalAgentCommand com suporte a diálogos e intenções estruturadas
 - [x] Garantir isolamento por tenant e adicionar testes unitários (271/271 testes aprovados)
+
+## Branding da Tela de Autenticação
+- [ ] Substituir a logo atual exibida no fluxo de autenticação pela logo nova do Orbita
+- [ ] Atualizar referências de asset e garantir compatibilidade com o tema escuro
+- [ ] Validar a renderização e a suíte de testes após a alteração

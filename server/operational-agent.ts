@@ -3,16 +3,17 @@ import { tasks, agendaEvents, crs } from "../drizzle/schema";
 import { desc, eq } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 
-export type AgentOperationalAction = {
-  type: "navigate" | "map_focus" | "map_filter_state" | "map_highlight_contract" | "generate_report_pdf" | "ask_clarification" | "search" | "agenda" | "none";
-  targetUrl?: string;
-  region?: string; // ex: "Goiás", "MG", "SP"
-  contractName?: string;
-  period?: string; // ex: "agosto", "2026", "julho"
-  reportType?: string; // ex: "dashboard", "complete", "annual"
-  clarificationPrompt?: string;
-  searchTerm?: string;
-};
+  export type AgentOperationalAction = {
+    type: "navigate" | "map_focus" | "map_filter_state" | "map_highlight_contract" | "generate_report_pdf" | "map_export_csv" | "map_toggle_layer" | "ask_clarification" | "search" | "agenda" | "none";
+    targetUrl?: string;
+    region?: string; // ex: "Goiás", "MG", "SP"
+    contractName?: string;
+    period?: string; // ex: "agosto", "2026", "julho"
+    reportType?: string; // ex: "dashboard", "complete", "annual"
+    layerType?: string; // ex: "satellite" | "roadmap"
+    clarificationPrompt?: string;
+    searchTerm?: string;
+  };
 
 export type AgentOperationalResponse = {
   reply: string;
@@ -30,7 +31,41 @@ export async function processOperationalAgentCommand(
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
 
-  // 1. Verificar comandos diretos de mapa (ex: "mostrar no mapa trechos de Goiás", "zoom em Goiás", "focar em MG")
+  // 1A. Verificar comandos de exportar dados do mapa em formato CSV ("exportar mapa em csv", "baixar csv do mapa")
+  if (lower.includes("csv") || (lower.includes("exportar") && lower.includes("mapa"))) {
+    return {
+      reply: "Certo! Iniciando a exportação dos dados e trechos visíveis do mapa em formato CSV pelo painel lateral.",
+      action: {
+        type: "map_export_csv",
+        targetUrl: "/dashboard",
+      },
+    };
+  }
+
+  // 1B. Verificar comandos de alternância de camadas de mapa ("modo satélite", "visão satélite", "mapa padrão", "mapa de estrada")
+  if (lower.includes("satélite") || lower.includes("satelite") || (lower.includes("camada") && lower.includes("satélite"))) {
+    return {
+      reply: "Alternando a visualização do mapa para o modo Satélite.",
+      action: {
+        type: "map_toggle_layer",
+        targetUrl: "/dashboard",
+        layerType: "satellite",
+      },
+    };
+  }
+
+  if (lower.includes("mapa padrão") || lower.includes("mapa normal") || lower.includes("padrão") || lower.includes("roadmap")) {
+    return {
+      reply: "Alternando a visualização do mapa para o modo Padrão.",
+      action: {
+        type: "map_toggle_layer",
+        targetUrl: "/dashboard",
+        layerType: "roadmap",
+      },
+    };
+  }
+
+  // 1C. Verificar comandos diretos de mapa (ex: "mostrar no mapa trechos de Goiás", "zoom em Goiás", "focar em MG")
   if (lower.includes("mapa") && (lower.includes("goiás") || lower.includes("goias") || lower.includes("mg") || lower.includes("são paulo") || lower.includes("sp") || lower.includes("ampliado"))) {
     const region = lower.includes("goiás") || lower.includes("goias") ? "Goiás" : lower.includes("mg") ? "Minas Gerais" : lower.includes("sp") || lower.includes("são paulo") ? "São Paulo" : "Goiás";
     

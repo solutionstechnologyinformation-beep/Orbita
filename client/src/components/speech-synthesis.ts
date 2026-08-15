@@ -17,6 +17,7 @@ export type SpeechSynthesisLike = {
   cancel: () => void;
   pause: () => void;
   resume: () => void;
+  getVoices?: () => any[];
 };
 
 type SpeechUtteranceConstructor = new (text: string) => SpeechSynthesisUtteranceLike;
@@ -40,10 +41,25 @@ export function stripTextForSpeech(text: string): string {
   return text
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/[`*_#>]/g, "")
-    .replace(/[📊📌✅⚠️🔴🟡🟢]/g, "")
+    .replace(/[📊📌✅⚠️🔴🟡🟢⚡]/g, "")
+    .replace(/https?:\/\/\S+/g, "link")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 4000);
+}
+
+export function getBestPortugueseVoice(synthesis: SpeechSynthesisLike): any | null {
+  if (!synthesis || typeof synthesis.getVoices !== "function") return null;
+  try {
+    const voices = synthesis.getVoices() || [];
+    const ptVoices = voices.filter((v: any) => v && v.lang && typeof v.lang === "string" && v.lang.toLowerCase().includes("pt"));
+    if (ptVoices.length === 0) return null;
+    const naturalPt = ptVoices.find((v: any) => v.name && /natural|enhanced|google|microsoft|online/i.test(v.name));
+    const brVoice = ptVoices.find((v: any) => v.lang.toLowerCase().includes("br") || v.lang.toLowerCase().includes("pt"));
+    return naturalPt || brVoice || ptVoices[0];
+  } catch {
+    return null;
+  }
 }
 
 export type AgentActionLike = {

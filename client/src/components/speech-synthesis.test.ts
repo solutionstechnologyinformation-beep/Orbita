@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAgentActionAnnouncement, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech } from "./speech-synthesis";
+import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech } from "./speech-synthesis";
 
 describe("speech synthesis adapter", () => {
   it("removes markdown and visual symbols before speaking", () => {
@@ -39,3 +39,19 @@ describe("speech synthesis adapter", () => {
     expect(getSpeechPlaybackMessage("unsupported")).toContain("resposta escrita");
   });
 });
+
+  it("selects best portuguese voice when available", () => {
+    const mockSynthesis = {
+      speak: () => {},
+      cancel: () => {},
+      pause: () => {},
+      resume: () => {},
+      getVoices: () => [
+        { name: "English Voice", lang: "en-US" },
+        { name: "Google Portuguese Brazil", lang: "pt-BR" },
+      ],
+    };
+    const voice = getBestPortugueseVoice(mockSynthesis);
+    expect(voice).toBeDefined();
+    expect(voice?.lang).toBe("pt-BR");
+  });
