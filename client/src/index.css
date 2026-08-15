@@ -743,3 +743,23 @@ html.theme-transition body *::after {
 .dashboard-map-focused [data-dashboard-widget-id]:not([data-dashboard-widget-id="map"]) {
   display: none !important;
 }
+
+/* Assistente IA: ondas sonoras para indicar escuta e fala. */
+@keyframes orbita-sound-wave {
+  0%, 100% { transform: scaleY(0.42); opacity: 0.62; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+.orbita-sound-wave-bar-active {
+  transform-origin: center;
+  animation-name: orbita-sound-wave;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbita-sound-wave-bar-active {
+    animation: none !important;
+    transform: scaleY(0.72);
+  }
+}

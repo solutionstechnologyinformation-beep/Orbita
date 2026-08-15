@@ -1446,3 +1446,9 @@
 - [x] Implementar escuta opcional da frase de ativação “Olá Órbita” enquanto a página estiver ativa
 - [x] Exibir indicador de microfone ativo, botão de desligamento e mensagens de permissão/indisponibilidade
 - [x] Criar testes da normalização da wake phrase e da saudação personalizada (267/267 testes aprovados)
+
+## Ondas Sonoras do Indicador IA
+- [x] Criar componente visual de ondas para os estados ouvindo e falando
+- [x] Diferenciar estados pausado, inativo, erro e reduced motion
+- [x] Integrar o indicador no botão flutuante e no cabeçalho do assistente
+- [x] Criar testes de estados e acessibilidade do indicador (269/269 testes aprovados)

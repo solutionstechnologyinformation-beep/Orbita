@@ -16,6 +16,7 @@ import {
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
 import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, getCommandAfterWakePhrase, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
 import { getAgentActionAnnouncement, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
+import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -483,6 +484,16 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     }
   };
 
+  const activeSoundState: SoundWaveState = voiceState === "listening" || wakePhraseState === "listening"
+    ? "listening"
+    : speechState === "speaking"
+      ? "speaking"
+      : speechState === "paused"
+        ? "paused"
+        : voiceState === "error" || wakePhraseState === "error"
+          ? "error"
+          : "idle";
+
   const agentPositionStyle = getFloatingAgentPlacement(compactMode, effectivePanelWidth);
 
   return (
@@ -513,6 +524,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#ffc30d] text-black">
               <Sparkles className="h-5 w-5" />
               <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" aria-label="Assistente disponível" />
+              {activeSoundState !== "idle" && <SoundWaveIndicator state={activeSoundState} compact className="absolute -bottom-1 -right-2 bg-black/80 px-1" />}
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-semibold">Orbita AI</p>
@@ -689,9 +701,9 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         onClick={toggleAssistantOpen}
         className={`${compactMode ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition-[width,height,transform,box-shadow] duration-500 ease-out hover:scale-105 hover:ring-[#ffc30d]/60`}
         aria-label={open ? "Fechar Orbita AI" : "Abrir Orbita AI"}
-        title="Abrir Orbita AI"
+        title={activeSoundState === "listening" ? "Orbita está ouvindo" : activeSoundState === "speaking" ? "Orbita está falando" : "Abrir Orbita AI"}
       >
-        {open ? <ChevronRight className="h-5 w-5" /> : <Bot className={`${compactMode ? "h-5 w-5" : "h-6 w-6"} transition group-hover:rotate-6`} />}
+        {open ? <ChevronRight className="h-5 w-5" /> : activeSoundState !== "idle" ? <SoundWaveIndicator state={activeSoundState} /> : <Bot className={`${compactMode ? "h-5 w-5" : "h-6 w-6"} transition group-hover:rotate-6`} />}
       </button>
     </div>
   );
