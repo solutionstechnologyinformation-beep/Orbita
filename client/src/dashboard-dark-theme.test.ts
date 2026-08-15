@@ -6,7 +6,7 @@ const stylesheet = readFileSync(new URL("./index.css", import.meta.url), "utf8")
 
 describe("Dashboard dark theme surfaces", () => {
   it("uses a theme-aware root surface instead of a white inline background", () => {
-    expect(dashboardSource).toContain('className="dashboard-page p-6 space-y-6 bg-background min-h-full"');
+    expect(dashboardSource).toContain('className="dashboard-page min-h-full space-y-4 bg-background p-3 sm:space-y-6 sm:p-4 lg:p-6"');
     expect(dashboardSource).not.toContain('style={{ backgroundColor: \'#ffffff\' }}');
   });
 

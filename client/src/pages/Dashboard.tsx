@@ -1802,7 +1802,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout title="Dashboard">
-      <div className="dashboard-page p-6 space-y-6 bg-background min-h-full">
+      <div className="dashboard-page min-h-full space-y-4 bg-background p-3 sm:space-y-6 sm:p-4 lg:p-6">
         {isExporting && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="Gerando relatório PDF">
             <div className="flex min-w-[240px] flex-col items-center gap-3 rounded-2xl bg-white px-8 py-7 text-center shadow-2xl ring-1 ring-slate-200">
@@ -1815,17 +1815,17 @@ export default function Dashboard() {
           </div>
         )}
         {/* ── Header ── */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900" style={{ color: '#000000' }}>Visão Geral</h1>
+            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl" style={{ color: '#000000' }}>Visão Geral</h1>
             {normalizedCompany && (
               <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex" title="Os KPIs, mapa e contratos estão filtrados por empresa">
                 {normalizedCompany}
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm" htmlFor="dashboard-company-filter">
+          <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
+            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm sm:flex-none" htmlFor="dashboard-company-filter">
               <Filter className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
               <span>Empresa</span>
               <select
@@ -1843,7 +1843,7 @@ export default function Dashboard() {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="flex min-w-[180px] items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300"
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300 sm:min-w-[180px] sm:flex-none"
                   aria-label="Filtrar Dashboard por cliente"
                   aria-expanded={clientFilterOpen}
                 >
@@ -1883,10 +1883,11 @@ export default function Dashboard() {
             <button
               onClick={exportDashboardPDF}
               disabled={isExporting}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-950 bg-[#ffbe00] hover:bg-[#eab000] disabled:opacity-60 rounded-lg shadow-sm transition-all"
+              className="flex items-center gap-1.5 rounded-lg bg-[#ffbe00] px-2.5 py-1.5 text-sm font-medium text-slate-950 shadow-sm transition-all hover:bg-[#eab000] disabled:opacity-60 sm:px-3"
             >
               <FileDown className="w-4 h-4" />
-              {isExporting ? "Exportando..." : "Exportar PDF"}
+              <span className="hidden sm:inline">{isExporting ? "Exportando..." : "Exportar PDF"}</span>
+              <span className="sm:hidden">PDF</span>
             </button>
             <button
               type="button"
@@ -1923,7 +1924,7 @@ export default function Dashboard() {
             VISÃO GERAL
         ══════════════════════════════════════════════════════════════════════ */}
         {view === "geral" && (
-          <div className={`grid grid-cols-12 gap-5 ${isMapExpanded ? "dashboard-map-focused" : ""}`} data-map-focused={isMapExpanded ? "true" : "false"}>
+          <div className={`grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-5 ${isMapExpanded ? "dashboard-map-focused" : ""}`} data-map-focused={isMapExpanded ? "true" : "false"}>
             {/* ── Coluna esquerda: Mapa + Stats + Vencimentos ── */}
             <div className="col-span-12 lg:col-span-6 flex flex-col gap-4">
               {/* Mapa */}
@@ -2061,7 +2062,7 @@ export default function Dashboard() {
             <div className="col-span-12 lg:col-span-6 flex flex-col gap-4">
               {/* KPI cards */}
               <DashboardWidgetFrame {...widgetFrameProps("generalRight", "primary-kpis", "Indicadores principais", "shrink-0")}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
                 ) : (
@@ -2091,7 +2092,7 @@ export default function Dashboard() {
 
               {/* KPI cards para extensao, area e perimetro urbano */}
               <DashboardWidgetFrame {...widgetFrameProps("generalRight", "secondary-kpis", "Indicadores de extensão", "shrink-0")}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {isLoading ? (
                   Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
                 ) : (
@@ -2134,7 +2135,7 @@ export default function Dashboard() {
                 ) : extensaoChartData.length === 0 ? (
                   <div className="h-48 flex items-center justify-center text-sm text-gray-400">Sem extensão cadastrada</div>
                 ) : (
-                  <div className="grid grid-cols-5 gap-3 items-center" role="img" aria-label="Distribuição da extensão em quilômetros por tipo de obra">
+                  <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-5 sm:gap-3" role="img" aria-label="Distribuição da extensão em quilômetros por tipo de obra">
                     <div className="col-span-2 h-48 min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -2336,7 +2337,7 @@ export default function Dashboard() {
               </DashboardWidgetFrame>
 
               {/* Burndown + Contratos por Estado lado a lado */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 {/* Burndown da Sprint Atual */}
                 <DashboardWidgetFrame {...widgetFrameProps("generalRight", "burndown", "Burndown da sprint", "min-w-0")}>
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">

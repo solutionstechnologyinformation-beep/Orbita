@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { ORBITA_BRAND_NAME, ORBITA_NAME, SIDEBAR_LOGO_TARGET, SIDEBAR_COLLAPSED_STORAGE_KEY, getOrbitaLogoUrl } from "@/branding";
 import {
@@ -77,6 +78,13 @@ const adminItems = [
 
 const helpItems = [
   { href: "/manual", icon: BookOpen, label: "Manual de Uso" },
+];
+
+const mobileNavItems = [
+  { href: "/dashboard", icon: LayoutDashboard, label: "Início" },
+  { href: "/projects", icon: FolderKanban, label: "Projetos" },
+  { href: "/calendar", icon: CalendarDays, label: "Agenda" },
+  { href: "/notifications", icon: Bell, label: "Alertas" },
 ];
 
 function ThemeToggle() {
@@ -514,9 +522,25 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         )}
 
         {/* Page Content */}
-        <main className={`${fullHeight ? "flex-1 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto p-4 lg:p-6"} bg-background text-foreground transition-colors duration-200`}>
+        <main className={`${fullHeight ? "flex-1 min-h-0 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto p-4 lg:p-6"} bg-background text-foreground transition-colors duration-200 pb-16 lg:pb-0`}>
           {children}
         </main>
+
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(15,23,42,0.12)] backdrop-blur lg:hidden" aria-label="Navegação principal mobile">
+          {mobileNavItems.map(({ href, icon: Icon, label }) => {
+            const active = location === href || (href !== "/dashboard" && location.startsWith(href));
+            return (
+              <Link key={href} href={href} onClick={() => setSidebarOpen(false)} className={cn("flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-[10px] font-medium transition-colors", active ? "text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")} aria-current={active ? "page" : undefined}>
+                <Icon className="h-5 w-5" aria-hidden="true" />
+                <span className="truncate">{label}</span>
+              </Link>
+            );
+          })}
+          <button type="button" onClick={() => setSidebarOpen(true)} className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Abrir menu completo">
+            <Menu className="h-5 w-5" aria-hidden="true" />
+            <span>Mais</span>
+          </button>
+        </nav>
       </div>
       <FloatingAgent compact={sidebarCollapsed} />
     </div>

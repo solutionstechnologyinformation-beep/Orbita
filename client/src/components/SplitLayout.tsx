@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { List, PanelRight } from "lucide-react";
 
 interface SplitLayoutProps {
   /** Painel esquerdo (lista/navegação) */
@@ -33,33 +34,66 @@ export function SplitLayout({
   rightClassName,
   mobileShowRight = false,
 }: SplitLayoutProps) {
+  const [mobilePanel, setMobilePanel] = useState<"left" | "right">(mobileShowRight ? "right" : "left");
+
   return (
     <div
-      className={cn("split-panel-layout flex h-full overflow-hidden", className)}
+      className={cn("split-panel-layout flex h-full min-h-0 flex-col overflow-hidden lg:flex-row", className)}
       style={{ minHeight: 0 }}
     >
-      {/* Left Panel */}
-      <div
-        className={cn(
-          "flex-shrink-0 flex flex-col overflow-hidden border-r border-border bg-card",
-          mobileShowRight ? "hidden lg:flex" : "flex",
-          leftClassName
-        )}
-        style={{ width: leftWidth, minWidth: 0 }}
-      >
-        {left}
+      <div className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-2 lg:hidden" role="tablist" aria-label="Navegação do painel">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePanel === "left"}
+          aria-controls="split-panel-left"
+          onClick={() => setMobilePanel("left")}
+          className={cn("flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors", mobilePanel === "left" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
+        >
+          <List className="h-4 w-4" aria-hidden="true" />
+          Lista
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePanel === "right"}
+          aria-controls="split-panel-right"
+          onClick={() => setMobilePanel("right")}
+          className={cn("flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors", mobilePanel === "right" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
+        >
+          <PanelRight className="h-4 w-4" aria-hidden="true" />
+          Conteúdo
+        </button>
       </div>
 
-      {/* Right Panel */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col overflow-hidden bg-background",
-          mobileShowRight ? "flex" : "hidden lg:flex",
-          rightClassName
-        )}
-        style={{ minWidth: 0 }}
-      >
-        {right}
+      <div className="flex min-h-0 min-w-0 flex-1 lg:contents">
+        {/* Left Panel */}
+        <div
+          id="split-panel-left"
+          role="tabpanel"
+          className={cn(
+            "split-panel-left min-h-0 shrink-0 flex-col overflow-hidden border-r border-border bg-card lg:flex",
+            mobilePanel === "left" ? "flex" : "hidden",
+            leftClassName
+          )}
+          style={{ "--split-panel-left-width": leftWidth, minWidth: 0 } as React.CSSProperties}
+        >
+          {left}
+        </div>
+
+        {/* Right Panel */}
+        <div
+          id="split-panel-right"
+          role="tabpanel"
+          className={cn(
+            "min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:flex",
+            mobilePanel === "right" ? "flex" : "hidden",
+            rightClassName
+          )}
+          style={{ minWidth: 0 }}
+        >
+          {right}
+        </div>
       </div>
     </div>
   );
