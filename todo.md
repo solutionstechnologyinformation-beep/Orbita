@@ -1434,3 +1434,9 @@
 - [x] Incluir controles acessíveis de falar, pausar, retomar e parar
 - [x] Manter a resposta escrita, com fallback quando SpeechSynthesis não estiver disponível
 - [x] Criar testes unitários para limpeza de texto, estados de fala e compatibilidade (265/265 testes aprovados)
+
+## Narração de Ações e Saudação Personalizada
+- [x] Buscar o nome autenticado do usuário no contexto da sessão
+- [x] Narrar a ação antes da navegação ou consulta e ler a resposta completa depois
+- [x] Exibir o nome do usuário nas mensagens escrita e falada sem cruzar tenants
+- [x] Criar testes de personalização, ações e fallback de síntese de voz (266/266 testes aprovados)

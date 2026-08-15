@@ -46,6 +46,42 @@ export function stripTextForSpeech(text: string): string {
     .slice(0, 4000);
 }
 
+export type AgentActionLike = {
+  type?: string;
+  targetUrl?: string;
+  searchTerm?: string;
+};
+
+export function getPreferredUserName(name?: string | null): string {
+  const normalized = name?.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+  return normalized || "Usuário";
+}
+
+export function getAgentActionAnnouncement(action: AgentActionLike, userName?: string | null): string {
+  const name = getPreferredUserName(userName);
+  if (action.type === "agenda") return `${name}, vou consultar sua agenda agora.`;
+  if (action.type === "search") return `${name}, vou pesquisar por ${action.searchTerm || "esse item"}.`;
+  if (action.type === "navigate") {
+    const taskMatch = action.targetUrl?.match(/^\/tasks\/(\d+)$/);
+    if (taskMatch) return `${name}, vou abrir a tarefa número ${taskMatch[1]}.`;
+    const routeLabels: Record<string, string> = {
+      "/kanban": "o Kanban",
+      "/calendar": "o calendário",
+      "/projects": "os projetos",
+      "/gantt": "o cronograma Gantt",
+      "/sprints": "as Sprints",
+      "/relatorios": "os relatórios",
+      "/dashboard": "o Dashboard",
+    };
+    return `${name}, vou abrir ${routeLabels[action.targetUrl || ""] || "a área solicitada"}.`;
+  }
+  return `${name}, vou analisar sua solicitação.`;
+}
+
+export function personalizeAssistantReply(reply: string, userName?: string | null): string {
+  return `${getPreferredUserName(userName)}, ${reply.trim()}`;
+}
+
 export function getSpeechPlaybackMessage(state: SpeechPlaybackState): string {
   switch (state) {
     case "speaking":

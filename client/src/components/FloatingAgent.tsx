@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -14,7 +15,7 @@ import {
 } from "./agent-history";
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
 import { extractFinalTranscript, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
-import { getSpeechPlaybackMessage, getSpeechSynthesis, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
+import { getAgentActionAnnouncement, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -46,6 +47,8 @@ function clamp(value: number, min: number, max: number) {
 
 export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const userName = getPreferredUserName(user?.name);
   const [isDesktop, setIsDesktop] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(min-width: 1024px)").matches;
@@ -108,9 +111,12 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         return;
       }
       setActiveQuickCommand(null);
-      setHistory((items) => [...items, { role: "assistant", content: data.reply }]);
-      speakReply(data.reply);
       const action = data.action;
+      const actionAnnouncement = getAgentActionAnnouncement(action, userName);
+      const personalizedReply = personalizeAssistantReply(data.reply, userName);
+      const fullReply = `${actionAnnouncement}\n\n${personalizedReply}`;
+      setHistory((items) => [...items, { role: "assistant", content: fullReply }]);
+      speakReply(fullReply);
       if (action?.type === "navigate" && action.targetUrl) {
         navigate(action.targetUrl);
         setOpen(false);
@@ -128,7 +134,9 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         return;
       }
       setActiveQuickCommand(null);
-      setHistory((items) => [...items, { role: "assistant", content: `Não consegui concluir: ${error.message}` }]);
+      const errorReply = personalizeAssistantReply(`Não consegui concluir: ${error.message}`, userName);
+      setHistory((items) => [...items, { role: "assistant", content: errorReply }]);
+      speakReply(errorReply);
     },
   });
 

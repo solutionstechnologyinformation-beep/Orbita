@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSpeechPlaybackMessage, getSpeechSynthesis, stripTextForSpeech } from "./speech-synthesis";
+import { getAgentActionAnnouncement, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech } from "./speech-synthesis";
 
 describe("speech synthesis adapter", () => {
   it("removes markdown and visual symbols before speaking", () => {
@@ -20,6 +20,17 @@ describe("speech synthesis adapter", () => {
     expect(getSpeechSynthesis(supportedWindow)).toMatchObject({ synthesis, Utterance: FakeUtterance });
     expect(getSpeechSynthesis({} as Window)).toBeNull();
     expect(getSpeechSynthesis(undefined)).toBeNull();
+  });
+
+  it("personalizes action announcements and replies without accepting unsafe line breaks", () => {
+    expect(getPreferredUserName(["Luiz", "Otávio"].join(String.fromCharCode(10)))).toBe("Luiz Otávio");
+    expect(getPreferredUserName(null)).toBe("Usuário");
+    expect(getAgentActionAnnouncement({ type: "navigate", targetUrl: "/kanban" }, "Luiz Otávio"))
+      .toContain("Luiz Otávio, vou abrir o Kanban");
+    expect(getAgentActionAnnouncement({ type: "search", searchTerm: "tarefa 42" }, "Luiz Otávio"))
+      .toContain("vou pesquisar por tarefa 42");
+    expect(personalizeAssistantReply("Relatório pronto.", "Luiz Otávio"))
+      .toBe("Luiz Otávio, Relatório pronto.");
   });
 
   it("exposes accessible playback status messages", () => {
