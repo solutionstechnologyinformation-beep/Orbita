@@ -21,6 +21,7 @@ import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 import { WorkloadAnalysisLoading } from "./WorkloadAnalysisLoading";
 import { isWorkloadAnalysisRequest } from "./workload-analysis-state";
 import { getAssistantAlertLabel, getAssistantAlertState } from "./assistant-alert-state";
+import { getAssistantCharacterMotionClass } from "./assistant-character-motion";
 import { buildWorkloadCsv, buildWorkloadPdfHtml, type WorkloadRecommendation } from "./workload-export";
 
 type AgentMessage = AgentHistoryEntry;
@@ -43,7 +44,7 @@ const DEFAULT_PANEL_WIDTH = 400;
 const MIN_PANEL_WIDTH = 320;
 const MAX_PANEL_WIDTH = 560;
 const WAKE_GREETING = "Que bom te ver novamente.";
-const ASSISTANT_CHARACTER_ASSET = "/manus-storage/orbita-assistant-character-img4220-transparent_2924f69d.png";
+const ASSISTANT_CHARACTER_ASSET = "/manus-storage/orbita-assistant-img4220-1-transparent_05a48061.png";
 const WAKE_RESTART_DELAY_MS = 4500;
 const WAKE_STORAGE_KEY = "orbita-wake-phrase-enabled";
 
@@ -567,6 +568,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           : "idle";
 
   const agentPositionStyle = getFloatingAgentPlacement(compactMode, effectivePanelWidth);
+  const characterMotionClass = getAssistantCharacterMotionClass(open);
 
   return (
     <div
@@ -594,7 +596,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             aria-label="Arrastar painel do Orbita AI"
           >
             <div className="relative flex h-11 w-9 shrink-0 items-end justify-center">
-              <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className="h-11 w-9 object-contain object-bottom" />
+              <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className={`h-11 w-9 object-contain object-bottom ${characterMotionClass}`} />
               <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" aria-label="Assistente disponível" />
               {activeSoundState !== "idle" && <SoundWaveIndicator state={activeSoundState} compact className="absolute -bottom-1 -right-2 bg-black/80 px-1" />}
             </div>
@@ -843,7 +845,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         aria-label={open ? "Fechar Assistente Orbita" : assistantAlertState === "overdue" ? `Abrir Assistente Orbita — ${assistantAlertLabel}` : "Abrir Assistente Orbita"}
         title={activeSoundState === "listening" ? "Assistente Orbita está ouvindo" : activeSoundState === "speaking" ? "Assistente Orbita está falando" : assistantAlertState === "overdue" ? assistantAlertLabel : "Abrir Assistente Orbita"}
       >
-        <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className="h-full w-full object-contain object-bottom drop-shadow-[0_8px_6px_rgba(0,0,0,0.22)]" />
+        <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className={`h-full w-full object-contain object-bottom drop-shadow-[0_8px_6px_rgba(0,0,0,0.22)] ${characterMotionClass}`} />
         <span className="absolute bottom-3 right-1 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" aria-label="Assistente Orbita disponível" />
         {assistantAlertState === "overdue" && (
           <span className="absolute right-0 top-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-slate-950 shadow-lg ring-2 ring-white" role="status" aria-live="polite">

@@ -1537,11 +1537,19 @@
 - [x] Validar que o fundo branco não apareça e preservar alertas, balão e acessibilidade (286/286 testes aprovados)
 
 ## Ajuste de Saudação Única e Novo Boneco IMG_4220(1)
-- [ ] Processar IMG_4220(1).png para garantir fundo transparente e hospedagem persistente
-- [ ] Configurar saudação de boas-vindas para ocorrer apenas na primeira abertura do assistente por sessão/usuário
-- [ ] Validar com testes unitários e garantir zero erros TypeScript
+- [x] Processar IMG_4220(1).png para garantir fundo transparente e hospedagem persistente
+- [x] Configurar saudação de boas-vindas para ocorrer apenas na primeira abertura do assistente por sessão/usuário
+- [x] Validar com testes unitários e garantir zero erros TypeScript
+
+## Animação de Flutuação e Entrada do Boneco Transparente
+- [x] Implementar animação suave de entrada/flutuação no boneco do Assistente Orbita com `@keyframes` e suporte a `prefers-reduced-motion`
+- [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (288/288 testes aprovados)
 
 ## Ajuste de Saudação Única e Novo Boneco IMG_4220(1)
 - [x] Processar IMG_4220(1).png para garantir fundo transparente e hospedagem persistente (/manus-storage/orbita-assistant-img4220-1-transparent_05a48061.png)
 - [x] Configurar saudação de boas-vindas para ocorrer apenas na primeira abertura do assistente por sessão/usuário (usando sessionStorage)
 - [x] Validar com testes unitários (286/286 testes Vitest aprovados) e garantir zero erros TypeScript
+
+## Animação de Flutuação e Entrada do Boneco Transparente
+- [ ] Implementar animação suave de entrada/flutuação no boneco do Assistente Orbita com `@keyframes` e suporte a `prefers-reduced-motion`
+- [ ] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript

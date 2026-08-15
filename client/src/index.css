@@ -779,3 +779,48 @@ html.theme-transition body *::after {
     transform: scaleY(0.72);
   }
 }
+
+/* Assistente Orbita: entrada suave ao abrir e flutuação discreta quando o balão está fechado. */
+@keyframes orbita-assistant-character-entry {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.94) rotate(-2deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translate3d(0, -3px, 0) scale(1.015) rotate(0.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes orbita-assistant-character-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+.orbita-assistant-character-entry {
+  animation: orbita-assistant-character-entry 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+.orbita-assistant-character-float {
+  animation: orbita-assistant-character-float 3.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbita-assistant-character-entry,
+  .orbita-assistant-character-float {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+}
