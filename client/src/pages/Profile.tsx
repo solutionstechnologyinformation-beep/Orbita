@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import * as QRCode from "qrcode";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Camera, Palette, Save, X, Settings2, Clock3 } from "lucide-react";
+import { Loader2, User, Camera, Palette, Save, X, Settings2, Clock3, ShieldCheck, KeyRound, Copy, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 import AppLayout from "@/components/AppLayout";
@@ -35,8 +36,19 @@ export default function Profile() {
   const [avatarColor, setAvatarColor] = useState(user?.avatarColor ?? "#3b82f6");
   const [avatarInitials, setAvatarInitials] = useState(user?.avatarInitials ?? "");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState<"info" | "avatar" | "preferences">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "avatar" | "preferences" | "security">("info");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const canManageTfa = ["admin", "master_admin", "company_admin"].includes(user?.role ?? "");
+  const tfaStatusQ = trpc.tfa.status.useQuery(undefined, { enabled: canManageTfa });
+  const setupTfa = trpc.tfa.setup.useMutation();
+  const verifyAndEnableTfa = trpc.tfa.verifyAndEnable.useMutation();
+  const disableTfa = trpc.tfa.disable.useMutation();
+  const [tfaSecret, setTfaSecret] = useState("");
+  const [tfaOtpAuth, setTfaOtpAuth] = useState("");
+  const [tfaQrCode, setTfaQrCode] = useState("");
+  const [tfaToken, setTfaToken] = useState("");
+  const [tfaDisableToken, setTfaDisableToken] = useState("");
+  const [tfaBackupCodes, setTfaBackupCodes] = useState<string[]>([]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -82,6 +94,53 @@ export default function Profile() {
 
   const handleRemovePhoto = () => {
     updateProfile.mutate({ avatarUrl: "" });
+  };
+
+  const handleSetupTfa = async () => {
+    try {
+      const data = await setupTfa.mutateAsync();
+      setTfaSecret(data.secret);
+      setTfaOtpAuth(data.otpauth);
+      setTfaBackupCodes([]);
+      setTfaToken("");
+      setTfaQrCode(await QRCode.toDataURL(data.otpauth, { width: 220, margin: 2 }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível iniciar o 2FA.");
+    }
+  };
+
+  const handleVerifyAndEnableTfa = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      const data = await verifyAndEnableTfa.mutateAsync({ token: tfaToken.replace(/\\D/g, "") });
+      setTfaBackupCodes(data.backupCodes);
+      setTfaToken("");
+      await tfaStatusQ.refetch();
+      toast.success("Autenticação de dois fatores ativada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Código TOTP inválido.");
+    }
+  };
+
+  const handleDisableTfa = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      await disableTfa.mutateAsync({ token: tfaDisableToken.trim() });
+      setTfaDisableToken("");
+      setTfaSecret("");
+      setTfaOtpAuth("");
+      setTfaQrCode("");
+      setTfaBackupCodes([]);
+      await tfaStatusQ.refetch();
+      toast.success("Autenticação de dois fatores desativada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Código de verificação inválido.");
+    }
+  };
+
+  const copyBackupCodes = async () => {
+    await navigator.clipboard.writeText(tfaBackupCodes.join("\\n"));
+    toast.success("Códigos de recuperação copiados.");
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1330,3 +1330,18 @@
 - [x] Implementar e verificar métodos de proteção (validação estrita com Zod, hash bcrypt de senhas, rotas protegidas tRPC)
 - [x] Criar testes unitários focados em segurança e controle de acesso
 - [x] Atualizar o README com o Relatório de Auditoria de Segurança e Controles Implementados
+
+## Autenticação de Dois Fatores (2FA) para Administradores
+- [x] Adicionar campos de 2FA (secret, enabled, backupCodes) na tabela users do Drizzle schema
+- [x] Implementar gerador de segredo TOTP e verificador de código com otplib / crypto no backend
+- [x] Criar procedimentos tRPC protegidos para iniciar 2FA, verificar token, gerar QR Code e desativar 2FA
+- [x] Criar aba ou seção de Segurança com painel 2FA no perfil do usuário ou painel admin
+- [x] Escrever testes de segurança para ativação, verificação de token inválido/válido e desativação
+- [x] Atualizar o README e documentar a adoção de 2FA
+## Plataforma Multi-Tenant com Domínios Personalizados e Marca Única
+- [x] Adicionar tabela company_domains no schema do Drizzle com verificação de tokens e status de SSL
+- [x] Implementar procedures tRPC protegidas para listar, cadastrar, verificar e remover domínios de empresas
+- [x] Criar procedimentos para resolver o tenant pelo Host da requisição com isolamento de segurança
+- [x] Desenvolver a tela administrativa de domínios personalizados no painel de administração
+- [x] Escrever testes unitários e de integração para validação de domínios e isolamento multi-tenant
+- [x] Atualizar o README com orientações de nomes comerciais (sem números) e guias de DNS/SSL

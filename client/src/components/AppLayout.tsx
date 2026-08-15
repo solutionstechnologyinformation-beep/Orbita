@@ -137,7 +137,23 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     refetchInterval: 30000,
     enabled: isAuthenticated,
   });
+  const { data: tenantBranding } = trpc.tenant.context.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+  });
   const unreadCount = notifList.filter((n: any) => !n.isRead).length;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (tenantBranding) {
+      root.style.setProperty("--tenant-primary", tenantBranding.color || "#2563eb");
+      root.style.setProperty("--tenant-logo", `url(${tenantBranding.logoUrl || getOrbitaLogoUrl("light")})`);
+      document.title = `${tenantBranding.name} · ${ORBITA_BRAND_NAME}`;
+    } else {
+      root.style.removeProperty("--tenant-primary");
+      root.style.removeProperty("--tenant-logo");
+      document.title = ORBITA_NAME;
+    }
+  }, [tenantBranding]);
   const globalPeriodRoutes = ["/dashboard", "/projects", "/sprints", "/scheduling", "/calendar", "/relatorios", "/notifications"];
   const showGlobalPeriod = globalPeriodRoutes.some((route) => location === route || location.startsWith(`${route}/`));
 
@@ -177,14 +193,14 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
           className="group flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg p-0.5 outline-none transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-105 hover:drop-shadow-[0_5px_12px_rgba(15,23,42,0.28)] focus-visible:ring-2 focus-visible:ring-black/60"
         >
           <img
-            src={getOrbitaLogoUrl(isDark ? "dark" : "light")}
-            alt="Logo Órbita — voltar ao Dashboard"
+            src={(isDark ? tenantBranding?.logoDarkUrl : tenantBranding?.logoUrl) || tenantBranding?.logoUrl || getOrbitaLogoUrl(isDark ? "dark" : "light")}
+            alt={tenantBranding?.name ? `Logo ${tenantBranding.name} — voltar ao Dashboard` : "Logo Órbita — voltar ao Dashboard"}
             className="orbita-logo-transparent h-full w-full object-contain bg-transparent transition-transform duration-300 ease-out group-hover:rotate-1"
           />
         </button>
         {!compact && (
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="font-black text-sm tracking-wide text-black uppercase">{ORBITA_NAME}</span>
+            <span className="font-black text-sm tracking-wide text-black uppercase">{tenantBranding?.name || ORBITA_NAME}</span>
             <span className="text-xs font-semibold text-black/70 truncate">{ORBITA_BRAND_NAME}</span>
           </div>
         )}

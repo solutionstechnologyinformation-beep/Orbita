@@ -111,15 +111,37 @@ A arquitetura do **Órbita** foi submetida a uma varredura rigorosa de seguranç
 | **Proteção contra SQL Injection** | **Drizzle ORM** com Prepared Statements | Consultas SQL construídas por parâmetros tipados, eliminando vulnerabilidades de injeção direta de código [2]. |
 | **Controle de Acesso (RBAC)** | `protectedProcedure` & `adminProcedure` | Barreiras baseadas em papéis (`user`, `admin`, `master_admin`, `company_admin`, `leader`) que bloqueiam acessos não autorizados [1] [2]. |
 | **Auditoria de Operações** | Registro de logs em `activity_logs` | Rastreabilidade completa de alterações, exclusões e acessos críticos no sistema [1]. |
+| **Domínios por Tenant** | `company_domains` + verificação TXT | Cada empresa pode ter domínio próprio, com status pendente/verificado/desativado e escopo protegido por `companyId`. |
+| **Resolução de Host** | `server/tenant-resolver.ts` + contexto tRPC | O sistema normaliza o hostname calculado pelo Express e só carrega branding de domínios verificados; o Host não substitui a autorização do usuário. |
+| **2FA Administrativo** | TOTP, QR Code e códigos de recuperação | Administradores podem habilitar autenticação de dois fatores pelo painel de segurança. |
 
 ---
 
-## Configuração de Domínio Personalizado (`www.orbita.com.br`)
+## Plataforma Multi-Tenant e Domínios Personalizados
 
-Para publicar e apontar a aplicação para o domínio de produção `www.orbita.com.br`:
-1. No provedor de DNS do seu domínio, configure um registro **CNAME** apontando `www` para o endpoint da sua hospedagem.
-2. Configure um registro **A** ou redirecionamento para a raiz (`orbita.com.br`) se desejar suporte direto.
-3. No painel de configuração da aplicação, associe `www.orbita.com.br` para ativação automática do certificado SSL/TLS.
+O Orbita usa uma **marca única** para todas as empresas e separa os espaços de trabalho por `companyId`. O Administrador Master ou o administrador autorizado da empresa pode abrir **Administração → Domínios**, cadastrar um hostname e configurar a verificação de posse por DNS.
+
+O fluxo é:
+
+1. Cadastre um domínio como `app.empresa.com.br`, sem `https://`, caminho ou porta.
+2. Copie o valor retornado pelo Orbita e crie um registro TXT no host `_orbita-verification.app.empresa.com.br`.
+3. Clique em **Verificar DNS**. O backend consulta o TXT e só altera o status para `verified` quando o token coincidir.
+4. Após a verificação no Orbita e a configuração no provedor de hospedagem, defina o domínio como **Primário**.
+5. Configure o registro CNAME, A, ALIAS ou ANAME exigido pela hospedagem e aguarde o certificado SSL/TLS gerenciado pelo provedor.
+
+O contexto tRPC utiliza o `req.hostname` calculado pelo Express e nunca confia diretamente em `x-forwarded-host`. Mesmo em um domínio verificado, os dados continuam protegidos pela sessão e pelo `companyId`; um domínio identifica o espaço visual, mas não concede autorização.
+
+A migração reproduzível está em `drizzle/0016_add-company-domains.sql`. Em ambientes novos, execute as migrações do projeto antes de iniciar o servidor. Em produção, o provisionamento automático de SSL deve ser realizado pela hospedagem ou por um reverse proxy persistente com ACME; a aplicação não armazena chaves privadas de certificados.
+
+## Nome da Marca e Escolha do Domínio
+
+`Orbita` continua como a marca única do produto, mas a disponibilidade e a exclusividade de um nome devem ser confirmadas no registrador e em uma pesquisa de marca antes da compra. Não é possível afirmar que `orbita.com.br` ou `orbita.com` estejam livres sem uma consulta no momento do registro. Como alternativas de pesquisa sem números, podem ser avaliados `orbitaops.com.br`, `orbitaexec.com.br`, `orbitafluxo.com.br` e `orbitaos.com.br`; essas opções são sugestões e não disponibilidade confirmada.
+
+Consulte `docs/domain-name-research.md` para o registro das fontes e recomendações. A consulta oficial de domínios `.br` deve ser feita no [Registro.br][5], enquanto registradores comerciais como o [Name.com][6] oferecem busca por extensões e alternativas.
+
+### Uso do domínio principal `www.orbita.com.br`
+
+Para usar `www.orbita.com.br` como endereço global da marca, cadastre esse domínio no provedor de hospedagem e aponte o registro DNS `www` conforme o endpoint fornecido. Para espaços específicos por empresa, prefira subdomínios como `empresa-a.orbita.com.br` e `empresa-b.orbita.com.br`, cadastrando cada um na tela de Domínios do Orbita.
 
 ---
 
@@ -129,6 +151,8 @@ Para publicar e apontar a aplicação para o domínio de produção `www.orbita.
 [2] **tRPC & Drizzle Documentation**. *End-to-end Type-safe APIs with React and TypeScript*. Disponível em: <https://trpc.io/>.  
 [3] **Node.js Foundation**. *Node.js v22 Release Notes and Package Management Guidelines*. Disponível em: <https://nodejs.org/>.  
 [4] **Vitest Testing Framework**. *Fast Unit Testing in Vite-powered Applications*. Disponível em: <https://vitest.dev/>.
+[5] **Registro.br**. *Consulta e registro de domínios `.br`*. Disponível em: <https://registro.br/dominio/>.
+[6] **Name.com**. *Domain Name Search*. Disponível em: <https://www.name.com/domain/search>.
 
 ---
 

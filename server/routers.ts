@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { resolveTxt } from "node:dns/promises";
 import { users } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
@@ -78,6 +80,21 @@ const companyAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   }
   return next({ ctx });
 });
+
+function normalizeCustomDomain(value: string) {
+  const domain = value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/\.$/, "");
+  if (domain.length < 3 || domain.length > 255 || domain.includes(" ") || domain === "localhost" || /^\d+(?:\.\d+){3}$/.test(domain)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Domínio inválido. Informe apenas um hostname público, sem protocolo ou caminho." });
+  }
+  if (!/^(?=.{1,255}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Domínio inválido. Use um hostname como app.empresa.com.br." });
+  }
+  return domain;
+}
+
+function canManageCompanyDomain(user: { role: string; companyId?: number | null }, companyId: number) {
+  return user.role === "master_admin" || user.companyId === companyId;
+}
 
 function tenantCompanyId(user: { role: string; companyId?: number | null }) {
   return user.role === "master_admin" || user.role === "admin" ? user.companyId ?? undefined : user.companyId;
@@ -2154,6 +2171,191 @@ export const appRouter = router({
       const isTrialing = await isTrialPeriod(ctx.user.id);
       return { hasAccess, isTrialing };
     }),
+  }),
+
+  // ─── Two-Factor Authentication (2FA) for Admins ─────────────────────────────
+  tfa: router({
+    status: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
+      }
+      const db = await getDb();
+      const { users: usersTable } = await import('../drizzle/schema');
+      const { eq: eq2 } = await import('drizzle-orm');
+      const [user] = await db.select({ tfaEnabled: usersTable.tfaEnabled }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
+      return { enabled: user?.tfaEnabled ?? false };
+    }),
+
+    setup: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
+      }
+      const { generateTfaSecret, getTotpOtpAuthUrl } = await import('./tfa');
+      const secret = generateTfaSecret();
+      const db = await getDb();
+      const { users: usersTable } = await import('../drizzle/schema');
+      const { eq: eq2 } = await import('drizzle-orm');
+      await db.update(usersTable).set({ tfaSecret: secret }).where(eq2(usersTable.id, ctx.user.id));
+      const otpauth = getTotpOtpAuthUrl(secret, ctx.user.email ?? "admin@orbita.com.br");
+      return { secret, otpauth };
+    }),
+
+    verifyAndEnable: protectedProcedure
+      .input(z.object({ token: z.string().length(6) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
+        }
+        const db = await getDb();
+        const { users: usersTable } = await import('../drizzle/schema');
+        const { eq: eq2 } = await import('drizzle-orm');
+        const [user] = await db.select({ tfaSecret: usersTable.tfaSecret }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
+        if (!user?.tfaSecret) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Configuração de 2FA não iniciada." });
+        }
+        const { verifyTotpToken, generateBackupCodes } = await import('./tfa');
+        const isValid = verifyTotpToken(user.tfaSecret, input.token);
+        if (!isValid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Código TOTP inválido ou expirado." });
+        }
+        const backupCodes = generateBackupCodes(8);
+        await db.update(usersTable).set({ tfaEnabled: true, tfaBackupCodes: JSON.stringify(backupCodes) }).where(eq2(usersTable.id, ctx.user.id));
+        return { success: true, backupCodes };
+      }),
+
+    disable: protectedProcedure
+      .input(z.object({ token: z.string().min(6) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
+        }
+        const db = await getDb();
+        const { users: usersTable } = await import('../drizzle/schema');
+        const { eq: eq2 } = await import('drizzle-orm');
+        const [user] = await db.select({ tfaSecret: usersTable.tfaSecret, tfaEnabled: usersTable.tfaEnabled, tfaBackupCodes: usersTable.tfaBackupCodes }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
+        if (!user?.tfaEnabled) {
+          return { success: true };
+        }
+        const { verifyTotpToken } = await import('./tfa');
+        let isValid = verifyTotpToken(user.tfaSecret ?? "", input.token);
+        if (!isValid && user.tfaBackupCodes) {
+          try {
+            const codes = JSON.parse(user.tfaBackupCodes) as string[];
+            if (codes.includes(input.token.trim())) {
+              isValid = true;
+            }
+          } catch {}
+        }
+        if (!isValid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Código de verificação ou backup inválido." });
+        }
+        await db.update(usersTable).set({ tfaEnabled: false, tfaSecret: null, tfaBackupCodes: null }).where(eq2(usersTable.id, ctx.user.id));
+        return { success: true };
+      }),
+  }),
+
+  // ─── Custom Domains & Tenant Branding (Multi-Tenant v4.0) ──────────────────
+  tenant: router({
+    context: publicProcedure.query(({ ctx }) => {
+      if (!ctx.tenant) return null;
+      return ctx.tenant;
+    }),
+
+    listDomains: companyAdminProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      const { companyDomains, companies } = await import('../drizzle/schema');
+      const { eq, desc } = await import('drizzle-orm');
+      const query = db.select({
+        id: companyDomains.id,
+        companyId: companyDomains.companyId,
+        companyName: companies.name,
+        domain: companyDomains.domain,
+        status: companyDomains.status,
+        verifiedAt: companyDomains.verifiedAt,
+        verificationToken: companyDomains.verificationToken,
+        isPrimary: companyDomains.isPrimary,
+        createdAt: companyDomains.createdAt,
+      }).from(companyDomains)
+        .leftJoin(companies, eq(companyDomains.companyId, companies.id))
+        .orderBy(desc(companyDomains.createdAt));
+      if (ctx.user.role === "master_admin") return query;
+      return query.where(eq(companyDomains.companyId, ctx.user.companyId!));
+    }),
+
+    addDomain: companyAdminProcedure
+      .input(z.object({ companyId: z.number().int().positive(), domain: z.string().min(3).max(255) }))
+      .mutation(async ({ ctx, input }) => {
+        if (!canManageCompanyDomain(ctx.user, input.companyId)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você só pode gerenciar domínios da sua empresa." });
+        }
+        const cleanDomain = normalizeCustomDomain(input.domain);
+        const db = await getDb();
+        const { companyDomains } = await import('../drizzle/schema');
+        const verificationToken = `orbita-verify-${randomBytes(24).toString("hex")}`;
+        const inserted = await db.insert(companyDomains).values({
+          companyId: input.companyId,
+          domain: cleanDomain,
+          status: "pending",
+          verificationToken,
+          isPrimary: false,
+        });
+        const id = Number((inserted as any)[0]?.insertId ?? 0);
+        return { id, success: true, verificationToken, domain: cleanDomain, txtHost: `_orbita-verification.${cleanDomain}` };
+      }),
+
+    verifyDomain: companyAdminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { companyDomains } = await import('../drizzle/schema');
+        const { eq } = await import('drizzle-orm');
+        const [record] = await db.select().from(companyDomains).where(eq(companyDomains.id, input.id)).limit(1);
+        if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Domínio não encontrado." });
+        if (!canManageCompanyDomain(ctx.user, record.companyId)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode verificar o domínio de outra empresa." });
+        }
+        if (!record.verificationToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Este domínio não possui token de verificação." });
+        try {
+          const txtRecords = await resolveTxt(`_orbita-verification.${record.domain}`);
+          const values = txtRecords.flat().map((value) => value.trim());
+          if (!values.includes(record.verificationToken)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "O registro TXT ainda não corresponde ao token do Orbita." });
+          }
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Não foi possível localizar o registro TXT. Verifique o DNS e tente novamente." });
+        }
+        await db.update(companyDomains).set({ status: "verified", verifiedAt: new Date() }).where(eq(companyDomains.id, input.id));
+        return { success: true };
+      }),
+
+    setPrimary: companyAdminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { companyDomains } = await import('../drizzle/schema');
+        const { eq, and } = await import('drizzle-orm');
+        const [record] = await db.select().from(companyDomains).where(eq(companyDomains.id, input.id)).limit(1);
+        if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Domínio não encontrado." });
+        if (!canManageCompanyDomain(ctx.user, record.companyId)) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode alterar este domínio." });
+        if (record.status !== "verified") throw new TRPCError({ code: "BAD_REQUEST", message: "Somente domínios verificados podem ser primários." });
+        await db.update(companyDomains).set({ isPrimary: false }).where(eq(companyDomains.companyId, record.companyId));
+        await db.update(companyDomains).set({ isPrimary: true }).where(and(eq(companyDomains.id, input.id), eq(companyDomains.companyId, record.companyId)));
+        return { success: true };
+      }),
+
+    removeDomain: companyAdminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const { companyDomains } = await import('../drizzle/schema');
+        const { eq } = await import('drizzle-orm');
+        const [record] = await db.select().from(companyDomains).where(eq(companyDomains.id, input.id)).limit(1);
+        if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Domínio não encontrado." });
+        if (!canManageCompanyDomain(ctx.user, record.companyId)) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode remover este domínio." });
+        await db.delete(companyDomains).where(eq(companyDomains.id, input.id));
+        return { success: true };
+      }),
   }),
 });
 

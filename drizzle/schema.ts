@@ -25,6 +25,19 @@ export const companies = mysqlTable("companies", {
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = typeof companies.$inferInsert;
 
+export const companyDomains = mysqlTable("company_domains", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  domain: varchar("domain", { length: 255 }).notNull().unique(),
+  status: mysqlEnum("status", ["pending", "verified", "disabled"]).default("pending").notNull(),
+  verificationToken: varchar("verificationToken", { length: 128 }),
+  verifiedAt: timestamp("verifiedAt"),
+  isPrimary: boolean("isPrimary").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CompanyDomain = typeof companyDomains.$inferSelect;
+export type InsertCompanyDomain = typeof companyDomains.$inferInsert;
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -39,6 +52,9 @@ export const users = mysqlTable("users", {
   company: varchar("company", { length: 256 }),
   companyId: int("companyId"),
   passwordHash: varchar("passwordHash", { length: 255 }),
+  tfaSecret: varchar("tfaSecret", { length: 255 }),
+  tfaEnabled: boolean("tfaEnabled").default(false).notNull(),
+  tfaBackupCodes: text("tfaBackupCodes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

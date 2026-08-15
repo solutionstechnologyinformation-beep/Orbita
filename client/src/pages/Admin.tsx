@@ -16,7 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Plus, Trash2, Edit2, Users, Building2, Tag, Globe, Archive, RotateCcw,
-  ClipboardList, User, Layers, Loader2, Palette,
+  ClipboardList, User, Layers, Loader2, Palette, ShieldCheck,
 } from "lucide-react";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 import { PresenceDot } from "@/components/PresenceDot";
@@ -175,6 +175,10 @@ export default function Admin() {
   // Registros state
   const [registrosFilter, setRegistrosFilter] = useState("all");
 
+  // Custom domains state
+  const [domainForm, setDomainForm] = useState({ companyId: "", domain: "" });
+  const [domainSetup, setDomainSetup] = useState<{ id: number; domain: string; token: string; txtHost: string } | null>(null);
+
   const clientsQ = trpc.clients.list.useQuery();
   const companiesQ = trpc.companies.list.useQuery(undefined, { enabled: isMasterAdmin });
   const crsQ = trpc.crs.list.useQuery();
@@ -185,6 +189,7 @@ export default function Admin() {
     limit: 300,
     entityType: registrosFilter !== "all" ? registrosFilter : undefined,
   });
+  const domainsQ = trpc.tenant.listDomains.useQuery(undefined, { enabled: isAdmin });
   const utils = trpc.useUtils();
 
   // Client mutations
@@ -213,6 +218,28 @@ export default function Admin() {
   const deleteCompanyM = trpc.companies.delete.useMutation({
     onSuccess: () => { utils.companies.list.invalidate(); toast.success("Empresa excluída!"); },
     onError: (e) => toast.error("Erro: " + e.message),
+  });
+
+  const addDomainM = trpc.tenant.addDomain.useMutation({
+    onSuccess: (data) => {
+      utils.tenant.listDomains.invalidate();
+      setDomainForm((current) => ({ ...current, domain: "" }));
+      setDomainSetup({ id: data.id, domain: data.domain, token: data.verificationToken, txtHost: data.txtHost });
+      toast.success("Domínio cadastrado. Configure o registro TXT antes de verificar.");
+    },
+    onError: (e) => toast.error("Erro ao cadastrar domínio: " + e.message),
+  });
+  const verifyDomainM = trpc.tenant.verifyDomain.useMutation({
+    onSuccess: () => { utils.tenant.listDomains.invalidate(); setDomainSetup(null); toast.success("Domínio verificado com sucesso!"); },
+    onError: (e) => toast.error("Verificação DNS: " + e.message),
+  });
+  const setPrimaryDomainM = trpc.tenant.setPrimary.useMutation({
+    onSuccess: () => { utils.tenant.listDomains.invalidate(); toast.success("Domínio primário atualizado."); },
+    onError: (e) => toast.error("Erro ao definir domínio primário: " + e.message),
+  });
+  const removeDomainM = trpc.tenant.removeDomain.useMutation({
+    onSuccess: () => { utils.tenant.listDomains.invalidate(); toast.success("Domínio removido."); },
+    onError: (e) => toast.error("Erro ao remover domínio: " + e.message),
   });
 
   // CRS mutations
@@ -280,6 +307,13 @@ export default function Admin() {
   const disciplines = (disciplinesQ.data ?? []) as any[];
   const users = (usersQ.data ?? []) as any[];
   const registros = (registrosQ.data ?? []) as any[];
+  const domainCompanies = isMasterAdmin ? companies : (user?.companyId ? [{ id: user.companyId, name: user.company ?? "Minha empresa" }] : []);
+
+  useEffect(() => {
+    if (!domainForm.companyId && domainCompanies.length > 0) {
+      setDomainForm((current) => ({ ...current, companyId: String(domainCompanies[0].id) }));
+    }
+  }, [domainCompanies.length, domainForm.companyId]);
 
   if (!isAdmin) {
     return (
@@ -360,6 +394,7 @@ export default function Admin() {
     { value: "disciplines", icon: Tag,           label: "Disciplinas" },
     { value: "users",       icon: Users,         label: "Usuários" },
     { value: "registros",   icon: ClipboardList, label: "Registros" },
+    { value: "domains",     icon: Globe,         label: "Domínios" },
   ];
 
   return (
@@ -400,6 +435,7 @@ export default function Admin() {
             <TabsTrigger value="disciplines">Disciplinas</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="registros">Registros</TabsTrigger>
+            <TabsTrigger value="domains">Domínios</TabsTrigger>
           </TabsList>
 
           {/* COMPANIES TAB — Master Admin only */}
@@ -617,6 +653,112 @@ export default function Admin() {
               ))}
               {users.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum usuário encontrado</p>}
             </div>
+          </TabsContent>
+
+          {/* CUSTOM DOMAINS TAB */}
+          <TabsContent value="domains">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2"><Globe className="w-5 h-5 text-primary" />Domínios personalizados</h2>
+                <p className="text-xs text-muted-foreground mt-1">Uma marca única, com espaços isolados por empresa e DNS verificado.</p>
+              </div>
+              <Badge variant="outline">{(domainsQ.data ?? []).length} domínio(s)</Badge>
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-5">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-semibold text-foreground">Como funciona</p>
+                  <p className="text-muted-foreground mt-1">Cadastre o hostname sem protocolo, crie o registro TXT exibido pelo Orbita e só então clique em Verificar. O domínio não será ativado antes da confirmação de posse.</p>
+                </div>
+              </div>
+            </div>
+
+            <form
+              className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-end mb-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!domainForm.companyId || !domainForm.domain.trim()) return;
+                addDomainM.mutate({ companyId: Number(domainForm.companyId), domain: domainForm.domain });
+              }}
+            >
+              <div>
+                <Label htmlFor="domain-company">Empresa</Label>
+                <Select value={domainForm.companyId} onValueChange={(companyId) => setDomainForm((current) => ({ ...current, companyId }))}>
+                  <SelectTrigger id="domain-company" className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                  <SelectContent>
+                    {domainCompanies.map((company: any) => <SelectItem key={company.id} value={String(company.id)}>{company.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="custom-domain">Domínio ou subdomínio</Label>
+                <Input id="custom-domain" className="mt-1" value={domainForm.domain} onChange={(event) => setDomainForm((current) => ({ ...current, domain: event.target.value }))} placeholder="app.empresa.com.br" autoComplete="url" />
+              </div>
+              <Button type="submit" disabled={!domainForm.companyId || !domainForm.domain.trim() || addDomainM.isPending}>
+                {addDomainM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                Cadastrar
+              </Button>
+            </form>
+
+            {domainSetup && (
+              <div className="rounded-xl border border-amber-300/60 bg-amber-50/70 dark:bg-amber-950/20 dark:border-amber-800 p-4 mb-5">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <p className="font-semibold text-foreground">DNS necessário para {domainSetup.domain}</p>
+                  <Button size="sm" variant="ghost" onClick={() => setDomainSetup(null)}>Fechar</Button>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">Crie este registro TXT no provedor DNS do domínio:</p>
+                <div className="grid gap-2 text-xs font-mono sm:grid-cols-[auto_1fr]">
+                  <span className="text-muted-foreground">Host</span><span className="rounded bg-background border border-border px-2 py-1 break-all">{domainSetup.txtHost}</span>
+                  <span className="text-muted-foreground">Valor</span><span className="rounded bg-background border border-border px-2 py-1 break-all">{domainSetup.token}</span>
+                </div>
+              </div>
+            )}
+
+            {domainsQ.isLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            ) : (domainsQ.data ?? []).length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>Nenhum domínio personalizado cadastrado.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {(domainsQ.data ?? []).map((domain: any) => (
+                  <div key={domain.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Globe className="w-4 h-4 text-primary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground truncate">{domain.domain}</p>
+                        <p className="text-xs text-muted-foreground">{domain.companyName ?? `Empresa #${domain.companyId}`}</p>
+                      </div>
+                      <Badge variant={domain.status === "verified" ? "default" : "outline"}>{domain.status === "verified" ? "Verificado" : domain.status === "disabled" ? "Desativado" : "Pendente DNS"}</Badge>
+                      {domain.isPrimary && <Badge variant="secondary">Primário</Badge>}
+                    </div>
+                    {domain.status === "pending" && domain.verificationToken && (
+                      <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                        Registro TXT: <code className="text-foreground break-all">_orbita-verification.{domain.domain}</code> = <code className="text-foreground break-all">{domain.verificationToken}</code>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {domain.status === "pending" && (
+                        <Button size="sm" onClick={() => verifyDomainM.mutate({ id: domain.id })} disabled={verifyDomainM.isPending}>
+                          {verifyDomainM.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ShieldCheck className="w-4 h-4 mr-1" />}
+                          Verificar DNS
+                        </Button>
+                      )}
+                      {domain.status === "verified" && !domain.isPrimary && (
+                        <Button size="sm" variant="outline" onClick={() => setPrimaryDomainM.mutate({ id: domain.id })} disabled={setPrimaryDomainM.isPending}>Definir como primário</Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => { if (confirm(`Remover o domínio ${domain.domain}?`)) removeDomainM.mutate({ id: domain.id }); }} disabled={removeDomainM.isPending}>
+                        <Trash2 className="w-4 h-4 mr-1" />Remover
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* REGISTROS TAB */}
