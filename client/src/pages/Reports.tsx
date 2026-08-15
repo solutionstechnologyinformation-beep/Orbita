@@ -1,7 +1,7 @@
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelContent } from "@/components/SplitLayout";
 import { trpc } from "@/lib/trpc";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { FileDown, BarChart2, Zap, FolderKanban, Loader2, ShieldAlert, Users, Fi
 import { toast } from "sonner";
 import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE, getReportRateColor } from "./report-palette";
+import { useGlobalPeriod, dateRangeOverlapsGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 
 // ─── PDF helpers ───────────────────────────────────────────────────────────────
 
@@ -597,6 +598,7 @@ function exportAnnualReport(data: any, clientName?: string) {
 // ─── Main Component ──────────────────────────────────────────────────────
 export default function Reports() {
   const [, navigate] = useLocation();
+  const { range: globalPeriodRange } = useGlobalPeriod();
   const [selectedClient, setSelectedClient] = useState("all");
   const [selectedReportProject, setSelectedReportProject] = useState("all");
   const [selectedSprint, setSelectedSprint] = useState("none");
@@ -605,6 +607,10 @@ export default function Reports() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  useEffect(() => {
+    if (globalPeriodRange.start) setSelectedYear(String(globalPeriodRange.start.getFullYear()));
+  }, [globalPeriodRange.start]);
 
   const projectsQ = trpc.tasks.listWithCounts.useQuery();
   const sprintsQ = trpc.sprints.listAll.useQuery();
@@ -623,19 +629,42 @@ export default function Reports() {
   const stats = statsQ.data;
   const clients = (clientsQ.data ?? []) as any[];
 
-  // Filter projects and sprints by selected client
-  const projects = useMemo(() => {
+  // Filter projects and sprints by selected client and the shared period.
+  // Keep the period-filtered project set separate so selectors cannot offer stale options.
+  const periodFilteredProjects = useMemo(() => {
     const byClient = selectedClient === "all"
       ? allProjects
       : allProjects.filter((p: any) => String(p.clientId) === selectedClient);
-    if (selectedReportProject === "all") return byClient;
-    return byClient.filter((p: any) => String(p.id) === selectedReportProject);
-  }, [allProjects, selectedClient, selectedReportProject]);
+    return byClient.filter((project: any) => dateRangeOverlapsGlobalPeriod(
+      project.derivedStartDate ?? project.startDate ?? project.createdAt,
+      project.derivedEndDate ?? project.endDate ?? project.updatedAt,
+      globalPeriodRange,
+    ));
+  }, [allProjects, selectedClient, globalPeriodRange]);
+
+  const projects = useMemo(() => {
+    if (selectedReportProject === "all") return periodFilteredProjects;
+    return periodFilteredProjects.filter((p: any) => String(p.id) === selectedReportProject);
+  }, [periodFilteredProjects, selectedReportProject]);
 
   const sprints = useMemo(() => {
     const projectIds = new Set(projects.map((p: any) => p.id));
-    return allSprints.filter((s: any) => projectIds.has(s.crsId));
-  }, [allSprints, projects]);
+    return allSprints.filter((s: any) => projectIds.has(s.crsId) && dateRangeOverlapsGlobalPeriod(s.startDate, s.endDate, globalPeriodRange));
+  }, [allSprints, projects, globalPeriodRange]);
+
+  useEffect(() => {
+    const visibleProjectIds = new Set(periodFilteredProjects.map((project: any) => String(project.id)));
+    if (selectedReportProject !== "all" && !visibleProjectIds.has(selectedReportProject)) {
+      setSelectedReportProject("all");
+    }
+    if (selectedProjectForMembers !== "none" && !visibleProjectIds.has(selectedProjectForMembers)) {
+      setSelectedProjectForMembers("none");
+    }
+    const visibleSprintIds = new Set(sprints.map((sprint: any) => String(sprint.id)));
+    if (selectedSprint !== "none" && !visibleSprintIds.has(selectedSprint)) {
+      setSelectedSprint("none");
+    }
+  }, [periodFilteredProjects, sprints, selectedProjectForMembers, selectedReportProject, selectedSprint]);
 
   const selectedClientObj = useMemo(
     () => clients.find((c: any) => String(c.id) === selectedClient),
@@ -658,17 +687,17 @@ export default function Reports() {
   );
 
   const selectedProjectObj = useMemo(
-    () => projects.find((p: any) => String(p.id) === selectedProjectForMembers),
-    [projects, selectedProjectForMembers]
+    () => periodFilteredProjects.find((p: any) => String(p.id) === selectedProjectForMembers),
+    [periodFilteredProjects, selectedProjectForMembers]
   );
 
   // Filtered blocked tasks by client
   const blockedTasks = useMemo(() => {
     const all = (blockedTasksQ.data ?? []) as any[];
-    if (selectedClient === "all") return all;
     const clientProjectNames = new Set(projects.map((p: any) => p.name));
-    return all.filter((t: any) => clientProjectNames.has(t.projectName));
-  }, [blockedTasksQ.data, projects, selectedClient]);
+    const byClient = selectedClient === "all" ? all : all.filter((t: any) => clientProjectNames.has(t.projectName));
+    return byClient.filter((task: any) => dateRangeOverlapsGlobalPeriod(task.startDate ?? task.dueDate, task.endDate ?? task.dueDate, globalPeriodRange));
+  }, [blockedTasksQ.data, projects, selectedClient, globalPeriodRange]);
 
   function handleExport(type: string) {
     setLoadingReport(type);
@@ -773,7 +802,7 @@ export default function Reports() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Todos os projetos</SelectItem>
-              {projects.map((p: any) => (
+              {periodFilteredProjects.map((p: any) => (
                 <SelectItem key={p.id} value={String(p.id)}>
                   {p.name}
                 </SelectItem>
@@ -866,7 +895,7 @@ export default function Reports() {
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Todos os projetos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os projetos</SelectItem>
-                    {allProjects.filter((p: any) => selectedClient === "all" || String(p.clientId) === selectedClient).map((p: any) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                    {periodFilteredProjects.map((p: any) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <p className="text-xs font-medium text-muted-foreground mt-4">Período de referência</p>

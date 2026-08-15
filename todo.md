@@ -1284,10 +1284,10 @@
 - [x] Adicionar testes de contraste e validar TypeScript e estados visuais
 
 ## Filtro global por período — Abas administrativas
-- [ ] Auditar navegação, layout compartilhado e fontes de datas de Calendário, Projetos, Sprints, Programação, Relatórios e Notificações
-- [ ] Criar estado global de período e controle no topo do painel
-- [ ] Aplicar o período às seis abas preservando filtros locais e estados vazios
-- [ ] Adicionar testes de sincronização, acessibilidade e validar TypeScript
+- [x] Auditar navegação, layout compartilhado e fontes de datas de Calendário, Projetos, Sprints, Programação, Relatórios e Notificações
+- [x] Criar estado global de período e controle no topo do painel
+- [x] Aplicar o período às seis abas preservando filtros locais e estados vazios
+- [x] Adicionar testes de sincronização, acessibilidade e validar TypeScript
 
 ## Experiência mobile simplificada
 - [x] Auditar responsividade atual, navegação e telas prioritárias no celular

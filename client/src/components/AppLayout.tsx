@@ -38,6 +38,7 @@ import { UserAvatar } from "./UserAvatar";
 import { FloatingAgent } from "./FloatingAgent";
 import { useTheme } from "../contexts/ThemeContext";
 import { getThemeToggleCopy } from "../contexts/theme-utils";
+import { GlobalPeriodControl } from "../contexts/GlobalPeriodContext";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -137,6 +138,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     enabled: isAuthenticated,
   });
   const unreadCount = notifList.filter((n: any) => !n.isRead).length;
+  const globalPeriodRoutes = ["/dashboard", "/projects", "/sprints", "/scheduling", "/calendar", "/relatorios", "/notifications"];
+  const showGlobalPeriod = globalPeriodRoutes.some((route) => location === route || location.startsWith(`${route}/`));
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -468,9 +471,9 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
 
       {/* Main Content */}
       <div className={`flex-1 flex flex-col h-screen overflow-hidden transition-[margin] duration-300 ease-out ${sidebarCollapsed ? "lg:ml-[4.5rem]" : "lg:ml-60"}`}>
-        {/* Top Header — only shown when title or backHref is provided */}
-        {(title || backHref) && (
-          <header className="flex-shrink-0 z-30 backdrop-blur border-b border-border px-4 lg:px-6 h-14 flex items-center gap-4 shadow-sm" style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
+        {/* Top Header — shared navigation and period controls */}
+        {(title || backHref || showGlobalPeriod) && (
+          <header className="flex min-h-14 flex-shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2 shadow-sm backdrop-blur lg:px-6" style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden text-muted-foreground hover:text-foreground"
@@ -489,10 +492,12 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             )}
 
             {title && (
-              <h1 className="text-base font-semibold text-foreground flex-1 truncate">{title}</h1>
+              <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{title}</h1>
             )}
 
-            <div className="flex items-center gap-2 ml-auto">
+            {showGlobalPeriod && <GlobalPeriodControl className="order-last w-full md:order-none md:w-auto" />}
+
+            <div className="ml-auto flex items-center gap-2">
               <ThemeToggle />
               <Link
                 href="/notifications"
@@ -508,7 +513,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         )}
 
         {/* Mobile hamburger when no header */}
-        {!title && !backHref && (
+        {!title && !backHref && !showGlobalPeriod && (
           <div className="lg:hidden flex-shrink-0 z-30 border-b border-border px-4 h-12 flex items-center justify-between" style={{ backgroundColor: isDark ? "var(--brand-accent)" : "#ffc30d" }}>
             <button
               onClick={() => setSidebarOpen(true)}

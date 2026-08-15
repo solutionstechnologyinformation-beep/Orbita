@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useGlobalPeriod, isDateInGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 
 const NOTIF_CONFIG: Record<string, { icon: any; color: string; bg: string }> = {
   task_assigned:     { icon: UserPlus,      color: "text-blue-500",       bg: "bg-blue-500/10" },
@@ -30,13 +31,15 @@ function getConfig(type: string) {
 
 export default function Notifications() {
   const [, navigate] = useLocation();
+  const { range: globalPeriodRange } = useGlobalPeriod();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { data: notifications, isLoading, refetch } = trpc.notifications.list.useQuery();
   const markRead = trpc.notifications.markRead.useMutation({ onSuccess: () => refetch() });
   const markAllRead = trpc.notifications.markAllRead.useMutation({ onSuccess: () => refetch() });
 
-  const unreadCount = notifications?.filter((n: any) => !n.isRead).length ?? 0;
-  const selected = notifications?.find((n: any) => n.id === selectedId) ?? null;
+  const visibleNotifications = (notifications ?? []).filter((notification: any) => isDateInGlobalPeriod(notification.createdAt, globalPeriodRange));
+  const unreadCount = visibleNotifications.filter((n: any) => !n.isRead).length;
+  const selected = visibleNotifications.find((n: any) => n.id === selectedId) ?? null;
 
   function handleSelect(n: any) {
     setSelectedId(n.id);
@@ -66,14 +69,14 @@ export default function Notifications() {
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : !notifications?.length ? (
+              ) : visibleNotifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Bell className="h-12 w-12 mb-4 opacity-30" />
                   <p className="text-sm">Nenhuma notificação</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {notifications.map((n: any) => {
+                  {visibleNotifications.map((n: any) => {
                     const cfg = getConfig(n.notificationType ?? "system");
                     const Icon = cfg.icon;
                     const isActive = n.id === selectedId;

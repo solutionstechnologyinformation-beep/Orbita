@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelContent, SplitPanelEmpty } from "@/components/SplitLayout";
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE } from "./report-palette";
+import { useGlobalPeriod, dateRangeOverlapsGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 
 const STATUS_COLORS: Record<string, string> = {
   planned: "bg-gray-100 text-gray-700",
@@ -50,6 +51,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Sprints() {
+  const { range: globalPeriodRange } = useGlobalPeriod();
   const [filterClientId, setFilterClientId] = useState<number | undefined>(undefined);
   const [crsId, setCrsId] = useState<number | undefined>(undefined);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
@@ -157,8 +159,20 @@ export default function Sprints() {
     { enabled: !!crsId && !!selectedSprintId }
   );
 
-  const sprints = sprintsQ.data ?? [];
-  const selectedSprint = sprintDetailQ.data;
+  const allSprints = sprintsQ.data ?? [];
+  const sprints = useMemo(() => allSprints.filter((sprint: any) => dateRangeOverlapsGlobalPeriod(sprint.startDate, sprint.endDate, globalPeriodRange)), [allSprints, globalPeriodRange]);
+  const visibleSelectedSprint = useMemo(
+    () => sprints.find((sprint: any) => sprint.id === selectedSprintId),
+    [sprints, selectedSprintId],
+  );
+  const selectedSprint = visibleSelectedSprint ? sprintDetailQ.data : undefined;
+
+  useEffect(() => {
+    if (sprintsQ.isSuccess && selectedSprintId !== null && !visibleSelectedSprint) {
+      setSelectedSprintId(null);
+    }
+  }, [sprintsQ.isSuccess, selectedSprintId, visibleSelectedSprint]);
+
   const burndown = burndownQ.data;
   const sprintChecklistItems = sprintChecklistQ.data ?? [];
   const allChecklistItems = allChecklistQ.data ?? [];
@@ -510,7 +524,7 @@ export default function Sprints() {
         right={
           <SplitPanelContent>
             <div className="space-y-4" ref={burndownChartRef}>
-            {!selectedSprintId ? (
+            {!selectedSprintId || !visibleSelectedSprint ? (
               <Card>
                 <CardContent className="py-16 text-center text-gray-400">
                   <p>Selecione uma sprint para ver os detalhes.</p>

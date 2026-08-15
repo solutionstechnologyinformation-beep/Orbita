@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChevronLeft, ChevronRight, Plus, CalendarDays, User, ClipboardList, LogOut, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { GoogleCalendarCard } from "@/components/GoogleCalendarCard";
+import { useGlobalPeriod, dateRangeOverlapsGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 
 const EVENT_COLORS: Record<string, string> = {
   meeting: "#3b82f6",
@@ -51,6 +52,7 @@ const MONTHS = [
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const { range: globalPeriodRange } = useGlobalPeriod();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -139,6 +141,8 @@ export default function CalendarPage() {
     return [...localEvents, ...googleEvents].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
   }, [agendaQ.data, googleEventsQ.data]);
   const allTasks = (allTasksQ.data ?? []) as any[];
+  const visibleEvents = useMemo(() => events.filter((event: any) => dateRangeOverlapsGlobalPeriod(event.startDate, event.endDate, globalPeriodRange)), [events, globalPeriodRange]);
+  const visibleTasks = useMemo(() => allTasks.filter((task: any) => dateRangeOverlapsGlobalPeriod(task.startDate ?? task.dueDate, task.endDate ?? task.dueDate, globalPeriodRange)), [allTasks, globalPeriodRange]);
 
   // Build calendar grid
   const calendarDays = useMemo(() => {
@@ -151,7 +155,7 @@ export default function CalendarPage() {
   }, [year, month]);
 
   function getEventsForDay(date: Date) {
-    return events.filter((e: any) => {
+    return visibleEvents.filter((e: any) => {
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
       const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -161,7 +165,7 @@ export default function CalendarPage() {
   }
 
   function getTasksForDay(date: Date) {
-    return allTasks.filter((t: any) => {
+    return visibleTasks.filter((t: any) => {
       const due = t.dueDate ? new Date(t.dueDate) : null;
       const tStart = t.startDate ? new Date(t.startDate) : due;
       const tEnd = t.endDate ? new Date(t.endDate) : due;
@@ -177,11 +181,11 @@ export default function CalendarPage() {
   const upcomingEvents = useMemo(() => {
     const now = new Date();
     const limit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    return events
+    return visibleEvents
       .filter((e: any) => new Date(e.endDate) >= now && new Date(e.startDate) <= limit)
       .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
       .slice(0, 10);
-  }, [events]);
+  }, [visibleEvents]);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }

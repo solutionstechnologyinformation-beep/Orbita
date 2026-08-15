@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useGlobalPeriod, dateRangeOverlapsGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelContent, SplitPanelEmpty } from "@/components/SplitLayout";
 import { Button } from "@/components/ui/button";
@@ -455,6 +456,7 @@ function CrsDetail({ crs, tipos, isAdmin, onEdit, onArchive, onRestore, onDelete
 
 export default function Projects() {
   const { user } = useAuth();
+  const { range: globalPeriodRange } = useGlobalPeriod();
   const isAdmin = user?.role === "admin" || user?.role === "master_admin";
 
   const [search, setSearch] = useState("");
@@ -557,7 +559,8 @@ export default function Projects() {
   const filtered = allCrs.filter((c) => {
     const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.code ?? "").toLowerCase().includes(search.toLowerCase());
     const matchClient = filterClient === "all" || String(c.clientId) === filterClient;
-    return matchSearch && matchClient;
+    const matchPeriod = dateRangeOverlapsGlobalPeriod(c.derivedStartDate, c.derivedEndDate, globalPeriodRange);
+    return matchSearch && matchClient && matchPeriod;
   });
   const clients: Client[] = clientsQ.data ?? [];
 

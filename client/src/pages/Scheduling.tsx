@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar, User, AlertTriangle, LayoutGrid, Rows, Package } from "lucide-react";
+import { useGlobalPeriod, dateRangeOverlapsGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#94a3b8",
@@ -34,6 +35,7 @@ const MONTHS = [
 type ViewMode = "calendar" | "swimlane";
 
 export default function Scheduling() {
+  const { range: globalPeriodRange } = useGlobalPeriod();
   const todayRef = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -63,7 +65,8 @@ export default function Scheduling() {
     clientId: filterClientId,
     crsId: projectId,
   });
-  const tasks = (schedulingQ.data ?? []) as any[];
+  const allTasks = (schedulingQ.data ?? []) as any[];
+  const tasks = useMemo(() => allTasks.filter((task: any) => dateRangeOverlapsGlobalPeriod(task.startDate ?? task.dueDate, task.endDate ?? task.dueDate, globalPeriodRange)), [allTasks, globalPeriodRange]);
 
   // ── Calendar mode helpers ──────────────────────────────────────────────────
   const { calendarDays, year, month } = useMemo(() => {
