@@ -1550,6 +1550,9 @@
 - [x] Configurar saudação de boas-vindas para ocorrer apenas na primeira abertura do assistente por sessão/usuário (usando sessionStorage)
 - [x] Validar com testes unitários (286/286 testes Vitest aprovados) e garantir zero erros TypeScript
 
-## Animação de Flutuação e Entrada do Boneco Transparente
-- [ ] Implementar animação suave de entrada/flutuação no boneco do Assistente Orbita com `@keyframes` e suporte a `prefers-reduced-motion`
-- [ ] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript
+
+
+## Boneco do Assistente Orbita em Formato Circular
+- [x] Gerar ou aplicar asset circular transparente mantendo o personagem engenheiro e fundo externo transparente (/manus-storage/orbita-assistant-circular-img4216_7eb3657c.png)
+- [x] Integrar o asset circular ao FloatingAgent no balão de conversação e no botão flutuante
+- [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (288/288 testes aprovados)
