@@ -1514,3 +1514,8 @@
 - [x] Substituir o ícone flutuante atual pelo personagem do Assistente Orbita
 - [x] Transformar o painel aberto em balão de conversa ao lado do personagem
 - [x] Validar responsividade, acessibilidade e renderização do novo assistente (283/283 testes aprovados)
+
+## Voz Masculina do Assistente Orbita
+- [x] Atualizar getBestPortugueseVoice para priorizar locutores masculinos naturais em português do Brasil
+- [x] Ajustar tom e taxa de fala para garantir clareza e tom profissional
+- [x] Atualizar os testes unitários de síntese de voz e validar zero erros TypeScript (283/283 testes aprovados)

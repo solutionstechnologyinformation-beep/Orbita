@@ -196,8 +196,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     speech.synthesis.cancel();
     const utterance = new speech.Utterance(text);
     utterance.lang = "pt-BR";
-    utterance.rate = 0.96;
-    utterance.pitch = 1.04;
+    utterance.rate = 0.98;
+    utterance.pitch = 0.94;
     const bestVoice = getBestPortugueseVoice(speech.synthesis);
     if (bestVoice) {
       (utterance as any).voice = bestVoice;

@@ -54,11 +54,15 @@ export function getBestPortugueseVoice(synthesis: SpeechSynthesisLike): any | nu
     const voices = synthesis.getVoices() || [];
     const ptVoices = voices.filter((v: any) => v && v.lang && typeof v.lang === "string" && v.lang.toLowerCase().includes("pt"));
     if (ptVoices.length === 0) return null;
-    const femaleVoice = ptVoices.find((v: any) => v.name && /female|feminina|woman|mulher|samantha|helena|luciana|francisca|camila|letícia|leticia|bruna|ana/i.test(v.name));
-    const naturalFemaleVoice = ptVoices.find((v: any) => v.name && /natural|enhanced|google|microsoft|online/i.test(v.name) && /female|feminina|woman|mulher|samantha|helena|luciana|francisca|camila|letícia|leticia|bruna|ana/i.test(v.name));
-    const naturalPt = ptVoices.find((v: any) => v.name && /natural|enhanced|google|microsoft|online/i.test(v.name));
+    const femaleMarkers = /female|feminina|woman|mulher|samantha|helena|luciana|francisca|camila|letícia|leticia|bruna|ana/i;
+    const maleMarkers = /male|masculina|man|homem|daniel|joão|joao|ricardo|felipe|antonio|antônio|carlos|marcos|thiago|guilherme/i;
+    const naturalMarkers = /natural|enhanced|google|microsoft|online|neural/i;
+    const maleVoices = ptVoices.filter((v: any) => v.name && maleMarkers.test(v.name) && !femaleMarkers.test(v.name));
+    const naturalMaleVoice = maleVoices.find((v: any) => naturalMarkers.test(v.name));
+    const namedMaleVoice = maleVoices[0];
+    const naturalPt = ptVoices.find((v: any) => v.name && naturalMarkers.test(v.name) && !femaleMarkers.test(v.name));
     const brVoice = ptVoices.find((v: any) => v.lang.toLowerCase().includes("br") || v.lang.toLowerCase().includes("pt"));
-    return naturalFemaleVoice || femaleVoice || naturalPt || brVoice || ptVoices[0];
+    return naturalMaleVoice || namedMaleVoice || naturalPt || brVoice || ptVoices[0];
   } catch {
     return null;
   }
