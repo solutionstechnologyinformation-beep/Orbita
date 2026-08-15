@@ -42,7 +42,7 @@ const DEFAULT_PANEL_WIDTH = 400;
 const MIN_PANEL_WIDTH = 320;
 const MAX_PANEL_WIDTH = 560;
 const WAKE_GREETING = "Que bom te ver novamente.";
-const ASSISTANT_CHARACTER_ASSET = "/manus-storage/orbita-assistant-character-transparent-v2_23718c10.png";
+const ASSISTANT_CHARACTER_ASSET = "/manus-storage/orbita-assistant-no-white-background_0426629f.png";
 const WAKE_RESTART_DELAY_MS = 4500;
 const WAKE_STORAGE_KEY = "orbita-wake-phrase-enabled";
 
