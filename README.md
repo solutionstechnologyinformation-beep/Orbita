@@ -97,6 +97,23 @@ A aplicação estará disponível em `http://localhost:3000` [2] [3].
 
 ---
 
+## Relatório de Auditoria de Segurança e Controles de Informação
+
+A arquitetura do **Órbita** foi submetida a uma varredura rigorosa de segurança de dados e conformidade, adotando defesas em profundidade contra os principais vetores de vulnerabilidade corporativa [1].
+
+### Resumo dos Controles de Segurança Implementados
+
+| Camada de Defesa | Mecanismo Aplicado | Descrição Técnica |
+| :--- | :--- | :--- |
+| **Autenticação & Sessão** | Cookies `HttpOnly`, `Secure` e `SameSite=Lax` | Proteção contra roubo de tokens de sessão via XSS e requisições cross-site [1]. |
+| **Isolamento Multi-Tenant** | Filtragem obrigatória por `companyId` | Garante que consultas de banco de dados filtrem estritamente os dados pertencentes à empresa do usuário autenticado [1] [2]. |
+| **Validação de Entrada** | Schemas estritos com **Zod** | Sanitização automática e validação de tipo ponta a ponta em todos os procedimentos tRPC [2]. |
+| **Proteção contra SQL Injection** | **Drizzle ORM** com Prepared Statements | Consultas SQL construídas por parâmetros tipados, eliminando vulnerabilidades de injeção direta de código [2]. |
+| **Controle de Acesso (RBAC)** | `protectedProcedure` & `adminProcedure` | Barreiras baseadas em papéis (`user`, `admin`, `master_admin`, `company_admin`, `leader`) que bloqueiam acessos não autorizados [1] [2]. |
+| **Auditoria de Operações** | Registro de logs em `activity_logs` | Rastreabilidade completa de alterações, exclusões e acessos críticos no sistema [1]. |
+
+---
+
 ## Configuração de Domínio Personalizado (`www.orbita.com.br`)
 
 Para publicar e apontar a aplicação para o domínio de produção `www.orbita.com.br`:
