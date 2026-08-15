@@ -1561,3 +1561,7 @@
 ## Remoção de Formato Quadrado do Avatar
 - [x] Aplicar classes CSS `rounded-full object-cover overflow-hidden` nos contenedores e tags img do avatar do Assistente Orbita para garantir formato 100% redondo
 - [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (288/288 testes aprovados)
+
+## Animação de Pulso no Hover do Avatar Circular
+- [x] Adicionar efeito CSS de pulso suave na borda/anel ao passar o mouse sobre o avatar do Assistente Orbita com suporte a `prefers-reduced-motion`
+- [x] Validar com testes unitários e garantir zero erros TypeScript (289/289 testes aprovados)

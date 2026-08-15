@@ -824,3 +824,49 @@ html.theme-transition body *::after {
     will-change: auto;
   }
 }
+
+/* Assistente Orbita: pulso discreto ao passar o mouse ou focar o avatar circular. */
+@keyframes orbita-avatar-hover-pulse {
+  0% {
+    opacity: 0.78;
+    transform: scale(0.94);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.16);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.16);
+  }
+}
+
+.orbita-avatar-hover-pulse {
+  isolation: isolate;
+}
+
+.orbita-avatar-hover-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  z-index: 0;
+  pointer-events: none;
+  border: 2px solid color-mix(in srgb, var(--brand-highlight) 82%, white);
+  border-radius: 9999px;
+  opacity: 0;
+  transform: scale(0.94);
+  transform-origin: center;
+}
+
+.orbita-avatar-hover-pulse:hover::after,
+.orbita-avatar-hover-pulse:focus-visible::after {
+  animation: orbita-avatar-hover-pulse 1.7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbita-avatar-hover-pulse:hover::after,
+  .orbita-avatar-hover-pulse:focus-visible::after {
+    animation: none !important;
+    opacity: 0;
+  }
+}

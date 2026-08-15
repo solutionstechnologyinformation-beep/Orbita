@@ -21,7 +21,7 @@ import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 import { WorkloadAnalysisLoading } from "./WorkloadAnalysisLoading";
 import { isWorkloadAnalysisRequest } from "./workload-analysis-state";
 import { getAssistantAlertLabel, getAssistantAlertState } from "./assistant-alert-state";
-import { getAssistantCharacterMotionClass } from "./assistant-character-motion";
+import { ASSISTANT_CHARACTER_HOVER_PULSE_CLASS, getAssistantCharacterMotionClass } from "./assistant-character-motion";
 import { buildWorkloadCsv, buildWorkloadPdfHtml, type WorkloadRecommendation } from "./workload-export";
 
 type AgentMessage = AgentHistoryEntry;
@@ -841,7 +841,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         onClick={toggleAssistantOpen}
-        className={`${compactMode ? "h-16 w-16" : "h-20 w-20"} group relative flex shrink-0 items-center justify-center rounded-full bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2 ${assistantAlertState === "overdue" ? "orbita-assistant-overdue" : ""}`}
+        className={`${compactMode ? "h-16 w-16" : "h-20 w-20"} ${ASSISTANT_CHARACTER_HOVER_PULSE_CLASS} group relative flex shrink-0 items-center justify-center rounded-full bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2 ${assistantAlertState === "overdue" ? "orbita-assistant-overdue" : ""}`}
         aria-label={open ? "Fechar Assistente Orbita" : assistantAlertState === "overdue" ? `Abrir Assistente Orbita — ${assistantAlertLabel}` : "Abrir Assistente Orbita"}
         title={activeSoundState === "listening" ? "Assistente Orbita está ouvindo" : activeSoundState === "speaking" ? "Assistente Orbita está falando" : assistantAlertState === "overdue" ? assistantAlertLabel : "Abrir Assistente Orbita"}
       >
