@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
-import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Search, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "./agent-history";
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
 import { extractFinalTranscript, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
+import { getSpeechPlaybackMessage, getSpeechSynthesis, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -65,6 +66,9 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [voiceState, setVoiceState] = useState<VoiceRecognitionState>("idle");
   const [voiceMessage, setVoiceMessage] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const [speechState, setSpeechState] = useState<SpeechPlaybackState>("idle");
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const speechRef = useRef<{ synthesis: SpeechSynthesisLike; utterance: SpeechSynthesisUtteranceLike } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -72,6 +76,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         window.clearTimeout(clearHistoryTimeoutRef.current);
       }
       recognitionRef.current?.abort();
+      speechRef.current?.synthesis.cancel();
     };
   }, []);
 
@@ -104,6 +109,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       }
       setActiveQuickCommand(null);
       setHistory((items) => [...items, { role: "assistant", content: data.reply }]);
+      speakReply(data.reply);
       const action = data.action;
       if (action?.type === "navigate" && action.targetUrl) {
         navigate(action.targetUrl);
@@ -126,8 +132,66 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     },
   });
 
+  const stopSpeaking = () => {
+    speechRef.current?.synthesis.cancel();
+    speechRef.current = null;
+    setSpeechState("idle");
+  };
+
+  const speakReply = (reply: string) => {
+    if (!speechEnabled) return;
+    const speech = getSpeechSynthesis();
+    const text = stripTextForSpeech(reply);
+    if (!speech || !text) {
+      setSpeechState(speech ? "idle" : "unsupported");
+      return;
+    }
+
+    speech.synthesis.cancel();
+    const utterance = new speech.Utterance(text);
+    utterance.lang = "pt-BR";
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onstart = () => setSpeechState("speaking");
+    utterance.onpause = () => setSpeechState("paused");
+    utterance.onresume = () => setSpeechState("speaking");
+    utterance.onend = () => {
+      speechRef.current = null;
+      setSpeechState("idle");
+    };
+    utterance.onerror = () => {
+      speechRef.current = null;
+      setSpeechState("error");
+    };
+    speechRef.current = { synthesis: speech.synthesis, utterance };
+    try {
+      speech.synthesis.speak(utterance);
+    } catch {
+      speechRef.current = null;
+      setSpeechState("error");
+    }
+  };
+
+  const toggleSpeechPlayback = () => {
+    if (speechState === "speaking") {
+      speechRef.current?.synthesis.pause();
+      setSpeechState("paused");
+    } else if (speechState === "paused") {
+      speechRef.current?.synthesis.resume();
+      setSpeechState("speaking");
+    }
+  };
+
+  const toggleSpeechEnabled = () => {
+    setSpeechEnabled((enabled) => {
+      if (enabled) stopSpeaking();
+      return !enabled;
+    });
+  };
+
   const clearHistory = () => {
     if (isClearingHistory) return;
+    stopSpeaking();
     ignoreNextResponseRef.current = chatM.isPending;
     chatM.reset();
     setActiveQuickCommand(null);
@@ -332,6 +396,17 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/10"
+              onClick={toggleSpeechEnabled}
+              aria-label={speechEnabled ? "Desativar resposta falada" : "Ativar resposta falada"}
+              aria-pressed={speechEnabled}
+              title={speechEnabled ? "Desativar resposta falada" : "Ativar resposta falada"}
+            >
+              {speechEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
               onClick={clearHistory}
               disabled={isClearingHistory}
               aria-label="Limpar histórico da conversa"
@@ -400,6 +475,21 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           </div>
 
           <div className="border-t bg-slate-50 p-3">
+            {(speechState !== "idle" || !speechEnabled) && (
+              <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-600" role="status" aria-live="polite">
+                <span className="min-w-0 flex-1">{speechEnabled ? getSpeechPlaybackMessage(speechState) : "Resposta falada desativada."}</span>
+                {speechEnabled && (speechState === "speaking" || speechState === "paused") && (
+                  <>
+                    <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={toggleSpeechPlayback} aria-label={speechState === "speaking" ? "Pausar leitura" : "Retomar leitura"}>
+                      {speechState === "speaking" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={stopSpeaking} aria-label="Parar leitura">
+                      <Square className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
             {voiceState !== "idle" && (
               <p className="mb-2 flex items-center gap-2 text-[11px] text-slate-600" role="status" aria-live="polite">
                 {voiceState === "listening" ? <Mic className="h-3.5 w-3.5 text-red-500" aria-hidden="true" /> : <MicOff className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />}

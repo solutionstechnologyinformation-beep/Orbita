@@ -1428,3 +1428,9 @@
 - [x] Atualizar o motor do assistente flutuante para reconhecer pedidos de resumo de relatórios ("resumir relatório", "relatório do projeto")
 - [x] Implementar consulta segura de dados do contrato/CRS e tarefas para gerar resumo executivo via LLM
 - [x] Adicionar testes unitários para o comando de resumo e validação da suíte completa (262/262 testes aprovados)
+
+## Resposta Falada do Assistente IA
+- [x] Adicionar síntese de voz nativa para ler as respostas do assistente em português
+- [x] Incluir controles acessíveis de falar, pausar, retomar e parar
+- [x] Manter a resposta escrita, com fallback quando SpeechSynthesis não estiver disponível
+- [x] Criar testes unitários para limpeza de texto, estados de fala e compatibilidade (265/265 testes aprovados)
