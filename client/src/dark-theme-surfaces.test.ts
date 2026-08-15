@@ -24,6 +24,9 @@ describe("dark theme surfaces across application tabs", () => {
     expect(stylesheet).toContain("--split-panel-content-surface: var(--background);");
     expect(stylesheet).toContain(".dark .split-panel-header h2");
     expect(stylesheet).toContain(".dark .split-panel-content .text-gray-600");
+    expect(stylesheet).toContain('.dark .split-panel-layout [class*="border-gray-"]');
+    expect(stylesheet).toContain('.dark .split-panel-layout svg[class*="text-gray-"]');
+    expect(stylesheet).toContain('--tw-ring-color: var(--brand-highlight) !important;');
   });
 
   it("covers the Gantt root and its arbitrary light timeline surfaces", () => {
@@ -36,6 +39,7 @@ describe("dark theme surfaces across application tabs", () => {
   it("uses semantic SplitLayout surfaces instead of a fixed gray background", () => {
     expect(splitLayoutSource).toContain('style={{ backgroundColor: "var(--split-panel-header-surface)" }}');
     expect(splitLayoutSource).toContain('style={{ backgroundColor: "var(--split-panel-content-surface)" }}');
+    expect(splitLayoutSource).toContain("split-panel-layout");
     expect(splitLayoutSource).not.toContain("#dedede");
   });
 

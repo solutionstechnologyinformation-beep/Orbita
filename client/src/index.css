@@ -624,6 +624,36 @@ html.theme-transition body *::after {
   }
 
   /* Dark theme: split panels replace the legacy gray shell with semantic dark surfaces. */
+  .dark .split-panel-layout [class*="border-gray-"],
+  .dark .split-panel-layout [class*="border-slate-"],
+  .dark .split-panel-layout [class*="border-zinc-"],
+  .dark .split-panel-layout [class*="border-neutral-"] {
+    border-color: var(--border) !important;
+  }
+
+  .dark .split-panel-layout [class*="border-red-"],
+  .dark .split-panel-layout [class*="border-orange-"],
+  .dark .split-panel-layout [class*="border-amber-"] {
+    border-color: color-mix(in srgb, currentColor 42%, var(--border)) !important;
+  }
+
+  .dark .split-panel-layout svg[class*="text-gray-"],
+  .dark .split-panel-layout svg[class*="text-slate-"],
+  .dark .split-panel-layout svg[class*="text-zinc-"],
+  .dark .split-panel-layout svg[class*="text-neutral-"] {
+    color: var(--foreground) !important;
+    opacity: 0.94;
+  }
+
+  .dark .split-panel-layout [class*="focus\\:ring-"]:focus-visible,
+  .dark .split-panel-layout [class*="focus-visible\\:ring-"]:focus-visible {
+    --tw-ring-color: var(--brand-highlight) !important;
+  }
+
+  .dark .split-panel-layout [class*="hover\\:border-"]:hover {
+    border-color: color-mix(in srgb, var(--brand-highlight) 52%, var(--border)) !important;
+  }
+
   .dark .split-panel-header h2,
   .dark .split-panel-header p,
   .dark .split-panel-content,

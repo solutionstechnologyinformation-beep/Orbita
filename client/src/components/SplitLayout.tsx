@@ -35,7 +35,7 @@ export function SplitLayout({
 }: SplitLayoutProps) {
   return (
     <div
-      className={cn("flex h-full overflow-hidden", className)}
+      className={cn("split-panel-layout flex h-full overflow-hidden", className)}
       style={{ minHeight: 0 }}
     >
       {/* Left Panel */}

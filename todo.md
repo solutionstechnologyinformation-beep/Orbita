@@ -1277,3 +1277,8 @@
 - [x] Auditar a origem do fundo cinza e as classes relacionadas ao texto
 - [x] Aplicar overrides somente no tema escuro para superfície escura e texto branco
 - [x] Validar contraste nas telas afetadas, adicionar testes e checar TypeScript
+
+## Tema escuro — Contraste de bordas e ícones
+- [x] Auditar bordas, ícones e estados de hover/foco em Calendário, Projetos, Sprints, Programação, Relatórios e Notificações
+- [x] Aplicar tokens e overrides somente no tema escuro para bordas e ícones
+- [x] Adicionar testes de contraste e validar TypeScript e estados visuais
