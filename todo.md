@@ -1367,7 +1367,13 @@
 - [x] Criar testes de estados, acessibilidade e validação TypeScript
 
 ## Entrega Final Nativa — VS Code e Sincronização GitHub
-- [ ] Validar compilação limpa de produção e execução da suíte completa de testes
-- [ ] Atualizar o README com instruções detalhadas para abrir e rodar o projeto nativamente no VS Code
-- [ ] Sincronizar todas as alterações no repositório do GitHub (solutionstechnologyinformation-beep/Orbita)
-- [ ] Gerar pacote compactado (.zip) com a fonte nativa completa e limpa para desenvolvimento local
+- [x] Validar compilação limpa de produção e execução da suíte completa de testes
+- [x] Atualizar o README com instruções detalhadas para abrir e rodar o projeto nativamente no VS Code
+- [x] Sincronizar todas as alterações no repositório do GitHub (solutionstechnologyinformation-beep/Orbita)
+- [x] Gerar pacote compactado (.zip) com a fonte nativa completa e limpa para desenvolvimento local
+
+## Próximos Passos Implementados — VS Code Workspace e CI GitHub Actions
+- [x] Criar `.vscode/settings.json` com regras de formatação e exclusões de workspace
+- [x] Criar `.vscode/extensions.json` com extensões recomendadas para a equipe
+- [x] Criar `.github/workflows/ci.yml` para execução automática de tipos TypeScript e testes Vitest a cada push
+- [x] Validar integridade da build, TypeScript e executar todos os testes automatizados
