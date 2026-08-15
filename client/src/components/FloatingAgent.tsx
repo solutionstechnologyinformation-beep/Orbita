@@ -595,8 +595,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             onPointerDown={beginDrag}
             aria-label="Arrastar painel do Orbita AI"
           >
-            <div className="relative flex h-11 w-9 shrink-0 items-end justify-center">
-              <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className={`h-11 w-9 object-contain object-bottom ${characterMotionClass}`} />
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+              <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className={`h-11 w-11 rounded-full object-contain ${characterMotionClass}`} />
               <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" aria-label="Assistente disponível" />
               {activeSoundState !== "idle" && <SoundWaveIndicator state={activeSoundState} compact className="absolute -bottom-1 -right-2 bg-black/80 px-1" />}
             </div>
@@ -841,11 +841,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         onClick={toggleAssistantOpen}
-        className={`${compactMode ? "h-20 w-14" : "h-28 w-20"} group relative flex shrink-0 items-end justify-center bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2 ${assistantAlertState === "overdue" ? "orbita-assistant-overdue" : ""}`}
+        className={`${compactMode ? "h-16 w-16" : "h-20 w-20"} group relative flex shrink-0 items-center justify-center rounded-full bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2 ${assistantAlertState === "overdue" ? "orbita-assistant-overdue" : ""}`}
         aria-label={open ? "Fechar Assistente Orbita" : assistantAlertState === "overdue" ? `Abrir Assistente Orbita — ${assistantAlertLabel}` : "Abrir Assistente Orbita"}
         title={activeSoundState === "listening" ? "Assistente Orbita está ouvindo" : activeSoundState === "speaking" ? "Assistente Orbita está falando" : assistantAlertState === "overdue" ? assistantAlertLabel : "Abrir Assistente Orbita"}
       >
-        <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className={`h-full w-full object-contain object-bottom drop-shadow-[0_8px_6px_rgba(0,0,0,0.22)] ${characterMotionClass}`} />
+        <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className={`h-full w-full rounded-full object-contain drop-shadow-[0_8px_6px_rgba(0,0,0,0.22)] ${characterMotionClass}`} />
         <span className="absolute bottom-3 right-1 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" aria-label="Assistente Orbita disponível" />
         {assistantAlertState === "overdue" && (
           <span className="absolute right-0 top-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-slate-950 shadow-lg ring-2 ring-white" role="status" aria-live="polite">

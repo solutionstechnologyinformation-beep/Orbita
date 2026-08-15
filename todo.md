@@ -1555,4 +1555,9 @@
 ## Boneco do Assistente Orbita em Formato Circular
 - [x] Gerar ou aplicar asset circular transparente mantendo o personagem engenheiro e fundo externo transparente (/manus-storage/orbita-assistant-circular-img4216_7eb3657c.png)
 - [x] Integrar o asset circular ao FloatingAgent no balão de conversação e no botão flutuante
+- [x] Aplicar classes CSS `rounded-full object-cover overflow-hidden` para remover qualquer formato quadrado e garantir círculos perfeitos
+- [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (288/288 testes aprovados)
+
+## Remoção de Formato Quadrado do Avatar
+- [x] Aplicar classes CSS `rounded-full object-cover overflow-hidden` nos contenedores e tags img do avatar do Assistente Orbita para garantir formato 100% redondo
 - [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (288/288 testes aprovados)
