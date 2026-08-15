@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Radio, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   type AgentHistoryEntry,
 } from "./agent-history";
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
-import { extractFinalTranscript, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
+import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, getCommandAfterWakePhrase, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
 import { getAgentActionAnnouncement, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 
 type AgentMessage = AgentHistoryEntry;
@@ -36,6 +36,9 @@ const quickCommands: QuickCommand[] = [
 const DEFAULT_PANEL_WIDTH = 400;
 const MIN_PANEL_WIDTH = 320;
 const MAX_PANEL_WIDTH = 560;
+const WAKE_GREETING = "Que bom te ver novamente, qualquer coisa é só me chamar.";
+const WAKE_RESTART_DELAY_MS = 4500;
+const WAKE_STORAGE_KEY = "orbita-wake-phrase-enabled";
 
 type PanelInteraction =
   | { type: "drag"; startX: number; startY: number; baseLeft: number; baseTop: number; width: number; height: number }
@@ -72,6 +75,15 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [speechState, setSpeechState] = useState<SpeechPlaybackState>("idle");
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const speechRef = useRef<{ synthesis: SpeechSynthesisLike; utterance: SpeechSynthesisUtteranceLike } | null>(null);
+  const [wakePhraseEnabled, setWakePhraseEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(WAKE_STORAGE_KEY) === "true";
+  });
+  const [wakePhraseState, setWakePhraseState] = useState<VoiceRecognitionState>("idle");
+  const [wakePhraseMessage, setWakePhraseMessage] = useState("");
+  const wakeRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const wakeRestartTimeoutRef = useRef<number | null>(null);
+  const wakePermissionDeniedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -79,6 +91,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
         window.clearTimeout(clearHistoryTimeoutRef.current);
       }
       recognitionRef.current?.abort();
+      wakeRecognitionRef.current?.abort();
+      if (wakeRestartTimeoutRef.current !== null) window.clearTimeout(wakeRestartTimeoutRef.current);
       speechRef.current?.synthesis.cancel();
     };
   }, []);
@@ -226,6 +240,110 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     setMessage("");
     chatM.mutate({ message: trimmed });
   };
+
+  const stopWakePhraseListener = () => {
+    wakeRecognitionRef.current?.abort();
+    wakeRecognitionRef.current = null;
+    if (wakeRestartTimeoutRef.current !== null) {
+      window.clearTimeout(wakeRestartTimeoutRef.current);
+      wakeRestartTimeoutRef.current = null;
+    }
+    setWakePhraseState("idle");
+  };
+
+  const startWakePhraseListener = () => {
+    if (!wakePhraseEnabled || wakeRecognitionRef.current) return;
+    const Recognition = getSpeechRecognitionConstructor();
+    if (!Recognition) {
+      setWakePhraseState("unsupported");
+      setWakePhraseMessage("A ativação por voz não está disponível neste navegador.");
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.lang = "pt-BR";
+    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      wakePermissionDeniedRef.current = false;
+      setWakePhraseState("listening");
+      setWakePhraseMessage("Escuta ativa somente para a frase “Olá Órbita”.");
+    };
+    recognition.onresult = (event) => {
+      const transcript = extractLatestTranscript(event);
+      if (!containsWakePhrase(transcript)) return;
+
+      const command = getCommandAfterWakePhrase(transcript);
+      recognition.stop();
+      setOpen(true);
+      setWakePhraseMessage(command ? "Frase de ativação reconhecida. Vou executar seu comando." : "Olá Órbita reconhecido. Estou pronto para ajudar.");
+      if (command) {
+        window.setTimeout(() => sendMessage(command), 120);
+      } else {
+        window.setTimeout(() => speakReply(`${userName}, ${WAKE_GREETING}`), 120);
+      }
+    };
+    recognition.onerror = (event) => {
+      if (event.error === "aborted") return;
+      const nextState = getVoiceErrorState(event.error);
+      wakePermissionDeniedRef.current = nextState === "permission-denied";
+      setWakePhraseState(nextState);
+      setWakePhraseMessage(getVoiceStatusMessage(nextState));
+    };
+    recognition.onend = () => {
+      wakeRecognitionRef.current = null;
+      const shouldRestart = window.localStorage.getItem(WAKE_STORAGE_KEY) === "true";
+      if (shouldRestart && !wakePermissionDeniedRef.current) {
+        wakeRestartTimeoutRef.current = window.setTimeout(() => {
+          wakeRestartTimeoutRef.current = null;
+          startWakePhraseListener();
+        }, WAKE_RESTART_DELAY_MS);
+      }
+    };
+
+    wakeRecognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {
+      wakeRecognitionRef.current = null;
+      setWakePhraseState("error");
+      setWakePhraseMessage(getVoiceStatusMessage("error"));
+    }
+  };
+
+  const toggleWakePhrase = () => {
+    setWakePhraseEnabled((enabled) => {
+      const nextEnabled = !enabled;
+      window.localStorage.setItem(WAKE_STORAGE_KEY, String(nextEnabled));
+      if (!nextEnabled) {
+        stopWakePhraseListener();
+        setWakePhraseMessage("Ativação por voz desativada.");
+      } else {
+        setWakePhraseMessage("Solicitando permissão do microfone para ouvir “Olá Órbita”.");
+      }
+      return nextEnabled;
+    });
+  };
+
+  const toggleAssistantOpen = () => {
+    setOpen((value) => {
+      const nextOpen = !value;
+      if (nextOpen) {
+        window.setTimeout(() => speakReply(`${userName}, ${WAKE_GREETING}`), 100);
+      }
+      return nextOpen;
+    });
+  };
+
+  useEffect(() => {
+    if (!wakePhraseEnabled) {
+      stopWakePhraseListener();
+      return;
+    }
+    startWakePhraseListener();
+    return stopWakePhraseListener;
+  }, [wakePhraseEnabled]);
 
   const toggleVoiceInput = () => {
     if (chatM.isPending || isClearingHistory) return;
@@ -403,6 +521,17 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             <Button
               variant="ghost"
               size="icon"
+              className={wakePhraseEnabled ? "text-[#ffc30d] hover:bg-white/10" : "text-white hover:bg-white/10"}
+              onClick={toggleWakePhrase}
+              aria-label={wakePhraseEnabled ? "Desativar ativação por Olá Órbita" : "Ativar ativação por Olá Órbita"}
+              aria-pressed={wakePhraseEnabled}
+              title={wakePhraseEnabled ? "Desativar escuta de Olá Órbita" : "Ativar escuta de Olá Órbita"}
+            >
+              <Radio className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               className="text-white hover:bg-white/10"
               onClick={toggleSpeechEnabled}
               aria-label={speechEnabled ? "Desativar resposta falada" : "Ativar resposta falada"}
@@ -483,6 +612,12 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           </div>
 
           <div className="border-t bg-slate-50 p-3">
+            {wakePhraseEnabled && (
+              <p className="mb-2 flex items-center gap-2 text-[11px] text-slate-600" role="status" aria-live="polite">
+                <Radio className={`h-3.5 w-3.5 ${wakePhraseState === "listening" ? "text-emerald-500" : "text-slate-500"}`} aria-hidden="true" />
+                {wakePhraseMessage || "Ativação por voz pronta para “Olá Órbita”."}
+              </p>
+            )}
             {(speechState !== "idle" || !speechEnabled) && (
               <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-600" role="status" aria-live="polite">
                 <span className="min-w-0 flex-1">{speechEnabled ? getSpeechPlaybackMessage(speechState) : "Resposta falada desativada."}</span>
@@ -551,7 +686,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
 
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleAssistantOpen}
         className={`${compactMode ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition-[width,height,transform,box-shadow] duration-500 ease-out hover:scale-105 hover:ring-[#ffc30d]/60`}
         aria-label={open ? "Fechar Orbita AI" : "Abrir Orbita AI"}
         title="Abrir Orbita AI"

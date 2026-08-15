@@ -1440,3 +1440,9 @@
 - [x] Narrar a ação antes da navegação ou consulta e ler a resposta completa depois
 - [x] Exibir o nome do usuário nas mensagens escrita e falada sem cruzar tenants
 - [x] Criar testes de personalização, ações e fallback de síntese de voz (266/266 testes aprovados)
+
+## Wake Word e Saudação do Assistente IA
+- [x] Falar a saudação “Que bom te ver novamente, qualquer coisa é só me chamar” ao abrir o assistente
+- [x] Implementar escuta opcional da frase de ativação “Olá Órbita” enquanto a página estiver ativa
+- [x] Exibir indicador de microfone ativo, botão de desligamento e mensagens de permissão/indisponibilidade
+- [x] Criar testes da normalização da wake phrase e da saudação personalizada (267/267 testes aprovados)

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  containsWakePhrase,
   extractFinalTranscript,
+  extractLatestTranscript,
+  getCommandAfterWakePhrase,
   getSpeechRecognitionConstructor,
   getVoiceErrorState,
   getVoiceStatusMessage,
@@ -25,6 +28,14 @@ describe("voice recognition adapter", () => {
 
     expect(extractFinalTranscript(event)).toBe("abrir o kanban");
     expect(extractFinalTranscript({ results: [] } as any)).toBe("");
+  });
+
+  it("detects the Portuguese wake phrase and extracts an optional command", () => {
+    expect(containsWakePhrase("Olá, Órbita!")).toBe(true);
+    expect(containsWakePhrase("abrir o Kanban")).toBe(false);
+    expect(getCommandAfterWakePhrase("Olá Órbita, abrir o Kanban")).toBe("abrir o kanban");
+    expect(getCommandAfterWakePhrase("comando sem ativação")).toBe("");
+    expect(extractLatestTranscript({ results: [[{ transcript: "primeiro" }], [{ transcript: "Olá Órbita" }]] } as any)).toBe("Olá Órbita");
   });
 
   it("maps microphone permission errors without exposing audio data", () => {

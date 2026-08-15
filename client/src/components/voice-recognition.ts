@@ -60,3 +60,31 @@ export function extractFinalTranscript(event: SpeechRecognitionEventLike): strin
   const firstAlternative = firstResult?.[0];
   return typeof firstAlternative?.transcript === "string" ? firstAlternative.transcript.trim() : "";
 }
+
+export function extractLatestTranscript(event: SpeechRecognitionEventLike): string {
+  const latestIndex = Math.max(0, event.results.length - 1);
+  const latestResult = event.results?.[latestIndex];
+  const firstAlternative = latestResult?.[0];
+  return typeof firstAlternative?.transcript === "string" ? firstAlternative.transcript.trim() : "";
+}
+
+export function normalizeWakePhrase(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function containsWakePhrase(text: string): boolean {
+  return normalizeWakePhrase(text).includes("ola orbita");
+}
+
+export function getCommandAfterWakePhrase(text: string): string {
+  const normalized = normalizeWakePhrase(text);
+  const phraseIndex = normalized.indexOf("ola orbita");
+  if (phraseIndex < 0) return "";
+  return normalized.slice(phraseIndex + "ola orbita".length).trim();
+}
