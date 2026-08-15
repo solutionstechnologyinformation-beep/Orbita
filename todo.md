@@ -1399,3 +1399,8 @@
 - [x] Criar guia de integração e registros DNS para o Wix (`guide-lssolutions-integration.md`)
 - [x] Validar compatibilidade de cookies, sessões e autenticação Google OAuth
 - [x] Salvar checkpoint e preparar documentação final da integração
+
+## Manual Operacional de Subdomínio, Vendas e Gestão Multi-Tenant
+- [x] Criar documento detalhado com passo a passo de configuração do subdomínio no Wix (`guide-lssolutions-operations.md`)
+- [x] Documentar o fluxo de comercialização de planos (Starter, Basic, Pro) com trial de 15 dias na plataforma Wix
+- [x] Descrever a governança multi-tenant para gerenciamento isolado de cada empresa adquirente via painel master e company_admin
