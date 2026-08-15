@@ -1393,3 +1393,9 @@
 - [ ] Atualizar painel de segurança do administrador com opções de escolha de canal (TOTP, E-mail, SMS)
 - [ ] Escrever testes unitários para o fluxo completo de 2FA por SMS/E-mail
 - [ ] Validar tipos TypeScript, suíte de 253+ testes e salvar checkpoint v7.35
+
+## Integração com Domínio Próprio e Wix (LSSolutions)
+- [x] Configurar subdomínio `app.lssolutions.com.br` para o Orbita
+- [x] Criar guia de integração e registros DNS para o Wix (`guide-lssolutions-integration.md`)
+- [x] Validar compatibilidade de cookies, sessões e autenticação Google OAuth
+- [x] Salvar checkpoint e preparar documentação final da integração
