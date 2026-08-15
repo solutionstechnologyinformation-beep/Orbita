@@ -1479,3 +1479,10 @@
 - [x] Remover a saudação automática ao abrir o painel flutuante
 - [x] Falar a mensagem de boas-vindas somente ao fechar a caixa flutuante
 - [x] Validar o fluxo de abertura, fechamento e síntese de voz (276/276 testes aprovados)
+
+## Evolução do Assistente Inteligente e Análise de Demandas
+- [x] Remover os seletores de tipo e velocidade de fala do painel flutuante
+- [x] Corrigir o roteamento e navegação para a aba de atividades / Kanban
+- [x] Expandir o backend do assistente para lidar com conversas gerais (saudações, dúvidas, etc.)
+- [x] Implementar inteligência para avaliar demandas em aberto e sugerir distribuição de equipe e prazos
+- [x] Validar com testes unitários e garantir zero erros TypeScript (278/278 testes aprovados)

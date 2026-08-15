@@ -5,10 +5,18 @@ import { desc, eq } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 import { processOperationalAgentCommand } from "./operational-agent";
 
-export async function processFloatingAgentCommand(userId: number, userMessage: string) {
+export async function processFloatingAgentCommand(userId: number, companyId: number | null, userMessage: string) {
   const db = await getDb();
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
+
+  if (/^(oi|olá|ola|bom dia|boa tarde|boa noite)\b/.test(lower)) {
+    const greeting = lower.includes("boa tarde") ? "Boa tarde" : lower.includes("boa noite") ? "Boa noite" : lower.includes("bom dia") ? "Bom dia" : "Olá";
+    return {
+      reply: `${greeting}! Que bom falar com você. Posso responder perguntas, abrir atividades, analisar demandas abertas ou ajudar a navegar pelo Orbita. Como posso ajudar?`,
+      action: { type: "none", targetUrl: "", searchTerm: "" },
+    };
+  }
 
   // Se o usuário pedir para o assistente lembrar de algo ("lembre que...", "anote que...", "aprender que...")
   if (lower.startsWith("lembre que") || lower.startsWith("anote que") || lower.startsWith("aprenda que") || lower.startsWith("memorize que")) {
@@ -49,7 +57,7 @@ export async function processFloatingAgentCommand(userId: number, userMessage: s
   }
 
   // Executar agente operacional estendido (mapa, relatórios PDF, zoom, filtros)
-  const operationalRes = await processOperationalAgentCommand(userId, null, trimmed);
+  const operationalRes = await processOperationalAgentCommand(userId, companyId, trimmed);
   if (operationalRes && operationalRes.action.type !== "none") {
     return {
       reply: operationalRes.reply,
@@ -67,22 +75,23 @@ export async function processFloatingAgentCommand(userId: number, userMessage: s
       title: tasks.title,
       priority: tasks.priority,
       crsId: tasks.crsId,
-    }).from(tasks).orderBy(desc(tasks.createdAt)).limit(15),
+    }).from(tasks).innerJoin(crs, eq(tasks.crsId, crs.id)).where(companyId != null ? eq(crs.companyId, companyId) : eq(tasks.createdById, userId)).orderBy(desc(tasks.createdAt)).limit(15),
     db.select({
       id: agendaEvents.id,
       title: agendaEvents.title,
       startDate: agendaEvents.startDate,
       type: agendaEvents.type,
-    }).from(agendaEvents).orderBy(agendaEvents.startDate).limit(10),
+    }).from(agendaEvents).where(eq(agendaEvents.createdById, userId)).orderBy(agendaEvents.startDate).limit(10),
     db.select({
       id: crs.id,
       name: crs.name,
       code: crs.code,
-    }).from(crs).limit(10),
+    }).from(crs).where(companyId != null ? eq(crs.companyId, companyId) : eq(crs.createdById, userId)).limit(10),
     getUserAiMemories(userId),
   ]);
 
-  const contextPrompt = `Você é o Orbita AI Assistant, um assistente flutuante inteligente e altamente especializado da plataforma Orbita (LS Solutions).
+  const contextPrompt = `Você é o Orbita AI Assistant, um assistente conversacional e operacional da plataforma Orbita.
+Você pode conversar naturalmente sobre assuntos gerais, responder saudações e dúvidas, além de navegar no sistema. Para análise de demandas, use somente os dados fornecidos e faça recomendações, sem inventar pessoas ou alterar tarefas.
 O usuário enviou a mensagem: "${trimmed}".
 
 Dados recentes do sistema:
@@ -103,6 +112,7 @@ Analise a intenção e o contexto específico do usuário. Responda em JSON estr
 
 Regras para action.type:
 - Se o usuário pedir para ir a uma tarefa específica (ex: "ir para a tarefa 4", "abrir tarefa X"), defina type="navigate" e targetUrl="/tasks/{id}".
+- Se o usuário pedir para ir a atividades, tarefas, demandas, Kanban ou quadro, defina type="navigate" e targetUrl="/kanban". Não use "/activities".
 - Se o usuário pedir para ir ao Kanban, Agenda, Projetos, Gantt, Sprints ou Relatórios, defina type="navigate" e targetUrl correspondente (/kanban, /calendar, /projects, /gantt, /sprints, /relatorios).
 - Se o usuário perguntar sobre compromissos ou agenda, defina type="agenda".
 - Se o usuário pedir para pesquisar algo, defina type="search" com o searchTerm.
@@ -174,6 +184,12 @@ export function fallbackFloatingAgentResponse(userMessage: string) {
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
 
+  if ((lower.includes("atividade") || lower.includes("atividades") || lower.includes("demanda") || lower.includes("demandas") || lower.includes("tarefa") || lower.includes("tarefas")) && !(/\btarefas?\b.*\d+/.test(lower))) {
+    return {
+      reply: "Abrindo as atividades no Kanban para você revisar as demandas.",
+      action: { type: "navigate", targetUrl: "/kanban", searchTerm: "" },
+    };
+  }
   if (lower.includes("kanban") || lower.includes("quadro")) {
     return {
       reply: "Abrindo o Kanban para você gerenciar suas tarefas.",

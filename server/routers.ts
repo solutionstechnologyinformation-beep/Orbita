@@ -2006,7 +2006,7 @@ export const appRouter = router({
     chat: protectedProcedure
       .input(z.object({ message: z.string().trim().min(1).max(1000) }))
       .mutation(async ({ ctx, input }) => {
-        return await processFloatingAgentCommand(ctx.user.id, input.message);
+        return await processFloatingAgentCommand(ctx.user.id, ctx.user.companyId ?? null, input.message);
       }),
     listMemories: protectedProcedure.query(async ({ ctx }) => {
       return await getUserAiMemories(ctx.user.id);

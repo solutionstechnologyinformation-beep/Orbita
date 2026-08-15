@@ -20,24 +20,6 @@ export type SpeechSynthesisLike = {
   getVoices?: () => any[];
 };
 
-export type VoiceStyle = "soft" | "professional" | "energetic";
-
-export function normalizeVoiceStyle(value: string | null | undefined): VoiceStyle {
-  return value === "professional" || value === "energetic" ? value : "soft";
-}
-
-export function normalizeSpeechRate(value: number): number {
-  if (!Number.isFinite(value)) return 0.96;
-  return Math.min(1.15, Math.max(0.85, Number(value.toFixed(2))));
-}
-
-export function getVoiceStyleParameters(style: VoiceStyle, rate: number): { rate: number; pitch: number } {
-  const baseRate = normalizeSpeechRate(rate);
-  if (style === "professional") return { rate: normalizeSpeechRate(baseRate * 1.02), pitch: 1.0 };
-  if (style === "energetic") return { rate: normalizeSpeechRate(baseRate * 1.1), pitch: 1.08 };
-  return { rate: normalizeSpeechRate(baseRate * 0.98), pitch: 1.04 };
-}
-
 type SpeechUtteranceConstructor = new (text: string) => SpeechSynthesisUtteranceLike;
 
 type SpeechWindow = Window & {
@@ -97,6 +79,10 @@ export function getAgentActionAnnouncement(action: AgentActionLike, userName?: s
   const name = getPreferredUserName(userName);
   if (action.type === "agenda") return `${name}, vou consultar sua agenda agora.`;
   if (action.type === "search") return `${name}, vou pesquisar por ${action.searchTerm || "esse item"}.`;
+  if (action.type === "analyze_workload") return `${name}, vou avaliar as demandas abertas e preparar uma sugestão de distribuição da equipe.`;
+  if (["map_focus", "map_filter_state", "map_highlight_contract", "generate_report_pdf", "map_export_csv", "map_toggle_layer"].includes(action.type ?? "")) {
+    return `${name}, vou executar essa ação no mapa e atualizar a visualização.`;
+  }
   if (action.type === "navigate") {
     const taskMatch = action.targetUrl?.match(/^\/tasks\/(\d+)$/);
     if (taskMatch) return `${name}, vou abrir a tarefa número ${taskMatch[1]}.`;

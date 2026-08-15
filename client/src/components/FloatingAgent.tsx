@@ -15,7 +15,7 @@ import {
 } from "./agent-history";
 import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick-command-state";
 import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, getCommandAfterWakePhrase, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
-import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, getVoiceStyleParameters, normalizeSpeechRate, normalizeVoiceStyle, personalizeAssistantReply, shouldSpeakClosingGreeting, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike, type VoiceStyle } from "./speech-synthesis";
+import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, shouldSpeakClosingGreeting, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 
 type AgentMessage = AgentHistoryEntry;
@@ -40,13 +40,6 @@ const MAX_PANEL_WIDTH = 560;
 const WAKE_GREETING = "Que bom te ver novamente, qualquer coisa é só me chamar.";
 const WAKE_RESTART_DELAY_MS = 4500;
 const WAKE_STORAGE_KEY = "orbita-wake-phrase-enabled";
-const VOICE_STYLE_STORAGE_KEY = "orbita-voice-style";
-const VOICE_RATE_STORAGE_KEY = "orbita-voice-rate";
-const VOICE_STYLE_LABELS: Record<VoiceStyle, string> = {
-  soft: "Suave",
-  professional: "Profissional",
-  energetic: "Energética",
-};
 
 type PanelInteraction =
   | { type: "drag"; startX: number; startY: number; baseLeft: number; baseTop: number; width: number; height: number }
@@ -82,15 +75,6 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [speechState, setSpeechState] = useState<SpeechPlaybackState>("idle");
   const [speechEnabled, setSpeechEnabled] = useState(true);
-  const [voiceStyle, setVoiceStyle] = useState<VoiceStyle>(() => {
-    if (typeof window === "undefined") return "soft";
-    return normalizeVoiceStyle(window.localStorage.getItem(VOICE_STYLE_STORAGE_KEY));
-  });
-  const [speechRate, setSpeechRate] = useState(() => {
-    if (typeof window === "undefined") return 0.96;
-    const storedRate = Number(window.localStorage.getItem(VOICE_RATE_STORAGE_KEY));
-    return normalizeSpeechRate(Number.isFinite(storedRate) ? storedRate : 0.96);
-  });
   const speechRef = useRef<{ synthesis: SpeechSynthesisLike; utterance: SpeechSynthesisUtteranceLike } | null>(null);
   const [wakePhraseEnabled, setWakePhraseEnabled] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -113,11 +97,6 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       speechRef.current?.synthesis.cancel();
     };
   }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(VOICE_STYLE_STORAGE_KEY, voiceStyle);
-    window.localStorage.setItem(VOICE_RATE_STORAGE_KEY, String(speechRate));
-  }, [speechRate, voiceStyle]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -153,7 +132,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       const fullReply = `${actionAnnouncement}\n\n${personalizedReply}`;
       setHistory((items) => [...items, { role: "assistant", content: fullReply }]);
       speakReply(fullReply);
-      if (action?.type === "navigate" && action.targetUrl) {
+      const routeActionTypes = new Set(["navigate", "map_focus", "map_filter_state", "map_highlight_contract", "generate_report_pdf", "map_export_csv", "map_toggle_layer", "analyze_workload"]);
+      if (action?.targetUrl && routeActionTypes.has(action.type)) {
         navigate(action.targetUrl);
         setOpen(false);
       } else if (action?.type === "agenda") {
@@ -194,9 +174,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     speech.synthesis.cancel();
     const utterance = new speech.Utterance(text);
     utterance.lang = "pt-BR";
-    const voiceParameters = getVoiceStyleParameters(voiceStyle, speechRate);
-    utterance.rate = voiceParameters.rate;
-    utterance.pitch = voiceParameters.pitch;
+    utterance.rate = 0.96;
+    utterance.pitch = 1.04;
     const bestVoice = getBestPortugueseVoice(speech.synthesis);
     if (bestVoice) {
       (utterance as any).voice = bestVoice;
@@ -675,38 +654,6 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                 )}
               </div>
             )}
-            <div className="mb-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label htmlFor="orbita-voice-style" className="text-[11px] font-medium text-slate-600">Estilo da voz</label>
-                <select
-                  id="orbita-voice-style"
-                  value={voiceStyle}
-                  onChange={(event) => setVoiceStyle(normalizeVoiceStyle(event.target.value))}
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d]"
-                  aria-label="Estilo da voz do Orbita"
-                >
-                  {(Object.keys(VOICE_STYLE_LABELS) as VoiceStyle[]).map((style) => (
-                    <option key={style} value={style}>{VOICE_STYLE_LABELS[style]}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-3">
-                <label htmlFor="orbita-voice-rate" className="min-w-0 flex-1 text-[11px] font-medium text-slate-600">Velocidade da leitura</label>
-                <input
-                  id="orbita-voice-rate"
-                  type="range"
-                  min="0.85"
-                  max="1.15"
-                  step="0.01"
-                  value={speechRate}
-                  onChange={(event) => setSpeechRate(normalizeSpeechRate(Number(event.target.value)))}
-                  className="h-1.5 w-28 accent-[#ffc30d]"
-                  aria-label="Velocidade da leitura do Orbita"
-                  aria-valuetext={`${speechRate.toFixed(2)} vezes a velocidade normal`}
-                />
-                <span className="w-10 text-right text-[11px] tabular-nums text-slate-500">{speechRate.toFixed(2)}x</span>
-              </div>
-            </div>
             {voiceState !== "idle" && (
               <p className="mb-2 flex items-center gap-2 text-[11px] text-slate-600" role="status" aria-live="polite">
                 {voiceState === "listening" ? <Mic className="h-3.5 w-3.5 text-red-500" aria-hidden="true" /> : <MicOff className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />}
