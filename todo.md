@@ -1377,3 +1377,10 @@
 - [x] Criar `.vscode/extensions.json` com extensões recomendadas para a equipe
 - [x] Criar `.github/workflows/ci.yml` para execução automática de tipos TypeScript e testes Vitest a cada push
 - [x] Validar integridade da build, TypeScript e executar todos os testes automatizados
+
+## Novas Melhorias — Acessibilidade, Logs de Auditoria CSV e Tour Guiado
+- [x] Implementar exportação de logs de auditoria em CSV no painel administrativo
+- [x] Implementar tour guiado interativo para branding e domínios no painel administrativo
+- [x] Reforçar acessibilidade (contraste, foco visível, navegação por teclado e `prefers-reduced-motion`)
+- [x] Escrever testes unitários para a exportação CSV, o tour guiado e a acessibilidade
+- [x] Validar compilação TypeScript e execução de 100% dos testes Vitest
