@@ -3,6 +3,7 @@ import { summarizeProjectReportByName } from "./project-report-summary";
 import { tasks, agendaEvents, crs } from "../drizzle/schema";
 import { desc, eq } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
+import { processOperationalAgentCommand } from "./operational-agent";
 
 export async function processFloatingAgentCommand(userId: number, userMessage: string) {
   const db = await getDb();
@@ -44,6 +45,19 @@ export async function processFloatingAgentCommand(userId: number, userMessage: s
     return {
       reply: summary,
       action: { type: "navigate", targetUrl: "/relatorios", searchTerm: "" },
+    };
+  }
+
+  // Executar agente operacional estendido (mapa, relatórios PDF, zoom, filtros)
+  const operationalRes = await processOperationalAgentCommand(userId, null, trimmed);
+  if (operationalRes && operationalRes.action.type !== "none") {
+    return {
+      reply: operationalRes.reply,
+      action: {
+        type: operationalRes.action.type === "map_focus" || operationalRes.action.type === "map_highlight_contract" || operationalRes.action.type === "generate_report_pdf" ? "navigate" : operationalRes.action.type as any,
+        targetUrl: operationalRes.action.targetUrl || "/dashboard",
+        searchTerm: operationalRes.action.searchTerm || operationalRes.action.contractName || operationalRes.action.region || "",
+      },
     };
   }
 

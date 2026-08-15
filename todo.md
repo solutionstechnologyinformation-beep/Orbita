@@ -1452,3 +1452,9 @@
 - [x] Diferenciar estados pausado, inativo, erro e reduced motion
 - [x] Integrar o indicador no botão flutuante e no cabeçalho do assistente
 - [x] Criar testes de estados e acessibilidade do indicador (269/269 testes aprovados)
+
+## Agente Operacional Contextual de IA
+- [x] Expandir inteligência do assistente para controlar mapa, zoom regional e destaque de contratos
+- [x] Implementar comandos de voz e texto para geração de relatórios PDF por período (ex: Agosto)
+- [x] Criar módulo de backend processOperationalAgentCommand com suporte a diálogos e intenções estruturadas
+- [x] Garantir isolamento por tenant e adicionar testes unitários (271/271 testes aprovados)
