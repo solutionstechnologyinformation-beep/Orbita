@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FLOATING_AGENT_TRANSITION, getFloatingAgentPlacement } from "./agent-transition";
 import {
   createInitialAgentHistory,
@@ -17,6 +18,7 @@ import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick
 import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, getCommandAfterWakePhrase, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
 import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, shouldSpeakClosingGreeting, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
+import { buildWorkloadCsv, buildWorkloadPdfHtml, type WorkloadRecommendation } from "./workload-export";
 
 type AgentMessage = AgentHistoryEntry;
 
@@ -37,7 +39,7 @@ const quickCommands: QuickCommand[] = [
 const DEFAULT_PANEL_WIDTH = 400;
 const MIN_PANEL_WIDTH = 320;
 const MAX_PANEL_WIDTH = 560;
-const WAKE_GREETING = "Que bom te ver novamente, qualquer coisa é só me chamar.";
+const WAKE_GREETING = "Que bom te ver novamente.";
 const WAKE_RESTART_DELAY_MS = 4500;
 const WAKE_STORAGE_KEY = "orbita-wake-phrase-enabled";
 
@@ -82,7 +84,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   });
   const [wakePhraseState, setWakePhraseState] = useState<VoiceRecognitionState>("idle");
   const [wakePhraseMessage, setWakePhraseMessage] = useState("");
-  const [latestRecommendations, setLatestRecommendations] = useState<Array<{ taskId: number; taskTitle: string; suggestedAssignee: string; suggestedDueDate: string; rationale: string; }>>([]);
+  const [latestRecommendations, setLatestRecommendations] = useState<WorkloadRecommendation[]>([]);
+  const [isWorkloadPreviewOpen, setIsWorkloadPreviewOpen] = useState(false);
   const wakeRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wakeRestartTimeoutRef = useRef<number | null>(null);
   const wakePermissionDeniedRef = useRef(false);
@@ -504,6 +507,31 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     }
   };
 
+  const exportRecommendationsCsv = () => {
+    const csvContent = `data:text/csv;charset=utf-8,${encodeURIComponent(buildWorkloadCsv(latestRecommendations))}`;
+    const link = document.createElement("a");
+    link.href = csvContent;
+    link.download = `distribuicao_equipe_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Planilha CSV exportada com sucesso!");
+  };
+
+  const confirmWorkloadPdfExport = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Permita pop-ups para gerar o PDF.");
+      return;
+    }
+    printWindow.document.write(buildWorkloadPdfHtml(latestRecommendations));
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => printWindow.print(), 100);
+    setIsWorkloadPreviewOpen(false);
+    toast.success("Relatório PDF preparado para impressão ou salvamento.");
+  };
+
   const activeSoundState: SoundWaveState = voiceState === "listening" || wakePhraseState === "listening"
     ? "listening"
     : speechState === "speaking"
@@ -648,20 +676,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100"
-                  onClick={() => {
-                    const csvContent = "data:text/csv;charset=utf-8," + [
-                      ["ID da Tarefa", "Título da Tarefa", "Responsável Sugerido", "Prazo Sugerido", "Justificativa"].join(","),
-                      ...latestRecommendations.map(r => [r.taskId, `"${r.taskTitle.replace(/"/g, '""')}"`, `"${r.suggestedAssignee}"`, r.suggestedDueDate, `"${r.rationale.replace(/"/g, '""')}"`].join(","))
-                    ].join("\n");
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `distribuicao_equipe_${Date.now()}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    toast.success("Planilha CSV exportada com sucesso!");
-                  }}
+                  onClick={exportRecommendationsCsv}
                 >
                   Exportar Planilha (CSV)
                 </Button>
@@ -670,19 +685,9 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100"
-                  onClick={() => {
-                    const printWindow = window.open("", "_blank");
-                    if (!printWindow) {
-                      toast.error("Permita pop-ups para gerar o PDF.");
-                      return;
-                    }
-                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório de Distribuição de Equipe</title><style>body{font-family:sans-serif;padding:30px;color:#1e293b}h1{color:#0f172a;font-size:22px;margin-bottom:4px}p.sub{color:#64748b;margin-bottom:24px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #cbd5e1;padding:10px 12px;font-size:13px;text-align:left}th{background:#f1f5f9;font-weight:600}tr:nth-child(even){background:#f8fafc}</style></head><body><h1>Relatório de Planejamento e Distribuição de Equipe</h1><p class="sub">Plataforma Orbita — Gerenciamento Inteligente de Operações</p><table><thead><tr><th>ID</th><th>Tarefa</th><th>Responsável Sugerido</th><th>Prazo Sugerido</th><th>Justificativa</th></tr></thead><tbody>${latestRecommendations.map(r => `<tr><td>#${r.taskId}</td><td>${r.taskTitle}</td><td>${r.suggestedAssignee}</td><td>${r.suggestedDueDate}</td><td>${r.rationale}</td></tr>`).join("")}</tbody></table><script>window.print();</script></body></html>`;
-                    printWindow.document.write(html);
-                    printWindow.document.close();
-                    toast.success("Relatório PDF preparado para impressão/salvamento!");
-                  }}
+                  onClick={() => setIsWorkloadPreviewOpen(true)}
                 >
-                  Exportar Relatório (PDF)
+                  Pré-visualizar e Exportar PDF
                 </Button>
               </div>
             )}
@@ -760,6 +765,49 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
           />
         </div>
       )}
+
+      <Dialog open={isWorkloadPreviewOpen} onOpenChange={setIsWorkloadPreviewOpen}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden bg-white text-slate-900">
+          <DialogHeader>
+            <DialogTitle>Prévia do relatório de distribuição</DialogTitle>
+            <DialogDescription>
+              Revise as recomendações da análise de demandas antes de confirmar a exportação em PDF.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[52vh] overflow-auto rounded-lg border border-slate-200">
+            <table className="w-full min-w-[760px] border-collapse text-sm">
+              <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="border-b border-slate-200 px-3 py-2">ID</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Tarefa</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Responsável sugerido</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Prazo</th>
+                  <th className="border-b border-slate-200 px-3 py-2">Justificativa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latestRecommendations.map((recommendation) => (
+                  <tr key={recommendation.taskId} className="even:bg-slate-50 align-top">
+                    <td className="border-b border-slate-100 px-3 py-3 font-medium">#{recommendation.taskId}</td>
+                    <td className="border-b border-slate-100 px-3 py-3">{recommendation.taskTitle}</td>
+                    <td className="border-b border-slate-100 px-3 py-3">{recommendation.suggestedAssignee}</td>
+                    <td className="border-b border-slate-100 px-3 py-3 whitespace-nowrap">{recommendation.suggestedDueDate}</td>
+                    <td className="border-b border-slate-100 px-3 py-3">{recommendation.rationale}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsWorkloadPreviewOpen(false)}>
+              Voltar
+            </Button>
+            <Button type="button" onClick={confirmWorkloadPdfExport}>
+              Confirmar e exportar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <button
         type="button"

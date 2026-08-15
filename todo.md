@@ -1498,3 +1498,8 @@
 - [x] Adicionar procedure tRPC ou rota para exportar as recomendações em PDF estruturado
 - [x] Adicionar opção de exportar em planilha CSV diretamente pelo painel do assistente
 - [x] Validar isolamento por tenant, testes unitários e zero erros TypeScript (278/278 testes aprovados)
+
+## Pré-visualização do Relatório de Distribuição de Equipe
+- [x] Criar estado e modal de pré-visualização no FloatingAgent para revisar recomendações antes do PDF
+- [x] Adicionar botões de confirmar exportação ou cancelar na pré-visualização
+- [x] Validar com testes unitários e zero erros TypeScript (281/281 testes aprovados)
