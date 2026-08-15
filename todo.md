@@ -1361,7 +1361,13 @@
 - [x] Criar testes de regressão e validar TypeScript, responsividade e acessibilidade
 
 ## Branding — Feedback visual ao salvar configurações
-- [ ] Adicionar transição suave ao estado de salvamento do branding
-- [ ] Exibir feedback visual acessível para salvando, sucesso e erro
-- [ ] Respeitar prefers-reduced-motion nas animações
-- [ ] Criar testes de estados, acessibilidade e validação TypeScript
+- [x] Adicionar transição suave ao estado de salvamento do branding
+- [x] Exibir feedback visual acessível para salvando, sucesso e erro
+- [x] Respeitar prefers-reduced-motion nas animações
+- [x] Criar testes de estados, acessibilidade e validação TypeScript
+
+## Entrega Final Nativa — VS Code e Sincronização GitHub
+- [ ] Validar compilação limpa de produção e execução da suíte completa de testes
+- [ ] Atualizar o README com instruções detalhadas para abrir e rodar o projeto nativamente no VS Code
+- [ ] Sincronizar todas as alterações no repositório do GitHub (solutionstechnologyinformation-beep/Orbita)
+- [ ] Gerar pacote compactado (.zip) com a fonte nativa completa e limpa para desenvolvimento local
