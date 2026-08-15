@@ -1294,3 +1294,9 @@
 - [x] Implementar shell mobile com navegação compacta e cabeçalho adaptativo
 - [x] Adaptar Dashboard, mapa e abas administrativas para fluxos simplificados no celular
 - [x] Adicionar testes responsivos e de acessibilidade e confirmar que o desktop não mudou
+
+## Dashboard — Indicadores visuais do período ativo
+- [x] Definir rótulo acessível e formato visual reutilizável para o período global ativo
+- [x] Exibir o período ativo nos títulos dos KPIs e gráficos do Dashboard sem duplicação excessiva
+- [x] Adicionar testes de presença, conteúdo e atualização do indicador por preset e período personalizado
+- [x] Validar responsividade, TypeScript, testes completos e estado visual do Dashboard

@@ -33,6 +33,8 @@ import { buildTeamChatDisciplineUrl } from "./team-chat-navigation";
 import { DEFAULT_DASHBOARD_WIDGET_ORDERS, getDashboardWidgetStorageKey, moveDashboardWidget, readDashboardWidgetOrders, type DashboardWidgetGroup, type DashboardWidgetId, type DashboardWidgetOrders } from "./dashboard-widget-order";
 import { DashboardTrendIndicator, DashboardTrendPeriodSelect } from "./DashboardTrendIndicator";
 import { TREND_COMPARISON_PERIOD_DESCRIPTIONS, getTrendComparisonStorageKey, readTrendComparisonPeriod, type TrendComparisonPeriod } from "./dashboard-trend-period";
+import { useGlobalPeriod } from "@/contexts/GlobalPeriodContext";
+import { DashboardPeriodBadge } from "./DashboardPeriodBadge";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const MAP_FULLSCREEN_ANIMATION_DURATION_MS = 320;
@@ -1192,13 +1194,16 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
   );
 }
 // ── KPI Card ───────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, icon, iconBg, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true }: {
-  label: string; value: string | number; icon: React.ReactNode; iconBg: string; trend?: number | null; trendSuffix?: string; trendPeriod?: string; positiveWhenUp?: boolean;
+function KpiCard({ label, value, icon, iconBg, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true, periodLabel }: {
+  label: string; value: string | number; icon: React.ReactNode; iconBg: string; trend?: number | null; trendSuffix?: string; trendPeriod?: string; positiveWhenUp?: boolean; periodLabel?: string;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start justify-between shadow-sm">
-      <div>
-        <p className="text-sm text-gray-500 mb-1">{label}</p>
+      <div className="min-w-0">
+        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+          <p className="text-sm text-gray-500">{label}</p>
+          {periodLabel && <DashboardPeriodBadge label={periodLabel} />}
+        </div>
         <div className="flex items-center gap-2">
           <p className="text-3xl font-bold text-gray-900">{value}</p>
           <DashboardTrendIndicator label={label} value={trend} suffix={trendSuffix} period={trendPeriod} positiveWhenUp={positiveWhenUp} />
@@ -1212,8 +1217,8 @@ function KpiCard({ label, value, icon, iconBg, trend, trendSuffix = "%", trendPe
 }
 
 // ── Stat Row (mapa lateral) ────────────────────────────────────────────────────
-function StatRow({ icon, label, value, valueColor, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true }: {
-  icon: React.ReactNode; label: string; value: string | number; valueColor?: string; trend?: number | null; trendSuffix?: string; trendPeriod?: string; positiveWhenUp?: boolean;
+function StatRow({ icon, label, value, valueColor, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true, periodLabel }: {
+  icon: React.ReactNode; label: string; value: string | number; valueColor?: string; trend?: number | null; trendSuffix?: string; trendPeriod?: string; positiveWhenUp?: boolean; periodLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between py-3 px-4 bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -1221,7 +1226,10 @@ function StatRow({ icon, label, value, valueColor, trend, trendSuffix = "%", tre
         <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
           {icon}
         </div>
-        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="text-sm font-medium text-gray-700">{label}</span>
+          {periodLabel && <DashboardPeriodBadge label={periodLabel} />}
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <span className={`text-base font-bold ${valueColor ?? "text-gray-900"}`}>{value}</span>
@@ -1300,6 +1308,7 @@ function DashboardWidgetFrame({ group, id, label, order, draggedWidget, dragOver
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { label: globalPeriodLabel } = useGlobalPeriod();
   const [, navigate] = useLocation();
   const [view, setView] = useState<DashView>("geral");
   const [trendComparisonPeriod, setTrendComparisonPeriod] = useState<TrendComparisonPeriod>(() => readTrendComparisonPeriod(undefined));
@@ -1817,7 +1826,8 @@ export default function Dashboard() {
         {/* ── Header ── */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl" style={{ color: '#000000' }}>Visão Geral</h1>
+            <h1 className="whitespace-nowrap text-xl font-bold text-gray-900 sm:text-2xl" style={{ color: '#000000' }}>Visão Geral</h1>
+            <DashboardPeriodBadge label={globalPeriodLabel} className="hidden sm:inline-flex" />
             {normalizedCompany && (
               <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex" title="Os KPIs, mapa e contratos estão filtrados por empresa">
                 {normalizedCompany}
@@ -1957,18 +1967,21 @@ export default function Dashboard() {
                       icon={<FolderOpen className="w-4 h-4" />}
                       label="Contratos Ativos"
                       value={stats?.totalCrs ?? 0}
+                      periodLabel={globalPeriodLabel}
                     />
                     <StatRow
                       icon={<AlertTriangle className="w-4 h-4" />}
                       label="Tarefas em Atraso"
                       value={stats?.overdueTasks ?? 0}
                       valueColor="text-red-500"
+                      periodLabel={globalPeriodLabel}
                     />
                     <StatRow
                       icon={<CheckCircle2 className="w-4 h-4" />}
                       label="Checklist Concluído"
                       value={`${stats?.checklistProgress ?? 0}%`}
                       valueColor="text-green-600"
+                      periodLabel={globalPeriodLabel}
                     />
                     {/* Extensão Total + por tipo */}
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
@@ -1977,7 +1990,10 @@ export default function Dashboard() {
                           <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
                             <Layers className="w-4 h-4" />
                           </div>
-                          <span className="text-sm font-medium text-gray-700">Extensão Total</span>
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="text-sm font-medium text-gray-700">Extensão Total</span>
+                            <DashboardPeriodBadge label={globalPeriodLabel} />
+                          </div>
                         </div>
                         <span className="text-base font-bold text-gray-900">{extensaoByTipo.totalKm.toLocaleString("pt-BR")} km</span>
                       </div>
@@ -2006,8 +2022,10 @@ export default function Dashboard() {
               <DashboardWidgetFrame {...widgetFrameProps("generalLeft", "deadlines", "Vencimentos próximos", "shrink-0")}>
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                    <CalendarClock className="w-4 h-4 text-orange-500" /> Vencimentos Próximos
+                  <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <CalendarClock className="w-4 h-4 text-orange-500" />
+                    <span>Vencimentos Próximos</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
                   </h3>
                 </div>
                 {upcomingQ.isLoading ? (
@@ -2069,18 +2087,21 @@ export default function Dashboard() {
                   <>
                     <KpiCard
                       label="Contratos este mês"
+                      periodLabel={globalPeriodLabel}
                       value={`+${thisMonthCrs}`}
                       icon={<TrendingUp className="w-5 h-5 text-blue-600" />}
                       iconBg="bg-blue-50"
                     />
                     <KpiCard
                       label="Em risco"
+                      periodLabel={globalPeriodLabel}
                       value={stats?.overdueTasks ?? 0}
                       icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
                       iconBg="bg-amber-50"
                     />
                     <KpiCard
                       label="Concluídos"
+                      periodLabel={globalPeriodLabel}
                       value={stats?.completedTasks ?? 0}
                       icon={<CheckCircle2 className="w-5 h-5 text-green-600" />}
                       iconBg="bg-green-50"
@@ -2099,18 +2120,21 @@ export default function Dashboard() {
                   <>
                     <KpiCard
                       label="Extensao Total"
+                      periodLabel={globalPeriodLabel}
                       value={`${(stats?.totalExtensaoKm ?? 0).toLocaleString("pt-BR")} km`}
                       icon={<Layers className="w-5 h-5 text-blue-600" />}
                       iconBg="bg-blue-50"
                     />
                     <KpiCard
                       label="Area Total"
+                      periodLabel={globalPeriodLabel}
                       value={`${(stats?.totalAreaHa ?? 0).toLocaleString("pt-BR")} ha`}
                       icon={<MapPin className="w-5 h-5 text-green-600" />}
                       iconBg="bg-green-50"
                     />
                     <KpiCard
                       label="Perimetro Urbano"
+                      periodLabel={globalPeriodLabel}
                       value={`${(stats?.totalPerimetroUrbano ?? 0).toLocaleString("pt-BR")} Un.`}
                       icon={<Route className="w-5 h-5 text-orange-600" />}
                       iconBg="bg-orange-50"
@@ -2125,7 +2149,10 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-800">Distribuição da Extensão</h3>
+                    <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                      <span>Distribuição da Extensão</span>
+                      <DashboardPeriodBadge label={globalPeriodLabel} />
+                    </h3>
                     <p className="text-xs text-gray-400">Quilômetros por tipo de obra</p>
                   </div>
                   <span className="text-sm font-bold text-gray-800">{extensaoByTipo.totalKm.toLocaleString("pt-BR")} km</span>
@@ -2183,7 +2210,10 @@ export default function Dashboard() {
                       <MessageSquare className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-800">Atividade do Chat por Disciplina</h3>
+                      <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                        <span>Atividade do Chat por Disciplina</span>
+                        <DashboardPeriodBadge label={globalPeriodLabel} />
+                      </h3>
                       <p className="text-xs text-gray-400">Presença atualizada a cada 15 segundos</p>
                     </div>
                   </div>
@@ -2341,7 +2371,10 @@ export default function Dashboard() {
                 {/* Burndown da Sprint Atual */}
                 <DashboardWidgetFrame {...widgetFrameProps("generalRight", "burndown", "Burndown da sprint", "min-w-0")}>
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3">Burndown da Sprint Atual</h3>
+                  <h3 className="mb-3 flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Burndown da Sprint Atual</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                   {activeSprintQ.isLoading ? (
                     <Skeleton className="h-40 w-full" />
                   ) : !activeSprint ? (
@@ -2379,7 +2412,10 @@ export default function Dashboard() {
                 {/* Contratos por Estado */}
                 <DashboardWidgetFrame {...widgetFrameProps("generalRight", "contracts-state", "Contratos por estado", "min-w-0")}>
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3">Contratos por Estado</h3>
+                  <h3 className="mb-3 flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Contratos por Estado</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                   {contractsByStateQ.isLoading ? (
                     <Skeleton className="h-40 w-full" />
                   ) : stateData.length === 0 ? (
@@ -2423,7 +2459,9 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                    <Target className="w-4 h-4 text-blue-600" /> SLA / Pontualidade
+                    <Target className="w-4 h-4 text-blue-600" />
+                    <span>SLA / Pontualidade</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
                   </h3>
                   <DashboardTrendPeriodSelect value={trendComparisonPeriod} onChange={handleTrendPeriodChange} />
                 </div>
@@ -2484,7 +2522,10 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">A</span>
-                  <h3 className="text-sm font-semibold text-gray-800">Status das Atividades</h3>
+                  <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Status das Atividades</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                 </div>
                 {statsQ.isLoading ? (
                   <Skeleton className="h-52 w-full" />
@@ -2530,7 +2571,10 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">B</span>
-                  <h3 className="text-sm font-semibold text-gray-800">Tipo de Obra</h3>
+                  <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Tipo de Obra</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                 </div>
                 {crsQ.isLoading ? (
                   <Skeleton className="h-52 w-full" />
@@ -2569,7 +2613,10 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">C</span>
-                  <h3 className="text-sm font-semibold text-gray-800">Progresso por Cliente</h3>
+                  <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Progresso por Cliente</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                 </div>
                 {clientProgressQ.isLoading ? (
                   <Skeleton className="h-52 w-full" />
@@ -2604,7 +2651,10 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-teal-50 flex items-center justify-center text-xs font-bold text-teal-700">D</span>
                   <div>
-                    <h3 id="detailed-chat-activity-title" className="text-sm font-semibold text-gray-800">Atividade do Chat por Disciplina</h3>
+                    <h3 id="detailed-chat-activity-title" className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                      <span>Atividade do Chat por Disciplina</span>
+                      <DashboardPeriodBadge label={globalPeriodLabel} />
+                    </h3>
                     <p className="text-xs text-gray-400">Presença, mensagens, conversas ativas e pendências de leitura</p>
                   </div>
                 </div>
@@ -2683,7 +2733,10 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">E</span>
-                  <h3 className="text-sm font-semibold text-gray-800">Minhas Tarefas</h3>
+                  <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Minhas Tarefas</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                 </div>
                 {myTasksQ.isLoading ? (
                   <div className="space-y-2">
@@ -2725,7 +2778,10 @@ export default function Dashboard() {
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">F</span>
-                  <h3 className="text-sm font-semibold text-gray-800">Projetos Ativos</h3>
+                  <h3 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <span>Projetos Ativos</span>
+                    <DashboardPeriodBadge label={globalPeriodLabel} />
+                  </h3>
                 </div>
                 {crsQ.isLoading ? (
                   <div className="grid grid-cols-2 gap-3">
