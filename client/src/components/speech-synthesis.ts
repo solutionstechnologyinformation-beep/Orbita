@@ -54,9 +54,11 @@ export function getBestPortugueseVoice(synthesis: SpeechSynthesisLike): any | nu
     const voices = synthesis.getVoices() || [];
     const ptVoices = voices.filter((v: any) => v && v.lang && typeof v.lang === "string" && v.lang.toLowerCase().includes("pt"));
     if (ptVoices.length === 0) return null;
+    const femaleVoice = ptVoices.find((v: any) => v.name && /female|feminina|woman|mulher|samantha|helena|luciana|francisca|camila|letícia|leticia|bruna|ana/i.test(v.name));
+    const naturalFemaleVoice = ptVoices.find((v: any) => v.name && /natural|enhanced|google|microsoft|online/i.test(v.name) && /female|feminina|woman|mulher|samantha|helena|luciana|francisca|camila|letícia|leticia|bruna|ana/i.test(v.name));
     const naturalPt = ptVoices.find((v: any) => v.name && /natural|enhanced|google|microsoft|online/i.test(v.name));
     const brVoice = ptVoices.find((v: any) => v.lang.toLowerCase().includes("br") || v.lang.toLowerCase().includes("pt"));
-    return naturalPt || brVoice || ptVoices[0];
+    return naturalFemaleVoice || femaleVoice || naturalPt || brVoice || ptVoices[0];
   } catch {
     return null;
   }

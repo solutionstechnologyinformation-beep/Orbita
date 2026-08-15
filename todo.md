@@ -1460,6 +1460,11 @@
 - [x] Garantir isolamento por tenant e adicionar testes unitários (271/271 testes aprovados)
 
 ## Branding da Tela de Autenticação
-- [ ] Substituir a logo atual exibida no fluxo de autenticação pela logo nova do Orbita
-- [ ] Atualizar referências de asset e garantir compatibilidade com o tema escuro
-- [ ] Validar a renderização e a suíte de testes após a alteração
+- [x] Substituir a logo atual exibida no fluxo de autenticação pela logo nova do Orbita
+- [x] Atualizar referências de asset e garantir compatibilidade com o tema escuro
+- [x] Validar a renderização e a suíte de testes após a alteração (274/274 testes aprovados)
+
+## Voz Feminina Suave do Assistente
+- [x] Priorizar vozes femininas naturais em português do Brasil
+- [x] Ajustar ritmo e tom para uma leitura suave e acolhedora
+- [x] Adicionar testes de seleção da voz feminina e validar a síntese de voz (275/275 testes aprovados)

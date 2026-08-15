@@ -55,3 +55,18 @@ describe("speech synthesis adapter", () => {
     expect(voice).toBeDefined();
     expect(voice?.lang).toBe("pt-BR");
   });
+
+  it("prioritizes a natural feminine portuguese voice", () => {
+    const mockSynthesis = {
+      speak: () => {},
+      cancel: () => {},
+      pause: () => {},
+      resume: () => {},
+      getVoices: () => [
+        { name: "Google Portuguese Brazil Male", lang: "pt-BR" },
+        { name: "Microsoft Francisca Online (Natural)", lang: "pt-BR" },
+      ],
+    };
+    const voice = getBestPortugueseVoice(mockSynthesis);
+    expect(voice?.name).toContain("Francisca");
+  });

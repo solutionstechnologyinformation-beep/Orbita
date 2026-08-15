@@ -173,8 +173,8 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     speech.synthesis.cancel();
     const utterance = new speech.Utterance(text);
     utterance.lang = "pt-BR";
-    utterance.rate = 1.02; // Ritmo levemente mais fluido e natural
-    utterance.pitch = 1.0;
+    utterance.rate = 0.96; // Ritmo suave, com pausas naturais
+    utterance.pitch = 1.04; // Tom levemente mais acolhedor para voz feminina
     const bestVoice = getBestPortugueseVoice(speech.synthesis);
     if (bestVoice) {
       (utterance as any).voice = bestVoice;
