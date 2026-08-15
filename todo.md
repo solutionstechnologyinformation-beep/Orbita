@@ -1524,3 +1524,9 @@
 - [x] Atualizar o asset do personagem transparente para a versão v3 sem fundo branco
 - [x] Validar a integração do agente de IA com respostas contextuais e sugestões de distribuição de tarefas
 - [x] Executar suíte Vitest e garantir 100% de aprovação (zero erros TypeScript) — 283/283 aprovados
+
+## Reação a Atrasos no Assistente Orbita
+- [x] Consultar tarefas atrasadas via tRPC no FloatingAgent para determinar o estado de alerta do assistente
+- [x] Adicionar animação de atenção (pulso suave / crachá de alerta âmbar) no boneco quando houver tarefas em atraso
+- [x] Respeitar prefers-reduced-motion e garantir acessibilidade para leitores de tela
+- [x] Adicionar testes unitários para o estado de alerta de atraso e validar zero erros TypeScript (286/286 testes aprovados)

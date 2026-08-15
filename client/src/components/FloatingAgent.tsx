@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Radio, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { AlertTriangle, Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Radio, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserNam
 import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 import { WorkloadAnalysisLoading } from "./WorkloadAnalysisLoading";
 import { isWorkloadAnalysisRequest } from "./workload-analysis-state";
+import { getAssistantAlertLabel, getAssistantAlertState } from "./assistant-alert-state";
 import { buildWorkloadCsv, buildWorkloadPdfHtml, type WorkloadRecommendation } from "./workload-export";
 
 type AgentMessage = AgentHistoryEntry;
@@ -90,6 +91,14 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [latestRecommendations, setLatestRecommendations] = useState<WorkloadRecommendation[]>([]);
   const [isWorkloadPreviewOpen, setIsWorkloadPreviewOpen] = useState(false);
   const [isWorkloadAnalysisPending, setIsWorkloadAnalysisPending] = useState(false);
+  const overdueTasksQuery = trpc.dashboard.stats.useQuery({}, {
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  });
+  const overdueTaskCount = overdueTasksQuery.data?.overdueTasks ?? 0;
+  const assistantAlertState = getAssistantAlertState(overdueTaskCount);
+  const assistantAlertLabel = getAssistantAlertLabel(overdueTaskCount);
   const wakeRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wakeRestartTimeoutRef = useRef<number | null>(null);
   const wakePermissionDeniedRef = useRef(false);
@@ -825,12 +834,19 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         onClick={toggleAssistantOpen}
-        className={`${compactMode ? "h-20 w-14" : "h-28 w-20"} group relative flex shrink-0 items-end justify-center bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2`}
-        aria-label={open ? "Fechar Assistente Orbita" : "Abrir Assistente Orbita"}
-        title={activeSoundState === "listening" ? "Assistente Orbita está ouvindo" : activeSoundState === "speaking" ? "Assistente Orbita está falando" : "Abrir Assistente Orbita"}
+        className={`${compactMode ? "h-20 w-14" : "h-28 w-20"} group relative flex shrink-0 items-end justify-center bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2 ${assistantAlertState === "overdue" ? "orbita-assistant-overdue" : ""}`}
+        aria-label={open ? "Fechar Assistente Orbita" : assistantAlertState === "overdue" ? `Abrir Assistente Orbita — ${assistantAlertLabel}` : "Abrir Assistente Orbita"}
+        title={activeSoundState === "listening" ? "Assistente Orbita está ouvindo" : activeSoundState === "speaking" ? "Assistente Orbita está falando" : assistantAlertState === "overdue" ? assistantAlertLabel : "Abrir Assistente Orbita"}
       >
         <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className="h-full w-full object-contain object-bottom drop-shadow-[0_8px_6px_rgba(0,0,0,0.22)]" />
         <span className="absolute bottom-3 right-1 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" aria-label="Assistente Orbita disponível" />
+        {assistantAlertState === "overdue" && (
+          <span className="absolute right-0 top-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-slate-950 shadow-lg ring-2 ring-white" role="status" aria-live="polite">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">{assistantAlertLabel}</span>
+            <span aria-hidden="true">{overdueTaskCount > 99 ? "99+" : overdueTaskCount}</span>
+          </span>
+        )}
         {activeSoundState !== "idle" && <SoundWaveIndicator state={activeSoundState} compact className="absolute bottom-7 -right-2 bg-black/80 px-1" />}
       </button>
     </div>

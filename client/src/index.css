@@ -375,7 +375,23 @@ html.theme-transition body *::after {
   color: #fca5a5;
 }
 
+@keyframes orbita-assistant-overdue-reaction {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  18% { transform: translateY(-2px) rotate(-2deg); }
+  36% { transform: translateY(0) rotate(2deg); }
+  54% { transform: translateY(-1px) rotate(-1deg); }
+  72% { transform: translateY(0) rotate(0deg); }
+}
+
+.orbita-assistant-overdue {
+  animation: orbita-assistant-overdue-reaction 2.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .orbita-assistant-overdue {
+    animation: none !important;
+  }
+
   .dashboard-trend-tooltip svg,
   .dashboard-trend-tooltip circle,
   .dashboard-trend-sparkline-trigger {
