@@ -1320,10 +1320,10 @@
 - [x] Escrever testes unitários e de integração para a nova seção de OKRs e validar TypeScript
 
 ## Entrega Final — Pacote VS Code e Sincronização GitHub
-- [ ] Atualizar o README.md com instruções passo a passo para clonar, instalar dependências, rodar migrações, iniciar o servidor e executar os testes no VS Code
-- [ ] Criar arquivo compactado (.zip) limpo do projeto, excluindo dependências desnecessárias, logs e cache
-- [ ] Sincronizar o repositório atualizado no GitHub (remote user_github)
-- [ ] Validar integridade da build, TypeScript e testes (236/236 testes aprovados)
+- [x] Atualizar o README.md com instruções passo a passo para clonar, instalar dependências, rodar migrações, iniciar o servidor e executar os testes no VS Code
+- [x] Criar arquivo compactado (.zip) limpo do projeto, excluindo dependências desnecessárias, logs e cache
+- [x] Sincronizar o repositório atualizado no GitHub (remote user_github)
+- [x] Validar integridade da build, TypeScript e testes (236/236 testes aprovados)
 
 ## Segurança da Informação e Auditoria de Dados
 - [x] Conduzir varredura de vulnerabilidades (autenticação, CORS, cookies httpOnly, isolamento multi-tenant por companyId)
