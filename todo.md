@@ -1384,3 +1384,12 @@
 - [x] Reforçar acessibilidade (contraste, foco visível, navegação por teclado e `prefers-reduced-motion`)
 - [x] Escrever testes unitários para a exportação CSV, o tour guiado e a acessibilidade
 - [x] Validar compilação TypeScript e execução de 100% dos testes Vitest
+
+## Funcionalidade 2FA Avançado (SMS e E-mail)
+- [ ] Atualizar schema Drizzle para colunas de 2FA por SMS/Email (phoneNumber, tfaMethod, tfaCode, tfaCodeExpiresAt)
+- [ ] Implementar migração SQL correspondente no banco de dados
+- [ ] Criar adaptadores seguros para envio de código por E-mail (via notifyOwner ou serviço interno) e SMS (simulador/provedor configurável)
+- [ ] Criar procedures tRPC para envio de código SMS/Email, verificação e enrolamento seguro
+- [ ] Atualizar painel de segurança do administrador com opções de escolha de canal (TOTP, E-mail, SMS)
+- [ ] Escrever testes unitários para o fluxo completo de 2FA por SMS/E-mail
+- [ ] Validar tipos TypeScript, suíte de 253+ testes e salvar checkpoint v7.35

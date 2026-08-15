@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Camera, Palette, Save, X, Settings2, Clock3, ShieldCheck, KeyRound, Copy, RefreshCw } from "lucide-react";
+import { Loader2, User, Camera, Palette, Save, X, Settings2, Clock3, ShieldCheck, KeyRound, Copy, RefreshCw, Mail, Send } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
 import AppLayout from "@/components/AppLayout";
@@ -42,11 +42,14 @@ export default function Profile() {
   const tfaStatusQ = trpc.tfa.status.useQuery(undefined, { enabled: canManageTfa });
   const setupTfa = trpc.tfa.setup.useMutation();
   const verifyAndEnableTfa = trpc.tfa.verifyAndEnable.useMutation();
+  const sendEmailTfa = trpc.tfa.sendEmailCode.useMutation();
+  const verifyEmailTfa = trpc.tfa.verifyEmailAndEnable.useMutation();
   const disableTfa = trpc.tfa.disable.useMutation();
   const [tfaSecret, setTfaSecret] = useState("");
   const [tfaOtpAuth, setTfaOtpAuth] = useState("");
   const [tfaQrCode, setTfaQrCode] = useState("");
   const [tfaToken, setTfaToken] = useState("");
+  const [tfaEmailToken, setTfaEmailToken] = useState("");
   const [tfaDisableToken, setTfaDisableToken] = useState("");
   const [tfaBackupCodes, setTfaBackupCodes] = useState<string[]>([]);
 
@@ -119,6 +122,28 @@ export default function Profile() {
       toast.success("Autenticação de dois fatores ativada.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Código TOTP inválido.");
+    }
+  };
+
+  const handleSendEmailTfa = async () => {
+    try {
+      const result = await sendEmailTfa.mutateAsync();
+      setTfaEmailToken("");
+      toast.success(`Código enviado para ${result.maskedEmail}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o código por e-mail.");
+    }
+  };
+
+  const handleVerifyEmailTfa = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      await verifyEmailTfa.mutateAsync({ token: tfaEmailToken.replace(/\\D/g, "") });
+      setTfaEmailToken("");
+      await tfaStatusQ.refetch();
+      toast.success("2FA por e-mail ativado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Código de e-mail inválido.");
     }
   };
 
@@ -245,6 +270,18 @@ export default function Profile() {
           >
             Preferências
           </button>
+          {canManageTfa && (
+            <button
+              onClick={() => setActiveTab("security")}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                activeTab === "security"
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Segurança
+            </button>
+          )}
         </div>
 
         {/* Tab: Informações */}
@@ -331,6 +368,122 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Tab: Segurança */}
+        {activeTab === "security" && canManageTfa && (
+          <div className="space-y-4" aria-labelledby="security-title">
+            <Card>
+              <CardHeader>
+                <CardTitle id="security-title" className="flex items-center gap-2 text-base">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Autenticação de dois fatores
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3" role="status" aria-live="polite">
+                  <div>
+                    <p className="font-medium">Status do 2FA</p>
+                    <p className="text-xs text-muted-foreground">
+                      {tfaStatusQ.isLoading
+                        ? "Verificando configuração..."
+                        : tfaStatusQ.data?.enabled
+                          ? `Ativo por ${tfaStatusQ.data.method === "email" ? "e-mail" : "aplicativo autenticador"}.`
+                          : "Ainda não ativado para este administrador."}
+                    </p>
+                  </div>
+                  <Badge variant={tfaStatusQ.data?.enabled ? "default" : "secondary"}>
+                    {tfaStatusQ.data?.enabled ? "Ativo" : "Inativo"}
+                  </Badge>
+                </div>
+
+                {!tfaStatusQ.data?.enabled && (
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+                      <div className="mb-3 flex items-start gap-3">
+                        <Mail className="mt-0.5 h-5 w-5 text-blue-700 dark:text-blue-300" />
+                        <div>
+                          <h3 className="font-semibold">Ativar por e-mail</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Enviaremos um código de uso único para {tfaStatusQ.data?.email ?? "seu e-mail cadastrado"}.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" onClick={handleSendEmailTfa} disabled={sendEmailTfa.isPending || !tfaStatusQ.data?.emailConfigured}>
+                          {sendEmailTfa.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                          Enviar código por e-mail
+                        </Button>
+                        {!tfaStatusQ.data?.emailConfigured && <span className="text-xs text-amber-700">O Resend ainda não está configurado.</span>}
+                      </div>
+                      <form onSubmit={handleVerifyEmailTfa} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <div className="w-full space-y-1 sm:max-w-[180px]">
+                          <Label htmlFor="email-tfa-token">Código recebido</Label>
+                          <Input id="email-tfa-token" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={tfaEmailToken} onChange={(event) => setTfaEmailToken(event.target.value.replace(/\\D/g, ""))} placeholder="000000" aria-describedby="email-tfa-help" />
+                          <p id="email-tfa-help" className="text-xs text-muted-foreground">Expira em 10 minutos.</p>
+                        </div>
+                        <Button type="submit" disabled={verifyEmailTfa.isPending || tfaEmailToken.length !== 6}>
+                          {verifyEmailTfa.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Confirmar e ativar
+                        </Button>
+                      </form>
+                    </div>
+
+                    <div className="rounded-xl border border-border p-4">
+                      <div className="mb-3 flex items-start gap-3">
+                        <KeyRound className="mt-0.5 h-5 w-5 text-primary" />
+                        <div>
+                          <h3 className="font-semibold">Aplicativo autenticador (TOTP)</h3>
+                          <p className="text-sm text-muted-foreground">Alternativa offline com QR Code e códigos de recuperação.</p>
+                        </div>
+                      </div>
+                      <Button type="button" variant="outline" onClick={handleSetupTfa} disabled={setupTfa.isPending}>
+                        {setupTfa.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Configurar aplicativo
+                      </Button>
+                      {tfaQrCode && (
+                        <div className="mt-4 space-y-3">
+                          <img src={tfaQrCode} alt="QR Code para configurar o aplicativo autenticador" className="h-56 w-56 rounded border bg-white p-2" />
+                          <p className="break-all text-xs text-muted-foreground">Chave manual: {tfaSecret}</p>
+                          <form onSubmit={handleVerifyAndEnableTfa} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="w-full space-y-1 sm:max-w-[180px]">
+                              <Label htmlFor="totp-token">Código do aplicativo</Label>
+                              <Input id="totp-token" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={tfaToken} onChange={(event) => setTfaToken(event.target.value.replace(/\\D/g, ""))} placeholder="000000" />
+                            </div>
+                            <Button type="submit" disabled={verifyAndEnableTfa.isPending || tfaToken.length !== 6}>Confirmar TOTP</Button>
+                          </form>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {tfaStatusQ.data?.enabled && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                    <h3 className="font-semibold">Desativar 2FA</h3>
+                    <p className="mb-3 text-sm text-muted-foreground">
+                      {tfaStatusQ.data.method === "email" ? "Solicite um novo código por e-mail e informe-o abaixo." : "Informe o código atual do seu aplicativo autenticador ou um código de recuperação."}
+                    </p>
+                    {tfaStatusQ.data.method === "email" && (
+                      <Button type="button" variant="outline" size="sm" onClick={handleSendEmailTfa} disabled={sendEmailTfa.isPending} className="mb-3">
+                        <Send className="mr-2 h-4 w-4" /> Enviar novo código
+                      </Button>
+                    )}
+                    <form onSubmit={handleDisableTfa} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <div className="w-full space-y-1 sm:max-w-[180px]">
+                        <Label htmlFor="disable-tfa-token">Código de confirmação</Label>
+                        <Input id="disable-tfa-token" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={tfaDisableToken} onChange={(event) => setTfaDisableToken(event.target.value.replace(/\\D/g, ""))} placeholder="000000" />
+                      </div>
+                      <Button type="submit" variant="destructive" disabled={disableTfa.isPending || tfaDisableToken.length < 6}>
+                        {disableTfa.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Desativar 2FA
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Tab: Avatar */}

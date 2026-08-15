@@ -53,6 +53,7 @@ import { notifyOwner } from "./_core/notification";
 import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
 import stripe from "stripe";
+import { generateAndSendEmailTfaCode, verifyEmailTfaCode, maskEmail } from "./tfa-service";
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // ─── Admin guard ───────────────────────────────────────────────────────────────
@@ -2180,22 +2181,65 @@ export const appRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
       }
       const db = await getDb();
-      const { users: usersTable } = await import('../drizzle/schema');
-      const { eq: eq2 } = await import('drizzle-orm');
-      const [user] = await db.select({ tfaEnabled: usersTable.tfaEnabled }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
-      return { enabled: user?.tfaEnabled ?? false };
+      const { users: usersTable } = await import("../drizzle/schema");
+      const { eq: eq2 } = await import("drizzle-orm");
+      const [user] = await db.select({
+        tfaEnabled: usersTable.tfaEnabled,
+        tfaMethod: usersTable.tfaMethod,
+        email: usersTable.email,
+      }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
+      return {
+        enabled: user?.tfaEnabled ?? false,
+        method: user?.tfaMethod ?? "totp",
+        email: user?.email ? maskEmail(user.email) : null,
+        emailConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
+      };
     }),
+
+    sendEmailCode: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
+      }
+      try {
+        const result = await generateAndSendEmailTfaCode(ctx.user.id);
+        await logActivity({ userId: ctx.user.id, action: "tfa_email_code_sent", entityType: "user", entityId: ctx.user.id, metadata: JSON.stringify({ method: "email" }) });
+        return result;
+      } catch (error) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Não foi possível enviar o código 2FA." });
+      }
+    }),
+
+    verifyEmailAndEnable: protectedProcedure
+      .input(z.object({ token: z.string().regex(/^\d{6}$/) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
+        }
+        const result = await verifyEmailTfaCode(ctx.user.id, input.token);
+        if (!result.valid) {
+          const messages = {
+            invalid_format: "Informe um código de 6 dígitos.",
+            missing: "Solicite um novo código por e-mail.",
+            expired: "O código expirou. Solicite um novo código.",
+            incorrect: "Código incorreto.",
+            locked: "Muitas tentativas. Solicite um novo código.",
+          } as const;
+          throw new TRPCError({ code: "BAD_REQUEST", message: messages[result.reason] });
+        }
+        await logActivity({ userId: ctx.user.id, action: "tfa_email_enabled", entityType: "user", entityId: ctx.user.id, metadata: JSON.stringify({ method: "email" }) });
+        return { success: true };
+      }),
 
     setup: protectedProcedure.mutation(async ({ ctx }) => {
       if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
       }
-      const { generateTfaSecret, getTotpOtpAuthUrl } = await import('./tfa');
+      const { generateTfaSecret, getTotpOtpAuthUrl } = await import("./tfa");
       const secret = generateTfaSecret();
       const db = await getDb();
-      const { users: usersTable } = await import('../drizzle/schema');
-      const { eq: eq2 } = await import('drizzle-orm');
-      await db.update(usersTable).set({ tfaSecret: secret }).where(eq2(usersTable.id, ctx.user.id));
+      const { users: usersTable } = await import("../drizzle/schema");
+      const { eq: eq2 } = await import("drizzle-orm");
+      await db.update(usersTable).set({ tfaSecret: secret, tfaMethod: "totp" }).where(eq2(usersTable.id, ctx.user.id));
       const otpauth = getTotpOtpAuthUrl(secret, ctx.user.email ?? "admin@orbita.com.br");
       return { secret, otpauth };
     }),
@@ -2207,19 +2251,14 @@ export const appRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
         }
         const db = await getDb();
-        const { users: usersTable } = await import('../drizzle/schema');
-        const { eq: eq2 } = await import('drizzle-orm');
+        const { users: usersTable } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
         const [user] = await db.select({ tfaSecret: usersTable.tfaSecret }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
-        if (!user?.tfaSecret) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Configuração de 2FA não iniciada." });
-        }
-        const { verifyTotpToken, generateBackupCodes } = await import('./tfa');
-        const isValid = verifyTotpToken(user.tfaSecret, input.token);
-        if (!isValid) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Código TOTP inválido ou expirado." });
-        }
+        if (!user?.tfaSecret) throw new TRPCError({ code: "BAD_REQUEST", message: "Configuração de 2FA não iniciada." });
+        const { verifyTotpToken, generateBackupCodes } = await import("./tfa");
+        if (!verifyTotpToken(user.tfaSecret, input.token)) throw new TRPCError({ code: "BAD_REQUEST", message: "Código TOTP inválido ou expirado." });
         const backupCodes = generateBackupCodes(8);
-        await db.update(usersTable).set({ tfaEnabled: true, tfaBackupCodes: JSON.stringify(backupCodes) }).where(eq2(usersTable.id, ctx.user.id));
+        await db.update(usersTable).set({ tfaEnabled: true, tfaMethod: "totp", tfaBackupCodes: JSON.stringify(backupCodes), tfaCodeHash: null, tfaCodeExpiresAt: null, tfaCodeAttempts: 0 }).where(eq2(usersTable.id, ctx.user.id));
         return { success: true, backupCodes };
       }),
 
@@ -2230,26 +2269,28 @@ export const appRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
         }
         const db = await getDb();
-        const { users: usersTable } = await import('../drizzle/schema');
-        const { eq: eq2 } = await import('drizzle-orm');
-        const [user] = await db.select({ tfaSecret: usersTable.tfaSecret, tfaEnabled: usersTable.tfaEnabled, tfaBackupCodes: usersTable.tfaBackupCodes }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
-        if (!user?.tfaEnabled) {
-          return { success: true };
+        const { users: usersTable } = await import("../drizzle/schema");
+        const { eq: eq2 } = await import("drizzle-orm");
+        const [user] = await db.select({ tfaSecret: usersTable.tfaSecret, tfaEnabled: usersTable.tfaEnabled, tfaBackupCodes: usersTable.tfaBackupCodes, tfaMethod: usersTable.tfaMethod }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
+        if (!user?.tfaEnabled) return { success: true };
+
+        if (user.tfaMethod === "email") {
+          const emailResult = await verifyEmailTfaCode(ctx.user.id, input.token);
+          if (!emailResult.valid) throw new TRPCError({ code: "BAD_REQUEST", message: "Código de e-mail inválido, expirado ou bloqueado." });
+        } else {
+          const { verifyTotpToken } = await import("./tfa");
+          let isValid = verifyTotpToken(user.tfaSecret ?? "", input.token);
+          if (!isValid && user.tfaBackupCodes) {
+            try {
+              const codes = JSON.parse(user.tfaBackupCodes) as string[];
+              if (codes.includes(input.token.trim())) isValid = true;
+            } catch {}
+          }
+          if (!isValid) throw new TRPCError({ code: "BAD_REQUEST", message: "Código de verificação ou backup inválido." });
         }
-        const { verifyTotpToken } = await import('./tfa');
-        let isValid = verifyTotpToken(user.tfaSecret ?? "", input.token);
-        if (!isValid && user.tfaBackupCodes) {
-          try {
-            const codes = JSON.parse(user.tfaBackupCodes) as string[];
-            if (codes.includes(input.token.trim())) {
-              isValid = true;
-            }
-          } catch {}
-        }
-        if (!isValid) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Código de verificação ou backup inválido." });
-        }
-        await db.update(usersTable).set({ tfaEnabled: false, tfaSecret: null, tfaBackupCodes: null }).where(eq2(usersTable.id, ctx.user.id));
+
+        await db.update(usersTable).set({ tfaEnabled: false, tfaSecret: null, tfaBackupCodes: null, tfaCodeHash: null, tfaCodeExpiresAt: null, tfaCodeAttempts: 0 }).where(eq2(usersTable.id, ctx.user.id));
+        await logActivity({ userId: ctx.user.id, action: "tfa_disabled", entityType: "user", entityId: ctx.user.id, metadata: JSON.stringify({ method: user.tfaMethod }) });
         return { success: true };
       }),
   }),
