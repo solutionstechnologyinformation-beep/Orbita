@@ -35,6 +35,7 @@ import { DashboardTrendIndicator, DashboardTrendPeriodSelect } from "./Dashboard
 import { TREND_COMPARISON_PERIOD_DESCRIPTIONS, getTrendComparisonStorageKey, readTrendComparisonPeriod, type TrendComparisonPeriod } from "./dashboard-trend-period";
 import { useGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 import { DashboardPeriodBadge } from "./DashboardPeriodBadge";
+import { DashboardOkrBox } from "./DashboardOkrBox";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const MAP_FULLSCREEN_ANIMATION_DURATION_MS = 320;
@@ -1436,6 +1437,7 @@ export default function Dashboard() {
   const completedTasksQ = trpc.dashboard.completedTasksSummary.useQuery({ limit: 100 });
   const activeSprintQ = trpc.dashboard.activeSprint.useQuery();
   const contractsByStateQ = trpc.dashboard.contractsByState.useQuery(dashboardDataInput);
+  const memberPerformanceQ = trpc.dashboard.memberPerformance.useQuery(undefined);
   const segmentsQ = trpc.crs.segments.list.useQuery(dashboardDataInput);
   const slaQ = trpc.dashboard.slaStats.useQuery({ period: trendComparisonPeriod });
   const slaHistoryPoints = useMemo(() => slaQ.data?.history ?? [], [slaQ.data?.history]);
@@ -1929,6 +1931,16 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        <DashboardOkrBox
+          stats={stats}
+          sla={slaQ.data}
+          contracts={contractDetails}
+          members={(memberPerformanceQ.data ?? []) as any[]}
+          periodLabel={globalPeriodLabel}
+          isLoading={statsQ.isLoading || contractDetailsQ.isLoading || memberPerformanceQ.isLoading || slaQ.isLoading}
+          onNavigate={navigate}
+        />
 
         {/* ══════════════════════════════════════════════════════════════════════
             VISÃO GERAL

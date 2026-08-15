@@ -1292,6 +1292,9 @@ export const appRouter = router({
         .orderBy(t.startDate, t.dueDate);
       return rows.slice(0, 20);
     }),
+    memberPerformance: protectedProcedure
+      .input(z.object({ crsId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => getMemberPerformance(input?.crsId, tenantCompanyId(ctx.user))),
     contractsByState: protectedProcedure
       .input(z.object({ clientId: z.number().optional(), company: z.string().trim().max(256).optional() }).optional())
       .query(async ({ ctx, input }) => getContractsByState(input?.company, input?.clientId, tenantCompanyId(ctx.user))),

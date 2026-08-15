@@ -1306,3 +1306,15 @@
 - [x] Adicionar tooltip acessível com atalho rápido para abrir o filtro global
 - [x] Garantir atualização do tooltip ao trocar preset ou intervalo personalizado
 - [x] Validar teclado, responsividade, TypeScript e testes completos
+
+## Dashboard — Skeleton de carregamento para KPIs e gráficos
+- [ ] Auditar os estados de carregamento das consultas e os pontos de renderização do Dashboard
+- [ ] Implementar skeletons reutilizáveis para KPIs e gráficos mantendo as dimensões do layout
+- [ ] Adicionar testes de presença, acessibilidade, temas e responsividade durante o carregamento
+- [ ] Validar TypeScript, suíte completa e estado visual do Dashboard
+
+## Dashboard — Caixa Consolidada de OKRs
+- [x] Criar tipos, rotas backend e dados reais agregados para Objetivos e Resultados-Chave (OKRs)
+- [x] Implementar o componente de OKRs com abas de saúde, progresso dos KRs, tendência vs. meta, riscos, disciplinas e responsáveis
+- [x] Adicionar navegação contextual integrada (atalhos para contratos, Kanban e mapa)
+- [x] Escrever testes unitários e de integração para a nova seção de OKRs e validar TypeScript

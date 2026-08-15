@@ -172,3 +172,27 @@ describe("dashboard.clientFilter", () => {
     expect(states).toEqual([]);
   }, 15000);
 });
+
+
+// ── Dashboard: OKR / Performance por responsável ──────────────────────────
+describe("dashboard.memberPerformance", () => {
+  it("throws UNAUTHORIZED when not logged in", async () => {
+    const ctx = makeCtx({ user: null });
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.dashboard.memberPerformance()).rejects.toThrow();
+  });
+
+  it("returns only the typed performance fields used by the OKR box", async () => {
+    const ctx = makeCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.dashboard.memberPerformance();
+    expect(Array.isArray(result)).toBe(true);
+    for (const member of result) {
+      expect(typeof member.userId).toBe("number");
+      expect(typeof member.total).toBe("number");
+      expect(typeof member.completed).toBe("number");
+      expect(typeof member.overdue).toBe("number");
+      expect(typeof member.completionRate).toBe("number");
+    }
+  }, 15000);
+});
