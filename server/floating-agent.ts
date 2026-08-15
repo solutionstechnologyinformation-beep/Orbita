@@ -1,54 +1,84 @@
-import { invokeLLM } from "./_core/llm";
-import { getDb } from "./db";
+import { getDb, getUserAiMemories, addUserAiMemory } from "./db";
 import { tasks, agendaEvents, crs } from "../drizzle/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
+import { invokeLLM } from "./_core/llm";
 
 export async function processFloatingAgentCommand(userId: number, userMessage: string) {
   const db = await getDb();
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
 
-  const recentTasks = await db.select({
-    id: tasks.id,
-    title: tasks.title,
-    priority: tasks.priority,
-    crsId: tasks.crsId,
-  }).from(tasks).orderBy(desc(tasks.createdAt)).limit(15);
+  // Se o usuário pedir para o assistente lembrar de algo ("lembre que...", "anote que...", "aprender que...")
+  if (lower.startsWith("lembre que") || lower.startsWith("anote que") || lower.startsWith("aprenda que") || lower.startsWith("memorize que")) {
+    const memoryContent = trimmed.replace(/^(lembre que|anote que|aprenda que|memorize que)\s*/i, "").trim();
+    if (memoryContent.length >= 3) {
+      await addUserAiMemory(userId, memoryContent, "preference");
+      return {
+        reply: `Entendido! Salvei esta informação na minha memória de longo prazo: "${memoryContent}". Posso consultá-la sempre que precisar.`,
+        action: { type: "none", targetUrl: "", searchTerm: "" },
+      };
+    }
+  }
 
-  const upcomingAgenda = await db.select({
-    id: agendaEvents.id,
-    title: agendaEvents.title,
-    startDate: agendaEvents.startDate,
-    type: agendaEvents.type,
-  }).from(agendaEvents).orderBy(agendaEvents.startDate).limit(10);
+  // Se o usuário perguntar o que o assistente sabe / memórias salvas
+  if (lower.includes("o que você lembra") || lower.includes("minhas memórias") || lower.includes("o que você aprendeu") || lower.includes("sua memória")) {
+    const mems = await getUserAiMemories(userId);
+    if (mems.length === 0) {
+      return {
+        reply: "Ainda não tenho nenhuma preferência ou informação salva na minha memória. Você pode me ensinar dizendo 'Lembre que [sua preferência]'.",
+        action: { type: "none", targetUrl: "", searchTerm: "" },
+      };
+    }
+    const memList = mems.map((m: any, idx: number) => `${idx + 1}. ${m.content}`).join("\n");
+    return {
+      reply: `Aqui estão as informações e preferências que aprendi com você:\n\n${memList}\n\nVocê pode gerenciá-las ou apagá-las no painel do assistente.`,
+      action: { type: "none", targetUrl: "", searchTerm: "" },
+    };
+  }
 
-  const projects = await db.select({
-    id: crs.id,
-    name: crs.name,
-    code: crs.code,
-  }).from(crs).limit(10);
+  const [recentTasks, upcomingAgenda, projects, userMemories] = await Promise.all([
+    db.select({
+      id: tasks.id,
+      title: tasks.title,
+      priority: tasks.priority,
+      crsId: tasks.crsId,
+    }).from(tasks).orderBy(desc(tasks.createdAt)).limit(15),
+    db.select({
+      id: agendaEvents.id,
+      title: agendaEvents.title,
+      startDate: agendaEvents.startDate,
+      type: agendaEvents.type,
+    }).from(agendaEvents).orderBy(agendaEvents.startDate).limit(10),
+    db.select({
+      id: crs.id,
+      name: crs.name,
+      code: crs.code,
+    }).from(crs).limit(10),
+    getUserAiMemories(userId),
+  ]);
 
-  const contextPrompt = `Você é o Orbita AI Assistant, um assistente flutuante inteligente da plataforma Orbita (LS Solutions).
+  const contextPrompt = `Você é o Orbita AI Assistant, um assistente flutuante inteligente e altamente especializado da plataforma Orbita (LS Solutions).
 O usuário enviou a mensagem: "${trimmed}".
 
-Aqui estão dados recentes do sistema para ajudar na resposta:
+Dados recentes do sistema:
 - Tarefas recentes: ${JSON.stringify(recentTaskSummary(recentTasks))}
 - Próximos compromissos na agenda: ${JSON.stringify(upcomingAgenda)}
 - Projetos / Contratos (CRS): ${JSON.stringify(projects)}
+- Memórias e preferências aprendidas do usuário: ${JSON.stringify(userMemories.map((m: any) => m.content))}
 
-Analise a intenção do usuário. Responda em JSON estrito com o seguinte formato:
+Analise a intenção e o contexto específico do usuário. Responda em JSON estrito com o seguinte formato:
 {
-  "reply": "Texto da resposta amigável e direta em português",
+  "reply": "Texto da resposta amigável, precisa e direta em português",
   "action": {
     "type": "navigate" | "search" | "agenda" | "none",
-    "targetUrl": "URL opcional para navegação (ex: /tasks/12, /kanban, /calendar, /projects)",
+    "targetUrl": "URL opcional para navegação (ex: /tasks/12, /kanban, /calendar, /projects, /gantt, /sprints, /relatorios)",
     "searchTerm": "termo de busca opcional"
   }
 }
 
 Regras para action.type:
 - Se o usuário pedir para ir a uma tarefa específica (ex: "ir para a tarefa 4", "abrir tarefa X"), defina type="navigate" e targetUrl="/tasks/{id}".
-- Se o usuário pedir para ir ao Kanban, Agenda, Projetos ou Dashboard, defina type="navigate" e targetUrl="/kanban", "/calendar", "/projects" ou "/dashboard".
+- Se o usuário pedir para ir ao Kanban, Agenda, Projetos, Gantt, Sprints ou Relatórios, defina type="navigate" e targetUrl correspondente (/kanban, /calendar, /projects, /gantt, /sprints, /relatorios).
 - Se o usuário perguntar sobre compromissos ou agenda, defina type="agenda".
 - Se o usuário pedir para pesquisar algo, defina type="search" com o searchTerm.
 - Caso contrário, defina type="none".`;
@@ -105,7 +135,7 @@ export function normalizeFloatingAgentResponse(value: any) {
   const type = ["navigate", "search", "agenda", "none"].includes(rawAction.type) ? rawAction.type : "none";
   const targetUrl = typeof rawAction.targetUrl === "string" ? rawAction.targetUrl : "";
   const searchTerm = typeof rawAction.searchTerm === "string" ? rawAction.searchTerm.slice(0, 200) : "";
-  const allowedRoute = /^\/(dashboard|kanban|calendar|projects|tasks\/\d+)(\?[a-zA-Z0-9_=&%+.-]+)?$/;
+  const allowedRoute = /^\/(dashboard|kanban|calendar|projects|gantt|sprints|relatorios|tasks\/\d+)(\?[a-zA-Z0-9_=&%+.-]+)?$/;
   const safeTargetUrl = allowedRoute.test(targetUrl) ? targetUrl : "";
 
   if (type === "navigate" && !safeTargetUrl) return { reply, action: { type: "none", targetUrl: "", searchTerm: "" } };
@@ -118,6 +148,7 @@ export function normalizeFloatingAgentResponse(value: any) {
 export function fallbackFloatingAgentResponse(userMessage: string) {
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
+
   if (lower.includes("kanban") || lower.includes("quadro")) {
     return {
       reply: "Abrindo o Kanban para você gerenciar suas tarefas.",
@@ -136,6 +167,24 @@ export function fallbackFloatingAgentResponse(userMessage: string) {
       action: { type: "navigate", targetUrl: "/projects", searchTerm: "" },
     };
   }
+  if (lower.includes("gantt")) {
+    return {
+      reply: "Abrindo o cronograma Gantt.",
+      action: { type: "navigate", targetUrl: "/gantt", searchTerm: "" },
+    };
+  }
+  if (lower.includes("sprint")) {
+    return {
+      reply: "Abrindo as Sprints ativas.",
+      action: { type: "navigate", targetUrl: "/sprints", searchTerm: "" },
+    };
+  }
+  if (lower.includes("relatorio")) {
+    return {
+      reply: "Abrindo a central de relatórios.",
+      action: { type: "navigate", targetUrl: "/relatorios", searchTerm: "" },
+    };
+  }
   if (lower.includes("tarefa") || lower.includes("task")) {
     const match = trimmed.match(/\d+/);
     if (match) {
@@ -148,7 +197,7 @@ export function fallbackFloatingAgentResponse(userMessage: string) {
   }
 
   return {
-    reply: "Olá! Sou o assistente flutuante do Orbita. Posso te ajudar a navegar até tarefas, abrir o Kanban, consultar a agenda ou buscar projetos. Como posso ajudar?",
+    reply: "Olá! Sou o assistente inteligente do Orbita. Posso te ajudar com comandos específicos, navegar pelo sistema, consultar agenda ou aprender suas preferências (diga 'Lembre que...'). Como posso ajudar?",
     action: { type: "none", targetUrl: "", searchTerm: "" },
   };
 }

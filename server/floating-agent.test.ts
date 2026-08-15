@@ -24,6 +24,6 @@ describe("floating agent command fallback", () => {
   it("provides a helpful response for unsupported commands", () => {
     const response = fallbackFloatingAgentResponse("olá assistente");
     expect(response.action.type).toBe("none");
-    expect(response.reply).toContain("assistente flutuante");
+    expect(response.reply).toContain("assistente inteligente");
   });
 });

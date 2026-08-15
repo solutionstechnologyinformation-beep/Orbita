@@ -40,6 +40,7 @@ import {
   getSubscriptionStatus, isTrialPeriod,
   getMeetings, getMeetingById, createMeeting, updateMeeting, deleteMeeting,
   getCrsSegments, createCrsSegment, deleteCrsSegment,
+  getUserAiMemories, addUserAiMemory, deleteUserAiMemory,
 } from "./db";
 import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalendarEvents, syncGoogleMeetReport } from "./google-calendar";
 import { buildSlaHistory, getSlaPeriodConfig, summarizeSlaEvents, type SlaHistoryEvent } from "./sla-history";
@@ -2006,6 +2007,20 @@ export const appRouter = router({
       .input(z.object({ message: z.string().trim().min(1).max(1000) }))
       .mutation(async ({ ctx, input }) => {
         return await processFloatingAgentCommand(ctx.user.id, input.message);
+      }),
+    listMemories: protectedProcedure.query(async ({ ctx }) => {
+      return await getUserAiMemories(ctx.user.id);
+    }),
+    addMemory: protectedProcedure
+      .input(z.object({ content: z.string().min(2).max(500), category: z.string().max(64).default("general") }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await addUserAiMemory(ctx.user.id, input.content, input.category);
+        return { id, success: true };
+      }),
+    deleteMemory: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        return await deleteUserAiMemory(input.id, ctx.user.id);
       }),
   }),
 

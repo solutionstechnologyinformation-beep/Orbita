@@ -2324,3 +2324,30 @@ export async function getSubscriptionStatus(userId: number) {
     trialEndsAt: sub.trialEndDate,
   };
 }
+
+// ─── AI Assistant Memories ────────────────────────────────────────────────────
+export async function getUserAiMemories(userId: number) {
+  const db = await getDb();
+  const { userAiMemories } = await import("../drizzle/schema");
+  const { eq: eq2, desc: desc2 } = await import("drizzle-orm");
+  return db.select().from(userAiMemories).where(eq2(userAiMemories.userId, userId)).orderBy(desc2(userAiMemories.createdAt)).limit(50);
+}
+
+export async function addUserAiMemory(userId: number, content: string, category = "general") {
+  const db = await getDb();
+  const { userAiMemories } = await import("../drizzle/schema");
+  const inserted = await db.insert(userAiMemories).values({
+    userId,
+    content: content.trim(),
+    category: category.trim() || "general",
+  });
+  return Number((inserted as any)[0]?.insertId ?? 0);
+}
+
+export async function deleteUserAiMemory(memoryId: number, userId: number) {
+  const db = await getDb();
+  const { userAiMemories } = await import("../drizzle/schema");
+  const { eq: eq2, and: and2 } = await import("drizzle-orm");
+  await db.delete(userAiMemories).where(and2(eq2(userAiMemories.id, memoryId), eq2(userAiMemories.userId, userId)));
+  return { success: true };
+}

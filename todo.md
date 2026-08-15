@@ -1409,3 +1409,11 @@
 - [x] Remover o quadrado cinza da logo e preservar o desenho branco com fundo transparente
 - [x] Integrar a nova asset nas referências da interface e relatórios no tema escuro
 - [x] Validar contraste, renderização e testes da alteração visual (TypeScript + 257 testes Vitest)
+
+## Assistente IA Inteligente com Memória Persistente
+- [x] Criar schema e tabela `user_ai_memories` para armazenar preferências e aprendizados do usuário
+- [x] Implementar procedures tRPC protegidas para listar, adicionar e remover memórias de longo prazo
+- [x] Atualizar o motor do assistente flutuante para injetar as memórias e preferências salvas no contexto do LLM
+- [x] Adicionar comandos conversacionais de aprendizado ("Lembre que...", "O que você lembra?")
+- [x] Criar testes unitários para o sistema de memória da IA (`server/ai-memory.test.ts`)
+- [x] Validar compilação TypeScript e aprovação de 100% dos testes Vitest (258/258)

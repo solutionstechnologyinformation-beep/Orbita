@@ -596,3 +596,15 @@ export const subscriptionInvoices = mysqlTable("subscription_invoices", {
 });
 export type SubscriptionInvoice = typeof subscriptionInvoices.$inferSelect;
 export type InsertSubscriptionInvoice = typeof subscriptionInvoices.$inferInsert;
+
+// ─── AI Assistant Memories ────────────────────────────────────────────────────
+export const userAiMemories = mysqlTable("user_ai_memories", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 64 }).default("general").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type UserAiMemory = typeof userAiMemories.$inferSelect;
+export type InsertUserAiMemory = typeof userAiMemories.$inferInsert;
