@@ -82,7 +82,7 @@ export async function updateCompany(id: number, data: Partial<typeof companies.$
   await db.update(companies).set({ ...data, updatedAt: new Date() }).where(eq(companies.id, id));
 }
 
-export async function updateCompanyBranding(companyId: number, data: { name?: string; logoUrl?: string | null; logoDarkUrl?: string | null }) {
+export async function updateCompanyBranding(companyId: number, data: { name?: string; color?: string; logoUrl?: string | null; logoDarkUrl?: string | null }) {
   const db = await getDb();
   await db.update(companies).set({ ...data, updatedAt: new Date() }).where(eq(companies.id, companyId));
 }

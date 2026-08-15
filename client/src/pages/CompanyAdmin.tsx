@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import BrandingDashboardPreview from "@/components/BrandingDashboardPreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,47 +43,59 @@ export default function CompanyAdmin() {
     onError: (error) => toast.error(error.message),
   });
   const uploadLogo = trpc.companyAdmin.uploadLogo.useMutation({
-    onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Logo atualizada com sucesso."); },
     onError: (error) => toast.error(error.message),
   });
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" as "user" | "leader" | "company_admin" });
-  const [brandingForm, setBrandingForm] = useState({ name: "", logoUrl: "", logoDarkUrl: "" });
+  const [brandingForm, setBrandingForm] = useState({ name: "", color: "#2563eb", logoUrl: "", logoDarkUrl: "" });
+  const [pendingLogos, setPendingLogos] = useState<{ light?: { base64: string; mimeType: string; fileName: string }; dark?: { base64: string; mimeType: string; fileName: string } }>({});
 
   useEffect(() => {
     if (dashboard.data?.company) {
       setBrandingForm({
         name: dashboard.data.company.name ?? "",
+        color: dashboard.data.company.color ?? "#2563eb",
         logoUrl: dashboard.data.company.logoUrl ?? "",
         logoDarkUrl: dashboard.data.company.logoDarkUrl ?? "",
       });
+      setPendingLogos({});
     }
   }, [dashboard.data?.company]);
 
-  const handleBrandingSubmit = (event: FormEvent) => {
+  const handleBrandingSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    updateBranding.mutate({
-      name: brandingForm.name,
-      logoUrl: brandingForm.logoUrl || null,
-      logoDarkUrl: brandingForm.logoDarkUrl || null,
-    });
+    try {
+      const uploaded = { logoUrl: brandingForm.logoUrl || null, logoDarkUrl: brandingForm.logoDarkUrl || null };
+      if (pendingLogos.light) {
+        const result = await uploadLogo.mutateAsync({ ...pendingLogos.light, variant: "light" });
+        uploaded.logoUrl = result.url;
+      }
+      if (pendingLogos.dark) {
+        const result = await uploadLogo.mutateAsync({ ...pendingLogos.dark, variant: "dark" });
+        uploaded.logoDarkUrl = result.url;
+      }
+      await updateBranding.mutateAsync({ name: brandingForm.name, color: brandingForm.color, ...uploaded });
+      setPendingLogos({});
+    } catch {
+      // As mutações exibem o erro via onError, preservamos o preview para nova tentativa.
+    }
   };
 
-  const handleLogoUpload = async (file: File, variant: "light" | "dark") => {
+  const handleLogoUpload = (file: File, variant: "light" | "dark") => {
     if (file.size > 5 * 1024 * 1024) {
       toast.error("O arquivo deve ter no máximo 5MB.");
       return;
     }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem válido.");
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       const result = reader.result as string;
       const base64 = result.split(",")[1];
       if (!base64) return;
-      await uploadLogo.mutateAsync({
-        base64,
-        mimeType: file.type || "image/png",
-        fileName: file.name,
-        variant,
-      });
+      setBrandingForm((current) => ({ ...current, [variant === "dark" ? "logoDarkUrl" : "logoUrl"]: result }));
+      setPendingLogos((current) => ({ ...current, [variant]: { base64, mimeType: file.type || "image/png", fileName: file.name } }));
     };
     reader.readAsDataURL(file);
   };
@@ -165,6 +178,13 @@ export default function CompanyAdmin() {
                       />
                     </div>
                     <div>
+                      <Label htmlFor="company-color-input">Cor principal</Label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Input id="company-color-input" type="color" value={brandingForm.color} onChange={(e) => setBrandingForm((c) => ({ ...c, color: e.target.value }))} className="h-10 w-14 cursor-pointer p-1" aria-label="Selecionar cor principal da empresa" />
+                        <Input value={brandingForm.color} onChange={(e) => setBrandingForm((c) => ({ ...c, color: e.target.value }))} pattern="^#[0-9a-fA-F]{6}$" aria-label="Código hexadecimal da cor principal" className="font-mono" />
+                      </div>
+                    </div>
+                    <div>
                       <Label htmlFor="logo-url-input">URL da Logo (Tema Claro)</Label>
                       <Input
                         id="logo-url-input"
@@ -190,6 +210,12 @@ export default function CompanyAdmin() {
                   </form>
 
                   <div className="space-y-6">
+                    <BrandingDashboardPreview values={brandingForm} onReset={() => {
+                      const company = data?.company;
+                      if (!company) return;
+                      setBrandingForm({ name: company.name ?? "", color: company.color ?? "#2563eb", logoUrl: company.logoUrl ?? "", logoDarkUrl: company.logoDarkUrl ?? "" });
+                      setPendingLogos({});
+                    }} />
                     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                         <Upload className="h-5 w-5 text-emerald-600" />
@@ -211,7 +237,7 @@ export default function CompanyAdmin() {
                             const file = e.target.files?.[0];
                             if (file) handleLogoUpload(file, "light");
                           }}
-                          disabled={uploadLogo.isPending}
+                          disabled={uploadLogo.isPending || updateBranding.isPending}
                         />
                       </div>
                     </div>
@@ -237,7 +263,7 @@ export default function CompanyAdmin() {
                             const file = e.target.files?.[0];
                             if (file) handleLogoUpload(file, "dark");
                           }}
-                          disabled={uploadLogo.isPending}
+                          disabled={uploadLogo.isPending || updateBranding.isPending}
                         />
                       </div>
                     </div>

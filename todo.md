@@ -1352,3 +1352,10 @@
 - [x] Criar alertas visuais no painel de domínios para certificados próximos do vencimento ou pendentes de emissão
 - [x] Implementar o redirecionamento automático de domínios secundários verificados para o domínio primário configurado
 - [x] Criar testes unitários para a nova lógica de SSL, redirecionamento e branding dinâmico, mantendo zero erros TypeScript
+
+## Pré-visualização de Branding por Empresa
+- [x] Criar preview interativo do dashboard com as cores e o logotipo temporários
+- [x] Suportar alternância entre tema claro e escuro no preview
+- [x] Integrar alterações de nome, cores e upload de logo sem persistir antes da confirmação
+- [x] Adicionar reset/cancelamento e estados acessíveis de carregamento e erro
+- [x] Criar testes de regressão e validar TypeScript, responsividade e acessibilidade

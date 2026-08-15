@@ -280,7 +280,7 @@ export const appRouter = router({
         return { success: true };
       }),
     updateBranding: companyAdminProcedure
-      .input(z.object({ name: z.string().trim().min(1).max(256), logoUrl: z.string().optional().nullable(), logoDarkUrl: z.string().optional().nullable() }))
+      .input(z.object({ name: z.string().trim().min(1).max(256), color: z.string().regex(/^#[0-9a-fA-F]{6}$/), logoUrl: z.string().optional().nullable(), logoDarkUrl: z.string().optional().nullable() }))
       .mutation(async ({ ctx, input }) => {
         const companyId = ctx.user.companyId;
         if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
