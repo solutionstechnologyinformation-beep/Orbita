@@ -1300,3 +1300,9 @@
 - [x] Exibir o período ativo nos títulos dos KPIs e gráficos do Dashboard sem duplicação excessiva
 - [x] Adicionar testes de presença, conteúdo e atualização do indicador por preset e período personalizado
 - [x] Validar responsividade, TypeScript, testes completos e estado visual do Dashboard
+
+## Dashboard — Tooltip interativo do período ativo
+- [x] Calcular e exibir a quantidade total de dias do período global ativo
+- [x] Adicionar tooltip acessível com atalho rápido para abrir o filtro global
+- [x] Garantir atualização do tooltip ao trocar preset ou intervalo personalizado
+- [x] Validar teclado, responsividade, TypeScript e testes completos
