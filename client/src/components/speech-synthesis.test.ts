@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, stripTextForSpeech } from "./speech-synthesis";
+import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, getVoiceStyleParameters, normalizeSpeechRate, normalizeVoiceStyle, personalizeAssistantReply, shouldSpeakClosingGreeting, stripTextForSpeech } from "./speech-synthesis";
 
 describe("speech synthesis adapter", () => {
   it("removes markdown and visual symbols before speaking", () => {
@@ -37,6 +37,21 @@ describe("speech synthesis adapter", () => {
     expect(getSpeechPlaybackMessage("speaking")).toContain("voz alta");
     expect(getSpeechPlaybackMessage("paused")).toContain("pausada");
     expect(getSpeechPlaybackMessage("unsupported")).toContain("resposta escrita");
+  });
+
+  it("speaks the welcome greeting only while closing the panel", () => {
+    expect(shouldSpeakClosingGreeting(false, true)).toBe(false);
+    expect(shouldSpeakClosingGreeting(true, true)).toBe(false);
+    expect(shouldSpeakClosingGreeting(true, false)).toBe(true);
+  });
+
+  it("normalizes voice styles and speech rate safely", () => {
+    expect(normalizeVoiceStyle("professional")).toBe("professional");
+    expect(normalizeVoiceStyle("unknown")).toBe("soft");
+    expect(normalizeSpeechRate(2)).toBe(1.15);
+    expect(normalizeSpeechRate(0.2)).toBe(0.85);
+    expect(getVoiceStyleParameters("soft", 0.96)).toEqual({ rate: 0.94, pitch: 1.04 });
+    expect(getVoiceStyleParameters("professional", 1)).toEqual({ rate: 1.02, pitch: 1 });
   });
 });
 

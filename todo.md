@@ -1468,3 +1468,14 @@
 - [x] Priorizar vozes femininas naturais em português do Brasil
 - [x] Ajustar ritmo e tom para uma leitura suave e acolhedora
 - [x] Adicionar testes de seleção da voz feminina e validar a síntese de voz (275/275 testes aprovados)
+
+## Melhorias Avançadas de Voz do Assistente
+- [x] Implementar seletor de estilo de voz (suave, profissional, enérgica)
+- [x] Adicionar controle deslizante de velocidade de leitura persistido
+- [x] Não implementar sinais sonoros de confirmação, conforme solicitado em “Continue sem o último comando”
+- [x] Validar com testes unitários e zero erros TypeScript (277/277 testes aprovados)
+
+## Saudação no Fechamento do Assistente
+- [x] Remover a saudação automática ao abrir o painel flutuante
+- [x] Falar a mensagem de boas-vindas somente ao fechar a caixa flutuante
+- [x] Validar o fluxo de abertura, fechamento e síntese de voz (276/276 testes aprovados)

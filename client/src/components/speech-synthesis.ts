@@ -20,6 +20,24 @@ export type SpeechSynthesisLike = {
   getVoices?: () => any[];
 };
 
+export type VoiceStyle = "soft" | "professional" | "energetic";
+
+export function normalizeVoiceStyle(value: string | null | undefined): VoiceStyle {
+  return value === "professional" || value === "energetic" ? value : "soft";
+}
+
+export function normalizeSpeechRate(value: number): number {
+  if (!Number.isFinite(value)) return 0.96;
+  return Math.min(1.15, Math.max(0.85, Number(value.toFixed(2))));
+}
+
+export function getVoiceStyleParameters(style: VoiceStyle, rate: number): { rate: number; pitch: number } {
+  const baseRate = normalizeSpeechRate(rate);
+  if (style === "professional") return { rate: normalizeSpeechRate(baseRate * 1.02), pitch: 1.0 };
+  if (style === "energetic") return { rate: normalizeSpeechRate(baseRate * 1.1), pitch: 1.08 };
+  return { rate: normalizeSpeechRate(baseRate * 0.98), pitch: 1.04 };
+}
+
 type SpeechUtteranceConstructor = new (text: string) => SpeechSynthesisUtteranceLike;
 
 type SpeechWindow = Window & {
@@ -98,6 +116,10 @@ export function getAgentActionAnnouncement(action: AgentActionLike, userName?: s
 
 export function personalizeAssistantReply(reply: string, userName?: string | null): string {
   return `${getPreferredUserName(userName)}, ${reply.trim()}`;
+}
+
+export function shouldSpeakClosingGreeting(isOpen: boolean, nextOpen: boolean): boolean {
+  return isOpen && !nextOpen;
 }
 
 export function getSpeechPlaybackMessage(state: SpeechPlaybackState): string {
