@@ -42,6 +42,7 @@ const DEFAULT_PANEL_WIDTH = 400;
 const MIN_PANEL_WIDTH = 320;
 const MAX_PANEL_WIDTH = 560;
 const WAKE_GREETING = "Que bom te ver novamente.";
+const ASSISTANT_CHARACTER_ASSET = "/manus-storage/orbita-assistant-character-transparent-v2_23718c10.png";
 const WAKE_RESTART_DELAY_MS = 4500;
 const WAKE_STORAGE_KEY = "orbita-wake-phrase-enabled";
 
@@ -555,14 +556,14 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
 
   return (
     <div
-      className="fixed z-[70] flex flex-col items-end gap-3 transition duration-500 ease-out"
+      className="fixed z-[70] flex flex-row-reverse items-end gap-3 transition duration-500 ease-out max-sm:flex-col"
       style={{ ...agentPositionStyle, transitionProperty: FLOATING_AGENT_TRANSITION }}
       data-sidebar-mode={compactMode ? "collapsed" : "expanded"}
     >
       {open && (
         <div
           ref={panelRef}
-          className={`${compactMode ? "absolute bottom-full left-[calc(100%+1rem)] z-[80] mb-2" : ""} relative overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl animate-in fade-in ${compactMode ? "slide-in-from-left-2" : "slide-in-from-bottom-3"} duration-200`}
+          className="relative rounded-3xl rounded-br-md border border-black/10 bg-white shadow-2xl animate-in fade-in slide-in-from-right-2 duration-200 max-sm:slide-in-from-bottom-3"
           style={{
             width: effectivePanelWidth,
             maxWidth: "calc(100vw - 32px)",
@@ -578,13 +579,13 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             onPointerDown={beginDrag}
             aria-label="Arrastar painel do Orbita AI"
           >
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[#ffc30d] text-black">
-              <Sparkles className="h-5 w-5" />
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" aria-label="Assistente disponível" />
+            <div className="relative flex h-11 w-9 shrink-0 items-end justify-center">
+              <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className="h-11 w-9 object-contain object-bottom" />
+              <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black" aria-label="Assistente disponível" />
               {activeSoundState !== "idle" && <SoundWaveIndicator state={activeSoundState} compact className="absolute -bottom-1 -right-2 bg-black/80 px-1" />}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">Orbita AI</p>
+              <p className="font-semibold">Assistente Orbita</p>
               <p className="text-xs text-white/70">Navegação e consulta inteligente</p>
             </div>
             <Button
@@ -759,6 +760,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
               </Button>
             </div>
           </div>
+          <span aria-hidden="true" className="pointer-events-none absolute -right-2 bottom-5 h-4 w-4 rotate-45 border-r border-b border-black/10 bg-white max-sm:-bottom-2 max-sm:right-10" />
           <div
             className="absolute bottom-1 right-1 h-4 w-4 cursor-se-resize rounded-sm border-b-2 border-r-2 border-slate-300 transition-colors hover:border-[#ffc30d] focus-visible:border-[#ffc30d]"
             role="separator"
@@ -823,11 +825,13 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         onClick={toggleAssistantOpen}
-        className={`${compactMode ? "h-10 w-10" : "h-14 w-14"} group flex items-center justify-center rounded-full bg-black text-[#ffc30d] shadow-xl ring-4 ring-[#ffc30d]/30 transition-[width,height,transform,box-shadow] duration-500 ease-out hover:scale-105 hover:ring-[#ffc30d]/60`}
-        aria-label={open ? "Fechar Orbita AI" : "Abrir Orbita AI"}
-        title={activeSoundState === "listening" ? "Orbita está ouvindo" : activeSoundState === "speaking" ? "Orbita está falando" : "Abrir Orbita AI"}
+        className={`${compactMode ? "h-20 w-14" : "h-28 w-20"} group relative flex shrink-0 items-end justify-center bg-transparent p-0 transition-transform duration-300 ease-out hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffc30d] focus-visible:ring-offset-2`}
+        aria-label={open ? "Fechar Assistente Orbita" : "Abrir Assistente Orbita"}
+        title={activeSoundState === "listening" ? "Assistente Orbita está ouvindo" : activeSoundState === "speaking" ? "Assistente Orbita está falando" : "Abrir Assistente Orbita"}
       >
-        {open ? <ChevronRight className="h-5 w-5" /> : activeSoundState !== "idle" ? <SoundWaveIndicator state={activeSoundState} /> : <Bot className={`${compactMode ? "h-5 w-5" : "h-6 w-6"} transition group-hover:rotate-6`} />}
+        <img src={ASSISTANT_CHARACTER_ASSET} alt="" aria-hidden="true" className="h-full w-full object-contain object-bottom drop-shadow-[0_8px_6px_rgba(0,0,0,0.22)]" />
+        <span className="absolute bottom-3 right-1 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-white" aria-label="Assistente Orbita disponível" />
+        {activeSoundState !== "idle" && <SoundWaveIndicator state={activeSoundState} compact className="absolute bottom-7 -right-2 bg-black/80 px-1" />}
       </button>
     </div>
   );

@@ -1508,3 +1508,9 @@
 - [x] Criar componente visual de esqueleto/carregamento animado específico para análise de demandas da IA
 - [x] Integrar o estado de carregamento ao FloatingAgent durante a mutação de chat do assistente
 - [x] Validar com testes unitários e zero erros TypeScript (283/283 testes aprovados)
+
+## Novo Personagem do Assistente Orbita
+- [x] Preparar e hospedar o personagem com fundo transparente como asset do projeto
+- [x] Substituir o ícone flutuante atual pelo personagem do Assistente Orbita
+- [x] Transformar o painel aberto em balão de conversa ao lado do personagem
+- [x] Validar responsividade, acessibilidade e renderização do novo assistente (283/283 testes aprovados)
