@@ -1530,3 +1530,8 @@
 - [x] Adicionar animação de atenção (pulso suave / crachá de alerta âmbar) no boneco quando houver tarefas em atraso
 - [x] Respeitar prefers-reduced-motion e garantir acessibilidade para leitores de tela
 - [x] Adicionar testes unitários para o estado de alerta de atraso e validar zero erros TypeScript (286/286 testes aprovados)
+
+## Substituição do Boneco do Assistente Orbita
+- [x] Hospedar a imagem enviada como asset persistente do projeto
+- [x] Atualizar o FloatingAgent para usar a nova imagem como boneco
+- [x] Validar que o fundo branco não apareça e preservar alertas, balão e acessibilidade (286/286 testes aprovados)
