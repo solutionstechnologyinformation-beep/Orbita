@@ -1,4 +1,5 @@
 import { getDb, getUserAiMemories, addUserAiMemory } from "./db";
+import { summarizeProjectReportByName } from "./project-report-summary";
 import { tasks, agendaEvents, crs } from "../drizzle/schema";
 import { desc, eq } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
@@ -33,6 +34,16 @@ export async function processFloatingAgentCommand(userId: number, userMessage: s
     return {
       reply: `Aqui estão as informações e preferências que aprendi com você:\n\n${memList}\n\nVocê pode gerenciá-las ou apagá-las no painel do assistente.`,
       action: { type: "none", targetUrl: "", searchTerm: "" },
+    };
+  }
+
+  // Se o usuário pedir para resumir relatório de projeto ("resumir relatório do projeto X", "relatório do projeto")
+  if (lower.includes("resumir relatório") || lower.includes("relatório do projeto") || lower.includes("resumo do projeto")) {
+    const query = trimmed.replace(/^(resumir relatório do projeto|relatório do projeto|resumo do projeto|resumir relatório)\s*/i, "").trim();
+    const summary = await summarizeProjectReportByName(query);
+    return {
+      reply: summary,
+      action: { type: "navigate", targetUrl: "/relatorios", searchTerm: "" },
     };
   }
 

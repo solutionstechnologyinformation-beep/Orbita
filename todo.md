@@ -1423,3 +1423,8 @@
 - [x] Exibir estados acessíveis de escuta, permissão, erro e indisponibilidade
 - [x] Preservar fallback para digitação e impedir envio de áudio para serviços externos
 - [x] Criar testes unitários do adaptador e validar TypeScript e suíte completa (261/261 testes aprovados)
+
+## Resumo de Relatórios de Projetos por Voz
+- [x] Atualizar o motor do assistente flutuante para reconhecer pedidos de resumo de relatórios ("resumir relatório", "relatório do projeto")
+- [x] Implementar consulta segura de dados do contrato/CRS e tarefas para gerar resumo executivo via LLM
+- [x] Adicionar testes unitários para o comando de resumo e validação da suíte completa (262/262 testes aprovados)
