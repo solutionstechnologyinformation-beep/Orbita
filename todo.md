@@ -1503,3 +1503,8 @@
 - [x] Criar estado e modal de pré-visualização no FloatingAgent para revisar recomendações antes do PDF
 - [x] Adicionar botões de confirmar exportação ou cancelar na pré-visualização
 - [x] Validar com testes unitários e zero erros TypeScript (281/281 testes aprovados)
+
+## Animação de Carregamento para Sugestões de Distribuição de Equipe
+- [x] Criar componente visual de esqueleto/carregamento animado específico para análise de demandas da IA
+- [x] Integrar o estado de carregamento ao FloatingAgent durante a mutação de chat do assistente
+- [x] Validar com testes unitários e zero erros TypeScript (283/283 testes aprovados)

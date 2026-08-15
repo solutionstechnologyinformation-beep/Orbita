@@ -18,6 +18,8 @@ import { getQuickCommandVisualState, QUICK_COMMAND_HOVER_CLASSES } from "./quick
 import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, getCommandAfterWakePhrase, getSpeechRecognitionConstructor, getVoiceErrorState, getVoiceStatusMessage, type SpeechRecognitionLike, type VoiceRecognitionState } from "./voice-recognition";
 import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, shouldSpeakClosingGreeting, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
+import { WorkloadAnalysisLoading } from "./WorkloadAnalysisLoading";
+import { isWorkloadAnalysisRequest } from "./workload-analysis-state";
 import { buildWorkloadCsv, buildWorkloadPdfHtml, type WorkloadRecommendation } from "./workload-export";
 
 type AgentMessage = AgentHistoryEntry;
@@ -86,6 +88,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
   const [wakePhraseMessage, setWakePhraseMessage] = useState("");
   const [latestRecommendations, setLatestRecommendations] = useState<WorkloadRecommendation[]>([]);
   const [isWorkloadPreviewOpen, setIsWorkloadPreviewOpen] = useState(false);
+  const [isWorkloadAnalysisPending, setIsWorkloadAnalysisPending] = useState(false);
   const wakeRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wakeRestartTimeoutRef = useRef<number | null>(null);
   const wakePermissionDeniedRef = useRef(false);
@@ -127,9 +130,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       if (ignoreNextResponseRef.current) {
         ignoreNextResponseRef.current = false;
         setActiveQuickCommand(null);
+        setIsWorkloadAnalysisPending(false);
         return;
       }
       setActiveQuickCommand(null);
+      setIsWorkloadAnalysisPending(false);
       const action = data.action as any;
       if (action?.recommendations && Array.isArray(action.recommendations)) {
         setLatestRecommendations(action.recommendations);
@@ -161,9 +166,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       if (ignoreNextResponseRef.current) {
         ignoreNextResponseRef.current = false;
         setActiveQuickCommand(null);
+        setIsWorkloadAnalysisPending(false);
         return;
       }
       setActiveQuickCommand(null);
+      setIsWorkloadAnalysisPending(false);
       const errorReply = personalizeAssistantReply(`Não consegui concluir: ${error.message}`, userName);
       setHistory((items) => [...items, { role: "assistant", content: errorReply }]);
       speakReply(errorReply);
@@ -239,6 +246,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     setActiveQuickCommand(null);
     setMessage("");
     setIsClearingHistory(true);
+    setIsWorkloadAnalysisPending(false);
     toast.success("Histórico da conversa limpo");
 
     if (clearHistoryTimeoutRef.current !== null) {
@@ -256,6 +264,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     const trimmed = nextMessage.trim();
     if (!trimmed || chatM.isPending) return;
     setIsInitialScreenEntering(false);
+    setIsWorkloadAnalysisPending(isWorkloadAnalysisRequest(trimmed));
     setHistory((items) => [...items, { role: "user", content: trimmed }]);
     setMessage("");
     chatM.mutate({ message: trimmed });
@@ -666,9 +675,11 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
                 </div>
               </div>
             ))}
-            {chatM.isPending && (
-              <div className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando o Orbita...</div>
-            )}
+            {isWorkloadAnalysisPending && chatM.isPending ? (
+              <WorkloadAnalysisLoading />
+            ) : chatM.isPending ? (
+              <div className="flex items-center gap-2 text-xs text-slate-500" role="status" aria-live="polite"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando o Orbita...</div>
+            ) : null}
             {latestRecommendations.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t border-slate-200">
                 <Button
