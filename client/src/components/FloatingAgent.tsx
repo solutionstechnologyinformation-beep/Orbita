@@ -365,15 +365,20 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
     });
   };
 
-  const speakClosingGreeting = () => {
-    window.setTimeout(() => speakReply(`${userName}, ${WAKE_GREETING}`), 100);
+  const speakFirstOpeningGreeting = () => {
+    const hasGreetedKey = `orbita_has_greeted_${user?.id ?? "guest"}`;
+    const alreadyGreeted = sessionStorage.getItem(hasGreetedKey);
+    if (!alreadyGreeted) {
+      sessionStorage.setItem(hasGreetedKey, "true");
+      window.setTimeout(() => speakReply(`${userName}, ${WAKE_GREETING}`), 100);
+    }
   };
 
   const toggleAssistantOpen = () => {
     setOpen((value) => {
       const nextOpen = !value;
       if (shouldSpeakClosingGreeting(value, nextOpen)) {
-        speakClosingGreeting();
+        speakFirstOpeningGreeting();
       }
       return nextOpen;
     });
@@ -630,7 +635,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             >
               <Trash2 className={`h-4 w-4 transition-transform duration-200 ${isClearingHistory ? "rotate-[-20deg]" : ""}`} />
             </Button>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={() => { setOpen(false); speakClosingGreeting(); }} aria-label="Fechar assistente">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10" onClick={() => { setOpen(false); }} aria-label="Fechar assistente">
               <X className="h-4 w-4" />
             </Button>
           </div>

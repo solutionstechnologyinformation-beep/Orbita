@@ -39,10 +39,11 @@ describe("speech synthesis adapter", () => {
     expect(getSpeechPlaybackMessage("unsupported")).toContain("resposta escrita");
   });
 
-  it("speaks the welcome greeting only while closing the panel", () => {
-    expect(shouldSpeakClosingGreeting(false, true)).toBe(false);
+  it("speaks the welcome greeting only while opening the panel", () => {
+    expect(shouldSpeakClosingGreeting(false, false)).toBe(false);
     expect(shouldSpeakClosingGreeting(true, true)).toBe(false);
-    expect(shouldSpeakClosingGreeting(true, false)).toBe(true);
+    expect(shouldSpeakClosingGreeting(true, false)).toBe(false);
+    expect(shouldSpeakClosingGreeting(false, true)).toBe(true);
   });
 
 });

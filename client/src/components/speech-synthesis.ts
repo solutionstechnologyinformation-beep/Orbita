@@ -114,7 +114,8 @@ export function personalizeAssistantReply(reply: string, userName?: string | nul
 }
 
 export function shouldSpeakClosingGreeting(isOpen: boolean, nextOpen: boolean): boolean {
-  return isOpen && !nextOpen;
+  // A saudação de boas-vindas ocorre na primeira abertura da caixa de mensagem
+  return !isOpen && nextOpen;
 }
 
 export function getSpeechPlaybackMessage(state: SpeechPlaybackState): string {

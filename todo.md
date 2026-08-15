@@ -1535,3 +1535,13 @@
 - [x] Hospedar a imagem enviada como asset persistente do projeto
 - [x] Atualizar o FloatingAgent para usar a nova imagem como boneco
 - [x] Validar que o fundo branco não apareça e preservar alertas, balão e acessibilidade (286/286 testes aprovados)
+
+## Ajuste de Saudação Única e Novo Boneco IMG_4220(1)
+- [ ] Processar IMG_4220(1).png para garantir fundo transparente e hospedagem persistente
+- [ ] Configurar saudação de boas-vindas para ocorrer apenas na primeira abertura do assistente por sessão/usuário
+- [ ] Validar com testes unitários e garantir zero erros TypeScript
+
+## Ajuste de Saudação Única e Novo Boneco IMG_4220(1)
+- [x] Processar IMG_4220(1).png para garantir fundo transparente e hospedagem persistente (/manus-storage/orbita-assistant-img4220-1-transparent_05a48061.png)
+- [x] Configurar saudação de boas-vindas para ocorrer apenas na primeira abertura do assistente por sessão/usuário (usando sessionStorage)
+- [x] Validar com testes unitários (286/286 testes Vitest aprovados) e garantir zero erros TypeScript
