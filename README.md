@@ -1,19 +1,19 @@
-# Órbita — Plataforma de Gestão de Contratos e Ordens de Serviço (LS Solutions)
+# Órbita — Plataforma de Gestão de Contratos e Ordens de Serviço
 
 O **Órbita** é uma plataforma robusta, elegante e independente para gerenciamento de projetos de engenharia, contratos (CRS) e ordens de serviço (OS) [1]. Desenvolvida com uma arquitetura moderna baseada em **React 19**, **tRPC 11**, **Express 4**, **Drizzle ORM** e **MySQL/TiDB**, a aplicação oferece visibilidade em tempo real, quadros Kanban interativos, relatórios analíticos, gráficos de Gantt, visualização GIS avançada de KML/KMZ e painel administrativo por empresa [1] [2].
 
 ---
 
-## Arquitetura e Tecnologias
+## Arquitetura em Camadas
 
 A aplicação foi estruturada seguindo rigorosos padrões de engenharia de software e separação de responsabilidades por camadas, garantindo manutenibilidade, segurança e tipagem ponta a ponta sem duplicação de contratos [1] [2].
 
 | Camada | Tecnologias Principais | Descrição |
 | :--- | :--- | :--- |
-| **Frontend** | React 19, Tailwind CSS 4, Wouter, Recharts, Lucide Icons | Interface responsiva com tema claro/escuro, modo sidebar recolhível e componentes modulares |
-| **Backend** | Node.js, Express 4, tRPC 11, TypeScript | API tipada com procedimentos protegidos e públicos centralizados em `server/routers.ts` [2] |
-| **Persistência** | Drizzle ORM, MySQL / TiDB | Mapeamento relacional seguro com migrações gerenciadas, multi-tenant por `companyId` e consultas otimizadas em `server/db.ts` [2] |
-| **GIS & Relatórios** | Google Maps JS API, HTML2Canvas, Parsers KML/KMZ | Visualização geoespacial com painel lateral, busca, ordenação, hover, balões de atributos e exportação em PDF |
+| **Interface (Frontend)** | React 19, Tailwind CSS 4, Wouter, Recharts, Lucide Icons | Interface responsiva com tema claro/escuro, modo sidebar recolhível, controle global de período e layout mobile adaptativo |
+| **Lógica de Negócio (Backend)** | Node.js, Express 4, tRPC 11, TypeScript | API tipada com procedimentos protegidos e públicos centralizados em `server/routers.ts` [2] |
+| **Persistência (Database)** | Drizzle ORM, MySQL / TiDB | Mapeamento relacional seguro com migrações gerenciadas, multi-tenant por `companyId` e consultas otimizadas em `server/db.ts` [2] |
+| **GIS & Relatórios** | Google Maps JS API, HTML2Canvas, Parsers KML/KMZ | Visualização geoespacial com painel lateral retrátil, busca, ordenação, hover, balões de atributos, filtros rápidos de status e exportação em PDF |
 
 ---
 
@@ -24,37 +24,29 @@ O repositório está organizado de forma modular para facilitar a navegação, o
 ```text
 orbita/
 ├── client/                   # Aplicação frontend em React
-│   ├── public/               # Ativos estáticos públicos
+│   ├── public/               # Ativos estáticos públicos (favicon, robots.txt)
 │   └── src/
 │       ├── components/       # Componentes reutilizáveis (Layout, Map, Modais)
 │       ├── pages/            # Páginas principais (Dashboard, Kanban, Gantt, CompanyAdmin, etc.)
+│       ├── contexts/         # Contextos globais (GlobalPeriodContext, ThemeContext)
 │       ├── lib/              # Utilitários e cliente tRPC
 │       └── App.tsx           # Roteamento e layout estrutural
 ├── server/                   # Backend em Express e tRPC
-│   ├── _core/                # Infraestrutura base (Autenticação OAuth, LLM, Storage)
+│   ├── _core/                # Infraestrutura base (Autenticação OAuth, LLM, Storage, Map)
 │   ├── routers.ts            # Procedimentos e contratos tRPC da API
 │   ├── db.ts                 # Funções de consulta e manipulação Drizzle ORM
-│   └── *.test.ts             # Testes unitários Vitest (mais de 135 testes automatizados)
+│   └── *.test.ts             # Testes unitários Vitest (mais de 228 testes automatizados)
 ├── drizzle/                  # Definição de esquemas de banco e migrações
 │   └── schema.ts             # Tabelas e relacionamentos do banco de dados (companies, users, crs, tasks, etc.)
-├── shared/                   # Constantes, tipos e parsers compartilhados (map-element-data.ts)
+├── shared/                   # Constantes, tipos e parsers compartilhados (map-element-data.ts, report-summary.ts)
 └── package.json              # Dependências e scripts de execução
 ```
 
 ---
 
-## Funcionalidades Principais
+## Guia de Execução Local e Testes via GitHub
 
-1. **Dashboard Executivo e GIS**: Visão geral com cartões de indicadores de desempenho, métricas de extensão por tipo de obra e mapa KML/KMZ integrado com painel lateral, busca, ordenação A–Z e por geometria, hover sincronizado e balões com atributos completos.
-2. **Quadro Kanban de Tarefas**: Gestão visual com arraste por mouse entre colunas, coluna "Concluído" com cards sombreados e remoção automática de atraso em tarefas 100% concluídas.
-3. **Painel Company Admin**: Gestão dedicada para administradores de empresa gerenciarem usuários e projetos restritos ao seu próprio tenant.
-4. **Preferências e Alertas**: Configuração de prazos de alerta persistidos em `notification_preferences` e respeitados pelo sistema de notificações central.
-
----
-
-## Guia de Execução Local via GitHub
-
-Para clonar e executar o Orbita em seu próprio ambiente ou servidor de desenvolvimento a partir do GitHub, siga os passos abaixo:
+Para clonar e executar o Órbita em seu próprio ambiente ou servidor de desenvolvimento a partir do GitHub, siga os passos abaixo:
 
 ### Pré-requisitos
 - **Node.js** versão 22 ou superior instalado [3].
@@ -73,16 +65,14 @@ pnpm install
 ```
 
 ### 3. Configurar as Variáveis de Ambiente
-Crie um arquivo `.env` na raiz do projeto com as chaves necessárias (ou utilize o painel de configuração do seu ambiente) [2]:
+Crie um arquivo `.env` na raiz do projeto com as chaves necessárias [2]:
 ```env
 DATABASE_URL=mysql://usuario:senha@host:porta/banco
 JWT_SECRET=seu_segredo_jwt
 ```
 
 ### 4. Executar as Migrações do Banco de Dados
-As alterações de schema devem ser revisadas e aplicadas de forma idempotente no banco conectado, respeitando a ordem das dependências. Não execute `pnpm db:push` cegamente em uma base com dados operacionais; use o fluxo de migração SQL aprovado pelo ambiente e valide cada alteração antes de prosseguir.
-
-Para habilitar a presença efêmera de digitação do chat, a tabela abaixo pode ser aplicada uma única vez:
+As alterações de schema devem ser aplicadas de forma controlada. Para habilitar o estado de digitação do chat, garanta que a tabela auxiliar esteja presente:
 
 ```sql
 CREATE TABLE IF NOT EXISTS chat_typing_states (
@@ -93,12 +83,10 @@ CREATE TABLE IF NOT EXISTS chat_typing_states (
 );
 ```
 
-O schema Drizzle correspondente está em `drizzle/schema.ts`, e os helpers tRPC estão em `server/db.ts` e `server/routers.ts`. Em ambientes gerenciados, aplique o SQL pelo executor de banco do projeto ou por uma ferramenta de migração controlada; mantenha o comando e o resultado registrados no histórico da entrega.
-
-### 5. Executar os Testes Unitários
-Para garantir a integridade da aplicação antes de iniciar o servidor, execute a suíte de testes automatizados com Vitest [4]:
+### 5. Executar a Suíte de Testes Automatizados
+Para verificar a integridade da aplicação antes de iniciar o servidor, execute todos os testes com Vitest [4]:
 ```bash
-pnpm test -- --run
+pnpm test -- run
 ```
 
 ### 6. Iniciar o Servidor de Desenvolvimento
@@ -109,13 +97,22 @@ A aplicação estará disponível em `http://localhost:3000` [2] [3].
 
 ---
 
+## Configuração de Domínio Personalizado (`www.orbita.com.br`)
+
+Para publicar e apontar a aplicação para o domínio de produção `www.orbita.com.br`:
+1. No provedor de DNS do seu domínio, configure um registro **CNAME** apontando `www` para o endpoint da sua hospedagem.
+2. Configure um registro **A** ou redirecionamento para a raiz (`orbita.com.br`) se desejar suporte direto.
+3. No painel de configuração da aplicação, associe `www.orbita.com.br` para ativação automática do certificado SSL/TLS.
+
+---
+
 ## Referências
 
-[1] **Manus AI**. *Especificação Funcional e Arquitetural do Orbita*. Documentação Interna de Projeto, 2026.  
+[1] **Manus AI**. *Especificação Funcional e Arquitetural do Órbita*. Documentação Interna de Projeto, 2026.
 [2] **tRPC & Drizzle Documentation**. *End-to-end Type-safe APIs with React and TypeScript*. Disponível em: <https://trpc.io/>.  
 [3] **Node.js Foundation**. *Node.js v22 Release Notes and Package Management Guidelines*. Disponível em: <https://nodejs.org/>.  
 [4] **Vitest Testing Framework**. *Fast Unit Testing in Vite-powered Applications*. Disponível em: <https://vitest.dev/>.
 
 ---
 
-*Desenvolvido com excelência por **Manus AI** para **Orbita**.*
+*Desenvolvido com excelência por **Manus AI** para **Órbita**.*
