@@ -1308,10 +1308,10 @@
 - [x] Validar teclado, responsividade, TypeScript e testes completos
 
 ## Dashboard — Skeleton de carregamento para KPIs e gráficos
-- [ ] Auditar os estados de carregamento das consultas e os pontos de renderização do Dashboard
-- [ ] Implementar skeletons reutilizáveis para KPIs e gráficos mantendo as dimensões do layout
-- [ ] Adicionar testes de presença, acessibilidade, temas e responsividade durante o carregamento
-- [ ] Validar TypeScript, suíte completa e estado visual do Dashboard
+- [x] Auditar os estados de carregamento das consultas e os pontos de renderização do Dashboard
+- [x] Implementar skeletons reutilizáveis para KPIs e gráficos mantendo as dimensões do layout
+- [x] Adicionar testes de presença, acessibilidade, temas e responsividade durante o carregamento
+- [x] Validar TypeScript, suíte completa e estado visual do Dashboard
 
 ## Dashboard — Caixa Consolidada de OKRs
 - [x] Criar tipos, rotas backend e dados reais agregados para Objetivos e Resultados-Chave (OKRs)
