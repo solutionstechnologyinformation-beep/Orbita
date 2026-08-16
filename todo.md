@@ -2026,3 +2026,10 @@
 - [x] Integrar o indicador no painel do administrador da empresa e no cadastro local (`CompanyAdmin.tsx` e `SecureLoginModal.tsx`)
 - [x] Escrever testes unitários em `password-strength.test.ts` e atualizar a documentação em `GUIA_AUTENTICACAO_LOCAL.md`
 - [x] Validar TypeScript, executar suíte Vitest completa, salvar checkpoint e entregar
+
+## Botão de Mostrar/Ocultar Senha
+- [x] Adicionar alternância de visibilidade de senha com ícones Eye/EyeOff no modal de login e cadastro (`SecureLoginModal.tsx`)
+- [x] Adicionar alternância de visibilidade na página de aceite de convite (`AcceptInvite.tsx`)
+- [x] Adicionar alternância de visibilidade no painel administrativo de criação de usuários (`CompanyAdmin.tsx`) e na página global de administração (`Admin.tsx`)
+- [x] Escrever testes unitários para a alternância de visibilidade e atualizar documentação no `GUIA_AUTENTICACAO_LOCAL.md`
+- [x] Validar TypeScript, executar suíte Vitest completa, salvar checkpoint e entregar

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
+import { PasswordVisibilityToggle } from "@/components/PasswordVisibilityToggle";
 import { ShieldCheck, ArrowRight, Loader2, CheckCircle2, TriangleAlert, Building2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ export default function AcceptInvite() {
 
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const { data: inviteInfo, isLoading: infoLoading, error: infoError } = trpc.auth.getInviteInfo.useQuery(
@@ -132,14 +134,16 @@ export default function AcceptInvite() {
                   <Label htmlFor="invite-password" className="text-xs font-semibold text-slate-300">Defina sua senha (mín. {inviteInfo.passwordPolicy?.minLength ?? 8} caracteres)</Label>
                 <Input
                   id="invite-password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-slate-950 border-slate-800 text-xs text-slate-100"
+                  className="bg-slate-950 border-slate-800 pr-10 text-xs text-slate-100"
                   minLength={inviteInfo.passwordPolicy?.minLength ?? 8}
+                  autoComplete="new-password"
                   required
                 />
+                <PasswordVisibilityToggle visible={showPassword} onToggle={() => setShowPassword((visible) => !visible)} inputId="invite-password" />
                 <PasswordStrengthIndicator password={password} policy={inviteInfo.passwordPolicy ?? undefined} />
                 <p className="text-[11px] leading-5 text-slate-400">
                   Requisitos: {inviteInfo.passwordPolicy?.minLength ?? 8} caracteres{inviteInfo.passwordPolicy?.requireUppercase ? ", uma letra maiúscula" : ""}{inviteInfo.passwordPolicy?.requireNumber ? ", um número" : ""}{inviteInfo.passwordPolicy?.requireSpecial ? " e um caractere especial" : ""}.

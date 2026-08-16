@@ -76,3 +76,8 @@ A política é aplicada no backend aos novos cadastros locais, usuários criados
 Os formulários de cadastro local, criação manual de usuários pelo Admin da Empresa e aceite de convite exibem uma barra visual de força enquanto a senha é digitada. O indicador informa uma classificação de força, lista os requisitos ainda pendentes e mostra quando a senha atende à política configurada pelo tenant.
 
 O indicador é uma orientação no navegador e não substitui a validação no servidor. A senha só é aceita quando o backend confirma todos os requisitos da política da empresa; nenhum valor de senha é armazenado em texto simples ou enviado para um serviço externo para calcular a classificação.
+
+
+## 👁️ 8. Mostrar ou Ocultar Senha
+
+Os campos de senha dos formulários de cadastro local, criação administrativa de usuários e aceite de convite agora possuem um botão com ícone de olho para alternar entre exibição e ocultação do valor digitado. O controle usa rótulos acessíveis, mantém o preenchimento no mesmo campo e não altera a validação ou o armazenamento seguro da credencial.

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
+import { PasswordVisibilityToggle } from "@/components/PasswordVisibilityToggle";
 
 type AuthStage = "credentials" | "2fa" | "forgot";
 type AuthFeedback = "idle" | "loading" | "info" | "error" | "success";
@@ -37,6 +38,7 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [requires2fa, setRequires2fa] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
@@ -330,7 +332,8 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden="true" />
-                    <Input id="login-pass" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9 text-xs" minLength={mode === "register" ? 8 : undefined} required />
+                    <Input id="login-pass" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10 pl-9 text-xs" minLength={mode === "register" ? 8 : undefined} autoComplete={mode === "register" ? "new-password" : "current-password"} required />
+                    <PasswordVisibilityToggle visible={showPassword} onToggle={() => setShowPassword((visible) => !visible)} inputId="login-pass" />
                   </div>
                   {mode === "register" && <PasswordStrengthIndicator password={password} />}
                 </div>

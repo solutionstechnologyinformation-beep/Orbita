@@ -19,6 +19,7 @@ import {
   ClipboardList, User, Layers, Loader2, Palette, ShieldCheck,
 } from "lucide-react";
 import { UserAvatar, AvatarEditor } from "@/components/UserAvatar";
+import { PasswordVisibilityToggle } from "@/components/PasswordVisibilityToggle";
 import { PresenceDot } from "@/components/PresenceDot";
 import { normalizeCompanySlug } from "./admin-company-utils";
 
@@ -166,6 +167,7 @@ export default function Admin() {
   // Users state
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
   const [createUserForm, setCreateUserForm] = useState({ name: "", email: "", password: "", role: "user", company: "" });
+  const [showCreateUserPassword, setShowCreateUserPassword] = useState(false);
   const [editingUserRole, setEditingUserRole] = useState<{ id: number; role: string } | null>(null);
   const [editingUserDisc, setEditingUserDisc] = useState<any>(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState<any>(null);
@@ -904,7 +906,7 @@ export default function Admin() {
             </div>
             <div>
               <Label htmlFor="admin-user-password">Senha provisória *</Label>
-              <Input id="admin-user-password" type="password" value={createUserForm.password} onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })} placeholder="Mínimo de 6 caracteres" autoComplete="new-password" />
+              <div className="relative"><Input id="admin-user-password" type={showCreateUserPassword ? "text" : "password"} value={createUserForm.password} onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })} placeholder="Mínimo de 6 caracteres" autoComplete="new-password" className="pr-10" /><PasswordVisibilityToggle visible={showCreateUserPassword} onToggle={() => setShowCreateUserPassword((visible) => !visible)} inputId="admin-user-password" /></div>
               {createUserForm.password.length > 0 && createUserForm.password.length < 6 && <p className="mt-1 text-xs text-destructive">A senha deve conter pelo menos 6 caracteres.</p>}
             </div>
             <div>
