@@ -1742,10 +1742,10 @@
 - [ ] Consolidar entregáveis da sessão
 - [ ] Confirmar checkpoint final após a funcionalidade
 - [ ] Revisar todos os itens pendentes antes de publicação
-- [ ] Registrar resultado da validação de acessibilidade
+- [x] Registrar resultado da validação de acessibilidade
 - [ ] Atualizar notas de versão
 - [ ] Executar teste de regressão completo
-- [ ] Confirmar preview atualizado no navegador
+- [x] Confirmar preview atualizado no navegador
 - [ ] Entregar pacote final ao usuário
 - [ ] Limpar tarefas temporárias de desenvolvimento
 - [ ] Verificar arquivos modificados no workspace
@@ -1779,34 +1779,34 @@
 - [ ] Entregar versão do projeto ao usuário
 - [ ] Revisar todo.md antes do checkpoint
 - [ ] Remover referências obsoletas somente se aplicável
-- [ ] Confirmar que nenhum segredo foi exposto
-- [ ] Confirmar que nenhum asset local grande foi adicionado
-- [ ] Confirmar que o modal é desmontado ao encerrar
-- [ ] Confirmar que as etapas preservam ordem das abas
-- [ ] Testar reinício do tour
+- [x] Confirmar que nenhum segredo foi exposto
+- [x] Confirmar que nenhum asset local grande foi adicionado
+- [x] Confirmar que o modal é desmontado ao encerrar
+- [x] Confirmar que as etapas preservam ordem das abas
+- [x] Testar reinício do tour
 - [ ] Testar tour em sessão autenticada
 - [ ] Confirmar comportamento em usuários não administradores
 - [ ] Confirmar visibilidade do botão para usuários permitidos
 - [ ] Revisar mensagens de erro
 - [ ] Revisar mensagens de conclusão
-- [ ] Confirmar CTA final para visitar o Manual
+- [x] Confirmar CTA final para visitar o Manual
 - [x] Atualizar documentação de uso do tour
-- [ ] Confirmar que o recurso não interfere no roteamento
-- [ ] Confirmar que o recurso não altera dados do usuário
-- [ ] Validar compatibilidade com tema claro
+- [x] Confirmar que o recurso não interfere no roteamento
+- [x] Confirmar que o recurso não altera dados do usuário
+- [x] Validar compatibilidade com tema claro
 - [ ] Validar compatibilidade com tema escuro
-- [ ] Validar experiência com prefers-reduced-motion
+- [x] Validar experiência com prefers-reduced-motion
 - [ ] Validar compatibilidade com zoom do navegador
 - [ ] Validar compatibilidade com leitores de tela
-- [ ] Revisar semântica HTML
-- [ ] Revisar labels ARIA
-- [ ] Revisar botões desabilitados nas extremidades
-- [ ] Revisar foco inicial do modal
-- [ ] Revisar foco após encerramento
+- [x] Revisar semântica HTML
+- [x] Revisar labels ARIA
+- [x] Revisar botões desabilitados nas extremidades
+- [x] Revisar foco inicial do modal
+- [x] Revisar foco após encerramento
 - [ ] Revisar rolagem da página ao abrir o tour
-- [ ] Confirmar que o botão da sidebar permanece acessível
-- [ ] Confirmar que o modo mobile não cobre ações essenciais
-- [ ] Confirmar que o botão respeita sidebar recolhida
+- [x] Confirmar que o botão da sidebar permanece acessível
+- [x] Confirmar que o modo mobile não cobre ações essenciais
+- [x] Confirmar que o botão respeita sidebar recolhida
 - [ ] Confirmar que as etapas podem ser retomadas
 - [ ] Confirmar que a ordem do conteúdo é comercialmente coerente
 - [ ] Confirmar que não existem comparações com terceiros
