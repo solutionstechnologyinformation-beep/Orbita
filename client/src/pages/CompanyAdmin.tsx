@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { AlertCircle, Building2, CheckCircle2, FolderKanban, Loader2, Plus, ShieldCheck, UserPlus, Users, Settings, Upload } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, FolderKanban, KeyRound, Loader2, Plus, ShieldCheck, UserPlus, Users, Settings, Upload } from "lucide-react";
 import { FormEvent, useState, useEffect } from "react";
 import { CompanyInvitesSection } from "./CompanyInvitesSection";
 
@@ -23,6 +23,7 @@ export default function CompanyAdmin() {
   const canAccess = user?.role === "company_admin" || user?.role === "admin" || user?.role === "master_admin";
   const utils = trpc.useUtils();
   const dashboard = trpc.companyAdmin.dashboard.useQuery(undefined, { enabled: canAccess, staleTime: 30_000 });
+  const passwordPolicy = trpc.companyAdmin.passwordPolicy.get.useQuery(undefined, { enabled: canAccess, staleTime: 30_000 });
   const createUser = trpc.companyAdmin.createUser.useMutation({
     onSuccess: async () => {
       await utils.companyAdmin.dashboard.invalidate();
@@ -33,6 +34,20 @@ export default function CompanyAdmin() {
   });
   const [brandingSaveState, setBrandingSaveState] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [brandingFeedback, setBrandingFeedback] = useState("");
+  const [passwordPolicyForm, setPasswordPolicyForm] = useState({ minLength: 8, requireUppercase: false, requireNumber: true, requireSpecial: false });
+  const [passwordPolicyFeedback, setPasswordPolicyFeedback] = useState("");
+  const updatePasswordPolicy = trpc.companyAdmin.passwordPolicy.update.useMutation({
+    onSuccess: (policy) => {
+      setPasswordPolicyForm(policy);
+      setPasswordPolicyFeedback("Política de senha salva e aplicada aos próximos cadastros e convites.");
+      void utils.companyAdmin.passwordPolicy.get.invalidate();
+      toast.success("Política de senha atualizada.");
+    },
+    onError: (error) => {
+      setPasswordPolicyFeedback(error.message);
+      toast.error(error.message);
+    },
+  });
 
   const updateRole = trpc.companyAdmin.updateUserRole.useMutation({
     onSuccess: () => { void utils.companyAdmin.dashboard.invalidate(); toast.success("Permissão atualizada."); },
@@ -70,6 +85,12 @@ export default function CompanyAdmin() {
     setBrandingSaveState("idle");
     setBrandingFeedback("");
   };
+
+  useEffect(() => {
+    if (passwordPolicy.data) {
+      setPasswordPolicyForm(passwordPolicy.data);
+    }
+  }, [passwordPolicy.data]);
 
   useEffect(() => {
     if (dashboard.data?.company) {
@@ -131,6 +152,12 @@ export default function CompanyAdmin() {
     createUser.mutate(form);
   };
 
+  const handlePasswordPolicySubmit = (event: FormEvent) => {
+    event.preventDefault();
+    setPasswordPolicyFeedback("");
+    updatePasswordPolicy.mutate(passwordPolicyForm);
+  };
+
   if (!canAccess) {
     return <AppLayout title="Admin da empresa"><div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">Você não possui permissão para acessar este painel.</div></AppLayout>;
   }
@@ -176,7 +203,7 @@ export default function CompanyAdmin() {
                     </div>
                   </section>
 
-                  <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center gap-2"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><UserPlus className="h-4 w-4" /></div><div><h2 className="font-bold text-slate-900">Novo usuário</h2><p className="text-xs text-slate-500">Será vinculado automaticamente à empresa.</p></div></div><div className="space-y-3"><div><Label htmlFor="company-user-name">Nome</Label><Input id="company-user-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required /></div><div><Label htmlFor="company-user-email">E-mail</Label><Input id="company-user-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required /></div><div><Label htmlFor="company-user-password">Senha inicial</Label><Input id="company-user-password" type="password" minLength={6} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} required /></div><div><Label htmlFor="company-user-role">Permissão</Label><select id="company-user-role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as typeof current.role }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="user">{roleLabels.user}</option><option value="leader">{roleLabels.leader}</option><option value="company_admin">{roleLabels.company_admin}</option></select></div><Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={createUser.isPending}><Plus className="mr-2 h-4 w-4" />{createUser.isPending ? "Criando..." : "Criar usuário"}</Button></div></form>
+                  <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center gap-2"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><UserPlus className="h-4 w-4" /></div><div><h2 className="font-bold text-slate-900">Novo usuário</h2><p className="text-xs text-slate-500">Será vinculado automaticamente à empresa.</p></div></div><div className="space-y-3"><div><Label htmlFor="company-user-name">Nome</Label><Input id="company-user-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required /></div><div><Label htmlFor="company-user-email">E-mail</Label><Input id="company-user-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required /></div><div><Label htmlFor="company-user-password">Senha inicial</Label><Input id="company-user-password" type="password" minLength={passwordPolicy.data?.minLength ?? 8} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} required /><p className="mt-1 text-[11px] text-slate-500">Mínimo de {passwordPolicy.data?.minLength ?? 8} caracteres{passwordPolicy.data?.requireUppercase ? ", uma maiúscula" : ""}{passwordPolicy.data?.requireNumber ? ", um número" : ""}{passwordPolicy.data?.requireSpecial ? " e um caractere especial" : ""}.</p></div><div><Label htmlFor="company-user-role">Permissão</Label><select id="company-user-role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as typeof current.role }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="user">{roleLabels.user}</option><option value="leader">{roleLabels.leader}</option><option value="company_admin">{roleLabels.company_admin}</option></select></div><Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={createUser.isPending}><Plus className="mr-2 h-4 w-4" />{createUser.isPending ? "Criando..." : "Criar usuário"}</Button></div></form>
                 </div>
               </TabsContent>
 
@@ -249,6 +276,42 @@ export default function CompanyAdmin() {
                   </form>
 
                   <div className="space-y-6">
+                    <form onSubmit={handlePasswordPolicySubmit} aria-busy={updatePasswordPolicy.isPending} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+                      <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
+                        <div className="rounded-lg bg-amber-50 p-2 text-amber-700"><KeyRound className="h-5 w-5" aria-hidden="true" /></div>
+                        <div>
+                          <h2 className="font-bold text-slate-900">Política de senha</h2>
+                          <p className="text-xs leading-5 text-slate-500">Defina os requisitos mínimos aplicados a novos cadastros, usuários criados pela administração e convites desta empresa.</p>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="password-policy-min-length">Quantidade mínima de caracteres</Label>
+                        <Input id="password-policy-min-length" type="number" min={8} max={128} value={passwordPolicyForm.minLength} onChange={(event) => setPasswordPolicyForm((current) => ({ ...current, minLength: Number(event.target.value) || 8 }))} className="mt-1" />
+                        <p className="mt-1 text-[11px] text-slate-500">O mínimo permitido é 8 e o máximo é 128 caracteres.</p>
+                      </div>
+                      <fieldset className="space-y-2">
+                        <legend className="text-sm font-medium text-slate-700">Requisitos adicionais</legend>
+                        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+                          <input type="checkbox" checked={passwordPolicyForm.requireUppercase} onChange={(event) => setPasswordPolicyForm((current) => ({ ...current, requireUppercase: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                          Pelo menos uma letra maiúscula
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+                          <input type="checkbox" checked={passwordPolicyForm.requireNumber} onChange={(event) => setPasswordPolicyForm((current) => ({ ...current, requireNumber: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                          Pelo menos um número
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+                          <input type="checkbox" checked={passwordPolicyForm.requireSpecial} onChange={(event) => setPasswordPolicyForm((current) => ({ ...current, requireSpecial: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                          Pelo menos um caractere especial
+                        </label>
+                      </fieldset>
+                      <div aria-live="polite" className={`rounded-lg border px-3 py-2 text-xs ${passwordPolicyFeedback.includes("salva") ? "border-emerald-200 bg-emerald-50 text-emerald-800" : passwordPolicyFeedback ? "border-red-200 bg-red-50 text-red-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+                        {passwordPolicyFeedback || `Exemplo de regra atual: ${passwordPolicyForm.minLength} caracteres${passwordPolicyForm.requireUppercase ? ", uma maiúscula" : ""}${passwordPolicyForm.requireNumber ? ", um número" : ""}${passwordPolicyForm.requireSpecial ? " e um caractere especial" : ""}.`}
+                      </div>
+                      <Button type="submit" className="w-full bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400" disabled={updatePasswordPolicy.isPending || passwordPolicy.isLoading}>
+                        {updatePasswordPolicy.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Salvando política...</> : <><KeyRound className="mr-2 h-4 w-4" aria-hidden="true" /> Salvar política de senha</>}
+                      </Button>
+                    </form>
+
                     <BrandingDashboardPreview values={brandingForm} onReset={() => {
                       const company = data?.company;
                       if (!company) return;

@@ -2011,3 +2011,11 @@
 - [x] Criar componente visual de setup obrigatório de 2FA com geração de segredo TOTP, QR Code e códigos de backup
 - [x] Escrever testes unitários em `company-invite-mandatory-2fa.test.ts` para validar o bloqueio e a ativação obrigatória do 2FA
 - [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar
+
+## Política de Complexidade Mínima de Senha por Tenant
+- [x] Adicionar colunas de política de senha na tabela `companies` (min_length, require_uppercase, require_number, require_special)
+- [x] Criar migração não destrutiva e atualizar Drizzle schema
+- [x] Criar procedures tRPC para gerenciamento da política no painel do tenant
+- [x] Validar a complexidade da senha nos fluxos de cadastro local, convite e redefinição de senha
+- [x] Criar aba ou seção interativa no painel Admin da Empresa para personalização de senha forte
+- [x] Escrever testes unitários em `company-password-policy.test.ts` e documentar no `GUIA_AUTENTICACAO_LOCAL.md`

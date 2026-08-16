@@ -21,7 +21,7 @@ import {
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
-  getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline,
+  getCompanies, getCompanyById, getCompanyPasswordPolicy, updateCompanyPasswordPolicy, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline,
   createCompanyInvite, getCompanyInvites, getCompanyInviteByToken, revokeCompanyInvite, acceptCompanyInviteRecord,
   logCompanyInviteAudit, getCompanyInviteAuditLogs,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
@@ -64,6 +64,7 @@ import stripe from "stripe";
 import { generateAndSendEmailTfaCode, verifyEmailTfaCode, maskEmail } from "./tfa-service";
 import { createScryptPasswordHash, isLocalAuthEnabled, slugifyCompanyName, verifyScryptPassword } from "./local-auth";
 import { requiresMandatoryTfaForInvite, shouldBlockWorkspaceAccess } from "./mandatory-tfa";
+import { normalizePasswordPolicy, validatePassword } from "./password-policy";
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // ─── Admin guard ───────────────────────────────────────────────────────────────
@@ -176,6 +177,7 @@ export const appRouter = router({
           email: invite.email,
           role: invite.role,
           companyName: company?.name || "Empresa",
+          passwordPolicy: await getCompanyPasswordPolicy(invite.companyId),
         };
       }),
 
@@ -183,7 +185,7 @@ export const appRouter = router({
       .input(z.object({
         token: z.string().min(1),
         name: z.string().trim().min(2).max(256),
-        password: z.string().min(8).max(128),
+        password: z.string().min(1).max(128),
       }))
       .mutation(async ({ ctx, input }) => {
         const invite = await getCompanyInviteByToken(input.token);
@@ -199,6 +201,10 @@ export const appRouter = router({
         }
 
         const company = await getCompanyById(invite.companyId);
+        const passwordCheck = validatePassword(input.password, await getCompanyPasswordPolicy(invite.companyId));
+        if (!passwordCheck.valid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: passwordCheck.errors.join(" ") });
+        }
         const passwordHash = createScryptPasswordHash(input.password);
         const userId = await createCompanyLocalUser({
           companyId: invite.companyId,
@@ -243,7 +249,7 @@ export const appRouter = router({
       .input(z.object({
         name: z.string().trim().min(2).max(256),
         email: z.string().trim().email(),
-        password: z.string().min(8).max(128),
+        password: z.string().min(1).max(128),
         companyName: z.string().trim().min(2).max(256).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -258,6 +264,10 @@ export const appRouter = router({
         }
 
         const companyName = input.companyName?.trim() || `Empresa de ${input.name}`;
+        const passwordCheck = validatePassword(input.password);
+        if (!passwordCheck.valid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: passwordCheck.errors.join(" ") });
+        }
         const slugBase = slugifyCompanyName(companyName);
         const slug = `${slugBase}-${Date.now().toString(36)}`;
         const companyId = await createCompany({ name: companyName, slug, color: "#2563eb" });
@@ -444,7 +454,7 @@ export const appRouter = router({
       .input(z.object({
         name: z.string().trim().min(1).max(256),
         email: z.string().trim().email(),
-        password: z.string().min(6).max(128),
+        password: z.string().min(1).max(128),
         role: z.enum(["user", "admin", "leader"]).default("user"),
         company: z.string().optional(),
       }))
@@ -453,6 +463,10 @@ export const appRouter = router({
         const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
         if (existing.length > 0) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail." });
+        }
+        const passwordCheck = validatePassword(input.password, ctx.user.companyId ? await getCompanyPasswordPolicy(ctx.user.companyId) : undefined);
+        if (!passwordCheck.valid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: passwordCheck.errors.join(" ") });
         }
         const { scryptSync, randomBytes } = await import("crypto");
         const salt = randomBytes(16).toString("hex");
@@ -510,14 +524,41 @@ export const appRouter = router({
       if (!data) throw new TRPCError({ code: "NOT_FOUND", message: "Empresa não encontrada." });
       return data;
     }),
+    passwordPolicy: router({
+      get: companyAdminProcedure.query(async ({ ctx }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "Empresa não definida." });
+        const policy = await getCompanyPasswordPolicy(companyId);
+        return normalizePasswordPolicy(policy);
+      }),
+      update: companyAdminProcedure
+        .input(z.object({
+          minLength: z.number().int().min(8).max(128),
+          requireUppercase: z.boolean(),
+          requireNumber: z.boolean(),
+          requireSpecial: z.boolean(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          const companyId = ctx.user.companyId;
+          if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "Empresa não definida." });
+          const policy = normalizePasswordPolicy(input);
+          await updateCompanyPasswordPolicy(companyId, policy);
+          await logActivity({ userId: ctx.user.id, action: "updated_company_password_policy", entityType: "company", entityId: companyId, metadata: JSON.stringify(policy) });
+          return policy;
+        }),
+    }),
     createUser: companyAdminProcedure
-      .input(z.object({ name: z.string().trim().min(1).max(256), email: z.string().trim().email(), password: z.string().min(6).max(128), role: z.enum(["user", "leader", "company_admin"]).default("user") }))
+      .input(z.object({ name: z.string().trim().min(1).max(256), email: z.string().trim().email(), password: z.string().min(1).max(128), role: z.enum(["user", "leader", "company_admin"]).default("user") }))
       .mutation(async ({ ctx, input }) => {
         const companyId = ctx.user.companyId;
         if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
         const db = await getDb();
         const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
         if (existing.length > 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail." });
+        const passwordCheck = validatePassword(input.password, await getCompanyPasswordPolicy(companyId));
+        if (!passwordCheck.valid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: passwordCheck.errors.join(" ") });
+        }
         const { scryptSync, randomBytes } = await import("crypto");
         const salt = randomBytes(16).toString("hex");
         const passwordHash = `scrypt$${salt}$${scryptSync(input.password, salt, 64).toString("hex")}`;

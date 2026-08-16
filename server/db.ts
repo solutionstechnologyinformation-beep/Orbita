@@ -37,6 +37,33 @@ export async function getCompanyById(id: number) {
   return rows[0];
 }
 
+export async function getCompanyPasswordPolicy(companyId: number) {
+  const company = await getCompanyById(companyId);
+  if (!company) return null;
+  return {
+    minLength: company.passwordMinLength,
+    requireUppercase: company.passwordRequireUppercase,
+    requireNumber: company.passwordRequireNumber,
+    requireSpecial: company.passwordRequireSpecial,
+  };
+}
+
+export async function updateCompanyPasswordPolicy(companyId: number, policy: {
+  minLength: number;
+  requireUppercase: boolean;
+  requireNumber: boolean;
+  requireSpecial: boolean;
+}) {
+  const db = await getDb();
+  await db.update(companies).set({
+    passwordMinLength: policy.minLength,
+    passwordRequireUppercase: policy.requireUppercase,
+    passwordRequireNumber: policy.requireNumber,
+    passwordRequireSpecial: policy.requireSpecial,
+    updatedAt: new Date(),
+  }).where(eq(companies.id, companyId));
+}
+
 export async function getCompanyAdminDashboard(companyId: number) {
   const company = await getCompanyById(companyId);
   if (!company) return null;

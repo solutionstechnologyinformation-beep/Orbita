@@ -62,3 +62,10 @@ Para garantir conformidade rigorosa e blindar o acesso a workspaces multi-tenant
 2. **Barreira de Acesso**: Após aceitar o convite ou realizar o primeiro login com senha, o backend emite uma sessão limitada e o middleware de segurança bloqueia o acesso a todas as rotas protegidas e consultas ao workspace, redirecionando o administrador para `/setup-2fa`.
 3. **Provisionamento e Códigos de Backup**: A tela de configuração exibe um QR Code interativo para aplicativos autenticadores (Google Authenticator, Microsoft Authenticator), chave secreta manual, validação TOTP em tempo real e geração de códigos de backup de uso único.
 4. **Liberação Automática**: Assim que o código TOTP é confirmado com sucesso, o sistema desativa o marcador `tfaSetupRequired`, grava os códigos de recuperação, registra a auditoria de segurança e libera o acesso completo ao painel administrativo e aos projetos da empresa.
+
+
+## 🔑 6. Política de Complexidade de Senha por Tenant
+
+Na aba **Admin da Empresa → Configurações**, um administrador pode definir a quantidade mínima de caracteres e habilitar, de forma independente, a exigência de letra maiúscula, número e caractere especial. A configuração fica gravada na empresa emissora e não altera as regras de outros tenants.
+
+A política é aplicada no backend aos novos cadastros locais, usuários criados manualmente pela administração, aceite de convites e demais fluxos que criem credenciais. A interface apenas antecipa os requisitos para orientar o usuário; a validação definitiva ocorre no servidor antes do hash scrypt ser armazenado. O padrão para empresas novas é de 8 caracteres, exigência de número e regras de maiúscula e caractere especial desativadas.

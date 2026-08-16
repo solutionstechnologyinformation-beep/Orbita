@@ -19,6 +19,10 @@ export const companies = mysqlTable("companies", {
   color: varchar("color", { length: 32 }).default("#2563eb").notNull(),
   logoUrl: text("logoUrl"),
   logoDarkUrl: text("logoDarkUrl"),
+  passwordMinLength: int("passwordMinLength").default(8).notNull(),
+  passwordRequireUppercase: boolean("passwordRequireUppercase").default(false).notNull(),
+  passwordRequireNumber: boolean("passwordRequireNumber").default(true).notNull(),
+  passwordRequireSpecial: boolean("passwordRequireSpecial").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

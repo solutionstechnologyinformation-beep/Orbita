@@ -127,6 +127,13 @@
       "when": 1786918500084,
       "tag": "0017_add_tfa_setup_required",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1786918923921,
+      "tag": "0018_add_company_password_policy",
+      "breakpoints": true
     }
   ]
 }

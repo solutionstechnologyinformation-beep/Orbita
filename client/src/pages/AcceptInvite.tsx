@@ -29,8 +29,15 @@ export default function AcceptInvite() {
       toast.error("Preencha seu nome e defina uma senha forte.");
       return;
     }
-    if (password.length < 8) {
-      toast.error("A senha deve ter pelo menos 8 caracteres.");
+    const policy = inviteInfo?.passwordPolicy ?? { minLength: 8, requireUppercase: false, requireNumber: true, requireSpecial: false };
+    const passwordErrors = [
+      password.length < policy.minLength ? `A senha deve ter pelo menos ${policy.minLength} caracteres.` : null,
+      policy.requireUppercase && !/[A-Z]/.test(password) ? "Inclua pelo menos uma letra maiúscula." : null,
+      policy.requireNumber && !/\d/.test(password) ? "Inclua pelo menos um número." : null,
+      policy.requireSpecial && !/[^A-Za-z0-9\s]/.test(password) ? "Inclua pelo menos um caractere especial." : null,
+    ].filter((message): message is string => Boolean(message));
+    if (passwordErrors.length > 0) {
+      toast.error(passwordErrors.join(" "));
       return;
     }
 
@@ -121,7 +128,7 @@ export default function AcceptInvite() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="invite-password" className="text-xs font-semibold text-slate-300">Defina sua Senha (mín. 8 caracteres)</Label>
+                  <Label htmlFor="invite-password" className="text-xs font-semibold text-slate-300">Defina sua senha (mín. {inviteInfo.passwordPolicy?.minLength ?? 8} caracteres)</Label>
                 <Input
                   id="invite-password"
                   type="password"
@@ -129,8 +136,12 @@ export default function AcceptInvite() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-slate-950 border-slate-800 text-xs text-slate-100"
+                  minLength={inviteInfo.passwordPolicy?.minLength ?? 8}
                   required
                 />
+                <p className="text-[11px] leading-5 text-slate-400">
+                  Requisitos: {inviteInfo.passwordPolicy?.minLength ?? 8} caracteres{inviteInfo.passwordPolicy?.requireUppercase ? ", uma letra maiúscula" : ""}{inviteInfo.passwordPolicy?.requireNumber ? ", um número" : ""}{inviteInfo.passwordPolicy?.requireSpecial ? " e um caractere especial" : ""}.
+                </p>
               </div>
 
               <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 font-semibold text-xs text-white" disabled={loading}>
