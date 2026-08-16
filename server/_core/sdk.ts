@@ -24,6 +24,13 @@ export type SessionPayload = {
   name: string;
 };
 
+const CRON_OPEN_ID_PREFIX = "cron_";
+
+export type AuthenticatedUser = User & {
+  taskUid?: string;
+  isCron?: boolean;
+};
+
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
@@ -256,14 +263,50 @@ class SDKServer {
     } as GetUserInfoWithJwtResponse;
   }
 
-  async authenticateRequest(req: Request): Promise<User> {
-    // Regular authentication flow
+  async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {
       throw ForbiddenError("Invalid session cookie");
+    }
+
+    if (session.openId.startsWith(CRON_OPEN_ID_PREFIX)) {
+      const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
+      if (!userInfo.taskUid) {
+        throw ForbiddenError("Cron session missing task_uid");
+      }
+      const now = new Date();
+      return {
+        id: -1,
+        openId: userInfo.openId,
+        name: userInfo.name || "Manus Scheduled Task",
+        email: userInfo.email ?? null,
+        loginMethod: null,
+        role: "user",
+        avatarUrl: null,
+        avatarColor: null,
+        avatarInitials: null,
+        company: null,
+        companyId: null,
+        passwordHash: null,
+        tfaSecret: null,
+        tfaEnabled: false,
+        tfaBackupCodes: null,
+        tfaMethod: "totp",
+        phoneNumber: null,
+        tfaCodeHash: null,
+        tfaCodeExpiresAt: null,
+        tfaCodeAttempts: 0,
+        tfaCodeLastSentAt: null,
+        createdAt: now,
+        updatedAt: now,
+        lastSignedIn: now,
+        lastSeenAt: now,
+        taskUid: userInfo.taskUid,
+        isCron: true,
+      };
     }
 
     const sessionUserId = session.openId;

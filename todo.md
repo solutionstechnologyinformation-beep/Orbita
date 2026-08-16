@@ -1579,3 +1579,9 @@
 - [x] Implementar motor backend de snapshot em Excel com abas separadas (Empresas, Clientes, Contratos-CRS, Trechos-KMZ, Tarefas, Fases, Agenda, Sprints) e formato JSON
 - [x] Criar componente visual `MigrationPanel` na página principal do Dashboard com botões de exportação e importação de arquivo `.json`
 - [x] Validar com testes unitários e garantir zero erros TypeScript (293/293 testes aprovados)
+
+## Backup Automático Semanal
+- [x] Persistir configuração de agendamento semanal por empresa com taskUid do Heartbeat
+- [x] Executar backup Excel no endpoint protegido e armazenar o arquivo no storage
+- [x] Adicionar controles no painel para configurar, pausar, retomar e remover o agendamento
+- [x] Validar isolamento multi-tenant, idempotência e testes completos (296/296 testes aprovados; TypeScript sem erros)

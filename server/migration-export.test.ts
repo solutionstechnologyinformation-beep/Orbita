@@ -5,7 +5,7 @@ describe("Migration Export and Import", () => {
   it("builds a migration snapshot successfully", async () => {
     const snapshot = await getCompanyMigrationSnapshot(null);
     expect(snapshot).toBeDefined();
-    expect(snapshot.version).toBe("1.0.0");
+    expect(snapshot.version).toBe("1.1.0");
     expect(snapshot.data).toHaveProperty("clients");
     expect(snapshot.data).toHaveProperty("crs");
     expect(snapshot.data).toHaveProperty("tasks");
