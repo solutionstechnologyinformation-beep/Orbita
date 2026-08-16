@@ -1585,3 +1585,9 @@
 - [x] Executar backup Excel no endpoint protegido e armazenar o arquivo no storage
 - [x] Adicionar controles no painel para configurar, pausar, retomar e remover o agendamento
 - [x] Validar isolamento multi-tenant, idempotência e testes completos (296/296 testes aprovados; TypeScript sem erros)
+
+## Migração dentro de Administração
+- [x] Remover o painel de migração do Dashboard principal
+- [x] Criar rota/página dedicada para exportar Excel, exportar/importar JSON e configurar backup semanal
+- [x] Adicionar Migração como subitem visual de Administração na barra lateral e no menu mobile
+- [x] Validar navegação, responsividade, testes e TypeScript (296/296 testes aprovados)

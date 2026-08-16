@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileBarChart,
+  FileArchive,
   FolderKanban,
   GanttChartSquare,
   Kanban,
@@ -365,7 +366,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             {!compact && (
               <div className="pt-4 pb-1 px-3">
                 <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: SIDEBAR_SECTION_TEXT }}>
-                  Admin
+                  Administração
                 </p>
               </div>
             )}
@@ -394,6 +395,25 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                 </Link>
               );
             })}
+            <Link
+              href="/migration"
+              onClick={() => setSidebarOpen(false)}
+              className={`ml-3 flex items-center gap-3 rounded-lg text-xs font-medium transition-all duration-150 ${compact ? "ml-0 w-full justify-center px-2" : "mr-1 px-3"} py-2`}
+              title={compact ? "Migração e Backups" : undefined}
+              style={{
+                color: location.startsWith("/migration") ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
+                backgroundColor: location.startsWith("/migration") ? SIDEBAR_ACTIVE_BG : "transparent",
+              }}
+              onMouseEnter={(e) => {
+                if (!location.startsWith("/migration")) (e.currentTarget as HTMLElement).style.backgroundColor = SIDEBAR_HOVER_BG;
+              }}
+              onMouseLeave={(e) => {
+                if (!location.startsWith("/migration")) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+              }}
+            >
+              <FileArchive className="h-3.5 w-3.5 flex-shrink-0" />
+              {!compact && <span>Migração e Backups</span>}
+            </Link>
           </>
         )}
       </nav>
