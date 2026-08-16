@@ -1570,3 +1570,7 @@
 - [x] Criar componente visual `AssistantTypingIndicator` com três pontos saltitantes sincronizados e suporte a acessibilidade (`role="status"`, `aria-live="polite"`, `prefers-reduced-motion`)
 - [x] Integrar o indicador de digitação no FloatingAgent enquanto o status de mutação/processamento estiver ativo
 - [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (291/291 testes aprovados)
+
+## Guia em PDF e Recompilação do Pacote
+- [x] Gerar guia passo a passo em PDF profissional utilizando Typst (`Guia_Execucao_Orbita_VSCode.pdf`)
+- [x] Recompilar e incluir o guia no pacote ZIP completo para o VS Code (`orbita-complete-project.zip`)
