@@ -1981,3 +1981,12 @@
 - [x] Criar componente visual de auditoria na aba de Convites do painel Admin da Empresa com busca e filtros por ação e data
 - [x] Escrever testes unitários em `company-invite-audit.test.ts` para validar isolamento de tenant e privacidade do token
 - [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript e testes, salvar checkpoint e entregar
+
+## Indicadores de Alerta de Convites
+- [x] Adicionar enum ou suporte a ação `expired` na tabela de auditoria e rotas tRPC
+- [x] Atualizar a procedure `auditLogs` para retornar contadores de risco (tentativas expiradas e revogadas)
+- [x] Implementar card de alerta e contador de incidentes no topo da seção de auditoria de convites
+- [x] Adicionar badges de severidade e destaque visual em vermelho/âmbar para eventos de tentativas em convites expirados ou revogados
+- [x] Criar filtro rápido de risco ("Apenas Alertas") no painel de auditoria
+- [x] Criar testes unitários em `company-invite-alerts.test.ts` para validação de severidade e contagem de incidentes
+- [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar

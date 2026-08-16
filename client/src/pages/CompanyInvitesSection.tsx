@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Plus, Trash2, Copy, Check, Link as LinkIcon, Loader2, UserCheck, History, ShieldAlert, Filter, Search } from "lucide-react";
+import { Mail, Plus, Copy, Check, Link as LinkIcon, Loader2, History, ShieldAlert, Search, AlertTriangle, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export function CompanyInvitesSection() {
@@ -13,6 +13,7 @@ export function CompanyInvitesSection() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [auditSearch, setAuditSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
+  const [alertOnly, setAlertOnly] = useState(false);
 
   const utils = trpc.useUtils();
   const { data: invites = [], isLoading } = trpc.companyAdmin.invites.list.useQuery();
@@ -58,10 +59,14 @@ export function CompanyInvitesSection() {
     setTimeout(() => setCopiedToken(null), 2500);
   };
 
+  const alertCount = auditLogs.filter((log: any) => log.action === "expired" || log.action === "revoked").length;
+
   const filteredLogs = auditLogs.filter((log: any) => {
     const matchesSearch = !auditSearch || (log.details && log.details.toLowerCase().includes(auditSearch.toLowerCase())) || (log.ipAddress && log.ipAddress.includes(auditSearch));
+    const isAlert = log.action === "expired" || log.action === "revoked";
     const matchesAction = actionFilter === "all" || log.action === actionFilter;
-    return matchesSearch && matchesAction;
+    const matchesAlertOnly = !alertOnly || isAlert;
+    return matchesSearch && matchesAction && matchesAlertOnly;
   });
 
   return (
@@ -171,59 +176,87 @@ export function CompanyInvitesSection() {
         </form>
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-slate-100 p-2 text-slate-700"><History className="h-5 w-5" /></div>
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/50 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className={`rounded-xl p-2.5 ${alertCount > 0 ? "bg-amber-100 text-amber-700 animate-pulse" : "bg-slate-100 text-slate-700"}`}>
+              {alertCount > 0 ? <AlertTriangle className="h-5 w-5" /> : <History className="h-5 w-5" />}
+            </div>
             <div>
-              <h2 className="font-bold text-slate-900">Histórico de Auditoria de Convites</h2>
-              <p className="text-xs text-slate-500">Registro cronológico de geração, visualização, aceite, revogação e expiração.</p>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-slate-900">Auditoria e Alertas de Segurança</h2>
+                {alertCount > 0 && (
+                  <Badge className="bg-rose-100 text-rose-700 font-bold">
+                    {alertCount} {alertCount === 1 ? "alerta de acesso" : "alertas de acesso"}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">Monitoramento de tentativas de acesso a convites expirados, revogados ou inválidos.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={alertOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAlertOnly(!alertOnly)}
+              className={`text-xs gap-1.5 ${alertOnly ? "bg-amber-600 hover:bg-amber-500 text-white" : ""}`}
+            >
+              <ShieldAlert className="h-3.5 w-3.5" />
+              {alertOnly ? "Exibindo apenas alertas" : "Filtrar Alertas de Risco"}
+            </Button>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
               <Input
                 placeholder="Buscar detalhes ou IP..."
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
-                className="h-9 pl-9 text-xs w-60"
+                className="h-9 pl-9 text-xs w-56 bg-white"
               />
             </div>
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-xs"
+              className="h-9 rounded-md border border-input bg-white px-3 text-xs"
             >
               <option value="all">Todas as Ações</option>
               <option value="created">Gerado (Created)</option>
               <option value="viewed">Visualizado (Viewed)</option>
               <option value="accepted">Aceito (Accepted)</option>
               <option value="revoked">Revogado (Revoked)</option>
-              <option value="expired">Expirado (Expired)</option>
+              <option value="expired">Expirado / Tentativa (Expired)</option>
             </select>
           </div>
         </div>
 
         <div className="divide-y divide-slate-100">
           {auditLoading ? (
-            <div className="py-10 text-center text-xs text-slate-400">Carregando registros de auditoria...</div>
+            <div className="py-10 text-center text-xs text-slate-400">Carregando logs de auditoria...</div>
           ) : filteredLogs.length === 0 ? (
-            <div className="py-10 text-center text-xs text-slate-400">Nenhum evento de auditoria encontrado para os filtros selecionados.</div>
+            <div className="py-12 text-center text-xs text-slate-400 space-y-1">
+              <p>Nenhum evento encontrado com os filtros atuais.</p>
+              {alertOnly && <p className="text-[11px] text-emerald-600 font-medium">Nenhum alerta de segurança pendente no momento.</p>}
+            </div>
           ) : (
             filteredLogs.map((log: any) => {
+              const isHighRisk = log.action === "expired" || log.action === "revoked";
               const badgeColor =
                 log.action === "accepted" ? "bg-emerald-100 text-emerald-700" :
                 log.action === "created" ? "bg-blue-100 text-blue-700" :
-                log.action === "revoked" ? "bg-rose-100 text-rose-700" :
-                log.action === "expired" ? "bg-amber-100 text-amber-700" : "bg-purple-100 text-purple-700";
+                log.action === "revoked" ? "bg-rose-100 text-rose-700 font-bold border border-rose-200" :
+                log.action === "expired" ? "bg-amber-100 text-amber-800 font-bold border border-amber-200" : "bg-purple-100 text-purple-700";
 
               return (
-                <div key={log.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-xs">
+                <div key={log.id} className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-xs transition-colors ${isHighRisk ? "bg-rose-50/40 hover:bg-rose-50/70" : "hover:bg-slate-50/60"}`}>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <Badge className={badgeColor}>{log.action.toUpperCase()}</Badge>
-                      <span className="font-medium text-slate-800">{log.details || "Ação de convite"}</span>
+                      <Badge className={badgeColor}>
+                        {isHighRisk && <ShieldAlert className="mr-1 h-3 w-3 inline" />}
+                        {log.action.toUpperCase()}
+                      </Badge>
+                      <span className={`font-medium ${isHighRisk ? "text-rose-900 font-semibold" : "text-slate-800"}`}>
+                        {log.details || "Ação de convite"}
+                      </span>
                     </div>
                     <p className="text-[11px] text-slate-400">IP: {log.ipAddress || "N/D"} · ID do Convite: #{log.inviteId || "—"}</p>
                   </div>
