@@ -2,11 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Upload, FileSpreadsheet, FileJson, CalendarClock, Pause, Play, Trash2, Loader2 } from "lucide-react";
+import { Download, Upload, FileSpreadsheet, FileJson, CalendarClock, Pause, Play, Trash2, Loader2, ListChecks, AlertTriangle, XCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { getMigrationImportWarning, prepareMigrationImport, type PendingMigrationImport } from "./migration-import-guard";
 
+type ImportReport = {
+  importedCounts: Record<string, number>;
+  ignoredCounts: Record<string, number>;
+  errorCounts: Record<string, number>;
+  log: Array<{ entity: string; index: number; status: "inserted" | "ignored" | "error"; label: string; message: string }>;
+  completedAt: string;
+};
 
 function downloadBase64File(contentBase64: string, fileName: string, mimeType: string) {
   const bytes = Uint8Array.from(atob(contentBase64), (char) => char.charCodeAt(0));
@@ -23,6 +30,7 @@ function downloadBase64File(contentBase64: string, fileName: string, mimeType: s
 export function MigrationPanel() {
   const [importing, setImporting] = useState(false);
   const [pendingImport, setPendingImport] = useState<PendingMigrationImport | null>(null);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [dayOfWeek, setDayOfWeek] = useState(0);
   const [hourUtc, setHourUtc] = useState(12);
   const [minuteUtc, setMinuteUtc] = useState(0);
@@ -116,6 +124,7 @@ export function MigrationPanel() {
 
   const importJsonMutation = trpc.migration.importJson.useMutation({
     onSuccess: (result) => {
+      setImportReport(result);
       toast.success(`Migração concluída. ${Object.values(result.importedCounts).reduce((sum, count) => sum + count, 0)} registros importados.`);
       utils.invalidate();
     },
@@ -184,6 +193,32 @@ export function MigrationPanel() {
         </div>
       </CardContent>
       </Card>
+      {importReport && (
+        <Card className="mt-4 border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
+              <ListChecks className="h-5 w-5 text-emerald-600" /> Relatório da última importação
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+              Concluída em {new Date(importReport.completedAt).toLocaleString("pt-BR")} — cada linha mostra o resultado individual do arquivo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30"><p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Inseridos</p><p className="mt-1 text-xl font-bold text-emerald-800 dark:text-emerald-200">{Object.values(importReport.importedCounts).reduce((sum, count) => sum + count, 0)}</p></div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/30"><p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Ignorados</p><p className="mt-1 text-xl font-bold text-amber-800 dark:text-amber-200">{Object.values(importReport.ignoredCounts).reduce((sum, count) => sum + count, 0)}</p></div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30"><p className="text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">Erros</p><p className="mt-1 text-xl font-bold text-red-800 dark:text-red-200">{Object.values(importReport.errorCounts).reduce((sum, count) => sum + count, 0)}</p></div>
+            </div>
+            <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              {importReport.log.length === 0 ? <p className="p-4 text-sm text-slate-500">Nenhum registro foi encontrado no arquivo.</p> : importReport.log.map((entry) => {
+                const success = entry.status === "inserted";
+                const ignored = entry.status === "ignored";
+                return <div key={`${entry.entity}-${entry.index}`} className="flex items-start gap-3 border-b border-slate-100 p-3 last:border-0 dark:border-slate-800"><div className="mt-0.5 shrink-0">{success ? <ListChecks className="h-4 w-4 text-emerald-600" /> : ignored ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : <XCircle className="h-4 w-4 text-red-600" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-slate-800 dark:text-slate-100">{entry.label}</span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{entry.entity}</span></div><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{entry.message}</p></div></div>;
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Dialog open={Boolean(pendingImport)} onOpenChange={(open) => { if (!open && !importing) setPendingImport(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>

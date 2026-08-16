@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCompanyMigrationSnapshot, generateMigrationExcelBuffer } from "./migration-export";
+import { getCompanyMigrationSnapshot, generateMigrationExcelBuffer, summarizeMigrationImportLog } from "./migration-export";
 
 describe("Migration Export and Import", () => {
   it("builds a migration snapshot successfully", async () => {
@@ -9,6 +9,15 @@ describe("Migration Export and Import", () => {
     expect(snapshot.data).toHaveProperty("clients");
     expect(snapshot.data).toHaveProperty("crs");
     expect(snapshot.data).toHaveProperty("tasks");
+  });
+
+  it("summarizes detailed import log statuses", () => {
+    const summary = summarizeMigrationImportLog([
+      { entity: "clients", index: 0, status: "inserted", label: "Cliente A", message: "Registro inserido com sucesso." },
+      { entity: "tasks", index: 1, status: "ignored", label: "Registro 2", message: "Registro ignorado." },
+      { entity: "tasks", index: 2, status: "error", label: "Tarefa B", message: "Falha ao inserir." },
+    ]);
+    expect(summary).toEqual({ inserted: 1, ignored: 1, error: 1 });
   });
 
   it("generates an Excel buffer with multiple tabs", async () => {

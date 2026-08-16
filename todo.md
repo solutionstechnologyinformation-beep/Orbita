@@ -1596,3 +1596,8 @@
 - [x] Criar estado para armazenar o conteúdo do arquivo JSON pendente de importação
 - [x] Adicionar modal de confirmação exibindo aviso de segurança, nome do arquivo e botão de confirmação/cancelamento
 - [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (299/299 testes aprovados)
+
+## Relatório de Log de Importação na Tela
+- [x] Expandir o backend de importação para registrar mensagens detalhadas de inserção, falhas e itens ignorados por entidade
+- [x] Criar modal ou painel de relatório de importação exibindo estatísticas e log detalhado na tela após a conclusão
+- [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (300/300 testes aprovados)

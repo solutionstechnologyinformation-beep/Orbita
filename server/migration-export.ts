@@ -95,6 +95,21 @@ export function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<typeof
   return Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
 }
 
+export type MigrationImportLogEntry = {
+  entity: string;
+  index: number;
+  status: "inserted" | "ignored" | "error";
+  label: string;
+  message: string;
+};
+
+export function summarizeMigrationImportLog(log: MigrationImportLogEntry[]) {
+  return log.reduce((summary, entry) => {
+    summary[entry.status]++;
+    return summary;
+  }, { inserted: 0, ignored: 0, error: 0 });
+}
+
 export async function importCompanyMigrationJson(jsonString: string, currentCompanyId?: number | null) {
   const parsed = JSON.parse(jsonString);
   if (!parsed || parsed.version === undefined || !parsed.data || typeof parsed.data !== "object") throw new Error("Arquivo JSON de migração inválido ou corrompido.");
@@ -102,31 +117,38 @@ export async function importCompanyMigrationJson(jsonString: string, currentComp
 
   const db = await getDb();
   const importedCounts = { clients: 0, crs: 0, tasks: 0, agendaEvents: 0, sprints: 0 };
+  const ignoredCounts = { clients: 0, crs: 0, tasks: 0, agendaEvents: 0, sprints: 0 };
+  const errorCounts = { clients: 0, crs: 0, tasks: 0, agendaEvents: 0, sprints: 0 };
+  const log: MigrationImportLogEntry[] = [];
   const data = parsed.data as Record<string, unknown>;
+  const addLog = (entity: keyof typeof importedCounts, index: number, status: MigrationImportLogEntry["status"], item: any, message: string) => {
+    const label = String(item?.name ?? item?.title ?? item?.code ?? item?.id ?? `Registro ${index + 1}`);
+    log.push({ entity, index, status, label, message });
+  };
 
-  if (Array.isArray(data.clients)) {
-    for (const item of data.clients as any[]) {
+  const importRows = async <T extends keyof typeof importedCounts>(entity: T, rows: any[] | undefined, insert: (item: any) => Promise<unknown>) => {
+    if (!Array.isArray(rows)) return;
+    for (let index = 0; index < rows.length; index++) {
+      const item = rows[index];
+      if (!item || typeof item !== "object") {
+        ignoredCounts[entity]++;
+        addLog(entity, index, "ignored", item, "Registro ignorado: formato inválido.");
+        continue;
+      }
       try {
-        await db.insert(clients).values({ name: item.name, description: item.description ?? null, crsCode: item.crsCode ?? null, color: item.color ?? "#1561ad", status: item.status ?? "active", createdById: item.createdById ?? 1 });
-        importedCounts.clients++;
-      } catch {}
+        await insert(item);
+        importedCounts[entity]++;
+        addLog(entity, index, "inserted", item, "Registro inserido com sucesso.");
+      } catch (error) {
+        errorCounts[entity]++;
+        addLog(entity, index, "error", item, error instanceof Error ? error.message : "Falha ao inserir o registro.");
+      }
     }
-  }
-  if (Array.isArray(data.crs)) {
-    for (const item of data.crs as any[]) {
-      try {
-        await db.insert(crs).values({ clientId: item.clientId ?? 1, companyId: currentCompanyId ?? item.companyId ?? null, name: item.name, code: item.code ?? null, description: item.description ?? null, country: item.country ?? null, countryCode: item.countryCode ?? null, state: item.state ?? null, stateCode: item.stateCode ?? null, status: item.status ?? "active", progress: item.progress ?? 0, tipoObra: item.tipoObra ?? null, extensaoKm: item.extensaoKm ?? null, areaHa: item.areaHa ?? null, perimetroUrbano: item.perimetroUrbano ?? 0, techDataByType: item.techDataByType ?? null, createdById: item.createdById ?? 1 });
-        importedCounts.crs++;
-      } catch {}
-    }
-  }
-  if (Array.isArray(data.tasks)) {
-    for (const item of data.tasks as any[]) {
-      try {
-        await db.insert(tasks).values({ crsId: item.crsId ?? 1, phaseId: item.phaseId ?? 1, title: item.title, description: item.description ?? null, priority: item.priority ?? "medium", assigneeId: item.assigneeId ?? null, approvedById: item.approvedById ?? null, approvedAt: item.approvedAt ? new Date(item.approvedAt) : null, createdById: item.createdById ?? 1, startDate: item.startDate ? new Date(item.startDate) : null, endDate: item.endDate ? new Date(item.endDate) : null, dueDate: item.dueDate ? new Date(item.dueDate) : null, position: item.position ?? 0, revisionsCount: item.revisionsCount ?? 0, setor: item.setor ?? null, blockReason: item.blockReason ?? null, openedAt: item.openedAt ? new Date(item.openedAt) : null, completedAt: item.completedAt ? new Date(item.completedAt) : null, statusChangedAt: item.statusChangedAt ? new Date(item.statusChangedAt) : null, progress: item.progress ?? 0 });
-        importedCounts.tasks++;
-      } catch {}
-    }
-  }
-  return { success: true, importedCounts };
+  };
+
+  await importRows("clients", data.clients as any[] | undefined, (item) => db.insert(clients).values({ name: item.name, description: item.description ?? null, crsCode: item.crsCode ?? null, color: item.color ?? "#1561ad", status: item.status ?? "active", createdById: item.createdById ?? 1 }));
+  await importRows("crs", data.crs as any[] | undefined, (item) => db.insert(crs).values({ clientId: item.clientId ?? 1, companyId: currentCompanyId ?? item.companyId ?? null, name: item.name, code: item.code ?? null, description: item.description ?? null, country: item.country ?? null, countryCode: item.countryCode ?? null, state: item.state ?? null, stateCode: item.stateCode ?? null, status: item.status ?? "active", progress: item.progress ?? 0, tipoObra: item.tipoObra ?? null, extensaoKm: item.extensaoKm ?? null, areaHa: item.areaHa ?? null, perimetroUrbano: item.perimetroUrbano ?? 0, techDataByType: item.techDataByType ?? null, createdById: item.createdById ?? 1 }));
+  await importRows("tasks", data.tasks as any[] | undefined, (item) => db.insert(tasks).values({ crsId: item.crsId ?? 1, phaseId: item.phaseId ?? 1, title: item.title, description: item.description ?? null, priority: item.priority ?? "medium", assigneeId: item.assigneeId ?? null, approvedById: item.approvedById ?? null, approvedAt: item.approvedAt ? new Date(item.approvedAt) : null, createdById: item.createdById ?? 1, startDate: item.startDate ? new Date(item.startDate) : null, endDate: item.endDate ? new Date(item.endDate) : null, dueDate: item.dueDate ? new Date(item.dueDate) : null, position: item.position ?? 0, revisionsCount: item.revisionsCount ?? 0, setor: item.setor ?? null, blockReason: item.blockReason ?? null, openedAt: item.openedAt ? new Date(item.openedAt) : null, completedAt: item.completedAt ? new Date(item.completedAt) : null, statusChangedAt: item.statusChangedAt ? new Date(item.statusChangedAt) : null, progress: item.progress ?? 0 }));
+
+  return { success: true, importedCounts, ignoredCounts, errorCounts, log, completedAt: new Date().toISOString() };
 }
