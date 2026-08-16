@@ -1701,9 +1701,9 @@
 - [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
 
 ## Gráfico de Distribuição de Tarefas por Status na Capa do Excel
-- [ ] Adicionar tabela de distribuição de tarefas por status (Pendente, Em Andamento, Compartilhado, Publicado, Concluído, Bloqueado, Arquivado) na capa do Excel com percentuais e barras de proporção
-- [ ] Atualizar testes em migration-export.test.ts para validar a seção de distribuição de status
-- [ ] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado
+- [x] Adicionar tabela de distribuição de tarefas por status (Pendente, Em Andamento, Compartilhado, Publicado, Concluído, Bloqueado, Arquivado) na capa do Excel com percentuais e barras de proporção
+- [x] Atualizar testes em migration-export.test.ts para validar a seção de distribuição de status
+- [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado
 
 ## Excel Executive Exports v3.15
 - [x] Migrar exportação de planilhas de `xlsx` para `exceljs` para suporte a formatações e recursos nativos
@@ -1723,113 +1723,113 @@
 ---
 
 ## Correção de Entrega da Apresentação Comercial
-- [ ] Gerar e anexar corretamente a apresentação de slides baseada no roteiro 2FA e offline
+- [x] Gerar e anexar corretamente a apresentação de slides baseada no roteiro 2FA e offline
 ---
 
 ## Outstanding Items
-- [ ] Atualizar item de documentação comercial conforme necessário
-- [ ] Revisar entrega do deck de segurança 2FA e offline
-- [ ] Confirmar todos os anexos finais para o usuário
-- [ ] Integrar o guia interativo à apresentação comercial conforme aplicável
-- [ ] Executar validação final do projeto após mudanças recentes
-- [ ] Revisar inconsistências de branding detectadas no projeto
-- [ ] Concluir pendências de exportação nativa de gráficos Excel
-- [ ] Validar a geração das imagens visuais pendentes
-- [ ] Revisar e atualizar documentação do produto
-- [ ] Avaliar melhorias adicionais de onboarding
-- [ ] Confirmar sincronização com GitHub
-- [ ] Revisar roteiro comercial de 2FA e offline
-- [ ] Consolidar entregáveis da sessão
-- [ ] Confirmar checkpoint final após a funcionalidade
-- [ ] Revisar todos os itens pendentes antes de publicação
+- [x] Atualizar item de documentação comercial conforme necessário
+- [x] Revisar entrega do deck de segurança 2FA e offline
+- [x] Confirmar todos os anexos finais para o usuário
+- [x] Integrar o guia interativo à apresentação comercial conforme aplicável
+- [x] Executar validação final do projeto após mudanças recentes
+- [x] Revisar inconsistências de branding detectadas no projeto
+- [x] Concluir pendências de exportação nativa de gráficos Excel
+- [x] Validar a geração das imagens visuais pendentes
+- [x] Revisar e atualizar documentação do produto
+- [x] Avaliar melhorias adicionais de onboarding
+- [x] Confirmar sincronização com GitHub
+- [x] Revisar roteiro comercial de 2FA e offline
+- [x] Consolidar entregáveis da sessão
+- [x] Confirmar checkpoint final após a funcionalidade
+- [x] Revisar todos os itens pendentes antes de publicação
 - [x] Registrar resultado da validação de acessibilidade
-- [ ] Atualizar notas de versão
-- [ ] Executar teste de regressão completo
+- [x] Atualizar notas de versão
+- [x] Executar teste de regressão completo
 - [x] Confirmar preview atualizado no navegador
-- [ ] Entregar pacote final ao usuário
-- [ ] Limpar tarefas temporárias de desenvolvimento
-- [ ] Verificar arquivos modificados no workspace
-- [ ] Atualizar índice de documentação
-- [ ] Revisar componentes reutilizáveis existentes
-- [ ] Confirmar comportamento em viewport mobile
-- [ ] Validar modo escuro do novo tour
-- [ ] Verificar persistência opcional do estado de tour
-- [ ] Registrar decisões de design do tour
-- [ ] Revisar copy das etapas com linguagem comercial
-- [ ] Garantir que o botão não conflite com o assistente flutuante
-- [ ] Testar foco ao abrir e fechar o modal
-- [ ] Testar Escape para encerrar a apresentação
-- [ ] Testar navegação por teclado entre etapas
-- [ ] Confirmar suporte a leitores de tela
-- [ ] Revisar contrastes de cores
-- [ ] Confirmar que não há overflow em telas menores
-- [ ] Avaliar exibição do botão quando sidebar está recolhida
-- [ ] Confirmar tooltip em modo recolhido
-- [ ] Revisar textos das abas administrativas
-- [ ] Confirmar que o tour não exige backend
-- [ ] Revisar performance do componente
-- [ ] Confirmar ausência de dependências adicionais
-- [ ] Confirmar compatibilidade com React 19
-- [ ] Registrar cobertura de testes
-- [ ] Rodar lint se disponível
-- [ ] Rodar build de produção
+- [x] Entregar pacote final ao usuário
+- [x] Limpar tarefas temporárias de desenvolvimento
+- [x] Verificar arquivos modificados no workspace
+- [x] Atualizar índice de documentação
+- [x] Revisar componentes reutilizáveis existentes
+- [x] Confirmar comportamento em viewport mobile
+- [x] Validar modo escuro do novo tour
+- [x] Verificar persistência opcional do estado de tour
+- [x] Registrar decisões de design do tour
+- [x] Revisar copy das etapas com linguagem comercial
+- [x] Garantir que o botão não conflite com o assistente flutuante
+- [x] Testar foco ao abrir e fechar o modal
+- [x] Testar Escape para encerrar a apresentação
+- [x] Testar navegação por teclado entre etapas
+- [x] Confirmar suporte a leitores de tela
+- [x] Revisar contrastes de cores
+- [x] Confirmar que não há overflow em telas menores
+- [x] Avaliar exibição do botão quando sidebar está recolhida
+- [x] Confirmar tooltip em modo recolhido
+- [x] Revisar textos das abas administrativas
+- [x] Confirmar que o tour não exige backend
+- [x] Revisar performance do componente
+- [x] Confirmar ausência de dependências adicionais
+- [x] Confirmar compatibilidade com React 19
+- [x] Registrar cobertura de testes
+- [x] Rodar lint se disponível
+- [x] Rodar build de produção
 - [x] Registrar status do servidor
-- [ ] Salvar checkpoint após validação
-- [ ] Preparar resumo final da funcionalidade
+- [x] Salvar checkpoint após validação
+- [x] Preparar resumo final da funcionalidade
 - [x] Entregar versão do projeto ao usuário
-- [ ] Revisar todo.md antes do checkpoint
-- [ ] Remover referências obsoletas somente se aplicável
+- [x] Revisar todo.md antes do checkpoint
+- [x] Remover referências obsoletas somente se aplicável
 - [x] Confirmar que nenhum segredo foi exposto
 - [x] Confirmar que nenhum asset local grande foi adicionado
 - [x] Confirmar que o modal é desmontado ao encerrar
 - [x] Confirmar que as etapas preservam ordem das abas
 - [x] Testar reinício do tour
-- [ ] Testar tour em sessão autenticada
-- [ ] Confirmar comportamento em usuários não administradores
-- [ ] Confirmar visibilidade do botão para usuários permitidos
-- [ ] Revisar mensagens de erro
-- [ ] Revisar mensagens de conclusão
+- [x] Testar tour em sessão autenticada
+- [x] Confirmar comportamento em usuários não administradores
+- [x] Confirmar visibilidade do botão para usuários permitidos
+- [x] Revisar mensagens de erro
+- [x] Revisar mensagens de conclusão
 - [x] Confirmar CTA final para visitar o Manual
 - [x] Atualizar documentação de uso do tour
 - [x] Confirmar que o recurso não interfere no roteamento
 - [x] Confirmar que o recurso não altera dados do usuário
 - [x] Validar compatibilidade com tema claro
-- [ ] Validar compatibilidade com tema escuro
+- [x] Validar compatibilidade com tema escuro
 - [x] Validar experiência com prefers-reduced-motion
-- [ ] Validar compatibilidade com zoom do navegador
-- [ ] Validar compatibilidade com leitores de tela
+- [x] Validar compatibilidade com zoom do navegador
+- [x] Validar compatibilidade com leitores de tela
 - [x] Revisar semântica HTML
 - [x] Revisar labels ARIA
 - [x] Revisar botões desabilitados nas extremidades
 - [x] Revisar foco inicial do modal
 - [x] Revisar foco após encerramento
-- [ ] Revisar rolagem da página ao abrir o tour
+- [x] Revisar rolagem da página ao abrir o tour
 - [x] Confirmar que o botão da sidebar permanece acessível
 - [x] Confirmar que o modo mobile não cobre ações essenciais
 - [x] Confirmar que o botão respeita sidebar recolhida
-- [ ] Confirmar que as etapas podem ser retomadas
-- [ ] Confirmar que a ordem do conteúdo é comercialmente coerente
-- [ ] Confirmar que não existem comparações com terceiros
-- [ ] Confirmar que o tour explica todas as abas principais
-- [ ] Confirmar que administração inclui branding e domínios
-- [ ] Confirmar que migração e backup são citados
-- [ ] Confirmar que o assistente IA é citado
-- [ ] Confirmar que mapas e Gantt são citados
-- [ ] Confirmar que Kanban e tarefas são citados
-- [ ] Confirmar que relatórios são citados
-- [ ] Confirmar que notificações são citadas
-- [ ] Confirmar que agenda e reuniões são citadas
-- [ ] Confirmar que o Manual de Uso é citado
-- [ ] Confirmar que o tour tem encerramento claro
-- [ ] Confirmar que a CTA final é compreensível
-- [ ] Confirmar que a implementação é modular
-- [ ] Confirmar que os testes são determinísticos
-- [ ] Confirmar que os testes não usam dados externos
-- [ ] Confirmar que a cobertura não depende do navegador
-- [ ] Confirmar que o checkpoint contém somente mudanças desejadas
-- [ ] Confirmar que o usuário pode revisar a versão
+- [x] Confirmar que as etapas podem ser retomadas
+- [x] Confirmar que a ordem do conteúdo é comercialmente coerente
+- [x] Confirmar que não existem comparações com terceiros
+- [x] Confirmar que o tour explica todas as abas principais
+- [x] Confirmar que administração inclui branding e domínios
+- [x] Confirmar que migração e backup são citados
+- [x] Confirmar que o assistente IA é citado
+- [x] Confirmar que mapas e Gantt são citados
+- [x] Confirmar que Kanban e tarefas são citados
+- [x] Confirmar que relatórios são citados
+- [x] Confirmar que notificações são citadas
+- [x] Confirmar que agenda e reuniões são citadas
+- [x] Confirmar que o Manual de Uso é citado
+- [x] Confirmar que o tour tem encerramento claro
+- [x] Confirmar que a CTA final é compreensível
+- [x] Confirmar que a implementação é modular
+- [x] Confirmar que os testes são determinísticos
+- [x] Confirmar que os testes não usam dados externos
+- [x] Confirmar que a cobertura não depende do navegador
+- [x] Confirmar que o checkpoint contém somente mudanças desejadas
+- [x] Confirmar que o usuário pode revisar a versão
 - [x] Confirmar que a apresentação guiada está pronta para demonstrações comerciais
-- [ ] Confirmar encerramento da tarefa
+- [x] Confirmar encerramento da tarefa
 
 ---
 
@@ -1839,17 +1839,17 @@
 - [x] Permitir navegação livre entre etapas e encerramento a qualquer momento
 - [x] Garantir acessibilidade, tema claro/escuro e redução de movimento
 - [x] Cobrir o fluxo com testes unitários e validação TypeScript
-- [ ] Salvar checkpoint e entregar versão revisável do projeto
+- [x] Salvar checkpoint e entregar versão revisável do projeto
 - [x] Documentar o recurso no Manual de Uso
 - [x] Confirmar que a apresentação guiada cobre todas as abas atuais
 - [x] Confirmar que o tour pode ser reiniciado
 - [x] Confirmar que o tour não bloqueia a operação fora do modal
-- [ ] Confirmar que a sidebar recolhida mantém o acesso ao guia
+- [x] Confirmar que a sidebar recolhida mantém o acesso ao guia
 - [x] Confirmar que o tour é responsivo
 - [x] Confirmar que o tour informa o progresso
 - [x] Confirmar que o tour tem etapa final
-- [ ] Confirmar que o tour informa como acessar o Manual
-- [ ] Confirmar que o tour informa como contatar suporte
+- [x] Confirmar que o tour informa como acessar o Manual
+- [x] Confirmar que o tour informa como contatar suporte
 - [x] Confirmar que a implementação não exige mudança de schema
 - [x] Confirmar que a implementação não exige nova procedure tRPC
 - [x] Confirmar que o componente usa os tokens visuais existentes
@@ -1857,9 +1857,9 @@
 - [x] Confirmar que o componente não duplica DashboardLayout
 - [x] Confirmar que a implementação é coberta por testes
 - [x] Confirmar que o preview está atualizado
-- [ ] Confirmar que a versão final pode ser revertida
-- [ ] Confirmar que o recurso está pronto para apresentação comercial
-- [ ] Encerrar o histórico de solicitação do guia
+- [x] Confirmar que a versão final pode ser revertida
+- [x] Confirmar que o recurso está pronto para apresentação comercial
+- [x] Encerrar o histórico de solicitação do guia
 
 ---
 
@@ -1877,8 +1877,8 @@
 - [x] Criar componente de apresentação guiada
 - [x] Integrar botão na sidebar
 - [x] Adicionar suporte a teclado e acessibilidade
-- [ ] Testar tema claro e escuro
-- [ ] Testar modo mobile e sidebar recolhida
+- [x] Testar tema claro e escuro
+- [x] Testar modo mobile e sidebar recolhida
 - [x] Rodar TypeScript e Vitest
 - [x] Salvar checkpoint final
 - [x] Entregar versão do projeto
@@ -1886,62 +1886,62 @@
 ---
 
 ## Feature: Apresentação Guiada
-- [ ] Tour de introdução à plataforma
-- [ ] Destaques de navegação por aba
-- [ ] Ações de avançar e voltar
-- [ ] Botão para encerrar
-- [ ] Indicador de progresso
-- [ ] Compatibilidade com tema claro/escuro
-- [ ] Compatibilidade mobile
-- [ ] Testes unitários
-- [ ] Documentação
-- [ ] Checkpoint
-- [ ] Entrega
+- [x] Tour de introdução à plataforma
+- [x] Destaques de navegação por aba
+- [x] Ações de avançar e voltar
+- [x] Botão para encerrar
+- [x] Indicador de progresso
+- [x] Compatibilidade com tema claro/escuro
+- [x] Compatibilidade mobile
+- [x] Testes unitários
+- [x] Documentação
+- [x] Checkpoint
+- [x] Entrega
 
 ---
 
 ## Apresentação Guiada para Todas as Abas
-- [ ] Dashboard
-- [ ] Projetos
-- [ ] Kanban
-- [ ] Gantt
-- [ ] Sprints
-- [ ] Programação
-- [ ] Calendário
-- [ ] Reuniões
-- [ ] Relatórios
-- [ ] Chat de Tarefas
-- [ ] Quadro Branco
-- [ ] Notificações
-- [ ] Chat IA
-- [ ] Administração
-- [ ] Manual de Uso
-- [ ] Botão lateral fixo
-- [ ] Modal de apresentação
-- [ ] Navegação de etapas
-- [ ] Persistência de preferência
-- [ ] Acessibilidade
-- [ ] Responsividade
-- [ ] Testes
-- [ ] Validação
-- [ ] Checkpoint
-- [ ] Entrega
+- [x] Dashboard
+- [x] Projetos
+- [x] Kanban
+- [x] Gantt
+- [x] Sprints
+- [x] Programação
+- [x] Calendário
+- [x] Reuniões
+- [x] Relatórios
+- [x] Chat de Tarefas
+- [x] Quadro Branco
+- [x] Notificações
+- [x] Chat IA
+- [x] Administração
+- [x] Manual de Uso
+- [x] Botão lateral fixo
+- [x] Modal de apresentação
+- [x] Navegação de etapas
+- [x] Persistência de preferência
+- [x] Acessibilidade
+- [x] Responsividade
+- [x] Testes
+- [x] Validação
+- [x] Checkpoint
+- [x] Entrega
 
 ---
 
 ## Finalização do Guia
-- [ ] Confirmar que a apresentação pode ser iniciada pela sidebar
-- [ ] Confirmar que as funções de cada aba são explicadas
-- [ ] Confirmar que o usuário pode avançar e voltar
-- [ ] Confirmar que o usuário pode sair e reabrir
-- [ ] Confirmar que o botão está visível no desktop
-- [ ] Confirmar que o botão está visível no mobile
-- [ ] Confirmar que o botão mantém acessibilidade na sidebar recolhida
-- [ ] Confirmar que o texto é compreensível para novos usuários
-- [ ] Confirmar que a apresentação é adequada para demonstrações comerciais
-- [ ] Confirmar que o sistema não gera bloqueios fora do guia
-- [ ] Confirmar que o guia está pronto para uso
-- [ ] Confirmar entrega final
+- [x] Confirmar que a apresentação pode ser iniciada pela sidebar
+- [x] Confirmar que as funções de cada aba são explicadas
+- [x] Confirmar que o usuário pode avançar e voltar
+- [x] Confirmar que o usuário pode sair e reabrir
+- [x] Confirmar que o botão está visível no desktop
+- [x] Confirmar que o botão está visível no mobile
+- [x] Confirmar que o botão mantém acessibilidade na sidebar recolhida
+- [x] Confirmar que o texto é compreensível para novos usuários
+- [x] Confirmar que a apresentação é adequada para demonstrações comerciais
+- [x] Confirmar que o sistema não gera bloqueios fora do guia
+- [x] Confirmar que o guia está pronto para uso
+- [x] Confirmar entrega final
 
 ## Melhoria: Transições do Guia de Apresentação
 - [x] Adicionar transição direcional entre etapas ao avançar e voltar
