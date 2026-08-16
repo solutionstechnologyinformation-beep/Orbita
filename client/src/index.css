@@ -387,7 +387,229 @@ html.theme-transition body *::after {
   animation: orbita-assistant-overdue-reaction 2.8s ease-in-out infinite;
 }
 
+@keyframes orbitaSecureLoginStageForward {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes orbitaSecureLoginStageBackward {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes orbitaSecureLoginStageNeutral {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes orbitaSecureLoginFeedbackIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -5px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes orbitaSecureLoginShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-4px, 0, 0); }
+  50% { transform: translate3d(4px, 0, 0); }
+  75% { transform: translate3d(-2px, 0, 0); }
+}
+
+@keyframes orbitaSecureLoginSuccessPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, #22c55e 34%, transparent); }
+  70% { box-shadow: 0 0 0 8px color-mix(in srgb, #22c55e 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, #22c55e 0%, transparent); }
+}
+
+.secure-login-modal {
+  transform: translateZ(0);
+}
+
+.secure-login-stage-shell {
+  min-height: 310px;
+  will-change: opacity, transform;
+}
+
+.secure-login-stage-forward {
+  animation: orbitaSecureLoginStageForward 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.secure-login-stage-backward {
+  animation: orbitaSecureLoginStageBackward 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.secure-login-stage-neutral {
+  animation: orbitaSecureLoginStageNeutral 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.secure-login-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  animation: orbitaSecureLoginFeedbackIn 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.secure-login-feedback-loading {
+  background: color-mix(in srgb, var(--brand-highlight) 13%, var(--card));
+  border-color: color-mix(in srgb, var(--brand-highlight) 38%, var(--border));
+  color: var(--foreground);
+}
+
+.secure-login-feedback-info {
+  background: color-mix(in srgb, var(--brand-highlight) 15%, var(--card));
+  border-color: color-mix(in srgb, var(--brand-highlight) 45%, var(--border));
+  color: var(--foreground);
+}
+
+.secure-login-feedback-error {
+  background: color-mix(in srgb, #ef4444 10%, var(--card));
+  border-color: color-mix(in srgb, #ef4444 40%, var(--border));
+  color: #b91c1c;
+  animation: orbitaSecureLoginFeedbackIn 200ms cubic-bezier(0.22, 1, 0.36, 1) both, orbitaSecureLoginShake 260ms ease-out 200ms both;
+}
+
+.secure-login-feedback-success {
+  background: color-mix(in srgb, #22c55e 11%, var(--card));
+  border-color: color-mix(in srgb, #22c55e 42%, var(--border));
+  color: #15803d;
+}
+
+.dark .secure-login-feedback-error {
+  color: #fca5a5;
+}
+
+.dark .secure-login-feedback-success {
+  color: #86efac;
+}
+
+.secure-login-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.secure-login-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  transition: color 180ms ease-out, opacity 180ms ease-out;
+}
+
+.secure-login-step-active {
+  color: var(--foreground);
+}
+
+.secure-login-step-complete {
+  color: #15803d;
+}
+
+.dark .secure-login-step-complete {
+  color: #86efac;
+}
+
+.secure-login-step-icon {
+  display: inline-flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
+  font-size: 0.65rem;
+  transition: background-color 180ms ease-out, border-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out;
+}
+
+.secure-login-step-active .secure-login-step-icon {
+  border-color: var(--brand-highlight);
+  background: var(--brand-highlight);
+  color: var(--brand-highlight-foreground);
+  transform: scale(1.05);
+}
+
+.secure-login-step-complete .secure-login-step-icon {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: white;
+}
+
+.secure-login-step-line {
+  height: 1px;
+  min-width: 1rem;
+  flex: 1;
+  background: var(--border);
+  transition: background-color 220ms ease-out;
+}
+
+.secure-login-step-line-active {
+  background: #22c55e;
+}
+
+.secure-login-input-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 14%, transparent);
+  animation: orbitaSecureLoginShake 260ms ease-out both;
+}
+
+.secure-login-input-success {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 14%, transparent);
+  animation: orbitaSecureLoginSuccessPulse 700ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .secure-login-stage-shell,
+  .secure-login-stage-forward,
+  .secure-login-stage-backward,
+  .secure-login-stage-neutral,
+  .secure-login-feedback,
+  .secure-login-feedback-error,
+  .secure-login-input-error,
+  .secure-login-input-success {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .secure-login-step,
+  .secure-login-step-icon,
+  .secure-login-step-line {
+    transition: none !important;
+  }
+
   .orbita-assistant-overdue {
     animation: none !important;
   }

@@ -1619,3 +1619,9 @@
 - [x] Implementar procedures tRPC para login seguro, verificação TOTP, cadastro, recuperação de acesso e ativação de 2FA
 - [x] Criar componentes de interface para Login, Cadastro, Configuração de 2FA e Verificação de segundo fator (`SecureLoginModal`)
 - [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (306/306 testes aprovados)
+
+## Transições do Login e Verificação 2FA
+- [x] Adicionar transição suave entre credenciais e verificação TOTP, preservando acessibilidade e suporte a movimento reduzido
+- [x] Exibir feedback visual claro para carregamento, sucesso, erro e retorno à etapa anterior durante a autenticação
+- [x] Criar testes unitários para os estados e classes de transição do SecureLoginModal
+- [x] Validar a suíte completa, TypeScript e saúde do servidor (308/308 testes aprovados)
