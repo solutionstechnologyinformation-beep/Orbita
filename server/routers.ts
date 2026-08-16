@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { parse as parseCookie } from "cookie";
 import { randomBytes } from "crypto";
 import { resolveTxt } from "node:dns/promises";
-import { users, backupSchedules } from "../drizzle/schema";
+import { users, backupSchedules, companyInvites } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
@@ -22,6 +22,7 @@ import {
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
   getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline,
+  createCompanyInvite, getCompanyInvites, getCompanyInviteByToken, revokeCompanyInvite, acceptCompanyInviteRecord,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage, setChatTypingState, clearChatTypingState, getChatTypingUsers,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
@@ -137,6 +138,71 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, getSessionCookieOptions(ctx.req));
       return { success: true };
     }),
+
+    getInviteInfo: publicProcedure
+      .input(z.object({ token: z.string().min(1) }))
+      .query(async ({ input }) => {
+        const invite = await getCompanyInviteByToken(input.token);
+        if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "Convite não encontrado." });
+        if (invite.status !== "pending") {
+          return { valid: false, reason: `Convite já foi ${invite.status === "accepted" ? "aceito" : invite.status === "revoked" ? "revogado" : "expirado"}.` };
+        }
+        if (new Date() > new Date(invite.expiresAt)) {
+          return { valid: false, reason: "Este convite expirou." };
+        }
+        const company = await getCompanyById(invite.companyId);
+        return {
+          valid: true,
+          email: invite.email,
+          role: invite.role,
+          companyName: company?.name || "Empresa",
+        };
+      }),
+
+    acceptInvite: publicProcedure
+      .input(z.object({
+        token: z.string().min(1),
+        name: z.string().trim().min(2).max(256),
+        password: z.string().min(8).max(128),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const invite = await getCompanyInviteByToken(input.token);
+        if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "Convite não encontrado." });
+        if (invite.status !== "pending" || new Date() > new Date(invite.expiresAt)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este convite não é mais válido." });
+        }
+
+        const db = await getDb();
+        const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, invite.email)).limit(1);
+        if (existing) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail." });
+        }
+
+        const company = await getCompanyById(invite.companyId);
+        const passwordHash = createScryptPasswordHash(input.password);
+        const userId = await createCompanyLocalUser({
+          companyId: invite.companyId,
+          name: input.name.trim(),
+          email: invite.email.toLowerCase(),
+          passwordHash,
+          role: invite.role,
+          companyName: company?.name,
+        });
+
+        await acceptCompanyInviteRecord(invite.id);
+
+        const [createdUser] = await db.select({ openId: users.openId }).from(users).where(eq(users.id, userId)).limit(1);
+        const { sdk } = await import("./_core/sdk");
+        const { COOKIE_NAME, ONE_YEAR_MS } = await import("../shared/const");
+        const { getSessionCookieOptions } = await import("./_core/cookies");
+        const sessionToken = await sdk.createSessionToken(createdUser?.openId || `local_${userId}`, {
+          name: input.name.trim(),
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return { success: true, userId, companyId: invite.companyId };
+      }),
 
     registerLocalAccount: publicProcedure
       .input(z.object({
@@ -455,6 +521,58 @@ export const appRouter = router({
         await updateCompanyBranding(companyId, updatePayload);
         return { url };
       }),
+    invites: router({
+      list: companyAdminProcedure.query(async ({ ctx }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        return getCompanyInvites(companyId);
+      }),
+      create: companyAdminProcedure
+        .input(z.object({
+          email: z.string().trim().email(),
+          role: z.enum(["user", "leader", "company_admin"]).default("user"),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          const companyId = ctx.user.companyId;
+          if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+
+          const db = await getDb();
+          const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email.toLowerCase())).limit(1);
+          if (existingUser) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail no sistema." });
+          }
+
+          const token = randomBytes(32).toString("hex");
+          const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          const inviteId = await createCompanyInvite({
+            companyId,
+            invitedByUserId: ctx.user.id,
+            email: input.email,
+            role: input.role,
+            token,
+            expiresAt,
+          });
+
+          await logActivity({
+            userId: ctx.user.id,
+            action: "created_company_invite",
+            entityType: "company_invite",
+            entityId: inviteId,
+            metadata: JSON.stringify({ email: input.email, role: input.role }),
+          });
+
+          const inviteUrl = `${ctx.req.protocol || "https"}://${ctx.req.headers.host || "localhost:3000"}/invite?token=${token}`;
+          return { success: true, inviteId, token, inviteUrl };
+        }),
+      revoke: companyAdminProcedure
+        .input(z.object({ inviteId: z.number() }))
+        .mutation(async ({ ctx, input }) => {
+          const companyId = ctx.user.companyId;
+          if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+          await revokeCompanyInvite(input.inviteId, companyId);
+          return { success: true };
+        }),
+    }),
   }),
   companies: router({
     list: protectedProcedure.query(async ({ ctx }) => {

@@ -30,6 +30,7 @@ import JoinProject from "./pages/JoinProject";
 import Plans from "./pages/Plans";
 import UserManual from "./pages/UserManual";
 import Migration from "./pages/Migration";
+import AcceptInvite from "./pages/AcceptInvite";
 import { SubscriptionPortal } from "./pages/SubscriptionPortal";
 import SplashScreen from "./pages/SplashScreen";
 
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/scheduling" component={Scheduling} />
       <Route path="/relatorios" component={Reports} />
       <Route path="/join" component={JoinProject} />
+      <Route path="/invite" component={AcceptInvite} />
       <Route path="/planos" component={Plans} />
       <Route path="/assinatura" component={SubscriptionPortal} />
       <Route path="/manual" component={UserManual} />

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { AlertCircle, Building2, CheckCircle2, FolderKanban, Loader2, Plus, ShieldCheck, UserPlus, Users, Settings, Upload } from "lucide-react";
 import { FormEvent, useState, useEffect } from "react";
+import { CompanyInvitesSection } from "./CompanyInvitesSection";
 
 const roleLabels: Record<string, string> = {
   user: "Usuário",
@@ -158,9 +159,10 @@ export default function CompanyAdmin() {
             </div>
 
             <Tabs defaultValue="users" className="w-full">
-              <TabsList className="grid h-auto w-full max-w-2xl grid-cols-3 rounded-xl bg-slate-100 p-1">
+              <TabsList className="grid h-auto w-full max-w-3xl grid-cols-4 rounded-xl bg-slate-100 p-1">
                 <TabsTrigger value="users" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Users className="h-4 w-4" /> Usuários</TabsTrigger>
-                <TabsTrigger value="projects" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><FolderKanban className="h-4 w-4" /> Projetos da empresa</TabsTrigger>
+                <TabsTrigger value="invites" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><UserPlus className="h-4 w-4" /> Convites</TabsTrigger>
+                <TabsTrigger value="projects" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><FolderKanban className="h-4 w-4" /> Projetos</TabsTrigger>
                 <TabsTrigger value="settings" className="gap-2 rounded-lg py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm"><Settings className="h-4 w-4" /> Configurações</TabsTrigger>
               </TabsList>
 
@@ -176,6 +178,10 @@ export default function CompanyAdmin() {
 
                   <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center gap-2"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><UserPlus className="h-4 w-4" /></div><div><h2 className="font-bold text-slate-900">Novo usuário</h2><p className="text-xs text-slate-500">Será vinculado automaticamente à empresa.</p></div></div><div className="space-y-3"><div><Label htmlFor="company-user-name">Nome</Label><Input id="company-user-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required /></div><div><Label htmlFor="company-user-email">E-mail</Label><Input id="company-user-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required /></div><div><Label htmlFor="company-user-password">Senha inicial</Label><Input id="company-user-password" type="password" minLength={6} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} required /></div><div><Label htmlFor="company-user-role">Permissão</Label><select id="company-user-role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as typeof current.role }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="user">{roleLabels.user}</option><option value="leader">{roleLabels.leader}</option><option value="company_admin">{roleLabels.company_admin}</option></select></div><Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={createUser.isPending}><Plus className="mr-2 h-4 w-4" />{createUser.isPending ? "Criando..." : "Criar usuário"}</Button></div></form>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="invites" className="mt-4">
+                <CompanyInvitesSection />
               </TabsContent>
 
               <TabsContent value="projects" className="mt-4">

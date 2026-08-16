@@ -631,3 +631,20 @@ export const userAiMemories = mysqlTable("user_ai_memories", {
 });
 export type UserAiMemory = typeof userAiMemories.$inferSelect;
 export type InsertUserAiMemory = typeof userAiMemories.$inferInsert;
+
+// ─── Company Invites (Convites Administrativos por Empresa) ─────────────────────
+export const companyInvites = mysqlTable("company_invites", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  invitedByUserId: int("invitedByUserId").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  role: mysqlEnum("role", ["user", "leader", "company_admin"]).default("user").notNull(),
+  token: varchar("token", { length: 128 }).notNull().unique(),
+  status: mysqlEnum("status", ["pending", "accepted", "revoked", "expired"]).default("pending").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CompanyInvite = typeof companyInvites.$inferSelect;
+export type InsertCompanyInvite = typeof companyInvites.$inferInsert;

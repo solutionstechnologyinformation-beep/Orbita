@@ -12,7 +12,7 @@ import {
   sprintChecklistItems, whiteboards, userDisciplines,
   googleCalendarTokens, googleCalendarEvents, meetings, crsSegments,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
-  companies, notificationPreferences,
+  companies, notificationPreferences, companyInvites,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -2350,4 +2350,40 @@ export async function deleteUserAiMemory(memoryId: number, userId: number) {
   const { eq: eq2, and: and2 } = await import("drizzle-orm");
   await db.delete(userAiMemories).where(and2(eq2(userAiMemories.id, memoryId), eq2(userAiMemories.userId, userId)));
   return { success: true };
+}
+
+// ─── Company Invites ───────────────────────────────────────────────────────────
+export async function createCompanyInvite(data: { companyId: number; invitedByUserId: number; email: string; role: "user" | "leader" | "company_admin"; token: string; expiresAt: Date }) {
+  const db = await getDb();
+  const [result] = await db.insert(companyInvites).values({
+    companyId: data.companyId,
+    invitedByUserId: data.invitedByUserId,
+    email: data.email.toLowerCase().trim(),
+    role: data.role,
+    token: data.token,
+    status: "pending",
+    expiresAt: data.expiresAt,
+  });
+  return Number((result as any).insertId);
+}
+
+export async function getCompanyInvites(companyId: number) {
+  const db = await getDb();
+  return db.select().from(companyInvites).where(eq(companyInvites.companyId, companyId)).orderBy(desc(companyInvites.createdAt));
+}
+
+export async function getCompanyInviteByToken(token: string) {
+  const db = await getDb();
+  const rows = await db.select().from(companyInvites).where(eq(companyInvites.token, token)).limit(1);
+  return rows[0] || null;
+}
+
+export async function revokeCompanyInvite(inviteId: number, companyId: number) {
+  const db = await getDb();
+  await db.update(companyInvites).set({ status: "revoked", updatedAt: new Date() }).where(and(eq(companyInvites.id, inviteId), eq(companyInvites.companyId, companyId)));
+}
+
+export async function acceptCompanyInviteRecord(inviteId: number) {
+  const db = await getDb();
+  await db.update(companyInvites).set({ status: "accepted", acceptedAt: new Date(), updatedAt: new Date() }).where(eq(companyInvites.id, inviteId));
 }

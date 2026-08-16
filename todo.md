@@ -1963,3 +1963,13 @@
 - [x] Atualizar GUIA_LOCAL_VSCODE.md e gerar novo ZIP
 - [x] Validar TypeScript, suíte Vitest e sincronizar a versão com o GitHub
 - [x] Salvar checkpoint e entregar os arquivos atualizados
+
+## Sistema de Convites Administrativos por Empresa
+- [x] Adicionar tabela `company_invites` no schema Drizzle com token único, companyId, role, email, status (pending, accepted, revoked, expired) e expiração
+- [x] Criar migração e helpers DB para criar, listar, revogar e aceitar convites com validação de tenant
+- [x] Implement procedures tRPC `companyAdmin.createInvite`, `companyAdmin.listInvites`, `companyAdmin.revokeInvite` e `auth.acceptInvite`
+- [x] Criar componente de gerenciamento de convites na aba Admin da Empresa
+- [x] Criar página pública de aceite de convite `/invite` com formulário seguro de registro ou associação à conta existente
+- [x] Escrever suíte de testes unitários para a segurança, validade e uso único de convites
+- [x] Documentar o fluxo de convites no GUIA_AUTENTICACAO_LOCAL.md e no Manual de Uso
+- [x] Validar TypeScript, suíte Vitest, salvar checkpoint e entregar

@@ -42,3 +42,13 @@ Para implantar o Órbita para diferentes empresas clientes de forma independente
 1. **Isolamento de Dados**: Cada empresa possui um `companyId` exclusivo no banco de dados MySQL/TiDB. Todas as entidades (projetos, contratos CRS, tarefas Kanban, trechos KMZ, eventos de agenda e relatórios) filtram automaticamente os registros vinculados ao tenant ativo.
 2. **Configuração de Domínio e Branding**: Na aba **Admin da Empresa**, cada cliente pode carregar seu próprio logotipo (com suporte a modo claro e escuro) e definir a cor primária corporativa.
 3. **Backup e Migração por Tenant**: A ferramenta de **Migração e Backups** permite exportar e importar snapshots completos em formato JSON ou planilhas Excel estruturadas por empresa, facilitando a portabilidade e a entrega do ambiente pronto para cada novo cliente.
+
+
+## ✉️ 4. Sistema de Convites Administrativos por Empresa
+
+Para adicionar colaboradores ao workspace da empresa com segurança e restrição de tenant:
+
+1. **Geração de Convite**: Na aba **Convites** dentro do painel **Admin da Empresa**, o administrador informa o e-mail do convidado e escolhe a permissão (*Colaborador*, *Líder* ou *Admin da Empresa*).
+2. **Link Exclusivo**: O sistema gera um token criptográfico de uso único com validade de 7 dias e copia o link direto (`/invite?token=...`).
+3. **Aceite Seguro**: O novo usuário acessa o link, visualiza o nome da organização e o cargo atribuído, preenche seu nome e define sua senha protegida por scrypt. O backend valida a expiração, cria a conta vinculada estritamente ao `companyId` da empresa emissora e inicia a sessão de forma imediata.
+4. **Controle e Revogação**: O administrador pode consultar o status de todos os convites pendentes, aceitos ou expirados e revogar links ativos a qualquer momento.
