@@ -53,3 +53,12 @@ Para adicionar colaboradores ao workspace da empresa com segurança e restriçã
 3. **Aceite Seguro**: O novo usuário acessa o link, visualiza o nome da organização e o cargo atribuído, preenche seu nome e define sua senha protegida por scrypt. O backend valida a expiração, cria a conta vinculada estritamente ao `companyId` da empresa emissora e inicia a sessão de forma imediata.
 4. **Controle e Revogação**: O administrador pode consultar o status de todos os convites pendentes, aceitos ou expirados e revogar links ativos a qualquer momento.
 5. **Histórico de Auditoria, Alertas e Conformidade**: Cada transição no ciclo de vida do convite é registrada com data, IP e identificador. O painel possui contadores de risco, filtros de alertas, proteção por taxa/bloqueio temporário de IP e botão de exportação instantânea em formato CSV para auditorias de conformidade corporativa.
+
+
+## 🛡️ 5. Exigência de 2FA no Primeiro Login para Administradores Convidados
+
+Para garantir conformidade rigorosa e blindar o acesso a workspaces multi-tenant:
+1. **Regra de Convite Administrativo**: Quando um usuário é convidado com o papel de **Administrador da Empresa** (`company_admin`), o sistema marca o registro com o sinal persistente `tfaSetupRequired = true`.
+2. **Barreira de Acesso**: Após aceitar o convite ou realizar o primeiro login com senha, o backend emite uma sessão limitada e o middleware de segurança bloqueia o acesso a todas as rotas protegidas e consultas ao workspace, redirecionando o administrador para `/setup-2fa`.
+3. **Provisionamento e Códigos de Backup**: A tela de configuração exibe um QR Code interativo para aplicativos autenticadores (Google Authenticator, Microsoft Authenticator), chave secreta manual, validação TOTP em tempo real e geração de códigos de backup de uso único.
+4. **Liberação Automática**: Assim que o código TOTP é confirmado com sucesso, o sistema desativa o marcador `tfaSetupRequired`, grava os códigos de recuperação, registra a auditoria de segurança e libera o acesso completo ao painel administrativo e aos projetos da empresa.

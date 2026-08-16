@@ -5,7 +5,7 @@ import { randomBytes } from "crypto";
 import { resolveTxt } from "node:dns/promises";
 import { users, backupSchedules, companyInvites } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
-import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
+import { router, publicProcedure, protectedProcedure, authenticatedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
 import { getKanbanStatusForPhase } from "../shared/kanban-status";
 import {
@@ -63,6 +63,7 @@ import { invokeLLM } from "./_core/llm";
 import stripe from "stripe";
 import { generateAndSendEmailTfaCode, verifyEmailTfaCode, maskEmail } from "./tfa-service";
 import { createScryptPasswordHash, isLocalAuthEnabled, slugifyCompanyName, verifyScryptPassword } from "./local-auth";
+import { requiresMandatoryTfaForInvite, shouldBlockWorkspaceAccess } from "./mandatory-tfa";
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // ─── Admin guard ───────────────────────────────────────────────────────────────
@@ -206,6 +207,7 @@ export const appRouter = router({
           passwordHash,
           role: invite.role,
           companyName: company?.name,
+          tfaSetupRequired: requiresMandatoryTfaForInvite(invite.role),
         });
 
         await acceptCompanyInviteRecord(invite.id);
@@ -229,7 +231,12 @@ export const appRouter = router({
         });
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-        return { success: true, userId, companyId: invite.companyId };
+        return {
+          success: true,
+          userId,
+          companyId: invite.companyId,
+          requiresTfaSetup: requiresMandatoryTfaForInvite(invite.role),
+        };
       }),
 
     registerLocalAccount: publicProcedure
@@ -313,13 +320,23 @@ export const appRouter = router({
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Credenciais inválidas." });
         }
 
-        if (user.tfaEnabled) {
-          return { requires2fa: true, userId: user.id, email: user.email };
-        }
-
         const { sdk } = await import("./_core/sdk");
         const { COOKIE_NAME, ONE_YEAR_MS } = await import("../shared/const");
         const { getSessionCookieOptions } = await import("./_core/cookies");
+
+        if (shouldBlockWorkspaceAccess(user)) {
+          const sessionToken = await sdk.createSessionToken(user.openId, {
+            name: user.name || "",
+            expiresInMs: ONE_YEAR_MS,
+          });
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+          return { requires2fa: false, requiresTfaSetup: true, userId: user.id, email: user.email };
+        }
+
+        if (user.tfaEnabled) {
+          return { requires2fa: true, requiresTfaSetup: false, userId: user.id, email: user.email };
+        }
 
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name || "",
@@ -328,7 +345,7 @@ export const appRouter = router({
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-        return { requires2fa: false, success: true };
+        return { requires2fa: false, requiresTfaSetup: false, success: true };
       }),
 
     verifyTotpLogin: publicProcedure
@@ -364,9 +381,8 @@ export const appRouter = router({
         }
 
         const { sdk } = await import("./_core/sdk");
-        const { COOKIE_NAME, ONE_YEAR_MS } = await import("../shared/const");
+        const { ONE_YEAR_MS } = await import("../shared/const");
         const { getSessionCookieOptions } = await import("./_core/cookies");
-
         const sessionToken = await sdk.createSessionToken(user.openId, {
           name: user.name || "",
           expiresInMs: ONE_YEAR_MS,
@@ -2594,7 +2610,7 @@ export const appRouter = router({
 
   // ─── Two-Factor Authentication (2FA) for Admins ─────────────────────────────
   tfa: router({
-    status: protectedProcedure.query(async ({ ctx }) => {
+    status: authenticatedProcedure.query(async ({ ctx }) => {
       if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
       }
@@ -2603,11 +2619,13 @@ export const appRouter = router({
       const { eq: eq2 } = await import("drizzle-orm");
       const [user] = await db.select({
         tfaEnabled: usersTable.tfaEnabled,
+        tfaSetupRequired: usersTable.tfaSetupRequired,
         tfaMethod: usersTable.tfaMethod,
         email: usersTable.email,
       }).from(usersTable).where(eq2(usersTable.id, ctx.user.id));
       return {
         enabled: user?.tfaEnabled ?? false,
+        setupRequired: user?.tfaSetupRequired ?? false,
         method: user?.tfaMethod ?? "totp",
         email: user?.email ? maskEmail(user.email) : null,
         emailConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
@@ -2648,7 +2666,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    setup: protectedProcedure.mutation(async ({ ctx }) => {
+    setup: authenticatedProcedure.mutation(async ({ ctx }) => {
       if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem gerenciar o 2FA." });
       }
@@ -2662,7 +2680,7 @@ export const appRouter = router({
       return { secret, otpauth };
     }),
 
-    verifyAndEnable: protectedProcedure
+    verifyAndEnable: authenticatedProcedure
       .input(z.object({ token: z.string().length(6) }))
       .mutation(async ({ ctx, input }) => {
         if (ctx.user.role !== "admin" && ctx.user.role !== "master_admin" && ctx.user.role !== "company_admin") {
@@ -2676,7 +2694,7 @@ export const appRouter = router({
         const { verifyTotpToken, generateBackupCodes } = await import("./tfa");
         if (!verifyTotpToken(user.tfaSecret, input.token)) throw new TRPCError({ code: "BAD_REQUEST", message: "Código TOTP inválido ou expirado." });
         const backupCodes = generateBackupCodes(8);
-        await db.update(usersTable).set({ tfaEnabled: true, tfaMethod: "totp", tfaBackupCodes: JSON.stringify(backupCodes), tfaCodeHash: null, tfaCodeExpiresAt: null, tfaCodeAttempts: 0 }).where(eq2(usersTable.id, ctx.user.id));
+        await db.update(usersTable).set({ tfaEnabled: true, tfaSetupRequired: false, tfaMethod: "totp", tfaBackupCodes: JSON.stringify(backupCodes), tfaCodeHash: null, tfaCodeExpiresAt: null, tfaCodeAttempts: 0 }).where(eq2(usersTable.id, ctx.user.id));
         return { success: true, backupCodes };
       }),
 

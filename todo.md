@@ -1997,3 +1997,17 @@
 - [x] Adicionar botão de exportação CSV no painel de auditoria de convites para relatórios de conformidade
 - [x] Criar testes unitários em `company-invite-security-actions.test.ts` para validação de bloqueio e exportação CSV
 - [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar
+
+## Exigência de 2FA no Primeiro Login para Administradores Convidados
+- [x] Atualizar o fluxo de aceite de convite para marcar administradores convidados como pendentes de configuração de 2FA obrigatória
+- [x] Ajustar o backend de login e autenticação para redirecionar administradores convidados pendentes para o modal de configuração de 2FA obrigatória antes de liberar o acesso ao workspace
+- [x] Criar componente visual de setup obrigatório de 2FA com geração de segredo TOTP, QR Code e códigos de backup
+- [x] Escrever testes unitários em `company-invite-mandatory-2fa.test.ts` para validar o bloqueio e a ativação obrigatória do 2FA
+- [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar
+
+## Exigência de 2FA no Primeiro Login para Administradores Convidados
+- [x] Atualizar o fluxo de aceite de convite para marcar administradores convidados como pendentes de configuração de 2FA obrigatória
+- [x] Ajustar o backend de login e autenticação para redirecionar administradores convidados pendentes para o modal de configuração de 2FA obrigatória antes de liberar o acesso ao workspace
+- [x] Criar componente visual de setup obrigatório de 2FA com geração de segredo TOTP, QR Code e códigos de backup
+- [x] Escrever testes unitários em `company-invite-mandatory-2fa.test.ts` para validar o bloqueio e a ativação obrigatória do 2FA
+- [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar

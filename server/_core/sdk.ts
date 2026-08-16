@@ -293,6 +293,7 @@ class SDKServer {
         passwordHash: null,
         tfaSecret: null,
         tfaEnabled: false,
+        tfaSetupRequired: false,
         tfaBackupCodes: null,
         tfaMethod: "totp",
         phoneNumber: null,

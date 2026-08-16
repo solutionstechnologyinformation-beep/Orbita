@@ -77,6 +77,7 @@ export const users = mysqlTable("users", {
   passwordHash: varchar("passwordHash", { length: 255 }),
   tfaSecret: varchar("tfaSecret", { length: 255 }),
   tfaEnabled: boolean("tfaEnabled").default(false).notNull(),
+  tfaSetupRequired: boolean("tfaSetupRequired").default(false).notNull(),
   tfaBackupCodes: text("tfaBackupCodes"),
   tfaMethod: mysqlEnum("tfaMethod", ["totp", "email", "sms"]).default("totp").notNull(),
   phoneNumber: varchar("phoneNumber", { length: 32 }),

@@ -38,6 +38,11 @@ export default function AcceptInvite() {
     try {
       const res = await acceptMutation.mutateAsync({ token, name: name.trim(), password });
       if (res.success) {
+        if (res.requiresTfaSetup) {
+          toast.success("Convite aceito. Configure o 2FA obrigatório antes de entrar no workspace.");
+          window.location.href = "/setup-2fa";
+          return;
+        }
         toast.success("Convite aceito com sucesso! Bem-vindo ao workspace.");
         window.location.href = "/dashboard";
       }

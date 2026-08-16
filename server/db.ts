@@ -57,12 +57,12 @@ export async function archiveCompanyProject(companyId: number, crsId: number) {
   await db.update(crs).set({ status: "archived", updatedAt: new Date() }).where(and(eq(crs.id, crsId), eq(crs.companyId, companyId)));
 }
 
-export async function createCompanyLocalUser(data: { companyId: number; name: string; email: string; passwordHash: string; role: "user" | "leader" | "company_admin"; companyName?: string | null }) {
+export async function createCompanyLocalUser(data: { companyId: number; name: string; email: string; passwordHash: string; role: "user" | "leader" | "company_admin"; companyName?: string | null; tfaSetupRequired?: boolean }) {
   const db = await getDb();
   const openId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const initials = data.name.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase();
-  const [result] = await db.execute(sql`INSERT INTO users (openId, name, email, loginMethod, role, company, companyId, passwordHash, avatarInitials, createdAt, updatedAt, lastSignedIn, lastSeenAt)
-    VALUES (${openId}, ${data.name}, ${data.email}, 'local', ${data.role}, ${data.companyName ?? null}, ${data.companyId}, ${data.passwordHash}, ${initials}, NOW(), NOW(), NOW(), NOW())`);
+  const [result] = await db.execute(sql`INSERT INTO users (openId, name, email, loginMethod, role, company, companyId, passwordHash, tfaSetupRequired, avatarInitials, createdAt, updatedAt, lastSignedIn, lastSeenAt)
+    VALUES (${openId}, ${data.name}, ${data.email}, 'local', ${data.role}, ${data.companyName ?? null}, ${data.companyId}, ${data.passwordHash}, ${data.tfaSetupRequired ?? false}, ${initials}, NOW(), NOW(), NOW(), NOW())`);
   return Number((result as any).insertId);
 }
 

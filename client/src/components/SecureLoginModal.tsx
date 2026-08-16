@@ -144,6 +144,13 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
       }
 
       const res = await loginMutation.mutateAsync({ email, password });
+      if (res.requiresTfaSetup) {
+        setFeedbackState("info", "Credenciais confirmadas. Vamos configurar seu segundo fator obrigatório.");
+        toast.info("Configure o 2FA obrigatório para continuar.");
+        await wait(350);
+        window.location.href = "/setup-2fa";
+        return;
+      }
       if (res.requires2fa && res.userId) {
         setUserId(res.userId);
         setTransitionDirection("forward");

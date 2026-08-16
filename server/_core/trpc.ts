@@ -2,6 +2,7 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { shouldBlockWorkspaceAccess } from "../mandatory-tfa";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -25,14 +26,35 @@ const requireUser = t.middleware(async opts => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(requireUser);
+export const authenticatedProcedure = t.procedure.use(requireUser);
 
-export const adminProcedure = t.procedure.use(
+const blockPendingMandatoryTfa = t.middleware(async opts => {
+  const { ctx, next } = opts;
+  if (!ctx.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+  }
+  if (shouldBlockWorkspaceAccess(ctx.user)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Configure a autenticação de dois fatores antes de acessar o workspace.",
+    });
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      user: ctx.user,
+    },
+  });
+});
+
+export const protectedProcedure = authenticatedProcedure.use(blockPendingMandatoryTfa);
+
+export const adminProcedure = protectedProcedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
     if (!ctx.user || ctx.user.role !== 'admin') {
-      throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+      throw new TRPCError({ code: 'FORBIDDEN', message: NOT_ADMIN_ERR_MSG });
     }
 
     return next({

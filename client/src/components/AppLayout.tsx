@@ -120,6 +120,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, title, backHref, fullHeight }: AppLayoutProps) {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  const requiresMandatoryTfa = Boolean(user?.tfaSetupRequired);
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [location, navigate] = useLocation();
@@ -132,13 +133,13 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
   const [guidedTourOpen, setGuidedTourOpen] = useState(false);
 
   const { data: crsList = [] } = trpc.crs.list.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !requiresMandatoryTfa,
     staleTime: 60000,
   });
 
   const { data: notifList = [] } = trpc.notifications.list.useQuery(undefined, {
     refetchInterval: 30000,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !requiresMandatoryTfa,
   });
   const { data: tenantBranding } = trpc.tenant.context.useQuery(undefined, {
     staleTime: 5 * 60 * 1000,
@@ -163,14 +164,18 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
   useEffect(() => {
     if (!loading && !isAuthenticated && window.location.pathname !== "/") {
       window.location.href = "/";
+      return;
     }
-  }, [loading, isAuthenticated]);
+    if (!loading && isAuthenticated && requiresMandatoryTfa && location !== "/setup-2fa") {
+      navigate("/setup-2fa");
+    }
+  }, [loading, isAuthenticated, requiresMandatoryTfa, location, navigate]);
 
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  if (loading || !isAuthenticated) {
+  if (loading || !isAuthenticated || (requiresMandatoryTfa && location !== "/setup-2fa")) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: SIDEBAR_BG }}>
         <div className="flex flex-col items-center gap-4">

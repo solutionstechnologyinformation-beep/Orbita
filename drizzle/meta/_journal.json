@@ -120,6 +120,13 @@
       "when": 1786787780508,
       "tag": "0016_add-company-domains",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1786918500084,
+      "tag": "0017_add_tfa_setup_required",
+      "breakpoints": true
     }
   ]
 }
