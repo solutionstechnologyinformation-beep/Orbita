@@ -47,6 +47,7 @@ import { buildSlaHistory, getSlaPeriodConfig, summarizeSlaEvents, type SlaHistor
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
 import { getDeadlineAlertWindow, normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import { summarizePdfAttachment } from "./pdf-summary";
+import { getCompanyMigrationSnapshot, importCompanyMigrationJson } from "./migration-export";
 import { processFloatingAgentCommand } from "./floating-agent";
 import { generateTaskContextSuggestions } from "./task-ai-suggestions";
 import { assertCanDeleteUser } from "./admin-delete-policy";
@@ -1485,6 +1486,22 @@ export const appRouter = router({
       await markAllNotificationsRead(ctx.user.id);
       return { success: true };
     }),
+  }),
+
+  migration: router({
+    exportJson: protectedProcedure
+      .input(z.object({ companyId: z.number().optional().nullable() }))
+      .query(async ({ ctx, input }) => {
+        const targetCompanyId = ctx.user.role === 'master_admin' ? input.companyId : ctx.user.companyId;
+        const snapshot = await getCompanyMigrationSnapshot(targetCompanyId);
+        return snapshot;
+      }),
+    importJson: adminProcedure
+      .input(z.object({ jsonContent: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await importCompanyMigrationJson(input.jsonContent, ctx.user.companyId);
+        return result;
+      }),
   }),
 
   notificationPreferences: router({

@@ -36,6 +36,7 @@ import { TREND_COMPARISON_PERIOD_DESCRIPTIONS, getTrendComparisonStorageKey, rea
 import { useGlobalPeriod } from "@/contexts/GlobalPeriodContext";
 import { DashboardPeriodBadge } from "./DashboardPeriodBadge";
 import { DashboardOkrBox } from "./DashboardOkrBox";
+import { MigrationPanel } from "@/components/MigrationPanel";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const MAP_FULLSCREEN_ANIMATION_DURATION_MS = 320;
@@ -1825,6 +1826,9 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+        {/* ── Painel de Migração e Backup ── */}
+        <MigrationPanel />
+
         {/* ── Header ── */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-center gap-3">

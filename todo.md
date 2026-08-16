@@ -1574,3 +1574,8 @@
 ## Guia em PDF e Recompilação do Pacote
 - [x] Gerar guia passo a passo em PDF profissional utilizando Typst (`Guia_Execucao_Orbita_VSCode.pdf`)
 - [x] Recompilar e incluir o guia no pacote ZIP completo para o VS Code (`orbita-complete-project.zip`)
+
+## Migração de Dados (Excel e JSON)
+- [x] Implementar motor backend de snapshot em Excel com abas separadas (Empresas, Clientes, Contratos-CRS, Trechos-KMZ, Tarefas, Fases, Agenda, Sprints) e formato JSON
+- [x] Criar componente visual `MigrationPanel` na página principal do Dashboard com botões de exportação e importação de arquivo `.json`
+- [x] Validar com testes unitários e garantir zero erros TypeScript (293/293 testes aprovados)
