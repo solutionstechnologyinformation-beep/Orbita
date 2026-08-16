@@ -296,6 +296,8 @@ class SDKServer {
         tfaBackupCodes: null,
         tfaMethod: "totp",
         phoneNumber: null,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
         tfaCodeHash: null,
         tfaCodeExpiresAt: null,
         tfaCodeAttempts: 0,

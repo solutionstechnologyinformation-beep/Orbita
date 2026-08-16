@@ -1613,3 +1613,9 @@
 ## Barra de Progresso de Importação JSON
 - [x] Criar componente visual de progresso simulado e determinístico durante a importação no MigrationPanel
 - [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (305/305 testes aprovados)
+
+## Autenticação Segura (E-mail/Senha, TOTP, Backup e Recuperação)
+- [x] Expandir schema de usuários para suportar hash de senha, segredo TOTP 2FA, códigos de backup e tokens de recuperação
+- [x] Implementar procedures tRPC para login seguro, verificação TOTP, cadastro, recuperação de acesso e ativação de 2FA
+- [x] Criar componentes de interface para Login, Cadastro, Configuração de 2FA e Verificação de segundo fator (`SecureLoginModal`)
+- [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (306/306 testes aprovados)

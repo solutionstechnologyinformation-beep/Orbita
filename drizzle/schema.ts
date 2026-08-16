@@ -80,6 +80,8 @@ export const users = mysqlTable("users", {
   tfaBackupCodes: text("tfaBackupCodes"),
   tfaMethod: mysqlEnum("tfaMethod", ["totp", "email", "sms"]).default("totp").notNull(),
   phoneNumber: varchar("phoneNumber", { length: 32 }),
+  passwordResetToken: varchar("passwordResetToken", { length: 128 }),
+  passwordResetExpiresAt: timestamp("passwordResetExpiresAt"),
   tfaCodeHash: varchar("tfaCodeHash", { length: 128 }),
   tfaCodeExpiresAt: timestamp("tfaCodeExpiresAt"),
   tfaCodeAttempts: int("tfaCodeAttempts").default(0).notNull(),
