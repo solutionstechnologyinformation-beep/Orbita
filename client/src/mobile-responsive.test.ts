@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 const appLayoutSource = readFileSync(new URL("./components/AppLayout.tsx", import.meta.url), "utf8");
 const splitLayoutSource = readFileSync(new URL("./components/SplitLayout.tsx", import.meta.url), "utf8");
 const dashboardSource = readFileSync(new URL("./pages/Dashboard.tsx", import.meta.url), "utf8");
+const ganttSource = readFileSync(new URL("./pages/Gantt.tsx", import.meta.url), "utf8");
 
 describe("experiência mobile do Orbita", () => {
   it("oferece navegação inferior acessível sem remover a barra desktop", () => {
@@ -20,6 +21,15 @@ describe("experiência mobile do Orbita", () => {
     expect(splitLayoutSource).toContain("lg:flex-row");
     expect(splitLayoutSource).toContain("mobilePanel === \"left\"");
     expect(splitLayoutSource).toContain("mobilePanel === \"right\"");
+  });
+
+  it("oferece resumo vertical do Gantt no celular e preserva a timeline horizontal no desktop", () => {
+    expect(ganttSource).toContain('aria-label="Resumo mobile do Gantt"');
+    expect(ganttSource).toContain("md:hidden");
+    expect(ganttSource).toContain("hidden flex-1 min-h-0");
+    expect(ganttSource).toContain('role="progressbar"');
+    expect(ganttSource).toContain('aria-label="Período anterior"');
+    expect(ganttSource).toContain('aria-label="Próximo período"');
   });
 
   it("empilha o Dashboard e reduz a densidade dos controles apenas em breakpoints pequenos", () => {

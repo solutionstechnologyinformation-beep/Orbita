@@ -134,6 +134,13 @@ function getBarColor(task: TaskItem | ChecklistItem, today: Date) {
   return maybeTask.phaseColor || "#2f80ed";
 }
 
+function getTaskStatusLabel(task: TaskItem, today: Date) {
+  const dueDate = asDate(task.dueDate);
+  if (task.phaseIsTerminal || task.status === "published" || task.status === "archived" || task.phaseName === "Concluído") return "Concluída";
+  if (dueDate && dueDate < today) return "Atrasada";
+  return task.phaseName || "Em andamento";
+}
+
 export default function Gantt() {
   const [filterClientId, setFilterClientId] = useState<number | undefined>();
   const [filterCrsId, setFilterCrsId] = useState<number | undefined>();
@@ -328,69 +335,133 @@ export default function Gantt() {
 
   return (
     <AppLayout title="Linha do tempo" fullHeight>
-      <div className="gantt-page h-full min-h-0 bg-background text-foreground p-4 lg:p-6 flex flex-col gap-4">
+      <div className="gantt-page h-full min-h-0 bg-background text-foreground p-3 sm:p-4 lg:p-6 flex flex-col gap-3 sm:gap-4">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500 font-semibold">Planejamento visual</p>
-              <h1 className="text-2xl font-bold text-slate-900">Linha do tempo</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Linha do tempo</h1>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={resetToday}><CalendarDays className="w-4 h-4" />Hoje</Button>
+            <div className="flex w-full items-center justify-end gap-1.5 sm:w-auto">
+              <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={resetToday}><CalendarDays className="w-4 h-4" /><span className="hidden sm:inline">Hoje</span></Button>
               <Button variant="outline" size="sm" onClick={() => moveTimeline(-1)} aria-label="Período anterior"><ChevronLeft className="w-4 h-4" /></Button>
               <Button variant="outline" size="sm" onClick={() => moveTimeline(1)} aria-label="Próximo período"><ChevronRight className="w-4 h-4" /></Button>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={exportTimeline}><Download className="w-4 h-4" />PDF</Button>
+              <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={exportTimeline}><Download className="w-4 h-4" /><span className="hidden sm:inline">PDF</span></Button>
               <Button variant="ghost" size="icon" aria-label="Mais opções"><MoreHorizontal className="w-4 h-4" /></Button>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[220px] flex-1 max-w-sm">
+            <div className="relative min-w-0 w-full flex-1 sm:min-w-[220px] sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar tarefas" className="pl-9 bg-white" />
             </div>
             <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
-            <div className="flex items-center rounded-md border border-slate-200 bg-white p-0.5">
+            <div className="flex w-full items-center rounded-md border border-slate-200 bg-white p-0.5 sm:w-auto">
               {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
                 <button key={level} onClick={() => setZoom(level)} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                   {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dia"}
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1 ml-auto text-xs text-slate-500"><ZoomOut className="w-3.5 h-3.5" />{dayWidth}px<ZoomIn className="w-3.5 h-3.5" /></div>
+            <div className="hidden items-center gap-1 ml-auto text-xs text-slate-500 sm:flex"><ZoomOut className="w-3.5 h-3.5" />{dayWidth}px<ZoomIn className="w-3.5 h-3.5" /></div>
           </div>
 
           {showFilters && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-1 items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex sm:flex-wrap">
               <Filter className="w-4 h-4 text-slate-400" />
               <Select value={filterClientId?.toString() ?? "_all"} onValueChange={(value) => { setFilterClientId(value === "_all" ? undefined : Number(value)); setFilterCrsId(undefined); }}>
-                <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Todos os clientes" /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full text-xs sm:h-8 sm:w-44"><SelectValue placeholder="Todos os clientes" /></SelectTrigger>
                 <SelectContent><SelectItem value="_all">Todos os clientes</SelectItem>{availableClients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={filterCrsId?.toString() ?? "_all"} onValueChange={(value) => setFilterCrsId(value === "_all" ? undefined : Number(value))}>
-                <SelectTrigger className="w-48 h-8 text-xs"><SelectValue placeholder="Todos os contratos" /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full text-xs sm:h-8 sm:w-48"><SelectValue placeholder="Todos os contratos" /></SelectTrigger>
                 <SelectContent><SelectItem value="_all">Todos os contratos</SelectItem>{availableCrs.map((contract) => <SelectItem key={contract.id} value={String(contract.id)}>{contract.name}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={filterSetor ?? "_all"} onValueChange={(value) => setFilterSetor(value === "_all" ? undefined : value)}>
-                <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="Todas as disciplinas" /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full text-xs sm:h-8 sm:w-40"><SelectValue placeholder="Todas as disciplinas" /></SelectTrigger>
                 <SelectContent><SelectItem value="_all">Todas as disciplinas</SelectItem>{availableSetores.map((setor) => <SelectItem key={setor} value={setor}>{setor}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={filterUserId?.toString() ?? "_all"} onValueChange={(value) => setFilterUserId(value === "_all" ? undefined : Number(value))}>
-                <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="Todos os usuários" /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full text-xs sm:h-8 sm:w-40"><SelectValue placeholder="Todos os usuários" /></SelectTrigger>
                 <SelectContent><SelectItem value="_all">Todos os usuários</SelectItem>{availableUsers.map((user) => <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>)}</SelectContent>
               </Select>
-              <div className="flex items-center rounded-md border border-slate-200 overflow-hidden ml-auto">
-                {(["discipline", "crs", "user"] as GroupMode[]).map((mode) => <button key={mode} onClick={() => setGroupMode(mode)} className={`px-2.5 py-1.5 text-xs font-medium ${groupMode === mode ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>{mode === "discipline" ? "Disciplina" : mode === "crs" ? "Contrato" : "Usuário"}</button>)}
+              <div className="flex w-full items-center rounded-md border border-slate-200 overflow-hidden sm:ml-auto sm:w-auto">
+                {(["discipline", "crs", "user"] as GroupMode[]).map((mode) => <button key={mode} onClick={() => setGroupMode(mode)} className={`flex-1 px-2.5 py-1.5 text-xs font-medium ${groupMode === mode ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}><span className="flex-1 text-center">{mode === "discipline" ? "Disciplina" : mode === "crs" ? "Contrato" : "Usuário"}</span></button>)}
               </div>
             </div>
           )}
         </div>
 
+        {!ganttQ.isLoading && filteredTasks.length > 0 && (
+          <section className="space-y-3 md:hidden" aria-label="Resumo mobile do Gantt">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Período visível</p>
+                <p className="mt-1 truncate text-sm font-bold text-slate-800">{formatMonth(timelineStart)} — {formatMonth(addMonths(timelineStart, 2))}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{filteredTasks.length} tarefa{filteredTasks.length === 1 ? "" : "s"} no escopo atual</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => moveTimeline(-1)} aria-label="Período anterior"><ChevronLeft className="h-4 w-4" /></Button>
+                <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => moveTimeline(1)} aria-label="Próximo período"><ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900" role="status" aria-live="polite">
+              <span className="font-semibold">Resumo de execução</span>
+              <span>{filteredTasks.filter((task) => getTaskStatusLabel(task, today) === "Concluída").length} concluída{filteredTasks.filter((task) => getTaskStatusLabel(task, today) === "Concluída").length === 1 ? "" : "s"}</span>
+            </div>
+
+            <div className="space-y-2.5">
+              {filteredTasks.map((task, index) => {
+                const statusLabel = getTaskStatusLabel(task, today);
+                const progress = Math.min(100, Math.max(0, Number(task.progress ?? 0)));
+                const groupLabel = groupMode === "discipline" ? task.setor || "Sem disciplina" : groupMode === "crs" ? task.projectName || "Sem contrato" : task.assigneeName || "Sem responsável";
+                const isCompleted = statusLabel === "Concluída";
+                const isLate = statusLabel === "Atrasada";
+                return (
+                  <article key={`mobile-task-${task.id}`} className="rounded-2xl border border-slate-200 border-l-4 bg-white p-3 shadow-sm" style={{ borderLeftColor: getBarColor(task, today) }}>
+                    <div className="flex items-start gap-2.5">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500">{index + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-800">{task.title}</p>
+                            <p className="mt-0.5 truncate text-[11px] text-slate-500">{groupLabel}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${isCompleted ? "bg-emerald-100 text-emerald-700" : isLate ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{statusLabel}</span>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+                          <div className="min-w-0"><span className="block text-[9px] font-bold uppercase tracking-wide text-slate-400">Período</span><span className="block truncate">{formatShortDate(task.startDate)} → {formatShortDate(task.endDate)}</span></div>
+                          <div className="min-w-0"><span className="block text-[9px] font-bold uppercase tracking-wide text-slate-400">Responsável</span><span className="block truncate">{task.assigneeName || "Não atribuído"}</span></div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-500"><span>Progresso</span><span>{progress}%</span></div>
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={`Progresso de ${task.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><div className="h-full rounded-full transition-[width] duration-200" style={{ width: `${progress}%`, backgroundColor: getBarColor(task, today) }} /></div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                          {task.dueDate && <span className={isLate ? "font-bold text-red-600" : ""}>Vence {formatShortDate(task.dueDate)}</span>}
+                          {task.priority && <span className="rounded-full bg-slate-100 px-2 py-1 capitalize">Prioridade {task.priority}</span>}
+                          {task.predecessorId && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-amber-700"><Link2 className="h-3 w-3" /> Dependência</span>}
+                          {task.checklistItems?.length ? <span className="rounded-full bg-slate-100 px-2 py-1">Checklist {task.checklistItems.length}</span> : null}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {ganttQ.isLoading && <div className="space-y-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-64 w-full" /></div>}
         {!ganttQ.isLoading && filteredTasks.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">Nenhuma tarefa encontrada para os filtros atuais.</div>}
 
         {!ganttQ.isLoading && filteredTasks.length > 0 && (
-          <div className="flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="hidden flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden md:block">
             <div ref={timelineRef} className="h-full overflow-auto">
               <div style={{ width: LEFT_WIDTH + totalTimelineWidth, minWidth: "100%" }}>
                 <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px` }}>

@@ -1659,10 +1659,10 @@
 - [x] Criar testes unitários para o motor de sync e retry e salvar checkpoint versionado (314/314 testes aprovados)
 
 ## Gantt Responsivo para Celular
-- [ ] Adaptar a estrutura do Gantt para telas pequenas sem exigir rolagem horizontal contínua
-- [ ] Criar resumo mobile das tarefas com status, responsável, datas e progresso
-- [ ] Compactar filtros e adicionar navegação por período adequada ao toque
-- [ ] Validar acessibilidade, testes responsivos, TypeScript e salvar checkpoint versionado
+- [x] Adaptar a estrutura do Gantt para telas pequenas sem exigir rolagem horizontal contínua
+- [x] Criar resumo mobile das tarefas com status, responsável, datas e progresso
+- [x] Compactar filtros e adicionar navegação por período adequada ao toque
+- [x] Validar acessibilidade, testes responsivos, TypeScript e salvar checkpoint versionado (318/318 testes aprovados)
 
 ## Relatório Visual do Gantt (Estilo Referência)
 - [x] Atualizar a função exportTimeline em Gantt.tsx para gerar um relatório HTML/PDF com grade temporal por meses/quadrimestres, barras coloridas por categoria, marcos, linhas de dependência e legenda inferior
