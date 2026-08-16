@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px; /* keep as required */
+            background-color: #EAEAEA;
+            font-family: 'Inter', sans-serif;
+            color: #2B2D42;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            position: relative;
+        }
+        .header {
+            grid-column: 1 / 7;
+            grid-row: 1 / 2;
+            background-color: #1E3A8A;
+            display: flex;
+            align-items: center;
+            padding-top: 20px; /* must not change */
+            padding-left: 60px;
+            border-bottom: 8px solid #B58900;
+        }
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 42px;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        /* Calculated heights:
+           header height ~124px (unchanged)
+           Target total height <720px -> roi-content must be <= (720 - 124 - small buffer)
+           We'll set roi-content padding-top smaller and each block min-height reduced.
+        */
+        .roi-content {
+            grid-column: 1 / 7;
+            grid-row: 2 / 7;
+            padding-top: 20px; /* reduced from 30 -> saves 10px */
+            padding-left: 40px;
+            padding-right: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px; /* reduced from 20 -> saves 8px between blocks */
+        }
+        .roi-block {
+            background-color: #FFFFFF;
+            border: 8px solid #1E3A8A;
+            min-height: 140px; /* reduced from 150 -> saves 10px per block => 30px total */
+            display: flex;
+            align-items: center;
+            padding-left: 24px; /* reduced spacing */
+            padding-right: 24px;
+        }
+        .roi-icon {
+            width: 72px; /* slightly smaller to save height/space */
+            height: 72px;
+            background-color: #F8FAFC;
+            border: 4px solid #B58900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: #1E3A8A;
+            margin-right: 18px;
+        }
+        .roi-text {
+            flex: 1;
+        }
+        .roi-text h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 24px;
+            color: #1E3A8A;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .roi-text p {
+            font-size: 18px;
+            line-height: 1.5;
+            color: #4A5568;
+            font-weight: 300;
+        }
+        .roi-value {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 48px;
+            color: #B58900;
+            margin-left: 18px;
+            text-align: right;
+            min-width: 120px; /* reduced */
+        }
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            right: 60px;
+            font-size: 14px;
+            color: #8D99AE;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header">
+            <h2>benefícios estratégicos e retorno sobre investimento</h2>
+        </div>
+        <div class="roi-content">
+            <div class="roi-block">
+                <div class="roi-icon"><i class="fas fa-hand-holding-dollar"></i></div>
+                <div class="roi-text">
+                    <h3>redução de desperdícios</h3>
+                    <p>eliminação de retrabalho e planilhas paralelas através de uma fonte única de verdade para todos os contratos e equipes.</p>
+                </div>
+                <div class="roi-value">EFICIÊNCIA</div>
+            </div>
+            <div class="roi-block">
+                <div class="roi-icon"><i class="fas fa-bolt-lightning"></i></div>
+                <div class="roi-text">
+                    <h3>agilidade operacional</h3>
+                    <p>aceleração na emissão de relatórios gerenciais e técnicos por meio de automações inteligentes e assistente de IA.</p>
+                </div>
+                <div class="roi-value">+80%</div>
+            </div>
+            <div class="roi-block">
+                <div class="roi-icon"><i class="fas fa-file-shield"></i></div>
+                <div class="roi-text">
+                    <h3>conformidade e auditoria</h3>
+                    <p>rastreabilidade completa de todas as alterações, aprovações e acessos realizados no sistema, garantindo segurança jurídica.</p>
+                </div>
+                <div class="roi-value">100%</div>
+            </div>
+        </div>
+        <div class="footer">ÓRBITA · VALOR DE NEGÓCIO</div>
+    </div>
+</body>
+</html>

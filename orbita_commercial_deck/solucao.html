@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #EAEAEA;
+            font-family: 'Inter', sans-serif;
+            color: #2B2D42;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            position: relative;
+        }
+        .header {
+            grid-column: 1 / 7;
+            grid-row: 1 / 2;
+            background-color: #1E3A8A;
+            display: flex;
+            align-items: center;
+            padding-top: 20px;
+            padding-left: 60px;
+            border-bottom: 8px solid #B58900;
+        }
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 42px;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .text-column {
+            grid-column: 1 / 4;
+            grid-row: 2 / 7;
+            padding-top: 60px;
+            padding-left: 60px;
+            padding-right: 40px;
+        }
+        .image-column {
+            grid-column: 4 / 7;
+            grid-row: 2 / 7;
+            padding-top: 60px;
+            padding-right: 60px;
+        }
+        .dashboard-img {
+            width: 560px;
+            height: 480px;
+            object-fit: cover;
+            border: 8px solid #B58900;
+        }
+        .feature-item {
+            margin-bottom: 40px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .feature-icon {
+            font-size: 28px;
+            color: #B58900;
+            margin-right: 25px;
+            padding-top: 5px;
+        }
+        .feature-content h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 22px;
+            color: #1E3A8A;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .feature-content p {
+            font-size: 18px;
+            line-height: 1.5;
+            color: #4A5568;
+            font-weight: 300;
+        }
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            right: 60px;
+            font-size: 14px;
+            color: #8D99AE;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header">
+            <h2>visibilidade, controle e decisão estratégica</h2>
+        </div>
+        <div class="text-column">
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-chart-pie"></i></div>
+                <div class="feature-content">
+                    <h3>visão 360 graus</h3>
+                    <p>painéis gerenciais em tempo real com indicadores de OKR, progresso físico-financeiro e carga de trabalho por disciplina.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-palette"></i></div>
+                <div class="feature-content">
+                    <h3>identidade customizada</h3>
+                    <p>adaptação dinâmica de logotipos, paletas de cores e subdomínios exclusivos para cada empresa cliente no modelo multi-tenant.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-file-invoice"></i></div>
+                <div class="feature-content">
+                    <h3>aderência institucional</h3>
+                    <p>relatórios executivos unificados em PDF e planilhas Excel estruturadas com identidade visual padronizada e profissional.</p>
+                </div>
+            </div>
+        </div>
+        <div class="image-column">
+            <img src="/home/ubuntu/upload/search_images/3Lau0gApsWOl.jpg" class="dashboard-img" alt="Dashboard Órbita">
+        </div>
+        <div class="footer">ÓRBITA · SOLUÇÃO CENTRALIZADA</div>
+    </div>
+</body>
+</html>

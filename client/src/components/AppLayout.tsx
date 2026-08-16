@@ -41,6 +41,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { getThemeToggleCopy } from "../contexts/theme-utils";
 import { GlobalPeriodControl } from "../contexts/GlobalPeriodContext";
 import { OfflineSyncIndicator } from "./OfflineSyncIndicator";
+import { GuidedTourLauncher, GuidedTourModal } from "./GuidedTourModal";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -129,6 +130,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
   const [crsExpanded, setCrsExpanded] = useState(false);
+  const [guidedTourOpen, setGuidedTourOpen] = useState(false);
 
   const { data: crsList = [] } = trpc.crs.list.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -228,6 +230,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               <div key={href}>
                 <div
                   className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+                  data-tour-nav={href}
                   title={compact ? label : undefined}
                   style={{
                     color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
@@ -302,6 +305,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               href={href}
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 w-full ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+              data-tour-nav={href}
               title={compact ? label : undefined}
               style={{
                 color: '#000000',
@@ -344,6 +348,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               href={href}
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 w-full ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
+              data-tour-nav={href}
               title={compact ? label : undefined}
               style={{
                 color: '#000000',
@@ -379,7 +384,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
                   href={href}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 w-full ${compact ? "justify-center px-2" : "px-3"} py-2.5`}
-                  title={compact ? label : undefined}
+                  data-tour-nav={href}
+              title={compact ? label : undefined}
                   style={{
                     color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
                     backgroundColor: active ? SIDEBAR_ACTIVE_BG : "transparent",
@@ -400,6 +406,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
               href="/migration"
               onClick={() => setSidebarOpen(false)}
               className={`ml-3 flex items-center gap-3 rounded-lg text-xs font-medium transition-all duration-150 ${compact ? "ml-0 w-full justify-center px-2" : "mr-1 px-3"} py-2`}
+              data-tour-nav="/migration"
               title={compact ? "Migração e Backups" : undefined}
               style={{
                 color: location.startsWith("/migration") ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT,
@@ -417,6 +424,10 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             </Link>
           </>
         )}
+
+        <div className="mt-3 border-t border-black/10 pt-3">
+          <GuidedTourLauncher compact={compact} onClick={() => setGuidedTourOpen(true)} />
+        </div>
       </nav>
 
       {/* User Profile */}
@@ -587,6 +598,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         </nav>
       </div>
       <FloatingAgent compact={sidebarCollapsed} />
+      <GuidedTourModal isOpen={guidedTourOpen} onClose={() => setGuidedTourOpen(false)} />
     </div>
   );
 }

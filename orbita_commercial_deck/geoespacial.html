@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #EAEAEA;
+            font-family: 'Inter', sans-serif;
+            color: #2B2D42;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            position: relative;
+        }
+        .header {
+            grid-column: 1 / 7;
+            grid-row: 1 / 2;
+            background-color: #1E3A8A;
+            display: flex;
+            align-items: center;
+            padding-top: 20px;
+            padding-left: 60px;
+            border-bottom: 8px solid #B58900;
+        }
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 42px;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .map-area {
+            grid-column: 1 / 7;
+            grid-row: 2 / 5;
+            padding-top: 40px;
+            padding-left: 60px;
+            padding-right: 60px;
+            display: flex;
+            justify-content: center;
+        }
+        .map-img {
+            width: 1160px;
+            height: 320px;
+            object-fit: cover;
+            border: 8px solid #B58900;
+        }
+        .features-area {
+            grid-column: 1 / 7;
+            grid-row: 5 / 7;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            padding-top: 30px;
+            padding-left: 60px;
+            padding-right: 60px;
+        }
+        .feature-box {
+            background-color: #FFFFFF;
+            border-top: 8px solid #1E3A8A;
+            padding-top: 25px;
+            padding-left: 20px;
+            padding-right: 20px;
+            min-height: 180px;
+        }
+        .feature-box h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            color: #1E3A8A;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+        }
+        .feature-box h3 i {
+            color: #B58900;
+            margin-right: 15px;
+        }
+        .feature-box p {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #4A5568;
+            font-weight: 300;
+        }
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            right: 60px;
+            font-size: 14px;
+            color: #8D99AE;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header">
+            <h2>mapeamento kml/kmz e inteligência geográfica</h2>
+        </div>
+        <div class="map-area">
+            <img src="/home/ubuntu/upload/search_images/SUHBmXEVoLOl.jpg" class="map-img" alt="Visualização Geoespacial Órbita">
+        </div>
+        <div class="features-area">
+            <div class="feature-box">
+                <h3><i class="fas fa-layer-group"></i>integração nativa</h3>
+                <p>importação direta de arquivos KML e KMZ com renderização de trechos, rotas e polígonos georreferenciados no navegador.</p>
+            </div>
+            <div class="feature-box">
+                <h3><i class="fas fa-list-check"></i>painel contextual</h3>
+                <p>ferramentas de busca, filtros por status e paginação para navegação eficiente em grandes bases de dados cartográficas.</p>
+            </div>
+            <div class="feature-box">
+                <h3><i class="fas fa-file-export"></i>exportação direta</h3>
+                <p>capacidade de anexar capturas cartográficas e dados geográficos atualizados diretamente aos relatórios executivos em PDF.</p>
+            </div>
+        </div>
+        <div class="footer">ÓRBITA · INTELIGÊNCIA GEOESPACIAL</div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #EAEAEA;
+            font-family: 'Inter', sans-serif;
+            color: #2B2D42;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            position: relative;
+        }
+        .header {
+            grid-column: 1 / 7;
+            grid-row: 1 / 2;
+            background-color: #1E3A8A;
+            display: flex;
+            align-items: center;
+            padding-top: 20px;
+            padding-left: 60px;
+            border-bottom: 8px solid #B58900;
+        }
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 42px;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .grid-content {
+            grid-column: 1 / 7;
+            grid-row: 2 / 7;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 30px;
+            padding-top: 40px;
+            padding-left: 60px;
+            padding-right: 60px;
+        }
+        .feature-card {
+            background-color: #FFFFFF;
+            border: 8px solid #1E3A8A;
+            padding-top: 30px;
+            padding-left: 40px;
+            padding-right: 40px;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+        }
+        .icon-box {
+            min-width: 70px;
+            height: 70px;
+            background-color: #F8FAFC;
+            border: 3px solid #B58900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 30px;
+            color: #1E3A8A;
+            font-size: 28px;
+        }
+        .card-text h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            color: #1E3A8A;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+        .card-text p {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #4A5568;
+            font-weight: 300;
+        }
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            right: 60px;
+            font-size: 14px;
+            color: #8D99AE;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header">
+            <h2>arquitetura multi-tenant e segurança de elite</h2>
+        </div>
+        <div class="grid-content">
+            <div class="feature-card">
+                <div class="icon-box"><i class="fas fa-building-shield"></i></div>
+                <div class="card-text">
+                    <h3>autonomia por empresa</h3>
+                    <p>cada organização possui seu ambiente exclusivo, gerenciado de forma independente por administradores dedicados com isolamento total de dados.</p>
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="icon-box"><i class="fas fa-fingerprint"></i></div>
+                <div class="card-text">
+                    <h3>segurança de acesso</h3>
+                    <p>suporte a autenticação de dois fatores (2FA) via TOTP, códigos de backup de uso único e proteção contra ataques de força bruta.</p>
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="icon-box"><i class="fas fa-brush"></i></div>
+                <div class="card-text">
+                    <h3>branding dinâmico</h3>
+                    <p>configuração nativa de logotipos e cores corporativas aplicadas automaticamente em todas as telas, cabeçalhos e relatórios do sistema.</p>
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="icon-box"><i class="fas fa-database"></i></div>
+                <div class="card-text">
+                    <h3>integridade de dados</h3>
+                    <p>backups automáticos semanais e portabilidade total via exportação JSON, garantindo a continuidade do negócio e conformidade com auditorias.</p>
+                </div>
+            </div>
+        </div>
+        <div class="footer">ÓRBITA · GOVERNANÇA E SEGURANÇA</div>
+    </div>
+</body>
+</html>

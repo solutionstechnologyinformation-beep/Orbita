@@ -1,0 +1,144 @@
+{
+  "project_info": {
+    "title": "Órbita: Planejamento Visual e Gestão Multi-Tenant",
+    "created": 1786910724.63,
+    "last_updated": 1786911028.658,
+    "total_slides": 12
+  },
+  "slides": [
+    {
+      "id": "capa",
+      "state": "edited",
+      "pageNum": 1
+    },
+    {
+      "id": "desafios",
+      "state": "edited",
+      "pageNum": 2
+    },
+    {
+      "id": "solucao",
+      "state": "edited",
+      "pageNum": 3
+    },
+    {
+      "id": "multitenant",
+      "state": "edited",
+      "pageNum": 4
+    },
+    {
+      "id": "kanban",
+      "state": "edited",
+      "pageNum": 5
+    },
+    {
+      "id": "gantt_sprints",
+      "state": "edited",
+      "pageNum": 6
+    },
+    {
+      "id": "geoespacial",
+      "state": "edited",
+      "pageNum": 7
+    },
+    {
+      "id": "ia_assistente",
+      "state": "edited",
+      "pageNum": 8
+    },
+    {
+      "id": "relatorios_excel",
+      "state": "edited",
+      "pageNum": 9
+    },
+    {
+      "id": "offline_resiliencia",
+      "state": "edited",
+      "pageNum": 10
+    },
+    {
+      "id": "beneficios_roi",
+      "state": "edited",
+      "pageNum": 11
+    },
+    {
+      "id": "proximos_passos",
+      "state": "edited",
+      "pageNum": 12
+    }
+  ],
+  "outline": [
+    {
+      "id": "capa",
+      "title": "Órbita: Planejamento Visual e Gestão Multi-Tenant",
+      "summary": "Capa da apresentação com posicionamento premium, foco em governança, IA e operações geoespaciais.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "desafios",
+      "title": "Os Desafios da Gestão Operacional Moderna",
+      "summary": "Identificação de dores como fragmentação de dados, falta de segurança e necessidade de mobilidade em campo.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "solucao",
+      "title": "Órbita: Visibilidade, Controle e Decisão Estratégica",
+      "summary": "Apresentação da solução centralizada com painéis gerenciais, OKRs e identidade visual customizada.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "multitenant",
+      "title": "Arquitetura Multi-Tenant e Segurança de Elite",
+      "summary": "Detalhamento do isolamento de dados, domínios dedicados, branding dinâmico e autenticação 2FA.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "kanban",
+      "title": "Governança Kanban e Fluxo de Trabalho Auditável",
+      "summary": "Explicação dos 5 estágios de status, regras de aprovação por liderança e interface otimizada para mobile.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "gantt_sprints",
+      "title": "Cronogramas de Gantt, Sprints e Alinhamento Ágil",
+      "summary": "Visualização de cronogramas interativos, detecção de conflitos de agenda e acompanhamento de burndown.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "geoespacial",
+      "title": "Mapeamento KML/KMZ e Inteligência Geográfica",
+      "summary": "Integração nativa de arquivos geoespaciais, busca avançada e exportação de capturas para relatórios.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "ia_assistente",
+      "title": "Assistente de IA e Comando de Voz Integrado",
+      "summary": "Interação por linguagem natural, resumos automáticos de PDFs e sugestões inteligentes de distribuição de carga.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "relatorios_excel",
+      "title": "Relatórios Executivos e Portabilidade de Dados",
+      "summary": "Demonstração dos relatórios PDF padronizados e planilhas Excel executivas com mini-gráficos e capas institucionais.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "offline_resiliencia",
+      "title": "Operação Offline e Sincronização Resiliente",
+      "summary": "Continuidade de trabalho em campo com cache local e sincronização automática com retry controlado.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "beneficios_roi",
+      "title": "Benefícios Estratégicos e Retorno sobre Investimento",
+      "summary": "Foco em redução de desperdícios, agilidade na emissão de relatórios e rastreabilidade completa.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "proximos_passos",
+      "title": "Próximos Passos: Inicie a Transformação Digital com Órbita",
+      "summary": "Chamada para ação, agendamento de demo e suporte na implantação assistida.",
+      "image_plan": "Use a suitable image if needed"
+    }
+  ]
+}

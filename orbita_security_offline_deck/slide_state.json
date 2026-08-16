@@ -1,0 +1,144 @@
+{
+  "project_info": {
+    "title": "Órbita: Segurança para Acessar, Resiliência para Operar",
+    "created": 1786913175.544,
+    "last_updated": 1786913194.176,
+    "total_slides": 12
+  },
+  "slides": [
+    {
+      "id": "capa",
+      "state": "edited",
+      "pageNum": 1
+    },
+    {
+      "id": "riscos",
+      "state": "edit_pending",
+      "pageNum": 2
+    },
+    {
+      "id": "2fa",
+      "state": "edit_pending",
+      "pageNum": 3
+    },
+    {
+      "id": "perfis_sensiveis",
+      "state": "edit_pending",
+      "pageNum": 4
+    },
+    {
+      "id": "recuperacao",
+      "state": "edit_pending",
+      "pageNum": 5
+    },
+    {
+      "id": "offline",
+      "state": "edit_pending",
+      "pageNum": 6
+    },
+    {
+      "id": "fila_sync",
+      "state": "edit_pending",
+      "pageNum": 7
+    },
+    {
+      "id": "retry_backoff",
+      "state": "edit_pending",
+      "pageNum": 8
+    },
+    {
+      "id": "harmonia",
+      "state": "edit_pending",
+      "pageNum": 9
+    },
+    {
+      "id": "campo",
+      "state": "edit_pending",
+      "pageNum": 10
+    },
+    {
+      "id": "objecoes",
+      "state": "edit_pending",
+      "pageNum": 11
+    },
+    {
+      "id": "encerramento",
+      "state": "edit_pending",
+      "pageNum": 12
+    }
+  ],
+  "outline": [
+    {
+      "id": "capa",
+      "title": "Órbita: Segurança para Acessar, Resiliência para Operar",
+      "summary": "Capa executiva apresentando a proposta de valor integrada de 2FA, operação offline e gestão corporativa.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "riscos",
+      "title": "O Risco Operacional não Está Apenas na Invasão",
+      "summary": "Apresentação dos riscos combinados de credenciais comprometidas e conectividade instável.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "2fa",
+      "title": "O 2FA Adiciona uma Segunda Prova de Identidade",
+      "summary": "Fluxo visual de autenticação com senha, segundo fator temporário e liberação conforme permissões.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "perfis_sensiveis",
+      "title": "Proteção Prioritária para Quem Administra Dados Críticos",
+      "summary": "Perfis administrativos e líderes que concentram maior responsabilidade e sensibilidade de dados.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "recuperacao",
+      "title": "Recuperação Controlada e Defesa contra Ataques",
+      "summary": "Códigos de backup, rate limiting e governança de contas.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "offline",
+      "title": "A Conectividade Oscila, o Trabalho não Para",
+      "summary": "Como a consulta local e o registro em campo sustentam a operação durante indisponibilidades temporárias.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "fila_sync",
+      "title": "A Fila de Sincronização Torna o Processo Visível",
+      "summary": "Estados pendente, sincronizando, sincronizado e erro mostrados em uma sequência clara.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "retry_backoff",
+      "title": "Retry Controlado Torna a Reconexão Resiliente",
+      "summary": "Fluxo de reconexão, tentativas progressivas e tratamento de exceções.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "harmonia",
+      "title": "Segurança de Acesso e Resiliência Operacional em Harmonia",
+      "summary": "Quadro executivo que conecta identidade, permissões, dados locais e sincronização.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "campo",
+      "title": "Aplicação Prática em Obras e Contratos Distribuídos",
+      "summary": "Cenários de fiscalização remota, visitas técnicas e rastreabilidade em campo.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "objecoes",
+      "title": "As Principais Objeções Têm Respostas Operacionais",
+      "summary": "Respostas comerciais para dúvidas sobre acesso, disponibilidade de dados e duplicidade.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "encerramento",
+      "title": "Órbita: Segurança para Acessar, Resiliência para Operar",
+      "summary": "Encerramento com próximos passos para ambiente piloto e validação em campo.",
+      "image_plan": "Use a suitable image if needed"
+    }
+  ]
+}

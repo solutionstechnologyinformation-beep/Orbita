@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #1E3A8A;
+            font-family: 'Inter', sans-serif;
+            color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .accent-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #B58900;
+        }
+        .content-wrap {
+            width: 1000px;
+            padding-top: 80px;
+            text-align: center;
+        }
+        h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 48px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            margin-bottom: 60px;
+        }
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-bottom: 80px;
+        }
+        .step-item {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 4px solid #B58900;
+            padding-top: 40px;
+            padding-left: 20px;
+            padding-right: 20px;
+            min-height: 280px;
+        }
+        .step-icon {
+            font-size: 40px;
+            color: #B58900;
+            margin-bottom: 25px;
+        }
+        h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.5;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+        .closing-area {
+            margin-top: 20px;
+        }
+        .logo-footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .logo-circle {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #B58900;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #B58900;
+            font-size: 20px;
+            margin-right: 15px;
+        }
+        .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .contact-info {
+            font-size: 14px;
+            opacity: 0.6;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="accent-bar"></div>
+        <div class="content-wrap">
+            <h2>próximos passos: inicie a transformação digital</h2>
+            
+            <div class="steps-grid">
+                <div class="step-item">
+                    <div class="step-icon"><i class="fas fa-display"></i></div>
+                    <h3>demonstração prática</h3>
+                    <p>agende uma sessão personalizada para conhecer o ambiente exclusivo da sua empresa e validar fluxos operacionais.</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-icon"><i class="fas fa-rocket"></i></div>
+                    <h3>implantação assistida</h3>
+                    <p>configuração de contratos, importação de bases cartográficas e treinamento modular para gestores e equipes de campo.</p>
+                </div>
+                <div class="step-item">
+                    <div class="step-icon"><i class="fas fa-handshake"></i></div>
+                    <h3>contato comercial</h3>
+                    <p>fale com nossos consultores para estruturar o plano de licenciamento ideal para a escala do seu negócio.</p>
+                </div>
+            </div>
+
+            <div class="closing-area">
+                <div class="logo-footer">
+                    <div class="logo-circle"><i class="fas fa-satellite-dish"></i></div>
+                    <div class="brand-name">Órbita</div>
+                </div>
+                <div class="contact-info">
+                    WWW.ORBITA.COM.BR · COMERCIAL@ORBITA.COM.BR · LS SOLUTIONS 2026
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
