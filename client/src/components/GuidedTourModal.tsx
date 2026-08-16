@@ -43,13 +43,20 @@ export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
   const [, navigate] = useLocation();
   const [currentStep, setCurrentStep] = useState(0);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
   const step = GUIDED_TOUR_STEPS[currentStep];
   const StepIcon = step.icon;
   const isFirst = currentStep === 0;
   const isLast = currentStep === GUIDED_TOUR_STEPS.length - 1;
 
   useEffect(() => {
-    if (!isOpen) { setCurrentStep(0); return; }
+    if (!isOpen) {
+      setCurrentStep(0);
+      previousActiveElementRef.current?.focus();
+      previousActiveElementRef.current = null;
+      return;
+    }
+    previousActiveElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButtonRef.current?.focus();
   }, [isOpen]);
 
@@ -82,7 +89,8 @@ export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/55 backdrop-blur-[2px]" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="fixed bottom-4 left-4 right-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:left-auto sm:right-6 sm:w-[min(520px,calc(100vw-3rem))]" role="dialog" aria-modal="true" aria-labelledby="guided-tour-title" aria-describedby="guided-tour-description">
+              <section className="fixed bottom-4 left-4 right-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:left-auto sm:right-6 sm:w-[min(520px,calc(100vw-3rem))]" role="dialog" aria-modal="true" aria-labelledby="guided-tour-title" aria-describedby="guided-tour-description" aria-keyshortcuts="ArrowLeft ArrowRight Escape" tabIndex={-1}>
+
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"><StepIcon className="h-6 w-6" aria-hidden="true" /></div><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">{step.eyebrow}</p><h2 id="guided-tour-title" className="mt-1 text-xl font-bold tracking-tight">{step.title}</h2></div></div>
           <button ref={closeButtonRef} type="button" onClick={onClose} className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Encerrar guia de apresentação" title="Encerrar guia"><X className="h-5 w-5" /></button>
