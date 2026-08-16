@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
+import { trpc } from "@/lib/trpc";
 
 type AuthStage = "credentials" | "2fa" | "forgot";
 type AuthFeedback = "idle" | "loading" | "info" | "error" | "success";
@@ -35,12 +36,16 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [requires2fa, setRequires2fa] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<AuthFeedback>("idle");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [transitionDirection, setTransitionDirection] = useState<TransitionDirection>("neutral");
   const totpInputRef = useRef<HTMLInputElement>(null);
+
+  const loginMutation = trpc.auth.loginWithCredentials.useMutation();
+  const verifyTotpMutation = trpc.auth.verifyTotpLogin.useMutation();
 
   const stage: AuthStage = mode === "forgot" ? "forgot" : requires2fa ? "2fa" : "credentials";
 
@@ -61,13 +66,14 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
     setTransitionDirection("backward");
     setRequires2fa(false);
     setTotpCode("");
+    setUserId(null);
     setFeedbackState("idle", "");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setFeedbackState("loading", requires2fa ? "Validando o segundo fator..." : "Protegendo sua sessão...");
+    setFeedbackState("loading", requires2fa ? "Validando o segundo fator..." : "Autenticando credenciais...");
 
     try {
       if (mode === "forgot") {
@@ -81,33 +87,44 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
 
       if (requires2fa) {
         if (!totpCode || totpCode.length < 6) {
+          setLoading(false);
           setFeedbackState("error", "Informe o código de 6 dígitos para continuar.");
           toast.error("Informe o código do autenticador de 6 dígitos.");
           return;
         }
 
-        await wait(450);
-        setFeedbackState("success", "Código confirmado. Acesso seguro liberado.");
-        toast.success("Autenticação 2FA verificada com sucesso!");
-        await wait(650);
-        window.location.href = "/dashboard";
-        return;
+        if (userId === null) {
+          setLoading(false);
+          setFeedbackState("error", "Sessão de 2FA expirada. Refaça o login.");
+          toast.error("Sessão de 2FA expirada.");
+          return;
+        }
+
+        const res = await verifyTotpMutation.mutateAsync({ userId, token: totpCode });
+        if (res.success) {
+          setFeedbackState("success", "Código confirmado. Acesso seguro liberado.");
+          toast.success("Autenticação 2FA verificada com sucesso!");
+          await wait(600);
+          window.location.href = "/dashboard";
+          return;
+        }
       }
 
       if (!email || !password) {
-        setFeedbackState("error", "Preencha o e-mail e a senha para continuar.");
+        setLoading(false);
+        setFeedbackState("error", "Preencha o e-mail e a senha.");
         toast.error("Preencha o e-mail e a senha.");
         return;
       }
 
-      // Simulação de login seguro estruturado com suporte a 2FA se habilitado.
-      if (email.includes("admin")) {
+      const res = await loginMutation.mutateAsync({ email, password });
+      if (res.requires2fa && res.userId) {
+        setUserId(res.userId);
         setTransitionDirection("forward");
         setRequires2fa(true);
-        setFeedbackState("info", "Credenciais confirmadas. Agora confirme o segundo fator.");
+        setFeedbackState("info", "Credenciais confirmadas. Insira o código TOTP ou de backup.");
         toast.info("Insira o código do seu aplicativo autenticador (TOTP).");
-      } else {
-        await wait(350);
+      } else if (res.success) {
         setFeedbackState("success", "Login efetuado com segurança. Redirecionando...");
         toast.success("Login efetuado com segurança!");
         await wait(550);
@@ -115,10 +132,13 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Erro desconhecido";
-      setFeedbackState("error", `Não foi possível concluir a autenticação: ${message}`);
+      setLoading(false);
+      setFeedbackState("error", `Falha na autenticação: ${message}`);
       toast.error(`Falha na autenticação: ${message}`);
     } finally {
-      setLoading(false);
+      if (!requires2fa) {
+        setLoading(false);
+      }
     }
   };
 
@@ -157,7 +177,7 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6" noValidate={false}>
+        <form onSubmit={handleSubmit} className="p-6">
           <div className="secure-login-steps" aria-label="Etapas da autenticação">
             <div className={`secure-login-step ${!is2faStage ? "secure-login-step-active" : "secure-login-step-complete"}`}>
               <span className="secure-login-step-icon">
@@ -201,7 +221,7 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
                   </div>
                 </div>
                 <Button type="submit" className="w-full bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400" disabled={loading}>
-                  {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
                   {loading ? "Enviando..." : "Enviar instruções de recuperação"}
                 </Button>
                 <button type="button" onClick={() => { setMode("login"); setTransitionDirection("backward"); setFeedbackState("idle", ""); }} className="flex w-full items-center justify-center gap-1.5 pt-2 text-xs text-slate-500 transition-colors hover:text-slate-800 dark:hover:text-slate-200">
@@ -215,25 +235,25 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Verificação em Duas Etapas (2FA)</h3>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Insira o código de 6 dígitos gerado pelo seu aplicativo autenticador (Google Authenticator, Authy ou 1Password).</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Insira o código TOTP de 6 dígitos ou um código de backup de uso único.</p>
                 </div>
                 <div className="space-y-1.5 text-left">
-                  <Label htmlFor="totp" className="text-xs font-semibold text-slate-700 dark:text-slate-300">Código TOTP</Label>
+                  <Label htmlFor="totp" className="text-xs font-semibold text-slate-700 dark:text-slate-300">Código de Autenticação</Label>
                   <Input
                     ref={totpInputRef}
                     id="totp"
                     type="text"
-                    inputMode="numeric"
+                    inputMode="text"
                     autoComplete="one-time-code"
-                    maxLength={6}
+                    maxLength={12}
                     placeholder="000 000"
                     value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={(e) => setTotpCode(e.target.value)}
                     className={`text-center text-lg font-mono tracking-widest ${feedback === "error" ? "secure-login-input-error" : feedback === "success" ? "secure-login-input-success" : ""}`}
                     required
                     aria-describedby="totp-help"
                   />
-                  <p id="totp-help" className="text-center text-[11px] text-slate-400">O código é renovado automaticamente a cada poucos segundos.</p>
+                  <p id="totp-help" className="text-center text-[11px] text-slate-400">Insira o código do app autenticador ou código de backup.</p>
                 </div>
                 <Button type="submit" className="w-full bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400" disabled={loading || feedback === "success"}>
                   {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" /> : feedback === "success" ? <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" /> : null}
@@ -265,7 +285,7 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
                 </div>
 
                 <Button type="submit" className="w-full bg-amber-500 font-semibold text-slate-950 shadow-md hover:bg-amber-400" disabled={loading}>
-                  {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  {loading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
                   {loading ? "Protegendo acesso..." : mode === "register" ? "Criar conta e iniciar" : "Entrar com segurança"}
                   {!loading && <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />}
                 </Button>

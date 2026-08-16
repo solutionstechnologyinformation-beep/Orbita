@@ -1627,11 +1627,11 @@
 - [x] Validar a suíte completa, TypeScript e saúde do servidor (308/308 testes aprovados)
 
 ## Validação TOTP Real no Endpoint Seguro
-- [ ] Revisar os procedimentos e serviços atuais de autenticação segura e TOTP
-- [ ] Implementar validação criptográfica TOTP no endpoint, com expiração, janela de tolerância e limite de tentativas
-- [ ] Conectar o SecureLoginModal ao endpoint real e manter os estados de transição, erro e sucesso
-- [ ] Criar ou atualizar testes backend e frontend para códigos válidos, inválidos, expirados e bloqueio temporário
-- [ ] Validar TypeScript, suíte completa e saúde do servidor antes do checkpoint
+- [x] Revisar os procedimentos e serviços atuais de autenticação segura e TOTP
+- [x] Implementar validação criptográfica TOTP no endpoint, com expiração, janela de tolerância e limite de tentativas
+- [x] Conectar o SecureLoginModal ao endpoint real e manter os estados de transição, erro e sucesso
+- [x] Criar ou atualizar testes backend e frontend para códigos válidos, inválidos, expirados e bloqueio temporário
+- [x] Validar TypeScript, suíte completa e saúde do servidor antes do checkpoint (309/309 testes aprovados)
 
 ## Página de Abertura e Modo Offline Seguro
 - [x] Criar página de abertura (Splash / Welcome Screen) para o Orbita com transição para o login ou painel principal
