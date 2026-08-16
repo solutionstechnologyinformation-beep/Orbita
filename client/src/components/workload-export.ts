@@ -1,4 +1,5 @@
 import { buildOrbitaReportHeaderHtml, ORBITA_REPORT_HEADER_CSS } from "@/lib/report-header";
+import { buildOrbitaCsvPreamble } from "../../../shared/report-export-header";
 
 export type WorkloadRecommendation = {
   taskId: number;
@@ -30,7 +31,8 @@ export function buildWorkloadCsv(recommendations: WorkloadRecommendation[]) {
     recommendation.suggestedDueDate,
     recommendation.rationale,
   ]);
-  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+  const table = [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+  return `${buildOrbitaCsvPreamble("Relatório de Distribuição de Equipe")}\r\n${table}`;
 }
 
 export function buildWorkloadPdfHtml(recommendations: WorkloadRecommendation[]) {

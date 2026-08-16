@@ -14,6 +14,8 @@ export type MapElementRecord = {
   extensionKm: number | null;
 };
 
+import { buildOrbitaCsvPreamble } from "./report-export-header";
+
 function flattenCoordinates(geometry: any): number[][] {
   if (!geometry) return [];
   if (geometry.type === "Point") return Array.isArray(geometry.coordinates) ? [geometry.coordinates] : [];
@@ -153,5 +155,6 @@ export function buildMapElementsCsv(records: MapElementRecord[]): string {
     record.center?.lng ?? "",
     record.extensionKm ?? "",
   ]);
-  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+  const table = [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+  return `${buildOrbitaCsvPreamble("Relatório de Elementos do Mapa")}\r\n${table}`;
 }

@@ -12,8 +12,9 @@ const recommendations: WorkloadRecommendation[] = [
 ];
 
 describe("workload export utilities", () => {
-  it("builds a CSV with headers and escaped cells", () => {
+  it("builds a CSV with Orbita visual header, headers and escaped cells", () => {
     const csv = buildWorkloadCsv(recommendations);
+    expect(csv).toContain("ÓRBITA · PLANEJAMENTO VISUAL");
     expect(csv).toContain('"ID da Tarefa","Título da Tarefa","Responsável Sugerido","Prazo Sugerido","Justificativa"');
     expect(csv).toContain('"Revisar ""ponte"""');
     expect(csv).toContain('"Prioridade alta e experiência na disciplina."');

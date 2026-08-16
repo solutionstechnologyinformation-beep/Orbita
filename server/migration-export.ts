@@ -75,6 +75,26 @@ export async function getCompanyMigrationSnapshot(companyId?: number | null) {
 
 export function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<typeof getCompanyMigrationSnapshot>>): Buffer {
   const workbook = XLSX.utils.book_new();
+
+  const coverRows = [
+    ["ÓRBITA · PLANEJAMENTO VISUAL"],
+    ["Relatório de dados e migração multi-tenant"],
+    [],
+    ["Indicador", "Valor"],
+    ["SISTEMA", "Órbita · Planejamento Visual"],
+    ["VERSÃO DO SNAPSHOT", snapshot.version],
+    ["DATA DA EXPORTAÇÃO", new Date(snapshot.exportedAt).toLocaleString("pt-BR")],
+    ["ID DA EMPRESA", snapshot.companyId ?? "Global / Todas"],
+    ["DESCRIÇÃO", "Planilha unificada de migração multi-tenant com abas estruturadas por entidade"],
+  ];
+  const coverSheet = XLSX.utils.aoa_to_sheet(coverRows);
+  coverSheet["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+  ];
+  coverSheet["!cols"] = [{ wch: 28 }, { wch: 72 }];
+  XLSX.utils.book_append_sheet(workbook, coverSheet, "Órbita-Capa");
+
   const addSheet = (name: string, rows: any[]) => {
     const sanitized = sanitizeRowsForExcel(rows);
     const worksheet = XLSX.utils.json_to_sheet(sanitized.length ? sanitized : [{ info: "Nenhum registro encontrado" }]);

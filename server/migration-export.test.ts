@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getCompanyMigrationSnapshot, generateMigrationExcelBuffer, summarizeMigrationImportLog } from "./migration-export";
+import * as XLSX from "xlsx";
 
 describe("Migration Export and Import", () => {
   it("builds a migration snapshot successfully", async () => {
@@ -25,5 +26,10 @@ describe("Migration Export and Import", () => {
     const buffer = generateMigrationExcelBuffer(snapshot);
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toBeGreaterThan(0);
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    expect(workbook.SheetNames[0]).toBe("Órbita-Capa");
+    const coverRows = XLSX.utils.sheet_to_json(workbook.Sheets["Órbita-Capa"], { header: 1 }) as unknown[][];
+    expect(coverRows[0]?.[0]).toBe("ÓRBITA · PLANEJAMENTO VISUAL");
+    expect(coverRows[3]).toEqual(["Indicador", "Valor"]);
   });
 });

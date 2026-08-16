@@ -1679,3 +1679,8 @@
 - [x] Incluir legenda de status na visualização mobile do Gantt
 - [x] Otimizar espaçamento, controles e feedback da visualização mobile
 - [x] Criar testes, validar TypeScript e salvar checkpoint versionado (321/321 testes aprovados)
+
+## Cabeçalho Visual em CSV e Excel
+- [x] Adicionar metadados visuais de identificação ÓRBITA · PLANEJAMENTO VISUAL no início dos exports CSV e criar uma aba de capa no Excel gerado
+- [x] Garantir que os dados tabulares e as abas de entidades permaneçam compatíveis com os fluxos existentes de migração
+- [x] Criar testes unitários, validar TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
