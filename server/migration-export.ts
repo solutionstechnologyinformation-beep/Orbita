@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { agendaEvents, clients, companies, crs, crsSegments, disciplines, kanbanPhases, sprints, tasks, users } from "../drizzle/schema";
 import { getDb } from "./db";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 function sanitizeRowsForExcel(rows: any[]) {
   return rows.map((row) => {
@@ -73,32 +73,87 @@ export async function getCompanyMigrationSnapshot(companyId?: number | null) {
   };
 }
 
-export function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<typeof getCompanyMigrationSnapshot>>): Buffer {
-  const workbook = XLSX.utils.book_new();
+export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<typeof getCompanyMigrationSnapshot>>): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Órbita · Planejamento Visual";
+  workbook.company = "Órbita";
+  workbook.created = new Date(snapshot.exportedAt);
+  workbook.modified = new Date(snapshot.exportedAt);
 
-  const coverRows = [
-    ["ÓRBITA · PLANEJAMENTO VISUAL"],
-    ["Relatório de dados e migração multi-tenant"],
-    [],
-    ["Indicador", "Valor"],
+  const coverSheet = workbook.addWorksheet("Órbita-Capa");
+  coverSheet.columns = [{ width: 30 }, { width: 78 }];
+  coverSheet.mergeCells("A1:B1");
+  coverSheet.mergeCells("A2:B2");
+  coverSheet.getCell("A1").value = "ÓRBITA · PLANEJAMENTO VISUAL";
+  coverSheet.getCell("A2").value = "Relatório de dados e migração multi-tenant";
+  coverSheet.getRow(1).height = 30;
+  coverSheet.getRow(2).height = 22;
+  coverSheet.getCell("A1").font = { name: "Aptos Display", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
+  coverSheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+  coverSheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
+  coverSheet.getCell("A2").font = { name: "Aptos", size: 12, bold: true, color: { argb: "FFB58900" } };
+  coverSheet.getCell("A2").alignment = { vertical: "middle", horizontal: "left" };
+  coverSheet.addRow([]);
+  coverSheet.addRow(["Indicador", "Valor"]);
+  const coverMetadata = [
     ["SISTEMA", "Órbita · Planejamento Visual"],
     ["VERSÃO DO SNAPSHOT", snapshot.version],
     ["DATA DA EXPORTAÇÃO", new Date(snapshot.exportedAt).toLocaleString("pt-BR")],
     ["ID DA EMPRESA", snapshot.companyId ?? "Global / Todas"],
     ["DESCRIÇÃO", "Planilha unificada de migração multi-tenant com abas estruturadas por entidade"],
   ];
-  const coverSheet = XLSX.utils.aoa_to_sheet(coverRows);
-  coverSheet["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
-  ];
-  coverSheet["!cols"] = [{ wch: 28 }, { wch: 72 }];
-  XLSX.utils.book_append_sheet(workbook, coverSheet, "Órbita-Capa");
+  coverMetadata.forEach((row) => coverSheet.addRow(row));
+  const coverHeader = coverSheet.getRow(4);
+  coverHeader.height = 22;
+  coverHeader.eachCell((cell) => {
+    cell.font = { name: "Aptos", bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
+  coverSheet.getColumn(1).width = 30;
+  coverSheet.getColumn(2).width = 78;
+  coverSheet.views = [{ state: "frozen", ySplit: 4, topLeftCell: "A5" }];
+  coverSheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 1 };
 
   const addSheet = (name: string, rows: any[]) => {
     const sanitized = sanitizeRowsForExcel(rows);
-    const worksheet = XLSX.utils.json_to_sheet(sanitized.length ? sanitized : [{ info: "Nenhum registro encontrado" }]);
-    XLSX.utils.book_append_sheet(workbook, worksheet, name);
+    const dataToSheet = sanitized.length ? sanitized : [{ info: "Nenhum registro encontrado" }];
+    const keys = Object.keys(dataToSheet[0] || {});
+    const worksheet = workbook.addWorksheet(name);
+    worksheet.columns = keys.map((key) => ({ header: key, key, width: 15 }));
+    worksheet.addRows(dataToSheet);
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 22;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: "Aptos", bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    });
+
+    keys.forEach((key, colIndex) => {
+      let maxLen = key.length;
+      dataToSheet.forEach((row) => {
+        maxLen = Math.max(maxLen, String(row[key] ?? "").length);
+      });
+      worksheet.getColumn(colIndex + 1).width = Math.min(Math.max(maxLen + 4, 15), 50);
+    });
+
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: Math.max(1, worksheet.rowCount), column: Math.max(1, keys.length) },
+    };
+    worksheet.views = [{ state: "frozen", ySplit: 1, topLeftCell: "A2", activeCell: "A2" }];
+    worksheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    (worksheet as any).printOptions = { gridLines: true };
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1 && rowNumber % 2 === 0) {
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
+        });
+      }
+    });
   };
 
   addSheet("Empresas", snapshot.data.companies);
@@ -112,7 +167,7 @@ export function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<typeof
   addSheet("Disciplinas", snapshot.data.disciplines);
   addSheet("Sprints", snapshot.data.sprints);
 
-  return Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+  return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
 export type MigrationImportLogEntry = {

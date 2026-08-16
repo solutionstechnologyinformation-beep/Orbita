@@ -1597,7 +1597,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const targetCompanyId = ctx.user.role === 'master_admin' ? input.companyId : ctx.user.companyId;
         const snapshot = await getCompanyMigrationSnapshot(targetCompanyId);
-        const buffer = generateMigrationExcelBuffer(snapshot);
+        const buffer = await generateMigrationExcelBuffer(snapshot);
         return { fileName: `orbita_migration_${Date.now()}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentBase64: buffer.toString("base64") };
       }),
     exportJson: protectedProcedure

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getCompanyMigrationSnapshot, generateMigrationExcelBuffer, summarizeMigrationImportLog } from "./migration-export";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 describe("Migration Export and Import", () => {
   it("builds a migration snapshot successfully", async () => {
@@ -23,13 +23,22 @@ describe("Migration Export and Import", () => {
 
   it("generates an Excel buffer with multiple tabs", async () => {
     const snapshot = await getCompanyMigrationSnapshot(null);
-    const buffer = generateMigrationExcelBuffer(snapshot);
+    const buffer = await generateMigrationExcelBuffer(snapshot);
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toBeGreaterThan(0);
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    expect(workbook.SheetNames[0]).toBe("Órbita-Capa");
-    const coverRows = XLSX.utils.sheet_to_json(workbook.Sheets["Órbita-Capa"], { header: 1 }) as unknown[][];
-    expect(coverRows[0]?.[0]).toBe("ÓRBITA · PLANEJAMENTO VISUAL");
-    expect(coverRows[3]).toEqual(["Indicador", "Valor"]);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    expect(workbook.worksheets[0]?.name).toBe("Órbita-Capa");
+    const coverSheet = workbook.getWorksheet("Órbita-Capa");
+    expect(coverSheet?.getCell("A1").value).toBe("ÓRBITA · PLANEJAMENTO VISUAL");
+    expect(coverSheet?.views[0]).toMatchObject({ state: "frozen", ySplit: 4 });
+
+    const empresasSheet = workbook.getWorksheet("Empresas");
+    expect(empresasSheet).toBeDefined();
+    expect(empresasSheet?.autoFilter).toBeDefined();
+    expect(empresasSheet?.views[0]).toMatchObject({ state: "frozen", ySplit: 1 });
+    expect(empresasSheet?.getRow(1).getCell(1).font?.bold).toBe(true);
+    expect(empresasSheet?.getRow(1).getCell(1).fill).toMatchObject({ type: "pattern", pattern: "solid" });
   });
 });

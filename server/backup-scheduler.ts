@@ -37,7 +37,7 @@ export async function executeScheduledBackupForTask(taskUid: string) {
   }
 
   const snapshot = await getCompanyMigrationSnapshot(schedule.companyId);
-  const excelBuffer = generateMigrationExcelBuffer(snapshot);
+  const excelBuffer = await generateMigrationExcelBuffer(snapshot);
   const fileKey = `backups/company-${schedule.companyId}/weekly-${new Date().toISOString().replace(/[:.]/g, "-")}.xlsx`;
   const { url } = await storagePut(fileKey, excelBuffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   const nextExecutionAt = calculateNextWeeklyBackup(schedule.dayOfWeek, schedule.hourUtc, schedule.minuteUtc);

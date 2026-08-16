@@ -1684,3 +1684,8 @@
 - [x] Adicionar metadados visuais de identificação ÓRBITA · PLANEJAMENTO VISUAL no início dos exports CSV e criar uma aba de capa no Excel gerado
 - [x] Garantir que os dados tabulares e as abas de entidades permaneçam compatíveis com os fluxos existentes de migração
 - [x] Criar testes unitários, validar TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
+
+## Estilos e Congelamento de Painéis em Planilhas Excel
+- [x] Adicionar estilos de cores, larguras automáticas, filtros (autoFilter) e congelamento de painéis (freeze panes) nas planilhas Excel exportadas
+- [x] Atualizar testes em migration-export.test.ts para validar a presença de estilos e propriedades de congelamento
+- [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
