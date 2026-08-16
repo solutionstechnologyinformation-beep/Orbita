@@ -1973,3 +1973,11 @@
 - [x] Escrever suíte de testes unitários para a segurança, validade e uso único de convites
 - [x] Documentar o fluxo de convites no GUIA_AUTENTICACAO_LOCAL.md e no Manual de Uso
 - [x] Validar TypeScript, suíte Vitest, salvar checkpoint e entregar
+
+## Histórico de Auditoria de Convites
+- [x] Adicionar tabela `company_invite_audit_logs` no Drizzle schema para registrar geração, visualização, aceite, revogação e expiração
+- [x] Criar helpers DB e procedures tRPC para registrar e listar os logs de auditoria filtráveis por convite ou empresa
+- [x] Integrar o registro automático de eventos nos endpoints de criação, consulta `/invite`, aceite e revogação
+- [x] Criar componente visual de auditoria na aba de Convites do painel Admin da Empresa com busca e filtros por ação e data
+- [x] Escrever testes unitários em `company-invite-audit.test.ts` para validar isolamento de tenant e privacidade do token
+- [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript e testes, salvar checkpoint e entregar

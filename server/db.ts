@@ -12,7 +12,7 @@ import {
   sprintChecklistItems, whiteboards, userDisciplines,
   googleCalendarTokens, googleCalendarEvents, meetings, crsSegments,
   subscriptionPlans, userSubscriptions, subscriptionInvoices,
-  companies, notificationPreferences, companyInvites,
+  companies, notificationPreferences, companyInvites, companyInviteAuditLogs,
 } from "../drizzle/schema";
 
 // ─── DB Connection ─────────────────────────────────────────────────────────────
@@ -2386,4 +2386,22 @@ export async function revokeCompanyInvite(inviteId: number, companyId: number) {
 export async function acceptCompanyInviteRecord(inviteId: number) {
   const db = await getDb();
   await db.update(companyInvites).set({ status: "accepted", acceptedAt: new Date(), updatedAt: new Date() }).where(eq(companyInvites.id, inviteId));
+}
+
+// ─── Company Invite Audit Logs ─────────────────────────────────────────────────
+export async function logCompanyInviteAudit(data: { companyId: number; inviteId?: number; actorUserId?: number; action: "created" | "viewed" | "accepted" | "revoked" | "expired"; details?: string; ipAddress?: string }) {
+  const db = await getDb();
+  await db.insert(companyInviteAuditLogs).values({
+    companyId: data.companyId,
+    inviteId: data.inviteId || null,
+    actorUserId: data.actorUserId || null,
+    action: data.action,
+    details: data.details || null,
+    ipAddress: data.ipAddress || null,
+  });
+}
+
+export async function getCompanyInviteAuditLogs(companyId: number) {
+  const db = await getDb();
+  return db.select().from(companyInviteAuditLogs).where(eq(companyInviteAuditLogs.companyId, companyId)).orderBy(desc(companyInviteAuditLogs.createdAt)).limit(100);
 }

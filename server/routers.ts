@@ -23,6 +23,7 @@ import {
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
   getCompanies, getCompanyById, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline,
   createCompanyInvite, getCompanyInvites, getCompanyInviteByToken, revokeCompanyInvite, acceptCompanyInviteRecord,
+  logCompanyInviteAudit, getCompanyInviteAuditLogs,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
   getChatMessages, createChatMessage, setChatTypingState, clearChatTypingState, getChatTypingUsers,
   getOrCreateConversation, getDirectMessages, sendDirectMessage, getUserConversations,
@@ -141,13 +142,31 @@ export const appRouter = router({
 
     getInviteInfo: publicProcedure
       .input(z.object({ token: z.string().min(1) }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
         const invite = await getCompanyInviteByToken(input.token);
-        if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "Convite não encontrado." });
+        const clientIp = ctx.req.headers["x-forwarded-for"] || ctx.req.socket?.remoteAddress || "unknown";
+        if (!invite) {
+          return { valid: false, reason: "Convite não encontrado." };
+        }
+        await logCompanyInviteAudit({
+          companyId: invite.companyId,
+          inviteId: invite.id,
+          action: "viewed",
+          details: `Visualizado convite para ${invite.email}`,
+          ipAddress: Array.isArray(clientIp) ? clientIp[0] : clientIp,
+        });
+
         if (invite.status !== "pending") {
           return { valid: false, reason: `Convite já foi ${invite.status === "accepted" ? "aceito" : invite.status === "revoked" ? "revogado" : "expirado"}.` };
         }
         if (new Date() > new Date(invite.expiresAt)) {
+          await logCompanyInviteAudit({
+            companyId: invite.companyId,
+            inviteId: invite.id,
+            action: "expired",
+            details: `Tentativa de uso de convite expirado (${invite.email})`,
+            ipAddress: Array.isArray(clientIp) ? clientIp[0] : clientIp,
+          });
           return { valid: false, reason: "Este convite expirou." };
         }
         const company = await getCompanyById(invite.companyId);
@@ -190,6 +209,15 @@ export const appRouter = router({
         });
 
         await acceptCompanyInviteRecord(invite.id);
+        const clientIp = ctx.req.headers["x-forwarded-for"] || ctx.req.socket?.remoteAddress || "unknown";
+        await logCompanyInviteAudit({
+          companyId: invite.companyId,
+          inviteId: invite.id,
+          actorUserId: userId,
+          action: "accepted",
+          details: `Convite aceito por ${input.name} (${invite.email})`,
+          ipAddress: Array.isArray(clientIp) ? clientIp[0] : clientIp,
+        });
 
         const [createdUser] = await db.select({ openId: users.openId }).from(users).where(eq(users.id, userId)).limit(1);
         const { sdk } = await import("./_core/sdk");
@@ -570,8 +598,23 @@ export const appRouter = router({
           const companyId = ctx.user.companyId;
           if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
           await revokeCompanyInvite(input.inviteId, companyId);
+          const clientIp = ctx.req.headers["x-forwarded-for"] || ctx.req.socket?.remoteAddress || "unknown";
+          await logCompanyInviteAudit({
+            companyId,
+            inviteId: input.inviteId,
+            actorUserId: ctx.user.id,
+            action: "revoked",
+            details: `Convite #${input.inviteId} revogado pelo administrador`,
+            ipAddress: Array.isArray(clientIp) ? clientIp[0] : clientIp,
+          });
           return { success: true };
         }),
+
+      auditLogs: companyAdminProcedure.query(async ({ ctx }) => {
+        const companyId = ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN" });
+        return getCompanyInviteAuditLogs(companyId);
+      }),
     }),
   }),
   companies: router({

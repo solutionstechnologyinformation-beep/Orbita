@@ -648,3 +648,17 @@ export const companyInvites = mysqlTable("company_invites", {
 });
 export type CompanyInvite = typeof companyInvites.$inferSelect;
 export type InsertCompanyInvite = typeof companyInvites.$inferInsert;
+
+// ─── Company Invite Audit Logs (Auditoria de Convites) ──────────────────────────
+export const companyInviteAuditLogs = mysqlTable("company_invite_audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  inviteId: int("inviteId"),
+  actorUserId: int("actorUserId"),
+  action: mysqlEnum("action", ["created", "viewed", "accepted", "revoked", "expired"]).notNull(),
+  details: text("details"),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CompanyInviteAuditLog = typeof companyInviteAuditLogs.$inferSelect;
+export type InsertCompanyInviteAuditLog = typeof companyInviteAuditLogs.$inferInsert;
