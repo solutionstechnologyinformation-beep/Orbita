@@ -1990,3 +1990,10 @@
 - [x] Criar filtro rápido de risco ("Apenas Alertas") no painel de auditoria
 - [x] Criar testes unitários em `company-invite-alerts.test.ts` para validação de severidade e contagem de incidentes
 - [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar
+
+## Notificações, Exportação CSV e Bloqueio por IP em Alertas de Convite
+- [x] Implementar controle de taxa e bloqueio temporário de IP (rate limiting de segurança) em tentativas de acesso a convites expirados/revogados
+- [x] Enviar notificação push automática aos administradores da empresa ao atingir limite crítico de incidentes de segurança
+- [x] Adicionar botão de exportação CSV no painel de auditoria de convites para relatórios de conformidade
+- [x] Criar testes unitários em `company-invite-security-actions.test.ts` para validação de bloqueio e exportação CSV
+- [x] Atualizar documentação no GUIA_AUTENTICACAO_LOCAL.md, validar TypeScript, testes, salvar checkpoint e entregar

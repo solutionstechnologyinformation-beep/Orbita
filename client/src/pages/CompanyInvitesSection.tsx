@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Plus, Copy, Check, Link as LinkIcon, Loader2, History, ShieldAlert, Search, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Mail, Plus, Copy, Check, Link as LinkIcon, Loader2, History, ShieldAlert, Search, AlertTriangle, Download, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export function CompanyInvitesSection() {
@@ -68,6 +68,30 @@ export function CompanyInvitesSection() {
     const matchesAlertOnly = !alertOnly || isAlert;
     return matchesSearch && matchesAction && matchesAlertOnly;
   });
+
+  const exportAuditCsv = () => {
+    if (auditLogs.length === 0) {
+      toast.error("Nenhum registro de auditoria para exportar.");
+      return;
+    }
+    const headers = ["ID", "Acao", "Detalhes", "IP", "DataHora"];
+    const rows = auditLogs.map((l: any) => [
+      l.id,
+      l.action,
+      `"${(l.details || "").replace(/"/g, '""')}"`,
+      l.ipAddress || "N/D",
+      new Date(l.createdAt).toISOString(),
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r: any) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `auditoria_convites_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Relatório CSV de auditoria exportado com sucesso!");
+  };
 
   return (
     <div className="space-y-6">
@@ -185,16 +209,30 @@ export function CompanyInvitesSection() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-slate-900">Auditoria e Alertas de Segurança</h2>
-                {alertCount > 0 && (
+                {alertCount > 0 ? (
                   <Badge className="bg-rose-100 text-rose-700 font-bold">
                     {alertCount} {alertCount === 1 ? "alerta de acesso" : "alertas de acesso"}
                   </Badge>
+                ) : (
+                  <Badge className="bg-emerald-100 text-emerald-700 font-medium gap-1">
+                    <ShieldCheck className="h-3 w-3" /> Sistema Seguro
+                  </Badge>
                 )}
               </div>
-              <p className="text-xs text-slate-500">Monitoramento de tentativas de acesso a convites expirados, revogados ou inválidos.</p>
+              <p className="text-xs text-slate-500">Monitoramento de tentativas de acesso a convites expirados, revogados ou inválidos com proteção por IP.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportAuditCsv}
+              className="text-xs gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5 text-blue-600" />
+              Exportar CSV
+            </Button>
             <Button
               type="button"
               variant={alertOnly ? "default" : "outline"}
@@ -211,7 +249,7 @@ export function CompanyInvitesSection() {
                 placeholder="Buscar detalhes ou IP..."
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
-                className="h-9 pl-9 text-xs w-56 bg-white"
+                className="h-9 pl-9 text-xs w-52 bg-white"
               />
             </div>
             <select
