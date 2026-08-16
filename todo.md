@@ -1565,3 +1565,8 @@
 ## Animação de Pulso no Hover do Avatar Circular
 - [x] Adicionar efeito CSS de pulso suave na borda/anel ao passar o mouse sobre o avatar do Assistente Orbita com suporte a `prefers-reduced-motion`
 - [x] Validar com testes unitários e garantir zero erros TypeScript (289/289 testes aprovados)
+
+## Indicador de Digitação Animado no Assistente Orbita
+- [x] Criar componente visual `AssistantTypingIndicator` com três pontos saltitantes sincronizados e suporte a acessibilidade (`role="status"`, `aria-live="polite"`, `prefers-reduced-motion`)
+- [x] Integrar o indicador de digitação no FloatingAgent enquanto o status de mutação/processamento estiver ativo
+- [x] Validar com testes unitários em Vitest e verificar ausência de erros TypeScript (291/291 testes aprovados)

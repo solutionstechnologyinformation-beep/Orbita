@@ -19,6 +19,7 @@ import { containsWakePhrase, extractFinalTranscript, extractLatestTranscript, ge
 import { getAgentActionAnnouncement, getBestPortugueseVoice, getPreferredUserName, getSpeechPlaybackMessage, getSpeechSynthesis, personalizeAssistantReply, shouldSpeakClosingGreeting, stripTextForSpeech, type SpeechPlaybackState, type SpeechSynthesisLike, type SpeechSynthesisUtteranceLike } from "./speech-synthesis";
 import { SoundWaveIndicator, type SoundWaveState } from "./SoundWaveIndicator";
 import { WorkloadAnalysisLoading } from "./WorkloadAnalysisLoading";
+import { AssistantTypingIndicator } from "./AssistantTypingIndicator";
 import { isWorkloadAnalysisRequest } from "./workload-analysis-state";
 import { getAssistantAlertLabel, getAssistantAlertState } from "./assistant-alert-state";
 import { ASSISTANT_CHARACTER_HOVER_PULSE_CLASS, getAssistantCharacterMotionClass } from "./assistant-character-motion";
@@ -695,7 +696,7 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             {isWorkloadAnalysisPending && chatM.isPending ? (
               <WorkloadAnalysisLoading />
             ) : chatM.isPending ? (
-              <div className="flex items-center gap-2 text-xs text-slate-500" role="status" aria-live="polite"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando o Orbita...</div>
+              <AssistantTypingIndicator />
             ) : null}
             {latestRecommendations.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t border-slate-200">
