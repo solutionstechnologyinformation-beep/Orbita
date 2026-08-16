@@ -1651,3 +1651,9 @@
 - [x] Criar indicador visual global com contagem e detalhes dos itens pendentes
 - [x] Atualizar o indicador ao reconectar e manter feedback acessível para leitores de tela
 - [x] Criar testes, validar TypeScript e salvar checkpoint versionado (313/313 testes aprovados)
+
+## Sincronização Real e Retry Controlado de Rascunhos Offline
+- [x] Criar motor de sincronização (syncQueue) para enviar rascunhos pendentes ao recuperar a conexão
+- [x] Implementar política de repetição controlada (retry com limite de 3 tentativas e backoff exponencial)
+- [x] Conectar o sincronizador aos mutators tRPC de tarefas e comentários e atualizar o indicador visual
+- [x] Criar testes unitários para o motor de sync e retry e salvar checkpoint versionado (314/314 testes aprovados)

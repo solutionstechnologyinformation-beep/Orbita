@@ -6,8 +6,11 @@ export type OfflineDraft = {
   payload: Record<string, any>;
   createdAt: number;
   status: OfflineDraftStatus;
+  attempts: number;
   errorMessage?: string;
   syncedAt?: number;
+  lastAttemptAt?: number;
+  nextRetryAt?: number;
 };
 
 const DRAFTS_KEY = "orbita_offline_drafts_v1";
@@ -15,7 +18,7 @@ let memoryStore: OfflineDraft[] = [];
 const listeners = new Set<() => void>();
 
 function normalizeDraft(draft: OfflineDraft): OfflineDraft {
-  return { ...draft, status: draft.status ?? "pending" };
+  return { ...draft, status: draft.status ?? "pending", attempts: draft.attempts ?? 0 };
 }
 
 function emitChange() {
@@ -70,9 +73,19 @@ export function saveOfflineDraft(type: "task" | "comment" | "project", payload: 
     payload,
     createdAt: Date.now(),
     status: "pending",
+    attempts: 0,
   };
   persist([...getOfflineDrafts(), newDraft]);
   return newDraft;
+}
+
+export function recordOfflineDraftAttempt(id: string): OfflineDraft | undefined {
+  const drafts = getOfflineDrafts();
+  const target = drafts.find((draft) => draft.id === id);
+  if (!target) return undefined;
+  const updated = { ...target, attempts: target.attempts + 1, lastAttemptAt: Date.now() };
+  persist(drafts.map((draft) => (draft.id === id ? updated : draft)));
+  return updated;
 }
 
 export function updateOfflineDraftStatus(id: string, status: OfflineDraftStatus, errorMessage?: string): OfflineDraft | undefined {
@@ -85,6 +98,7 @@ export function updateOfflineDraftStatus(id: string, status: OfflineDraftStatus,
     status,
     errorMessage: status === "error" ? errorMessage : undefined,
     syncedAt: status === "synced" ? Date.now() : target.syncedAt,
+    nextRetryAt: status === "error" ? Date.now() + 30_000 : undefined,
   };
   persist(drafts.map((draft) => (draft.id === id ? updated : draft)));
   return updated;
