@@ -1606,3 +1606,6 @@
 - [x] Criar estado de resultado para sucesso completo, sucesso parcial e falha na importação
 - [x] Exibir banner visual persistente no relatório após o processamento finalizar
 - [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (303/303 testes aprovados)
+
+## Habilidade Reutilizável (`orbita-evolution`)
+- [x] Criar e validar a habilidade `orbita-evolution` codificando o fluxo completo de desenvolvimento e validação do sistema
