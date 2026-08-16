@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, Upload, FileSpreadsheet, FileJson, CalendarClock, Pause, Play, Trash2, Loader2, ListChecks, AlertTriangle, XCircle } from "lucide-react";
+import { Download, Upload, FileSpreadsheet, FileJson, CalendarClock, Pause, Play, Trash2, Loader2, ListChecks, AlertTriangle, XCircle, CheckCircle2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { getMigrationImportWarning, prepareMigrationImport, type PendingMigrationImport } from "./migration-import-guard";
+import { summarizeImportResult, type ImportResultSummary } from "./migration-import-result";
 
 type ImportReport = {
   importedCounts: Record<string, number>;
@@ -31,6 +32,7 @@ export function MigrationPanel() {
   const [importing, setImporting] = useState(false);
   const [pendingImport, setPendingImport] = useState<PendingMigrationImport | null>(null);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
+  const [importResult, setImportResult] = useState<ImportResultSummary | null>(null);
   const [dayOfWeek, setDayOfWeek] = useState(0);
   const [hourUtc, setHourUtc] = useState(12);
   const [minuteUtc, setMinuteUtc] = useState(0);
@@ -125,10 +127,19 @@ export function MigrationPanel() {
   const importJsonMutation = trpc.migration.importJson.useMutation({
     onSuccess: (result) => {
       setImportReport(result);
-      toast.success(`Migração concluída. ${Object.values(result.importedCounts).reduce((sum, count) => sum + count, 0)} registros importados.`);
+      const imported = Object.values(result.importedCounts).reduce((sum, count) => sum + count, 0);
+      const ignored = Object.values(result.ignoredCounts).reduce((sum, count) => sum + count, 0);
+      const errors = Object.values(result.errorCounts).reduce((sum, count) => sum + count, 0);
+      setImportResult(summarizeImportResult(imported, ignored, errors));
+      if (errors > 0) toast.warning("A importação terminou com erros. Consulte o relatório detalhado.");
+      else if (ignored > 0) toast.warning("A importação terminou parcialmente. Consulte os itens ignorados.");
+      else toast.success("Importação concluída com sucesso.");
       utils.invalidate();
     },
-    onError: (error) => toast.error(`Erro ao importar arquivo: ${error.message}`),
+    onError: (error) => {
+      setImportResult({ kind: "failure", title: "Falha ao processar a importação", message: error.message });
+      toast.error(`Erro ao importar arquivo: ${error.message}`);
+    },
   });
 
   const confirmImport = async () => {
@@ -193,6 +204,12 @@ export function MigrationPanel() {
         </div>
       </CardContent>
       </Card>
+      {importResult && (
+        <div className={`mt-4 flex items-start gap-3 rounded-xl border p-4 shadow-sm ${importResult.kind === "success" ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100" : importResult.kind === "partial" ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100" : "border-red-300 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/30 dark:text-red-100"}`} role="status" aria-live="polite">
+          {importResult.kind === "success" ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" /> : importResult.kind === "partial" ? <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" /> : <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />}
+          <div><p className="text-sm font-bold">{importResult.title}</p><p className="mt-1 text-xs opacity-80">{importResult.message}</p></div>
+        </div>
+      )}
       {importReport && (
         <Card className="mt-4 border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <CardHeader className="pb-3">

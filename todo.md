@@ -1601,3 +1601,8 @@
 - [x] Expandir o backend de importação para registrar mensagens detalhadas de inserção, falhas e itens ignorados por entidade
 - [x] Criar modal ou painel de relatório de importação exibindo estatísticas e log detalhado na tela após a conclusão
 - [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (300/300 testes aprovados)
+
+## Notificação Visual Pós-Importação
+- [x] Criar estado de resultado para sucesso completo, sucesso parcial e falha na importação
+- [x] Exibir banner visual persistente no relatório após o processamento finalizar
+- [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (303/303 testes aprovados)
