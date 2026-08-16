@@ -1942,3 +1942,10 @@
 - [ ] Confirmar que o sistema não gera bloqueios fora do guia
 - [ ] Confirmar que o guia está pronto para uso
 - [ ] Confirmar entrega final
+
+## Melhoria: Transições do Guia de Apresentação
+- [x] Adicionar transição direcional entre etapas ao avançar e voltar
+- [x] Animar entrada e saída do conteúdo sem bloquear teclado ou leitor de tela
+- [x] Respeitar prefers-reduced-motion mantendo troca instantânea quando solicitado
+- [x] Atualizar testes do estado e da direção da transição
+- [x] Validar TypeScript, suíte Vitest, preview e salvar checkpoint

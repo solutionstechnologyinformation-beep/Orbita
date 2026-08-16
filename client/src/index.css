@@ -1116,3 +1116,56 @@ html.theme-transition body *::after {
     transform: none;
   }
 }
+
+/* ── Guided presentation step transitions ───────────────────────────────── */
+@keyframes orbitaTourStepExitForward {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(-18px, 0, 0); }
+}
+
+@keyframes orbitaTourStepExitBackward {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(18px, 0, 0); }
+}
+
+@keyframes orbitaTourStepEnterForward {
+  from { opacity: 0; transform: translate3d(18px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes orbitaTourStepEnterBackward {
+  from { opacity: 0; transform: translate3d(-18px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.guided-tour-step-content {
+  transform: translate3d(0, 0, 0);
+  will-change: opacity, transform;
+}
+
+.guided-tour-step-exit-forward {
+  animation: orbitaTourStepExitForward 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.guided-tour-step-exit-backward {
+  animation: orbitaTourStepExitBackward 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.guided-tour-step-enter-forward {
+  animation: orbitaTourStepEnterForward 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.guided-tour-step-enter-backward {
+  animation: orbitaTourStepEnterBackward 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guided-tour-step-content,
+  .guided-tour-step-exit-forward,
+  .guided-tour-step-exit-backward,
+  .guided-tour-step-enter-forward,
+  .guided-tour-step-enter-backward {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

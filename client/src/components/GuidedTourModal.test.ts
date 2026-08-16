@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GUIDED_TOUR_STEPS } from "./GuidedTourModal";
+import { GUIDED_TOUR_STEPS, getGuidedTourTransitionClass } from "./GuidedTourModal";
 
 describe("GuidedTourModal", () => {
   it("cobre as áreas principais do Órbita em uma ordem navegável", () => {
@@ -28,6 +28,14 @@ describe("GuidedTourModal", () => {
       expect(step.bullets.every((bullet) => bullet.length > 2)).toBe(true);
       expect(step.icon).toBeDefined();
     }
+  });
+
+  it("gera classes direcionais distintas para avançar, voltar e estado estável", () => {
+    expect(getGuidedTourTransitionClass("idle", "forward")).toBe("");
+    expect(getGuidedTourTransitionClass("exit", "forward")).toBe("guided-tour-step-exit-forward");
+    expect(getGuidedTourTransitionClass("enter", "forward")).toBe("guided-tour-step-enter-forward");
+    expect(getGuidedTourTransitionClass("exit", "backward")).toBe("guided-tour-step-exit-backward");
+    expect(getGuidedTourTransitionClass("enter", "backward")).toBe("guided-tour-step-enter-backward");
   });
 
   it("inclui os blocos comerciais de segurança, colaboração e continuidade", () => {

@@ -38,10 +38,22 @@ export const GUIDED_TOUR_STEPS: GuidedTourStep[] = [
 ];
 
 interface GuidedTourModalProps { isOpen: boolean; onClose: () => void; }
+export type GuidedTourTransitionState = "idle" | "exit" | "enter";
+export type GuidedTourTransitionDirection = "forward" | "backward";
+
+export function getGuidedTourTransitionClass(
+  state: GuidedTourTransitionState,
+  direction: GuidedTourTransitionDirection,
+) {
+  return state === "idle" ? "" : `guided-tour-step-${state}-${direction}`;
+}
 
 export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
   const [, navigate] = useLocation();
   const [currentStep, setCurrentStep] = useState(0);
+  const [transitionState, setTransitionState] = useState<GuidedTourTransitionState>("idle");
+  const [transitionDirection, setTransitionDirection] = useState<GuidedTourTransitionDirection>("forward");
+  const transitionTimerRef = useRef<number | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
   const step = GUIDED_TOUR_STEPS[currentStep];
@@ -49,8 +61,26 @@ export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
   const isFirst = currentStep === 0;
   const isLast = currentStep === GUIDED_TOUR_STEPS.length - 1;
 
+  const goToStep = (nextStep: number, direction: GuidedTourTransitionDirection) => {
+    if (!isOpen || transitionState !== "idle" || nextStep < 0 || nextStep >= GUIDED_TOUR_STEPS.length || nextStep === currentStep) return;
+    if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+    setTransitionDirection(direction);
+    setTransitionState("exit");
+    transitionTimerRef.current = window.setTimeout(() => {
+      setCurrentStep(nextStep);
+      setTransitionState("enter");
+      transitionTimerRef.current = window.setTimeout(() => {
+        setTransitionState("idle");
+        transitionTimerRef.current = null;
+      }, 260);
+    }, 120);
+  };
+
   useEffect(() => {
     if (!isOpen) {
+      if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+      setTransitionState("idle");
       setCurrentStep(0);
       previousActiveElementRef.current?.focus();
       previousActiveElementRef.current = null;
@@ -59,6 +89,10 @@ export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
     previousActiveElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButtonRef.current?.focus();
   }, [isOpen]);
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -76,21 +110,22 @@ export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
     if (!isOpen) return;
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
-      if (event.key === "ArrowRight" && !isLast) setCurrentStep((value) => value + 1);
-      if (event.key === "ArrowLeft" && !isFirst) setCurrentStep((value) => value - 1);
+      if (event.key === "ArrowRight" && !isLast) goToStep(currentStep + 1, "forward");
+      if (event.key === "ArrowLeft" && !isFirst) goToStep(currentStep - 1, "backward");
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, isFirst, isLast, onClose]);
+  }, [currentStep, goToStep, isOpen, isFirst, isLast, onClose]);
 
   if (!isOpen) return null;
-  const next = () => isLast ? onClose() : setCurrentStep((value) => value + 1);
-  const previous = () => { if (!isFirst) setCurrentStep((value) => value - 1); };
+  const next = () => isLast ? onClose() : goToStep(currentStep + 1, "forward");
+  const previous = () => { if (!isFirst) goToStep(currentStep - 1, "backward"); };
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/55 backdrop-blur-[2px]" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
               <section className="fixed bottom-4 left-4 right-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:left-auto sm:right-6 sm:w-[min(520px,calc(100vw-3rem))]" role="dialog" aria-modal="true" aria-labelledby="guided-tour-title" aria-describedby="guided-tour-description" aria-keyshortcuts="ArrowLeft ArrowRight Escape" tabIndex={-1}>
 
+        <div key={step.id} className={`guided-tour-step-content ${getGuidedTourTransitionClass(transitionState, transitionDirection)}`} aria-live="polite">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"><StepIcon className="h-6 w-6" aria-hidden="true" /></div><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">{step.eyebrow}</p><h2 id="guided-tour-title" className="mt-1 text-xl font-bold tracking-tight">{step.title}</h2></div></div>
           <button ref={closeButtonRef} type="button" onClick={onClose} className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Encerrar guia de apresentação" title="Encerrar guia"><X className="h-5 w-5" /></button>
@@ -99,6 +134,7 @@ export function GuidedTourModal({ isOpen, onClose }: GuidedTourModalProps) {
         <p id="guided-tour-description" className="mt-5 text-sm leading-6 text-slate-600 dark:text-slate-300">{step.description}</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-3">{step.bullets.map((bullet) => <div key={bullet} className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 dark:bg-slate-800/70 dark:text-slate-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" /><span>{bullet}</span></div>)}</div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700"><span className="text-xs text-slate-500 sm:inline">Use ← → ou Esc</span><div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={previous} disabled={isFirst} className="gap-1.5"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> Anterior</Button><Button type="button" size="sm" onClick={next} className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700">{isLast ? "Concluir" : "Próxima aba"}{isLast ? <Sparkles className="h-4 w-4" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}</Button></div></div>
+        </div>
       </section>
     </div>
   );
