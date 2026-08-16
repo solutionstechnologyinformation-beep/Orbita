@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { ORBITA_LOGO_URL } from "@/branding";
-import { REPORT_PALETTE } from "./report-palette";
+import { buildVisualGanttReportHtml, type GanttReportRow } from "./gantt-report-utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -283,20 +283,42 @@ export default function Gantt() {
   function exportTimeline() {
     const popup = window.open("", "_blank");
     if (!popup) return;
-    const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" }[character] ?? character));
-    const rowsHtml = rows.map((row) => {
-      if (row.kind === "group") return `<tr class="group"><td colspan="5">${escapeHtml(row.label)}</td></tr>`;
-      if (row.kind === "subgroup") return `<tr class="subgroup"><td colspan="5">↳ ${escapeHtml(row.label)}</td></tr>`;
-      const task = row.kind === "task" ? row.task : row.item;
-      const range = getBar(task);
-      const dueDate = asDate((task as TaskItem).dueDate);
-      const isTerminal = Boolean((task as TaskItem).phaseIsTerminal) || task.status === "published" || task.status === "archived";
-      const alert = !range ? "Sem datas" : dueDate && dueDate < today && !isTerminal ? "Atrasada" : isTerminal ? "Concluída" : "—";
-      const status = (task as TaskItem).phaseName ?? (isTerminal ? "Concluído" : "Em andamento");
-      const responsible = (task as TaskItem).assigneeName ?? "Sem responsável";
-      return `<tr><td>${row.kind === "task" ? row.index + ". " : "↳ "}${escapeHtml(task.title)}</td><td>${range ? `${formatShortDate(task.startDate)} → ${formatShortDate(task.endDate)}` : "Sem datas"}</td><td>${escapeHtml(responsible)}</td><td>${escapeHtml(status)}</td><td class="${alert === "Atrasada" ? "alert" : ""}">${alert}</td></tr>`;
-    }).join("");
-    popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Timeline — Órbita</title><style>body{font-family:Arial,sans-serif;color:#111827;padding:24px;background:#f7f8fa}h1{color:${REPORT_PALETTE.navy};border-bottom:4px solid ${REPORT_PALETTE.yellow};padding-bottom:10px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #dbe3ea;padding:8px;text-align:left}th{background:${REPORT_PALETTE.navy};color:#ffffff;font-size:11px;text-transform:uppercase}.group{background:#eef2f7;font-weight:700}.subgroup{background:#ffffff;font-weight:600}.alert{color:#dc2626;font-weight:700}</style></head><body><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><img src="${ORBITA_LOGO_URL}" alt="Logo Órbita" style="width:42px;height:42px;object-fit:contain;" /><h1>Timeline de atividades — Órbita</h1></div><p>Gerado em ${new Date().toLocaleString("pt-BR")}</p><table><thead><tr><th>Tarefa</th><th>Período</th><th>Responsável</th><th>Status</th><th>Alerta</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`);
+
+    const reportRows: GanttReportRow[] = rows.map((row) => {
+      if (row.kind === "group") return { kind: "group", key: row.key, label: row.label };
+      if (row.kind === "subgroup") return { kind: "subgroup", key: row.key, label: row.label };
+      const source = row.kind === "task" ? row.task : row.item;
+      const taskSource = source as TaskItem;
+      const bar = getBar(source);
+      return {
+        kind: "task",
+        key: row.key,
+        label: source.title,
+        index: row.kind === "task" ? row.index : 0,
+        task: {
+          id: row.kind === "task" ? source.id : source.id,
+          title: source.title,
+          startDate: source.startDate,
+          endDate: source.endDate,
+          dueDate: taskSource.dueDate ?? null,
+          assigneeName: taskSource.assigneeName ?? null,
+          phaseName: taskSource.phaseName ?? null,
+          status: source.status,
+          color: bar?.color ?? "#94a3b8",
+          progress: taskSource.progress ?? 0,
+          predecessorId: taskSource.predecessorId ?? null,
+          milestone: bar?.milestone ?? false,
+        },
+      };
+    });
+
+    popup.document.write(buildVisualGanttReportHtml({
+      title: "Gantt Chart — Linha do tempo de atividades",
+      logoUrl: ORBITA_LOGO_URL,
+      rows: reportRows,
+      rangeStart: timelineStart,
+      rangeEnd: timelineEnd,
+    }));
     popup.document.close();
     popup.focus();
     setTimeout(() => popup.print(), 500);

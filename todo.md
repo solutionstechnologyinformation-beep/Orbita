@@ -1657,3 +1657,13 @@
 - [x] Implementar política de repetição controlada (retry com limite de 3 tentativas e backoff exponencial)
 - [x] Conectar o sincronizador aos mutators tRPC de tarefas e comentários e atualizar o indicador visual
 - [x] Criar testes unitários para o motor de sync e retry e salvar checkpoint versionado (314/314 testes aprovados)
+
+## Gantt Responsivo para Celular
+- [ ] Adaptar a estrutura do Gantt para telas pequenas sem exigir rolagem horizontal contínua
+- [ ] Criar resumo mobile das tarefas com status, responsável, datas e progresso
+- [ ] Compactar filtros e adicionar navegação por período adequada ao toque
+- [ ] Validar acessibilidade, testes responsivos, TypeScript e salvar checkpoint versionado
+
+## Relatório Visual do Gantt (Estilo Referência)
+- [x] Atualizar a função exportTimeline em Gantt.tsx para gerar um relatório HTML/PDF com grade temporal por meses/quadrimestres, barras coloridas por categoria, marcos, linhas de dependência e legenda inferior
+- [x] Validar com testes em Vitest, TypeScript e salvar checkpoint versionado (317/317 testes aprovados)
