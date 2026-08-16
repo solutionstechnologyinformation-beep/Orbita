@@ -1609,3 +1609,7 @@
 
 ## Habilidade Reutilizável (`orbita-evolution`)
 - [x] Criar e validar a habilidade `orbita-evolution` codificando o fluxo completo de desenvolvimento e validação do sistema
+
+## Barra de Progresso de Importação JSON
+- [x] Criar componente visual de progresso simulado e determinístico durante a importação no MigrationPanel
+- [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (305/305 testes aprovados)

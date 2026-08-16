@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { getMigrationImportWarning, prepareMigrationImport, type PendingMigrationImport } from "./migration-import-guard";
 import { summarizeImportResult, type ImportResultSummary } from "./migration-import-result";
+import { IMPORT_STEPS } from "./migration-progress";
 
 type ImportReport = {
   importedCounts: Record<string, number>;
@@ -33,6 +34,8 @@ export function MigrationPanel() {
   const [pendingImport, setPendingImport] = useState<PendingMigrationImport | null>(null);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [importResult, setImportResult] = useState<ImportResultSummary | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importProgressLabel, setImportProgressLabel] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState(0);
   const [hourUtc, setHourUtc] = useState(12);
   const [minuteUtc, setMinuteUtc] = useState(0);
@@ -144,11 +147,25 @@ export function MigrationPanel() {
 
   const confirmImport = async () => {
     if (!pendingImport) return;
+    let stepIndex = 0;
+    const progressTimer = window.setInterval(() => {
+      stepIndex = Math.min(stepIndex + 1, IMPORT_STEPS.length - 1);
+      const step = IMPORT_STEPS[stepIndex];
+      setImportProgress(step.percent);
+      setImportProgressLabel(step.label);
+    }, 650);
     try {
+      const firstStep = IMPORT_STEPS[0];
       setImporting(true);
+      setImportProgress(firstStep.percent);
+      setImportProgressLabel(firstStep.label);
       await importJsonMutation.mutateAsync({ jsonContent: pendingImport.content });
+      const finalStep = IMPORT_STEPS[IMPORT_STEPS.length - 1];
+      setImportProgress(finalStep.percent);
+      setImportProgressLabel(finalStep.label);
       setPendingImport(null);
     } finally {
+      window.clearInterval(progressTimer);
       setImporting(false);
     }
   };
@@ -182,6 +199,18 @@ export function MigrationPanel() {
           </Button>
           <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleFileChange} />
         </div>
+        {importing && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3" role="status" aria-live="polite" aria-label="Progresso da importação JSON">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-blue-900">
+              <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {importProgressLabel}</span>
+              <span>{importProgress}%</span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-blue-100" aria-hidden="true">
+              <div className="h-full rounded-full bg-blue-600 transition-[width] duration-500 ease-out" style={{ width: `${importProgress}%` }} />
+            </div>
+            <p className="mt-2 text-[11px] text-blue-700">Não feche esta tela enquanto os dados estiverem sendo processados.</p>
+          </div>
+        )}
 
         <div className="rounded-lg border border-amber-200 bg-white/70 p-3">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
