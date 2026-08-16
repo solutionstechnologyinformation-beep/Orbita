@@ -1591,3 +1591,8 @@
 - [x] Criar rota/página dedicada para exportar Excel, exportar/importar JSON e configurar backup semanal
 - [x] Adicionar Migração como subitem visual de Administração na barra lateral e no menu mobile
 - [x] Validar navegação, responsividade, testes e TypeScript (296/296 testes aprovados)
+
+## Modal de Confirmação de Importação JSON
+- [x] Criar estado para armazenar o conteúdo do arquivo JSON pendente de importação
+- [x] Adicionar modal de confirmação exibindo aviso de segurança, nome do arquivo e botão de confirmação/cancelamento
+- [x] Validar com testes unitários em Vitest e garantir zero erros TypeScript (299/299 testes aprovados)

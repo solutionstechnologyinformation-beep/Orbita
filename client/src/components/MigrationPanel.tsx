@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, Upload, FileSpreadsheet, FileJson, CalendarClock, Pause, Play, Trash2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { getMigrationImportWarning, prepareMigrationImport, type PendingMigrationImport } from "./migration-import-guard";
 
-const WEEK_DAYS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 function downloadBase64File(contentBase64: string, fileName: string, mimeType: string) {
   const bytes = Uint8Array.from(atob(contentBase64), (char) => char.charCodeAt(0));
@@ -21,6 +22,7 @@ function downloadBase64File(contentBase64: string, fileName: string, mimeType: s
 
 export function MigrationPanel() {
   const [importing, setImporting] = useState(false);
+  const [pendingImport, setPendingImport] = useState<PendingMigrationImport | null>(null);
   const [dayOfWeek, setDayOfWeek] = useState(0);
   const [hourUtc, setHourUtc] = useState(12);
   const [minuteUtc, setMinuteUtc] = useState(0);
@@ -99,16 +101,13 @@ export function MigrationPanel() {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (loadEvent) => {
+    reader.onload = (loadEvent) => {
       try {
         const content = loadEvent.target?.result as string;
-        if (!content) throw new Error("Arquivo vazio.");
-        setImporting(true);
-        await importJsonMutation.mutateAsync({ jsonContent: content });
+        setPendingImport(prepareMigrationImport(file.name, content));
       } catch (error: any) {
         toast.error(`Arquivo inválido: ${error.message}`);
       } finally {
-        setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
@@ -123,12 +122,24 @@ export function MigrationPanel() {
     onError: (error) => toast.error(`Erro ao importar arquivo: ${error.message}`),
   });
 
+  const confirmImport = async () => {
+    if (!pendingImport) return;
+    try {
+      setImporting(true);
+      await importJsonMutation.mutateAsync({ jsonContent: pendingImport.content });
+      setPendingImport(null);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const saveBackup = () => saveBackupMutation.mutate({ dayOfWeek, hourUtc, minuteUtc, isEnabled });
   const busy = saveBackupMutation.isPending || toggleBackupMutation.isPending || removeBackupMutation.isPending;
   const nextBackup = backupQuery.data?.nextExecutionAt ? new Date(backupQuery.data.nextExecutionAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : null;
 
   return (
-    <Card className="border-amber-200 bg-amber-50/40 shadow-sm">
+    <>
+      <Card className="border-amber-200 bg-amber-50/40 shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
           <Download className="h-5 w-5 text-amber-600" />
@@ -172,6 +183,30 @@ export function MigrationPanel() {
           </div>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+      <Dialog open={Boolean(pendingImport)} onOpenChange={(open) => { if (!open && !importing) setPendingImport(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar importação de dados</DialogTitle>
+            <DialogDescription>
+              {pendingImport ? getMigrationImportWarning(pendingImport) : "Selecione um arquivo JSON para continuar."}
+            </DialogDescription>
+          </DialogHeader>
+          {pendingImport && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              <p className="font-semibold">Esta ação não deve ser feita por engano.</p>
+              <p className="mt-1 text-xs">O arquivo contém {pendingImport.recordGroups} grupo(s) de registros reconhecidos. Confirme somente se o arquivo pertence à empresa atual e foi revisado.</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPendingImport(null)} disabled={importing}>Cancelar</Button>
+            <Button type="button" className="bg-amber-500 text-slate-950 hover:bg-amber-400" onClick={confirmImport} disabled={importing}>
+              {importing && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {importing ? "Importando..." : "Confirmar importação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
