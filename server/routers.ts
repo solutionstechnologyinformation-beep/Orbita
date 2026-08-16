@@ -140,6 +140,21 @@ export const appRouter = router({
     loginWithCredentials: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
+        const clientIp = ctx.req.headers["x-forwarded-for"] || ctx.req.socket?.remoteAddress || "unknown";
+        const rateKey = `login_${clientIp}_${input.email}`;
+        // Simple in-memory rate limiting check (5 attempts per minute)
+        const globalRateMap = (globalThis as any).__loginRateMap || ((globalThis as any).__loginRateMap = new Map<string, { count: number; resetAt: number }>());
+        const now = Date.now();
+        const record = globalRateMap.get(rateKey);
+        if (record && record.resetAt > now) {
+          if (record.count >= 5) {
+            throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas tentativas inválidas. Aguarde 1 minuto antes de tentar novamente." });
+          }
+          record.count++;
+        } else {
+          globalRateMap.set(rateKey, { count: 1, resetAt: now + 60000 });
+        }
+
         const db = await getDb();
         const [user] = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
         if (!user || !user.passwordHash) {

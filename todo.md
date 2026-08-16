@@ -1639,3 +1639,9 @@
 - [x] Adicionar persistência local em IndexedDB/LocalStorage (Cache Safe Storage) para dados recentes de contratos, tarefas e painéis
 - [x] Configurar mecanismo de fallback automático para exibir dados cacheados quando a conexão for perdida, mantendo operação sem travamentos
 - [x] Validar com testes unitários em Vitest, TypeScript e salvar checkpoint versionado (309/309 testes aprovados)
+
+## Funcionalidades Avançadas de Segurança e Offline (Novas Sugestões)
+- [x] Criar tela interativa de configuração 2FA com QR Code (otpauth) e exibição de códigos de backup no Perfil
+- [x] Implementar fila de rascunhos offline em localStorage para tarefas e comentários pendentes de sincronização
+- [x] Adicionar proteção de rate limiting e bloqueio temporário por IP/e-mail para tentativas inválidas de login
+- [x] Validar com testes unitários em Vitest, TypeScript e salvar checkpoint versionado
