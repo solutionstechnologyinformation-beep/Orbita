@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 
 type AuthStage = "credentials" | "2fa" | "forgot";
 type AuthFeedback = "idle" | "loading" | "info" | "error" | "success";
@@ -329,8 +330,9 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden="true" />
-                    <Input id="login-pass" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9 text-xs" required />
+                    <Input id="login-pass" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9 text-xs" minLength={mode === "register" ? 8 : undefined} required />
                   </div>
+                  {mode === "register" && <PasswordStrengthIndicator password={password} />}
                 </div>
 
                 <Button type="submit" className="w-full bg-amber-500 font-semibold text-slate-950 shadow-md hover:bg-amber-400" disabled={loading}>

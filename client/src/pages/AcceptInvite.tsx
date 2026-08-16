@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 import { ShieldCheck, ArrowRight, Loader2, CheckCircle2, TriangleAlert, Building2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -139,6 +140,7 @@ export default function AcceptInvite() {
                   minLength={inviteInfo.passwordPolicy?.minLength ?? 8}
                   required
                 />
+                <PasswordStrengthIndicator password={password} policy={inviteInfo.passwordPolicy ?? undefined} />
                 <p className="text-[11px] leading-5 text-slate-400">
                   Requisitos: {inviteInfo.passwordPolicy?.minLength ?? 8} caracteres{inviteInfo.passwordPolicy?.requireUppercase ? ", uma letra maiúscula" : ""}{inviteInfo.passwordPolicy?.requireNumber ? ", um número" : ""}{inviteInfo.passwordPolicy?.requireSpecial ? " e um caractere especial" : ""}.
                 </p>

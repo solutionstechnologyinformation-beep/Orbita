@@ -69,3 +69,10 @@ Para garantir conformidade rigorosa e blindar o acesso a workspaces multi-tenant
 Na aba **Admin da Empresa → Configurações**, um administrador pode definir a quantidade mínima de caracteres e habilitar, de forma independente, a exigência de letra maiúscula, número e caractere especial. A configuração fica gravada na empresa emissora e não altera as regras de outros tenants.
 
 A política é aplicada no backend aos novos cadastros locais, usuários criados manualmente pela administração, aceite de convites e demais fluxos que criem credenciais. A interface apenas antecipa os requisitos para orientar o usuário; a validação definitiva ocorre no servidor antes do hash scrypt ser armazenado. O padrão para empresas novas é de 8 caracteres, exigência de número e regras de maiúscula e caractere especial desativadas.
+
+
+## 🔐 7. Indicador Visual de Força de Senha
+
+Os formulários de cadastro local, criação manual de usuários pelo Admin da Empresa e aceite de convite exibem uma barra visual de força enquanto a senha é digitada. O indicador informa uma classificação de força, lista os requisitos ainda pendentes e mostra quando a senha atende à política configurada pelo tenant.
+
+O indicador é uma orientação no navegador e não substitui a validação no servidor. A senha só é aceita quando o backend confirma todos os requisitos da política da empresa; nenhum valor de senha é armazenado em texto simples ou enviado para um serviço externo para calcular a classificação.

@@ -2019,3 +2019,10 @@
 - [x] Validar a complexidade da senha nos fluxos de cadastro local, convite e redefinição de senha
 - [x] Criar aba ou seção interativa no painel Admin da Empresa para personalização de senha forte
 - [x] Escrever testes unitários em `company-password-policy.test.ts` e documentar no `GUIA_AUTENTICACAO_LOCAL.md`
+
+## Indicador Visual de Força de Senha
+- [x] Criar utilitário de avaliação de força de senha em `client/src/lib/password-strength.ts`
+- [x] Integrar o indicador com barras coloridas e texto descritivo na tela de aceite de convite (`AcceptInvite.tsx`)
+- [x] Integrar o indicador no painel do administrador da empresa e no cadastro local (`CompanyAdmin.tsx` e `SecureLoginModal.tsx`)
+- [x] Escrever testes unitários em `password-strength.test.ts` e atualizar a documentação em `GUIA_AUTENTICACAO_LOCAL.md`
+- [x] Validar TypeScript, executar suíte Vitest completa, salvar checkpoint e entregar
