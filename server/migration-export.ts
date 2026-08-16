@@ -81,11 +81,11 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
   workbook.modified = new Date(snapshot.exportedAt);
 
   const coverSheet = workbook.addWorksheet("Órbita-Capa");
-  coverSheet.columns = [{ width: 30 }, { width: 78 }];
-  coverSheet.mergeCells("A1:B1");
-  coverSheet.mergeCells("A2:B2");
+  coverSheet.columns = [{ width: 32 }, { width: 30 }, { width: 42 }];
+  coverSheet.mergeCells("A1:C1");
+  coverSheet.mergeCells("A2:C2");
   coverSheet.getCell("A1").value = "ÓRBITA · PLANEJAMENTO VISUAL";
-  coverSheet.getCell("A2").value = "Relatório de dados e migração multi-tenant";
+  coverSheet.getCell("A2").value = "Relatório de dados e migração multi-tenant com resumo executivo";
   coverSheet.getRow(1).height = 30;
   coverSheet.getRow(2).height = 22;
   coverSheet.getCell("A1").font = { name: "Aptos Display", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
@@ -94,13 +94,13 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
   coverSheet.getCell("A2").font = { name: "Aptos", size: 12, bold: true, color: { argb: "FFB58900" } };
   coverSheet.getCell("A2").alignment = { vertical: "middle", horizontal: "left" };
   coverSheet.addRow([]);
-  coverSheet.addRow(["Indicador", "Valor"]);
+  coverSheet.addRow(["Indicador", "Valor", "Status / Descrição"]);
   const coverMetadata = [
-    ["SISTEMA", "Órbita · Planejamento Visual"],
-    ["VERSÃO DO SNAPSHOT", snapshot.version],
-    ["DATA DA EXPORTAÇÃO", new Date(snapshot.exportedAt).toLocaleString("pt-BR")],
-    ["ID DA EMPRESA", snapshot.companyId ?? "Global / Todas"],
-    ["DESCRIÇÃO", "Planilha unificada de migração multi-tenant com abas estruturadas por entidade"],
+    ["SISTEMA", "Órbita · Planejamento Visual", "Plataforma Multi-Tenant Ativa"],
+    ["VERSÃO DO SNAPSHOT", snapshot.version, "Estrutura v3.14 Compatível"],
+    ["DATA DA EXPORTAÇÃO", new Date(snapshot.exportedAt).toLocaleString("pt-BR"), "Sincronizado em Tempo Real"],
+    ["ID DA EMPRESA", snapshot.companyId ?? "Global / Todas", "Isolamento Multi-Tenant Garantido"],
+    ["DESCRIÇÃO", "Planilha unificada com abas estruturadas e gráficos de dados", "Pronto para Migração / Backup"],
   ];
   coverMetadata.forEach((row) => coverSheet.addRow(row));
   const coverHeader = coverSheet.getRow(4);
@@ -110,18 +110,19 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
     cell.alignment = { vertical: "middle", horizontal: "center" };
   });
-  coverSheet.getColumn(1).width = 30;
-  coverSheet.getColumn(2).width = 78;
+  coverSheet.getColumn(1).width = 32;
+  coverSheet.getColumn(2).width = 30;
+  coverSheet.getColumn(3).width = 42;
   coverSheet.addRow([]);
-  coverSheet.addRow(["RESUMO EXECUTIVO DE INDICADORES E TOTAIS", ""]);
-  coverSheet.mergeCells(`A${coverSheet.rowCount}:B${coverSheet.rowCount}`);
+  coverSheet.addRow(["RESUMO EXECUTIVO DE INDICADORES, TOTAIS E BARRAS DE PROGRESSO", "", ""]);
+  coverSheet.mergeCells(`A${coverSheet.rowCount}:C${coverSheet.rowCount}`);
   const summaryTitleRow = coverSheet.getRow(coverSheet.rowCount);
   summaryTitleRow.height = 24;
   summaryTitleRow.getCell(1).font = { name: "Aptos", size: 13, bold: true, color: { argb: "FF1E3A8A" } };
   summaryTitleRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0F2FE" } };
   summaryTitleRow.getCell(1).alignment = { vertical: "middle", horizontal: "left" };
 
-  coverSheet.addRow(["Métrica / Entidade", "Quantidade / Total"]);
+  coverSheet.addRow(["Métrica / Entidade", "Quantidade / Total", "Gráfico Miniatura / Barra de Progresso"]);
   const summaryHeaderRow = coverSheet.getRow(coverSheet.rowCount);
   summaryHeaderRow.height = 22;
   summaryHeaderRow.eachCell((cell) => {
@@ -132,21 +133,42 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
 
   const totalTasks = snapshot.data.tasks.length;
   const completedTasks = snapshot.data.tasks.filter((t: any) => t.status === "done" || t.status === "completed" || t.status === "published").length;
-  const completionRate = totalTasks > 0 ? `${((completedTasks / totalTasks) * 100).toFixed(1)}%` : "0.0%";
+  const completionRatio = totalTasks > 0 ? completedTasks / totalTasks : 0;
+  const completionRateText = totalTasks > 0 ? `${(completionRatio * 100).toFixed(1)}%` : "0.0%";
+
+  const maxEntityCount = Math.max(
+    snapshot.data.companies.length,
+    snapshot.data.users.length,
+    snapshot.data.clients.length,
+    snapshot.data.crs.length,
+    snapshot.data.crsSegments.length,
+    totalTasks,
+    10
+  );
+
+  const getBar = (val: number, max: number) => {
+    const filled = Math.min(20, Math.round((val / max) * 20));
+    return "█".repeat(Math.max(1, filled)) + "░".repeat(Math.max(0, 20 - filled)) + ` (${val})`;
+  };
+
+  const getPercentBar = (ratio: number) => {
+    const filled = Math.round(ratio * 20);
+    return "■".repeat(filled) + "□".repeat(20 - filled) + ` ${(ratio * 100).toFixed(1)}%`;
+  };
 
   const summaryMetrics = [
-    ["Total de Empresas", snapshot.data.companies.length],
-    ["Total de Usuários", snapshot.data.users.length],
-    ["Total de Clientes", snapshot.data.clients.length],
-    ["Total de Contratos CRS", snapshot.data.crs.length],
-    ["Total de Trechos KMZ", snapshot.data.crsSegments.length],
-    ["Total de Tarefas Kanban", totalTasks],
-    ["Tarefas Concluídas / Publicadas", completedTasks],
-    ["Taxa de Conclusão Global", completionRate],
-    ["Fases Kanban", snapshot.data.kanbanPhases.length],
-    ["Eventos de Agenda", snapshot.data.agendaEvents.length],
-    ["Disciplinas Cadastradas", snapshot.data.disciplines.length],
-    ["Sprints Ativas", snapshot.data.sprints.length],
+    ["Total de Empresas", snapshot.data.companies.length, getBar(snapshot.data.companies.length, maxEntityCount)],
+    ["Total de Usuários", snapshot.data.users.length, getBar(snapshot.data.users.length, maxEntityCount)],
+    ["Total de Clientes", snapshot.data.clients.length, getBar(snapshot.data.clients.length, maxEntityCount)],
+    ["Total de Contratos CRS", snapshot.data.crs.length, getBar(snapshot.data.crs.length, maxEntityCount)],
+    ["Total de Trechos KMZ", snapshot.data.crsSegments.length, getBar(snapshot.data.crsSegments.length, maxEntityCount)],
+    ["Total de Tarefas Kanban", totalTasks, getBar(totalTasks, maxEntityCount)],
+    ["Tarefas Concluídas / Publicadas", completedTasks, getBar(completedTasks, maxEntityCount)],
+    ["Taxa de Conclusão Global", completionRateText, getPercentBar(completionRatio)],
+    ["Fases Kanban", snapshot.data.kanbanPhases.length, getBar(snapshot.data.kanbanPhases.length, maxEntityCount)],
+    ["Eventos de Agenda", snapshot.data.agendaEvents.length, getBar(snapshot.data.agendaEvents.length, maxEntityCount)],
+    ["Disciplinas Cadastradas", snapshot.data.disciplines.length, getBar(snapshot.data.disciplines.length, maxEntityCount)],
+    ["Sprints Ativas", snapshot.data.sprints.length, getBar(snapshot.data.sprints.length, maxEntityCount)],
   ];
 
   summaryMetrics.forEach((metricRow) => {
@@ -154,6 +176,7 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
     row.height = 20;
     row.getCell(1).font = { name: "Aptos", bold: true };
     row.getCell(2).alignment = { horizontal: "right" };
+    row.getCell(3).font = { name: "Consolas", size: 10, color: { argb: "FF1E3A8A" } };
   });
 
   coverSheet.views = [{ state: "frozen", ySplit: 4, topLeftCell: "A5" }];

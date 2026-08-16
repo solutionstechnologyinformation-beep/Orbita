@@ -1694,3 +1694,8 @@
 - [x] Adicionar seção de totais por entidade e indicadores de desempenho (tarefas concluídas, prazos e volume) na aba Órbita-Capa
 - [x] Atualizar testes em migration-export.test.ts para validar a presença da tabela de resumo executivo
 - [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
+
+## Barras de Progresso e Gráficos Condicionais na Capa do Excel
+- [x] Adicionar formatação de barras de dados e indicadores visuais de conclusão na tabela de resumo da capa do Excel
+- [x] Atualizar testes em migration-export.test.ts para validar a nova coluna e formatação de desempenho
+- [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
