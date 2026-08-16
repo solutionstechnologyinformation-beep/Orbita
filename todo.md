@@ -1625,3 +1625,17 @@
 - [x] Exibir feedback visual claro para carregamento, sucesso, erro e retorno à etapa anterior durante a autenticação
 - [x] Criar testes unitários para os estados e classes de transição do SecureLoginModal
 - [x] Validar a suíte completa, TypeScript e saúde do servidor (308/308 testes aprovados)
+
+## Validação TOTP Real no Endpoint Seguro
+- [ ] Revisar os procedimentos e serviços atuais de autenticação segura e TOTP
+- [ ] Implementar validação criptográfica TOTP no endpoint, com expiração, janela de tolerância e limite de tentativas
+- [ ] Conectar o SecureLoginModal ao endpoint real e manter os estados de transição, erro e sucesso
+- [ ] Criar ou atualizar testes backend e frontend para códigos válidos, inválidos, expirados e bloqueio temporário
+- [ ] Validar TypeScript, suíte completa e saúde do servidor antes do checkpoint
+
+## Página de Abertura e Modo Offline Seguro
+- [x] Criar página de abertura (Splash / Welcome Screen) para o Orbita com transição para o login ou painel principal
+- [x] Implementar indicador de conectividade em tempo real (Online / Offline) na barra superior da aplicação
+- [x] Adicionar persistência local em IndexedDB/LocalStorage (Cache Safe Storage) para dados recentes de contratos, tarefas e painéis
+- [x] Configurar mecanismo de fallback automático para exibir dados cacheados quando a conexão for perdida, mantendo operação sem travamentos
+- [x] Validar com testes unitários em Vitest, TypeScript e salvar checkpoint versionado (309/309 testes aprovados)

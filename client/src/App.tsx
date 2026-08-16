@@ -31,11 +31,13 @@ import Plans from "./pages/Plans";
 import UserManual from "./pages/UserManual";
 import Migration from "./pages/Migration";
 import { SubscriptionPortal } from "./pages/SubscriptionPortal";
+import SplashScreen from "./pages/SplashScreen";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/splash" component={SplashScreen} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/projects" component={Projects} />
       <Route path="/projects/:id" component={ProjectDetail} />

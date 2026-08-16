@@ -136,6 +136,90 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, getSessionCookieOptions(ctx.req));
       return { success: true };
     }),
+
+    loginWithCredentials: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const [user] = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
+        if (!user || !user.passwordHash) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Credenciais inválidas." });
+        }
+
+        const [scheme, salt, hash] = user.passwordHash.split("$");
+        if (scheme !== "scrypt" || !salt || !hash) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Erro na verificação de credenciais." });
+        }
+
+        const { scryptSync } = await import("crypto");
+        const derived = scryptSync(input.password, salt, 64).toString("hex");
+        if (derived !== hash) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Credenciais inválidas." });
+        }
+
+        if (user.tfaEnabled) {
+          return { requires2fa: true, userId: user.id, email: user.email };
+        }
+
+        const { sdk } = await import("./_core/sdk");
+        const { COOKIE_NAME, ONE_YEAR_MS } = await import("../shared/const");
+        const { getSessionCookieOptions } = await import("./_core/cookies");
+
+        const sessionToken = await sdk.createSessionToken(user.openId, {
+          name: user.name || "",
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+        return { requires2fa: false, success: true };
+      }),
+
+    verifyTotpLogin: publicProcedure
+      .input(z.object({ userId: z.number(), token: z.string().min(6) }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
+        if (!user) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado." });
+        }
+
+        let isValid = false;
+        if (user.tfaMethod === "email") {
+          const res = await verifyEmailTfaCode(user.id, input.token);
+          isValid = res.valid;
+        } else {
+          const { verifyTotpToken } = await import("./tfa");
+          isValid = verifyTotpToken(user.tfaSecret ?? "", input.token);
+          if (!isValid && user.tfaBackupCodes) {
+            try {
+              const codes = JSON.parse(user.tfaBackupCodes) as string[];
+              if (codes.includes(input.token.trim())) {
+                isValid = true;
+                const remaining = codes.filter((c) => c !== input.token.trim());
+                await db.update(users).set({ tfaBackupCodes: JSON.stringify(remaining) }).where(eq(users.id, user.id));
+              }
+            } catch {}
+          }
+        }
+
+        if (!isValid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Código de verificação ou backup inválido." });
+        }
+
+        const { sdk } = await import("./_core/sdk");
+        const { COOKIE_NAME, ONE_YEAR_MS } = await import("../shared/const");
+        const { getSessionCookieOptions } = await import("./_core/cookies");
+
+        const sessionToken = await sdk.createSessionToken(user.openId, {
+          name: user.name || "",
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+        return { success: true };
+      }),
     projectMembers: protectedProcedure.query(async ({ ctx }) => getProjectMembers(tenantCompanyId(ctx.user))),
     updateProfile: protectedProcedure
       .input(z.object({ name: z.string().optional(), company: z.string().trim().max(256).optional(), avatarUrl: z.string().optional(), avatarColor: z.string().optional(), avatarInitials: z.string().max(3).optional() }))
