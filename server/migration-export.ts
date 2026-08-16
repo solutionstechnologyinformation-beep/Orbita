@@ -179,6 +179,65 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
     row.getCell(3).font = { name: "Consolas", size: 10, color: { argb: "FF1E3A8A" } };
   });
 
+  coverSheet.addRow([]);
+  coverSheet.addRow(["DISTRIBUIÇÃO DE TAREFAS POR STATUS (GRÁFICO DE PROPORÇÃO)", "", ""]);
+  coverSheet.mergeCells(`A${coverSheet.rowCount}:C${coverSheet.rowCount}`);
+  const statusTitleRow = coverSheet.getRow(coverSheet.rowCount);
+  statusTitleRow.height = 24;
+  statusTitleRow.getCell(1).font = { name: "Aptos", size: 13, bold: true, color: { argb: "FF1E3A8A" } };
+  statusTitleRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0F2FE" } };
+  statusTitleRow.getCell(1).alignment = { vertical: "middle", horizontal: "left" };
+
+  coverSheet.addRow(["Status da Tarefa", "Quantidade", "Proporção e Gráfico de Barras"]);
+  const statusHeaderRow = coverSheet.getRow(coverSheet.rowCount);
+  statusHeaderRow.height = 22;
+  statusHeaderRow.eachCell((cell) => {
+    cell.font = { name: "Aptos", bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFB58900" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
+
+  const statusCounts: Record<string, number> = {
+    pending: 0,
+    in_progress: 0,
+    shared: 0,
+    published: 0,
+    done: 0,
+    blocked: 0,
+    archived: 0,
+  };
+
+  snapshot.data.tasks.forEach((t: any) => {
+    const st = t.status || "pending";
+    if (st === "completed") {
+      statusCounts.done = (statusCounts.done || 0) + 1;
+    } else if (statusCounts[st] !== undefined) {
+      statusCounts[st] += 1;
+    } else {
+      statusCounts.pending = (statusCounts.pending || 0) + 1;
+    }
+  });
+
+  const statusLabels: Record<string, string> = {
+    pending: "Pendente (A Fazer)",
+    in_progress: "Em Andamento",
+    shared: "Compartilhado",
+    published: "Publicado",
+    done: "Concluído",
+    blocked: "Bloqueado",
+    archived: "Arquivado",
+  };
+
+  Object.entries(statusCounts).forEach(([key, count]) => {
+    const ratio = totalTasks > 0 ? count / totalTasks : 0;
+    const bar = "■".repeat(Math.round(ratio * 20)) + "□".repeat(20 - Math.round(ratio * 20)) + ` (${(ratio * 100).toFixed(1)}%)`;
+    const row = coverSheet.addRow([statusLabels[key] || key, count, bar]);
+    row.height = 20;
+    row.getCell(1).font = { name: "Aptos", bold: true };
+    row.getCell(2).alignment = { horizontal: "right" };
+    row.getCell(3).font = { name: "Consolas", size: 10, color: { argb: "FF1E3A8A" } };
+  });
+
   coverSheet.views = [{ state: "frozen", ySplit: 4, topLeftCell: "A5" }];
   coverSheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
 

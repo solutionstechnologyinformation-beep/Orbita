@@ -1699,3 +1699,16 @@
 - [x] Adicionar formatação de barras de dados e indicadores visuais de conclusão na tabela de resumo da capa do Excel
 - [x] Atualizar testes em migration-export.test.ts para validar a nova coluna e formatação de desempenho
 - [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
+
+## Gráfico de Distribuição de Tarefas por Status na Capa do Excel
+- [ ] Adicionar tabela de distribuição de tarefas por status (Pendente, Em Andamento, Compartilhado, Publicado, Concluído, Bloqueado, Arquivado) na capa do Excel com percentuais e barras de proporção
+- [ ] Atualizar testes em migration-export.test.ts para validar a seção de distribuição de status
+- [ ] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado
+
+## Excel Executive Exports v3.15
+- [x] Migrar exportação de planilhas de `xlsx` para `exceljs` para suporte a formatações e recursos nativos
+- [x] Implementar aba "Órbita-Capa" com identidade visual institucional (Azul/Dourado) e congelamento de painéis
+- [x] Adicionar "Resumo Executivo de Indicadores e Totais" com contagem de empresas, usuários, clientes, contratos CRS, trechos KMZ e tarefas
+- [x] Adicionar mini-gráficos baseados em barras de texto (█/■) para visualização proporcional do volume de entidades e taxa de conclusão global
+- [x] Adicionar tabela detalhada de "Distribuição de Tarefas por Status" na aba de capa com quantidade, proporção e barras de progresso
+- [x] Atualizar suíte de testes em `migration-export.test.ts` e validar 324/324 testes Vitest com zero erros TypeScript

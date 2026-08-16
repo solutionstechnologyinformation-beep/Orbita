@@ -36,6 +36,15 @@ describe("Migration Export and Import", () => {
     const summaryHeaderCell = coverSheet?.getRow(12).getCell(1);
     expect(summaryHeaderCell?.value).toBe("Métrica / Entidade");
 
+    // Encontrar a linha de distribuição de status
+    let foundStatusHeader = false;
+    coverSheet?.eachRow((row) => {
+      if (row.getCell(1).value === "Status da Tarefa") {
+        foundStatusHeader = true;
+      }
+    });
+    expect(foundStatusHeader).toBe(true);
+
     const empresasSheet = workbook.getWorksheet("Empresas");
     expect(empresasSheet).toBeDefined();
     expect(empresasSheet?.autoFilter).toBeDefined();
