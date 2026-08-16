@@ -32,6 +32,8 @@ export const getAuthFeedbackClass = (feedback: AuthFeedback) =>
 const wait = (duration: number) => new Promise((resolve) => window.setTimeout(resolve, duration));
 
 export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -45,6 +47,7 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
   const totpInputRef = useRef<HTMLInputElement>(null);
 
   const loginMutation = trpc.auth.loginWithCredentials.useMutation();
+  const registerMutation = trpc.auth.registerLocalAccount.useMutation();
   const verifyTotpMutation = trpc.auth.verifyTotpLogin.useMutation();
 
   const stage: AuthStage = mode === "forgot" ? "forgot" : requires2fa ? "2fa" : "credentials";
@@ -83,6 +86,29 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
         setTransitionDirection("backward");
         setFeedbackState("success", "Solicitação enviada com segurança.");
         return;
+      }
+
+      if (mode === "register") {
+        if (!name.trim() || !companyName.trim() || !email || !password) {
+          setLoading(false);
+          setFeedbackState("error", "Preencha nome, empresa, e-mail e senha para criar o ambiente local.");
+          toast.error("Preencha todos os campos do cadastro.");
+          return;
+        }
+
+        const res = await registerMutation.mutateAsync({
+          name: name.trim(),
+          companyName: companyName.trim(),
+          email: email.toLowerCase(),
+          password,
+        });
+        if (res.success) {
+          setFeedbackState("success", "Empresa e administrador criados. Redirecionando para o painel...");
+          toast.success("Ambiente local criado com sucesso!");
+          await wait(550);
+          window.location.href = "/dashboard";
+          return;
+        }
       }
 
       if (requires2fa) {
@@ -265,6 +291,21 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
               </div>
             ) : (
               <div className="space-y-3.5">
+                {mode === "register" && (
+                  <>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-slate-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+                      Crie o primeiro administrador e o ambiente isolado da sua empresa para testar o Órbita localmente.
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="register-name" className="text-xs font-semibold text-slate-700 dark:text-slate-300">Nome do administrador</Label>
+                      <Input id="register-name" type="text" placeholder="Luiz Otávio Souza" value={name} onChange={(e) => setName(e.target.value)} className="text-xs" required />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="register-company" className="text-xs font-semibold text-slate-700 dark:text-slate-300">Nome da empresa</Label>
+                      <Input id="register-company" type="text" placeholder="Minha Empresa de Engenharia" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="text-xs" required />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1.5">
                   <Label htmlFor="login-email" className="text-xs font-semibold text-slate-700 dark:text-slate-300">E-mail</Label>
                   <div className="relative">
@@ -275,7 +316,8 @@ export function SecureLoginModal({ isOpen, onClose }: { isOpen: boolean; onClose
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="login-pass" className="text-xs font-semibold text-slate-700 dark:text-slate-300">Senha forte</Label>
+                                          <Label htmlFor="login-pass" className="text-xs font-semibold text-slate-700 dark:text-slate-300">{mode === "register" ? "Senha forte (mínimo de 8 caracteres)" : "Senha forte"}</Label>
+
                     <button type="button" onClick={() => { setMode("forgot"); setTransitionDirection("forward"); setFeedbackState("idle", ""); }} className="text-[11px] text-amber-600 hover:underline">Esqueceu a senha?</button>
                   </div>
                   <div className="relative">

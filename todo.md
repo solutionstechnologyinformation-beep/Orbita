@@ -1949,3 +1949,17 @@
 - [x] Respeitar prefers-reduced-motion mantendo troca instantânea quando solicitado
 - [x] Atualizar testes do estado e da direção da transição
 - [x] Validar TypeScript, suíte Vitest, preview e salvar checkpoint
+
+## Autenticação Local como Estrutura Inicial
+- [x] Adicionar cadastro local de primeiro administrador com criação opcional da empresa inicial
+- [x] Corrigir o fluxo do SecureLoginModal para executar cadastro real quando o usuário escolher "Cadastre-se"
+- [x] Manter login local por e-mail e senha com hash scrypt e rate limiting
+- [x] Manter login OAuth como acesso alternativo, sem torná-lo obrigatório no pacote local
+- [x] Criar controle explícito de habilitação do cadastro local para desenvolvimento e produção
+- [x] Preservar 2FA TOTP e códigos de backup após o login local
+- [x] Validar papel do usuário e vínculo companyId no contexto multi-tenant
+- [x] Documentar a criação do primeiro administrador e a replicação por empresa
+- [x] Criar testes de cadastro, login local, cookie de sessão e isolamento por empresa
+- [x] Atualizar GUIA_LOCAL_VSCODE.md e gerar novo ZIP
+- [x] Validar TypeScript, suíte Vitest e sincronizar a versão com o GitHub
+- [x] Salvar checkpoint e entregar os arquivos atualizados

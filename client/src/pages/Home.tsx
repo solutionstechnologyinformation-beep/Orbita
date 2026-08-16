@@ -1,8 +1,8 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { SecureLoginModal } from "@/components/SecureLoginModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import {
   LayoutDashboard, Kanban, Bell, Bot, Shield, Paperclip,
@@ -22,6 +22,7 @@ const BRAND = {
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
+  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -135,13 +136,13 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
-              onClick={() => window.location.href = getLoginUrl()}
+              onClick={() => setLoginOpen(true)}
               className="text-sm font-medium"
             >
               Entrar
             </Button>
             <Button
-              onClick={() => window.location.href = getLoginUrl()}
+              onClick={() => setLoginOpen(true)}
               className="gap-2 text-sm text-white shadow-sm"
               style={{ background: BRAND.blue }}
             >
@@ -189,7 +190,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button
               size="lg"
-              onClick={() => window.location.href = getLoginUrl()}
+              onClick={() => setLoginOpen(true)}
               className="gap-2 text-base px-8 text-white shadow-lg"
               style={{ background: BRAND.blue }}
             >
@@ -364,7 +365,7 @@ export default function Home() {
                 <Button
                   size="lg"
                   className="w-full gap-2 font-semibold text-sm"
-                  onClick={() => window.location.href = getLoginUrl()}
+                  onClick={() => setLoginOpen(true)}
                   style={plan.highlight ? {
                     background: "var(--card)",
                     color: BRAND.blue,
@@ -427,7 +428,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
-              onClick={() => window.location.href = getLoginUrl()}
+              onClick={() => setLoginOpen(true)}
               className="gap-2 px-8 text-base font-semibold"
               style={{ background: "var(--card)", color: BRAND.blue }}
             >
@@ -461,7 +462,7 @@ export default function Home() {
               <a href="#funcionalidades" className="hover:text-foreground transition-colors">Funcionalidades</a>
               <a href="#planos" className="hover:text-foreground transition-colors">Planos</a>
               <button
-                onClick={() => window.location.href = getLoginUrl()}
+                onClick={() => setLoginOpen(true)}
                 className="hover:text-foreground transition-colors"
               >
                 Entrar
@@ -471,6 +472,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <SecureLoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
     </div>
   );
 }

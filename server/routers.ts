@@ -60,6 +60,7 @@ import { createGoogleOAuthState } from "./_core/google-oauth-state";
 import { invokeLLM } from "./_core/llm";
 import stripe from "stripe";
 import { generateAndSendEmailTfaCode, verifyEmailTfaCode, maskEmail } from "./tfa-service";
+import { createScryptPasswordHash, isLocalAuthEnabled, slugifyCompanyName, verifyScryptPassword } from "./local-auth";
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // ─── Admin guard ───────────────────────────────────────────────────────────────
@@ -137,6 +138,54 @@ export const appRouter = router({
       return { success: true };
     }),
 
+    registerLocalAccount: publicProcedure
+      .input(z.object({
+        name: z.string().trim().min(2).max(256),
+        email: z.string().trim().email(),
+        password: z.string().min(8).max(128),
+        companyName: z.string().trim().min(2).max(256).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!isLocalAuthEnabled()) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "O cadastro local está desativado neste ambiente." });
+        }
+
+        const db = await getDb();
+        const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
+        if (existingUser) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Já existe um usuário cadastrado com este e-mail." });
+        }
+
+        const companyName = input.companyName?.trim() || `Empresa de ${input.name}`;
+        const slugBase = slugifyCompanyName(companyName);
+        const slug = `${slugBase}-${Date.now().toString(36)}`;
+        const companyId = await createCompany({ name: companyName, slug, color: "#2563eb" });
+        const passwordHash = createScryptPasswordHash(input.password);
+        const userId = await createCompanyLocalUser({
+          companyId,
+          name: input.name.trim(),
+          email: input.email.toLowerCase(),
+          passwordHash,
+          role: "company_admin",
+          companyName,
+        });
+        const [createdUser] = await db.select({ openId: users.openId }).from(users).where(eq(users.id, userId)).limit(1);
+        if (!createdUser) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível concluir a criação do usuário local." });
+        }
+
+        const { sdk } = await import("./_core/sdk");
+        const { COOKIE_NAME, ONE_YEAR_MS } = await import("../shared/const");
+        const { getSessionCookieOptions } = await import("./_core/cookies");
+        const sessionToken = await sdk.createSessionToken(createdUser.openId, {
+          name: input.name.trim(),
+          expiresInMs: ONE_YEAR_MS,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return { success: true, userId, companyId };
+      }),
+
     loginWithCredentials: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
@@ -166,9 +215,7 @@ export const appRouter = router({
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Erro na verificação de credenciais." });
         }
 
-        const { scryptSync } = await import("crypto");
-        const derived = scryptSync(input.password, salt, 64).toString("hex");
-        if (derived !== hash) {
+        if (!verifyScryptPassword(input.password, user.passwordHash)) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Credenciais inválidas." });
         }
 

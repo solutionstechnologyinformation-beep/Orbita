@@ -1,5 +1,4 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { ORBITA_BRAND_NAME, ORBITA_NAME, SIDEBAR_LOGO_TARGET, SIDEBAR_COLLAPSED_STORAGE_KEY, getOrbitaLogoUrl } from "@/branding";
@@ -162,8 +161,8 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
   const showGlobalPeriod = globalPeriodRoutes.some((route) => location === route || location.startsWith(`${route}/`));
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      window.location.href = getLoginUrl();
+    if (!loading && !isAuthenticated && window.location.pathname !== "/") {
+      window.location.href = "/";
     }
   }, [loading, isAuthenticated]);
 

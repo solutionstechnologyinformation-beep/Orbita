@@ -30,13 +30,16 @@ Este guia apresenta o passo a passo completo para clonar, configurar, executar e
 
 ## ⚙️ 2. Configuração de Variáveis de Ambiente (.env)
 
-O repositório inclui um template seguro. Crie seu arquivo de ambiente local na raiz do projeto:
+Crie manualmente um arquivo `.env` na raiz do projeto — ele não deve ser versionado — e informe pelo menos os valores do banco, da sessão e do cadastro local:
 
-```bash
-cp .env.example .env
+```dotenv
+NODE_ENV=development
+LOCAL_AUTH_ENABLED=true
+DATABASE_URL=mysql://usuario:senha@localhost:3306/orbita
+JWT_SECRET=troque-por-uma-chave-local-longa-e-aleatoria
 ```
 
-Abra o arquivo `.env` gerado no VS Code e preencha os valores necessários (como banco de dados MySQL/TiDB e chave JWT de sessão). Para testes locais rápidos utilizando armazenamento em arquivo e SQLite/MySQL local, o sistema já conta com fallbacks integrados.
+Abra o arquivo `.env` no VS Code e complete as integrações opcionais, como OAuth, Resend, Stripe e Google Calendar, somente quando forem necessárias. Nunca compartilhe nem publique o arquivo `.env` real.
 
 ---
 
@@ -107,3 +110,18 @@ todo.md           ← Roadmap e status das tarefas do projeto
 - **Segurança 2FA Real**: Autenticação de dois fatores via TOTP e códigos de backup de uso único.
 - **Operação Offline Resiliente**: Fila de rascunhos em `localStorage` e sincronização automática com repetição controlada.
 - **Assistente de IA & Guia Interativo**: Botão lateral para iniciar a apresentação guiada por todas as abas do sistema, além de assistente integrado.
+
+
+## 🔐 7. Primeira execução: criar usuário e empresa local
+
+A tela inicial do Órbita agora começa pela entrada nativa de acesso. Clique em **Entrar** ou **Criar conta grátis** para abrir o `SecureLoginModal`.
+
+Na opção **Cadastre-se**, informe o nome do administrador, o nome da empresa, o e-mail e uma senha com pelo menos oito caracteres. O backend cria automaticamente a empresa inicial, associa o usuário como `company_admin`, grava somente o hash scrypt da senha e inicia uma sessão local com cookie HTTP-only. Depois do cadastro, o usuário é encaminhado ao Dashboard já dentro do seu tenant.
+
+Para as próximas execuções, utilize **Entrar com segurança** com o mesmo e-mail e senha. Se o administrador ativar 2FA, o fluxo preservará a etapa TOTP e os códigos de backup de uso único. O botão **Entrar com OAuth do Sistema** continua disponível como acesso alternativo quando o ambiente corporativo estiver configurado.
+
+No modo de desenvolvimento, o cadastro local é habilitado por padrão. Em produção, defina `LOCAL_AUTH_ENABLED=false` e permita a criação de novos usuários somente por convite ou pela área administrativa da empresa. A configuração pode ser alterada para `LOCAL_AUTH_ENABLED=true` em um ambiente de homologação controlado.
+
+### Verificação de isolamento
+
+Depois de criar o primeiro ambiente, confirme que o usuário aparece como administrador da empresa, que os projetos exibidos pertencem ao `companyId` criado e que usuários de outra empresa não conseguem consultar esses registros. O contexto do backend continua resolvendo o tenant pelo Host e aplicando a validação de pertencimento antes de expor branding ou dados.
