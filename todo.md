@@ -1689,3 +1689,8 @@
 - [x] Adicionar estilos de cores, larguras automáticas, filtros (autoFilter) e congelamento de painéis (freeze panes) nas planilhas Excel exportadas
 - [x] Atualizar testes em migration-export.test.ts para validar a presença de estilos e propriedades de congelamento
 - [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)
+
+## Resumo Executivo na Capa do Excel
+- [x] Adicionar seção de totais por entidade e indicadores de desempenho (tarefas concluídas, prazos e volume) na aba Órbita-Capa
+- [x] Atualizar testes em migration-export.test.ts para validar a presença da tabela de resumo executivo
+- [x] Validar com suíte completa de testes, TypeScript e salvar checkpoint versionado (324/324 testes aprovados)

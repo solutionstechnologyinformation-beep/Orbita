@@ -112,8 +112,52 @@ export async function generateMigrationExcelBuffer(snapshot: Awaited<ReturnType<
   });
   coverSheet.getColumn(1).width = 30;
   coverSheet.getColumn(2).width = 78;
+  coverSheet.addRow([]);
+  coverSheet.addRow(["RESUMO EXECUTIVO DE INDICADORES E TOTAIS", ""]);
+  coverSheet.mergeCells(`A${coverSheet.rowCount}:B${coverSheet.rowCount}`);
+  const summaryTitleRow = coverSheet.getRow(coverSheet.rowCount);
+  summaryTitleRow.height = 24;
+  summaryTitleRow.getCell(1).font = { name: "Aptos", size: 13, bold: true, color: { argb: "FF1E3A8A" } };
+  summaryTitleRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0F2FE" } };
+  summaryTitleRow.getCell(1).alignment = { vertical: "middle", horizontal: "left" };
+
+  coverSheet.addRow(["Métrica / Entidade", "Quantidade / Total"]);
+  const summaryHeaderRow = coverSheet.getRow(coverSheet.rowCount);
+  summaryHeaderRow.height = 22;
+  summaryHeaderRow.eachCell((cell) => {
+    cell.font = { name: "Aptos", bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFB58900" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
+
+  const totalTasks = snapshot.data.tasks.length;
+  const completedTasks = snapshot.data.tasks.filter((t: any) => t.status === "done" || t.status === "completed" || t.status === "published").length;
+  const completionRate = totalTasks > 0 ? `${((completedTasks / totalTasks) * 100).toFixed(1)}%` : "0.0%";
+
+  const summaryMetrics = [
+    ["Total de Empresas", snapshot.data.companies.length],
+    ["Total de Usuários", snapshot.data.users.length],
+    ["Total de Clientes", snapshot.data.clients.length],
+    ["Total de Contratos CRS", snapshot.data.crs.length],
+    ["Total de Trechos KMZ", snapshot.data.crsSegments.length],
+    ["Total de Tarefas Kanban", totalTasks],
+    ["Tarefas Concluídas / Publicadas", completedTasks],
+    ["Taxa de Conclusão Global", completionRate],
+    ["Fases Kanban", snapshot.data.kanbanPhases.length],
+    ["Eventos de Agenda", snapshot.data.agendaEvents.length],
+    ["Disciplinas Cadastradas", snapshot.data.disciplines.length],
+    ["Sprints Ativas", snapshot.data.sprints.length],
+  ];
+
+  summaryMetrics.forEach((metricRow) => {
+    const row = coverSheet.addRow(metricRow);
+    row.height = 20;
+    row.getCell(1).font = { name: "Aptos", bold: true };
+    row.getCell(2).alignment = { horizontal: "right" };
+  });
+
   coverSheet.views = [{ state: "frozen", ySplit: 4, topLeftCell: "A5" }];
-  coverSheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 1 };
+  coverSheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
 
   const addSheet = (name: string, rows: any[]) => {
     const sanitized = sanitizeRowsForExcel(rows);

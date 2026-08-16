@@ -33,6 +33,8 @@ describe("Migration Export and Import", () => {
     const coverSheet = workbook.getWorksheet("Órbita-Capa");
     expect(coverSheet?.getCell("A1").value).toBe("ÓRBITA · PLANEJAMENTO VISUAL");
     expect(coverSheet?.views[0]).toMatchObject({ state: "frozen", ySplit: 4 });
+    const summaryHeaderCell = coverSheet?.getRow(12).getCell(1);
+    expect(summaryHeaderCell?.value).toBe("Métrica / Entidade");
 
     const empresasSheet = workbook.getWorksheet("Empresas");
     expect(empresasSheet).toBeDefined();
