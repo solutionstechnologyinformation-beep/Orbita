@@ -1645,3 +1645,9 @@
 - [x] Implementar fila de rascunhos offline em localStorage para tarefas e comentários pendentes de sincronização
 - [x] Adicionar proteção de rate limiting e bloqueio temporário por IP/e-mail para tentativas inválidas de login
 - [x] Validar com testes unitários em Vitest, TypeScript e salvar checkpoint versionado
+
+## Indicador de Sincronização Offline
+- [x] Adicionar estados de sincronização aos rascunhos offline (pendente, sincronizando, sincronizado e erro)
+- [x] Criar indicador visual global com contagem e detalhes dos itens pendentes
+- [x] Atualizar o indicador ao reconectar e manter feedback acessível para leitores de tela
+- [x] Criar testes, validar TypeScript e salvar checkpoint versionado (313/313 testes aprovados)

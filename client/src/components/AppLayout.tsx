@@ -40,6 +40,7 @@ import { FloatingAgent } from "./FloatingAgent";
 import { useTheme } from "../contexts/ThemeContext";
 import { getThemeToggleCopy } from "../contexts/theme-utils";
 import { GlobalPeriodControl } from "../contexts/GlobalPeriodContext";
+import { OfflineSyncIndicator } from "./OfflineSyncIndicator";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -534,6 +535,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             {showGlobalPeriod && <GlobalPeriodControl className="order-last w-full md:order-none md:w-auto" />}
 
             <div className="ml-auto flex items-center gap-2">
+              <OfflineSyncIndicator />
               <ThemeToggle />
               <Link
                 href="/notifications"
@@ -558,6 +560,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
             >
               <Menu className="w-5 h-5" />
             </button>
+            <OfflineSyncIndicator />
             <ThemeToggle />
           </div>
         )}
