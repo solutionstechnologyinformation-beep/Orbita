@@ -16,6 +16,7 @@ import {
   FileBarChart,
   MessageSquare,
   PenSquare,
+  Presentation,
   Bell,
   Bot,
   User,
@@ -635,8 +636,41 @@ const sections: Section[] = [
     ),
   },
   {
-    id: "glossario",
+    id: "tour-apresentacao",
     num: "Seção 18",
+    title: "Guia de Apresentação",
+    icon: Presentation,
+    color: "linear-gradient(135deg, #f59e0b, #d97706)",
+    content: (
+      <>
+        <P>O <strong>Guia de Apresentação</strong> é um tour interativo que explica as funções principais do Órbita para novos usuários, equipes em treinamento e demonstrações comerciais. O botão fica na parte inferior da barra lateral, abaixo do Manual de Uso.</P>
+        <H2>Como iniciar</H2>
+        <Steps items={[
+          <>Na barra lateral, clique em <strong>"Guia de apresentação"</strong>.</>,
+          "Leia a explicação da aba destacada e os três pontos principais apresentados no passo.",
+          <>Use <strong>"Próxima aba"</strong> para avançar ou <strong>"Anterior"</strong> para revisar a etapa anterior.</>,
+          <>Ao finalizar, clique em <strong>"Concluir"</strong>. O guia também pode ser encerrado pelo botão X, clicando fora do painel ou pressionando Esc.</>,
+        ]} />
+        <H2>O que o tour apresenta</H2>
+        <DataTable
+          headers={["Bloco", "Conteúdo explicado"]}
+          rows={[
+            ["Gestão", "Dashboard, projetos, contratos, Kanban, Gantt, sprints e programação"],
+            ["Colaboração", "Calendário, reuniões, chat de tarefas e quadro branco"],
+            ["Inteligência", "Notificações, Chat IA e Assistente Órbita"],
+            ["Governança", "Administração multi-tenant, segurança, branding, domínios e 2FA"],
+            ["Continuidade", "Migração, backups, importação, exportação e operação organizada"],
+          ]}
+        />
+        <Callout type="info">
+          O tour pode ser navegado por teclado com as setas <strong>←</strong> e <strong>→</strong>. O foco inicial é direcionado ao botão de fechamento e a interface respeita o tema claro/escuro e tamanhos menores de tela.
+        </Callout>
+      </>
+    ),
+  },
+  {
+    id: "glossario",
+    num: "Seção 19",
     title: "Conceitos e Glossário",
     icon: BookMarked,
     color: "linear-gradient(135deg, #3b82f6, #1d4ed8)",

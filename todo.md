@@ -1773,7 +1773,7 @@
 - [ ] Registrar cobertura de testes
 - [ ] Rodar lint se disponível
 - [ ] Rodar build de produção
-- [ ] Registrar status do servidor
+- [x] Registrar status do servidor
 - [ ] Salvar checkpoint após validação
 - [ ] Preparar resumo final da funcionalidade
 - [ ] Entregar versão do projeto ao usuário
@@ -1790,7 +1790,7 @@
 - [ ] Revisar mensagens de erro
 - [ ] Revisar mensagens de conclusão
 - [ ] Confirmar CTA final para visitar o Manual
-- [ ] Atualizar documentação de uso do tour
+- [x] Atualizar documentação de uso do tour
 - [ ] Confirmar que o recurso não interfere no roteamento
 - [ ] Confirmar que o recurso não altera dados do usuário
 - [ ] Validar compatibilidade com tema claro
@@ -1828,7 +1828,7 @@
 - [ ] Confirmar que a cobertura não depende do navegador
 - [ ] Confirmar que o checkpoint contém somente mudanças desejadas
 - [ ] Confirmar que o usuário pode revisar a versão
-- [ ] Confirmar que a apresentação guiada está pronta para demonstrações comerciais
+- [x] Confirmar que a apresentação guiada está pronta para demonstrações comerciais
 - [ ] Confirmar encerramento da tarefa
 
 ---
@@ -1840,7 +1840,7 @@
 - [x] Garantir acessibilidade, tema claro/escuro e redução de movimento
 - [x] Cobrir o fluxo com testes unitários e validação TypeScript
 - [ ] Salvar checkpoint e entregar versão revisável do projeto
-- [ ] Documentar o recurso no Manual de Uso
+- [x] Documentar o recurso no Manual de Uso
 - [x] Confirmar que a apresentação guiada cobre todas as abas atuais
 - [x] Confirmar que o tour pode ser reiniciado
 - [x] Confirmar que o tour não bloqueia a operação fora do modal
@@ -1856,7 +1856,7 @@
 - [x] Confirmar que o componente usa ícones existentes
 - [x] Confirmar que o componente não duplica DashboardLayout
 - [x] Confirmar que a implementação é coberta por testes
-- [ ] Confirmar que o preview está atualizado
+- [x] Confirmar que o preview está atualizado
 - [ ] Confirmar que a versão final pode ser revertida
 - [ ] Confirmar que o recurso está pronto para apresentação comercial
 - [ ] Encerrar o histórico de solicitação do guia
