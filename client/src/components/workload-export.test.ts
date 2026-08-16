@@ -22,6 +22,8 @@ describe("workload export utilities", () => {
   it("builds printable PDF HTML with recommendation data", () => {
     const html = buildWorkloadPdfHtml(recommendations);
     expect(html).toContain("Relatório de Planejamento e Distribuição de Equipe");
+    expect(html).toContain("ÓRBITA · PLANEJAMENTO VISUAL");
+    expect(html).toContain("orbita-report-header");
     expect(html).toContain("2026-08-20");
     expect(html).toContain("Revisar &quot;ponte&quot;");
   });

@@ -7,6 +7,7 @@ import { resolvePrintWindow } from "./report-export-utils";
 import { formatDashboardMapTimestamp } from "./dashboard-map-utils";
 import { ORBITA_LOGO_URL } from "@/branding";
 import { REPORT_PALETTE } from "./report-palette";
+import { buildOrbitaReportHeaderHtml, ORBITA_REPORT_HEADER_CSS } from "@/lib/report-header";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -1583,9 +1584,7 @@ export default function Dashboard() {
 	<style>
 	  * { box-sizing: border-box; margin: 0; padding: 0; }
 	  body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
-	  .header { background: ${REPORT_PALETTE.navy}; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-	  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-	  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+	  ${ORBITA_REPORT_HEADER_CSS}
 	  .body { padding: 28px 36px; }
 	  .section-title { font-size: 14px; font-weight: 700; color: ${REPORT_PALETTE.navy}; border-left: 4px solid ${REPORT_PALETTE.yellow}; padding-left: 10px; margin: 24px 0 12px; }
 	  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
@@ -1621,12 +1620,9 @@ export default function Dashboard() {
 	  .discipline-row span { color: #475569; text-align: right; }
 	  .footer { background: ${REPORT_PALETTE.navy}; border-top: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 	  .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
-	  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+	  @media print { body { background: white; } .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 	</style></head><body>
-<div class="header">
-  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" /><div><h1>Órbita GIS &amp; OS</h1><p>Relatório do Dashboard — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
-  <div style="text-align:right"><p style="font-size:13px;font-weight:700">Visão Geral</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
-</div>
+${buildOrbitaReportHeaderHtml({ title: "Dashboard — Visão Geral", subtitle: `Relatório executivo de indicadores operacionais · ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`, meta: `Período: ${periodLabel}\nGerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, logoUrl: ORBITA_LOGO_URL })}
 <div class="body">
   <div class="section-title">Indicadores Gerais</div>
   <div class="grid3">
@@ -1732,9 +1728,7 @@ export default function Dashboard() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #f7f8fa; color: #111827; }
-  .header { background: ${REPORT_PALETTE.navy}; border-bottom: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 28px 36px; display: flex; align-items: center; justify-content: space-between; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  ${ORBITA_REPORT_HEADER_CSS}
   .body { padding: 28px 36px; }
   .section-title { font-size: 14px; font-weight: 700; color: ${REPORT_PALETTE.navy}; border-left: 4px solid ${REPORT_PALETTE.yellow}; padding-left: 10px; margin: 24px 0 12px; }
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
@@ -1749,12 +1743,9 @@ export default function Dashboard() {
   .badge.unread { background: #fee2e2; color: #dc2626; }
   .footer { background: ${REPORT_PALETTE.navy}; border-top: 4px solid ${REPORT_PALETTE.yellow}; color: white; padding: 14px 36px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .brand-logo { width: 44px; height: 44px; object-fit: contain; background: rgba(255,255,255,0.92); border-radius: 8px; padding: 3px; }
-  @media print { body { background: white; } .header, .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+  @media print { body { background: white; } .footer, th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
 </style></head><body>
-<div class="header">
-  <div style="display:flex;align-items:center;gap:12px;"><img class="brand-logo" src="${ORBITA_LOGO_URL}" alt="Logo Órbita" /><div><h1>Órbita GIS &amp; OS</h1><p>Relatório de Atividade do Chat e Presença — ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
-  <div style="text-align:right"><p style="font-size:13px;font-weight:700">Equipes &amp; Comunicação</p><p>Gerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p></div>
-</div>
+${buildOrbitaReportHeaderHtml({ title: "Atividade do Chat — Equipes & Comunicação", subtitle: `Presença em tempo real e volume de mensagens · ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}`, meta: `Relatório operacional\nGerado em ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, logoUrl: ORBITA_LOGO_URL })}
 <div class="body">
   <div class="section-title">Métricas Gerais de Atividade</div>
   <div class="grid3">

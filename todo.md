@@ -1667,3 +1667,15 @@
 ## Relatório Visual do Gantt (Estilo Referência)
 - [x] Atualizar a função exportTimeline em Gantt.tsx para gerar um relatório HTML/PDF com grade temporal por meses/quadrimestres, barras coloridas por categoria, marcos, linhas de dependência e legenda inferior
 - [x] Validar com testes em Vitest, TypeScript e salvar checkpoint versionado (317/317 testes aprovados)
+
+## Padronização de Cabeçalhos de Relatórios
+- [x] Criar utilitário unificado de cabeçalho corporativo com logo, subtítulo dourado "ÓRBITA · PLANEJAMENTO VISUAL" e título principal
+- [x] Aplicar o cabeçalho padronizado aos relatórios de Gantt, Chat IA, Workload e Dashboard
+- [x] Validar com testes em Vitest, TypeScript e salvar checkpoint versionado (321/321 testes aprovados)
+
+## Gantt Mobile e Impressão Avançada
+- [x] Adicionar seleção de orientação e escala antes de imprimir o relatório Gantt
+- [x] Permitir abrir o detalhe da tarefa ao tocar em um cartão mobile
+- [x] Incluir legenda de status na visualização mobile do Gantt
+- [x] Otimizar espaçamento, controles e feedback da visualização mobile
+- [x] Criar testes, validar TypeScript e salvar checkpoint versionado (321/321 testes aprovados)

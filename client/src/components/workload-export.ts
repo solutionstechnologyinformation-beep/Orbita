@@ -1,3 +1,5 @@
+import { buildOrbitaReportHeaderHtml, ORBITA_REPORT_HEADER_CSS } from "@/lib/report-header";
+
 export type WorkloadRecommendation = {
   taskId: number;
   taskTitle: string;
@@ -49,8 +51,8 @@ export function buildWorkloadPdfHtml(recommendations: WorkloadRecommendation[]) 
   <style>
     @page { size: A4 landscape; margin: 16mm; }
     body { font-family: Arial, sans-serif; padding: 20px; color: #172033; }
-    h1 { color: #111827; font-size: 22px; margin: 0 0 6px; }
-    p.subtitle { color: #64748b; margin: 0 0 22px; }
+    ${ORBITA_REPORT_HEADER_CSS}
+    .orbita-report-header { margin-bottom: 22px; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #cbd5e1; padding: 9px 10px; font-size: 12px; text-align: left; vertical-align: top; }
     th { background: #f1f5f9; font-weight: 700; }
@@ -58,8 +60,7 @@ export function buildWorkloadPdfHtml(recommendations: WorkloadRecommendation[]) 
   </style>
 </head>
 <body>
-  <h1>Relatório de Planejamento e Distribuição de Equipe</h1>
-  <p class="subtitle">Orbita — recomendações geradas para revisão do planejamento</p>
+  ${buildOrbitaReportHeaderHtml({ title: "Relatório de Planejamento e Distribuição de Equipe", subtitle: "Distribuição de tarefas e prazos para revisão do planejamento", meta: `Gerado em ${new Date().toLocaleString("pt-BR")}` })}
   <table>
     <thead>
       <tr><th>ID</th><th>Tarefa</th><th>Responsável sugerido</th><th>Prazo sugerido</th><th>Justificativa</th></tr>

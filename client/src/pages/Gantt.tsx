@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { ORBITA_LOGO_URL } from "@/branding";
-import { buildVisualGanttReportHtml, type GanttReportRow } from "./gantt-report-utils";
+import { buildVisualGanttReportHtml, type GanttReportRow, type ReportOrientation, type ReportScale } from "./gantt-report-utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   CalendarDays,
   ChevronDown,
@@ -153,6 +155,10 @@ export default function Gantt() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [autoAligned, setAutoAligned] = useState(false);
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [printOrientation, setPrintOrientation] = useState<ReportOrientation>("landscape");
+  const [printScale, setPrintScale] = useState<ReportScale>("standard");
+  const [, navigate] = useLocation();
   const timelineRef = useRef<HTMLDivElement>(null);
 
   const clientsQ = trpc.clients.list.useQuery();
@@ -287,7 +293,7 @@ export default function Gantt() {
     return { left, width, color: getBarColor(task, today), milestone: dayDistance(range.start, end) === 0 };
   }
 
-  function exportTimeline() {
+  function exportTimeline(orientation: ReportOrientation = printOrientation, scale: ReportScale = printScale) {
     const popup = window.open("", "_blank");
     if (!popup) return;
 
@@ -325,6 +331,8 @@ export default function Gantt() {
       rows: reportRows,
       rangeStart: timelineStart,
       rangeEnd: timelineEnd,
+      orientation,
+      scale,
     }));
     popup.document.close();
     popup.focus();
@@ -346,7 +354,7 @@ export default function Gantt() {
               <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={resetToday}><CalendarDays className="w-4 h-4" /><span className="hidden sm:inline">Hoje</span></Button>
               <Button variant="outline" size="sm" onClick={() => moveTimeline(-1)} aria-label="Período anterior"><ChevronLeft className="w-4 h-4" /></Button>
               <Button variant="outline" size="sm" onClick={() => moveTimeline(1)} aria-label="Próximo período"><ChevronRight className="w-4 h-4" /></Button>
-              <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={exportTimeline}><Download className="w-4 h-4" /><span className="hidden sm:inline">PDF</span></Button>
+              <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={() => setShowPrintOptions(true)}><Download className="w-4 h-4" /><span className="hidden sm:inline">PDF</span></Button>
               <Button variant="ghost" size="icon" aria-label="Mais opções"><MoreHorizontal className="w-4 h-4" /></Button>
             </div>
           </div>
@@ -412,6 +420,15 @@ export default function Gantt() {
               <span>{filteredTasks.filter((task) => getTaskStatusLabel(task, today) === "Concluída").length} concluída{filteredTasks.filter((task) => getTaskStatusLabel(task, today) === "Concluída").length === 1 ? "" : "s"}</span>
             </div>
 
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" aria-label="Legenda de status do Gantt">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Legenda de status</p>
+              <div className="flex flex-wrap gap-2.5 text-[10px] font-semibold text-slate-600">
+                <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-blue-500" aria-hidden="true" />Em andamento</span>
+                <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />Concluída</span>
+                <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />Atrasada</span>
+              </div>
+            </div>
+
             <div className="space-y-2.5">
               {filteredTasks.map((task, index) => {
                 const statusLabel = getTaskStatusLabel(task, today);
@@ -420,7 +437,7 @@ export default function Gantt() {
                 const isCompleted = statusLabel === "Concluída";
                 const isLate = statusLabel === "Atrasada";
                 return (
-                  <article key={`mobile-task-${task.id}`} className="rounded-2xl border border-slate-200 border-l-4 bg-white p-3 shadow-sm" style={{ borderLeftColor: getBarColor(task, today) }}>
+                  <button type="button" key={`mobile-task-${task.id}`} onClick={() => navigate(`/tasks/${task.id}`)} aria-label={`Abrir detalhes da tarefa ${task.title}`} className="block w-full touch-manipulation rounded-2xl border border-slate-200 border-l-4 bg-white p-3 text-left shadow-sm transition-[transform,box-shadow] duration-150 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2" style={{ borderLeftColor: getBarColor(task, today) }}>
                     <div className="flex items-start gap-2.5">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500">{index + 1}</span>
                       <div className="min-w-0 flex-1">
@@ -450,7 +467,7 @@ export default function Gantt() {
                         </div>
                       </div>
                     </div>
-                  </article>
+                  </button>
                 );
               })}
             </div>
@@ -512,6 +529,36 @@ export default function Gantt() {
             </div>
           </div>
         )}
+
+        <Dialog open={showPrintOptions} onOpenChange={setShowPrintOptions}>
+          <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Preparar relatório Gantt</DialogTitle>
+              <DialogDescription>Escolha o formato de impressão antes de gerar a visualização do relatório.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+                Orientação
+                <select value={printOrientation} onChange={(event) => setPrintOrientation(event.target.value as ReportOrientation)} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                  <option value="landscape">Paisagem — melhor para timelines</option>
+                  <option value="portrait">Retrato — melhor para leitura vertical</option>
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+                Escala do conteúdo
+                <select value={printScale} onChange={(event) => setPrintScale(event.target.value as ReportScale)} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                  <option value="compact">Compacta — mais tarefas por página</option>
+                  <option value="standard">Padrão — equilíbrio entre leitura e densidade</option>
+                  <option value="large">Ampliada — texto e barras maiores</option>
+                </select>
+              </label>
+            </div>
+            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowPrintOptions(false)}>Cancelar</Button>
+              <Button className="w-full gap-2 sm:w-auto" onClick={() => exportTimeline()}><Download className="h-4 w-4" />Gerar relatório</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

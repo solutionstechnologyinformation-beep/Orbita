@@ -30,6 +30,12 @@ describe("experiência mobile do Orbita", () => {
     expect(ganttSource).toContain('role="progressbar"');
     expect(ganttSource).toContain('aria-label="Período anterior"');
     expect(ganttSource).toContain('aria-label="Próximo período"');
+    expect(ganttSource).toContain('setShowPrintOptions(true)');
+    expect(ganttSource).toContain('printOrientation');
+    expect(ganttSource).toContain('printScale');
+    expect(ganttSource).toContain('aria-label="Legenda de status do Gantt"');
+    expect(ganttSource).toContain('Abrir detalhes da tarefa');
+    expect(ganttSource).toContain('navigate(`/tasks/${task.id}`)');
   });
 
   it("empilha o Dashboard e reduz a densidade dos controles apenas em breakpoints pequenos", () => {

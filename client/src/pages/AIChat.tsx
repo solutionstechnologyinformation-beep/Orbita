@@ -47,23 +47,25 @@ async function exportLastResponseToPDF(history: any[], projectName?: string) {
   const maxW = pageW - margin * 2;
   const logoDataUrl = await loadPdfLogoDataUrl(ORBITA_LOGO_URL);
 
-  doc.setFillColor(16, 44, 45);
-  doc.rect(0, 0, pageW, 20, "F");
-  if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, 4, 12, 12);
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
+  doc.setDrawColor(220, 228, 238);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(margin - 4, 8, pageW - (margin - 4) * 2, 31, 4, 4, "FD");
+  if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, 14, 15, 15);
+  doc.setTextColor(224, 185, 70);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text("Órbita GIS & OS", margin + 13, 11.5);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(180, 220, 218);
-  doc.text("— Análise IA", margin + 57, 11.5);
+  doc.text("ÓRBITA · PLANEJAMENTO VISUAL", margin + 20, 16);
+  doc.setTextColor(75, 85, 99);
+  doc.setFontSize(16);
+  doc.text("Análise IA — Relatório de conversa", margin + 20, 27);
   if (projectName) {
-    doc.setTextColor(180, 220, 218);
-    doc.text(projectName, pageW - margin, 11.5, { align: "right" });
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(projectName, pageW - margin, 27, { align: "right" });
   }
 
-  let y = 28;
+  let y = 48;
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(8);
   doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, y);

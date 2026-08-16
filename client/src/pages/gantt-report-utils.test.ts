@@ -43,6 +43,16 @@ describe("visual Gantt report", () => {
     expect(html).toContain("P01");
   });
 
+  it("applies print orientation and scale options", () => {
+    const portrait = buildVisualGanttReportHtml({ rows, title: "Retrato", orientation: "portrait", scale: "large" });
+    const compact = buildVisualGanttReportHtml({ rows, title: "Compacto", orientation: "landscape", scale: "compact" });
+
+    expect(portrait).toContain("@page{size:portrait");
+    expect(portrait).toContain("zoom:1.06");
+    expect(compact).toContain("@page{size:landscape");
+    expect(compact).toContain("zoom:0.84");
+  });
+
   it("renders dependencies as dashed SVG paths and escapes task content", () => {
     const html = buildVisualGanttReportHtml({ rows, title: "Relatório" });
 
