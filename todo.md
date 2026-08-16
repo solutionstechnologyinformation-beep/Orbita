@@ -1776,7 +1776,7 @@
 - [x] Registrar status do servidor
 - [ ] Salvar checkpoint após validação
 - [ ] Preparar resumo final da funcionalidade
-- [ ] Entregar versão do projeto ao usuário
+- [x] Entregar versão do projeto ao usuário
 - [ ] Revisar todo.md antes do checkpoint
 - [ ] Remover referências obsoletas somente se aplicável
 - [x] Confirmar que nenhum segredo foi exposto
@@ -1867,8 +1867,8 @@
 - [x] Criar uma apresentação guiada dentro do software em todas as abas explicando as funções
 - [x] Deixar na aba lateral um botão de guia de apresentação
 - [x] Testar o fluxo completo do novo guia
-- [ ] Salvar checkpoint final do guia
-- [ ] Entregar a versão revisável do projeto
+- [x] Salvar checkpoint final do guia
+- [x] Entregar a versão revisável do projeto
 
 ---
 
@@ -1880,8 +1880,8 @@
 - [ ] Testar tema claro e escuro
 - [ ] Testar modo mobile e sidebar recolhida
 - [x] Rodar TypeScript e Vitest
-- [ ] Salvar checkpoint final
-- [ ] Entregar versão do projeto
+- [x] Salvar checkpoint final
+- [x] Entregar versão do projeto
 
 ---
 
