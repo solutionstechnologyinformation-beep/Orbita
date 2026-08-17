@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { parse as parseCookie } from "cookie";
 import { randomBytes } from "crypto";
 import { resolveTxt } from "node:dns/promises";
-import { users, backupSchedules, companyInvites } from "../drizzle/schema";
+import { users, backupSchedules, companyInvites, taskDependencies } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, authenticatedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
@@ -1009,15 +1009,102 @@ export const appRouter = router({
           .orderBy(t.setor, u.name, t.startDate);
         // filter by clientId after join
         const filtered = input.clientId ? rows.filter((r: any) => r.clientId === input.clientId) : rows;
-        // Enrich with checklist items
+        // Enrich with checklist items and persisted dependencies.
+        const filteredIds = filtered.map((task: any) => task.id);
+        const dependencyRows = filteredIds.length > 0
+          ? await db.select({ id: taskDependencies.id, predecessorTaskId: taskDependencies.predecessorTaskId, successorTaskId: taskDependencies.successorTaskId, dependencyType: taskDependencies.dependencyType })
+            .from(taskDependencies)
+            .where(and(inArray(taskDependencies.predecessorTaskId, filteredIds), inArray(taskDependencies.successorTaskId, filteredIds)))
+          : [];
+        const dependenciesBySuccessor = new Map<number, any[]>();
+        for (const dependency of dependencyRows) {
+          const current = dependenciesBySuccessor.get(dependency.successorTaskId) ?? [];
+          current.push(dependency);
+          dependenciesBySuccessor.set(dependency.successorTaskId, current);
+        }
         const enriched = await Promise.all(
           filtered.map(async (task: any) => {
             const items = await getChecklistItems(task.id);
-            return { ...task, checklistItems: items };
+            const dependencies = dependenciesBySuccessor.get(task.id) ?? [];
+            return { ...task, checklistItems: items, dependencies, predecessorId: dependencies[0]?.predecessorTaskId ?? null };
           })
         );
         return enriched;
       }),
+    dependencies: router({
+      list: protectedProcedure
+        .input(z.object({ taskId: z.number().int().positive() }))
+        .query(async ({ ctx, input }) => {
+          const task = await getTaskById(input.taskId, tenantCompanyId(ctx.user));
+          if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Tarefa não encontrada." });
+          const db = await getDb();
+          return db.select().from(taskDependencies).where(or(eq(taskDependencies.predecessorTaskId, input.taskId), eq(taskDependencies.successorTaskId, input.taskId)));
+        }),
+      create: adminProcedure
+        .input(z.object({
+          predecessorTaskId: z.number().int().positive(),
+          successorTaskId: z.number().int().positive(),
+          dependencyType: z.enum(["finish_to_start", "start_to_start", "finish_to_finish", "start_to_finish"]).default("finish_to_start"),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          if (input.predecessorTaskId === input.successorTaskId) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Uma tarefa não pode depender dela mesma." });
+          }
+          const companyId = tenantCompanyId(ctx.user);
+          const [predecessor, successor] = await Promise.all([
+            getTaskById(input.predecessorTaskId, companyId),
+            getTaskById(input.successorTaskId, companyId),
+          ]);
+          if (!predecessor || !successor) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "As duas tarefas precisam pertencer ao ambiente atual." });
+          }
+          const db = await getDb();
+          const existing = await db.select({ id: taskDependencies.id }).from(taskDependencies).where(and(eq(taskDependencies.predecessorTaskId, input.predecessorTaskId), eq(taskDependencies.successorTaskId, input.successorTaskId), eq(taskDependencies.dependencyType, input.dependencyType))).limit(1);
+          if (existing.length > 0) return { id: existing[0].id, created: false };
+          const allDependencies = await db.select({ predecessorTaskId: taskDependencies.predecessorTaskId, successorTaskId: taskDependencies.successorTaskId }).from(taskDependencies);
+          const graph = new Map<number, number[]>();
+          for (const dependency of allDependencies) {
+            const next = graph.get(dependency.predecessorTaskId) ?? [];
+            next.push(dependency.successorTaskId);
+            graph.set(dependency.predecessorTaskId, next);
+          }
+          const queue = [input.successorTaskId];
+          const visited = new Set<number>();
+          while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (current === input.predecessorTaskId) {
+              throw new TRPCError({ code: "BAD_REQUEST", message: "Essa conexão criaria um ciclo entre as tarefas." });
+            }
+            if (visited.has(current)) continue;
+            visited.add(current);
+            queue.push(...(graph.get(current) ?? []));
+          }
+          const [result] = await db.insert(taskDependencies).values({
+            predecessorTaskId: input.predecessorTaskId,
+            successorTaskId: input.successorTaskId,
+            dependencyType: input.dependencyType,
+            createdById: ctx.user.id,
+          });
+          await logActivity({ userId: ctx.user.id, action: "created_task_dependency", entityType: "task", entityId: input.successorTaskId });
+          return { id: Number((result as any).insertId), created: true };
+        }),
+      delete: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          const db = await getDb();
+          const [dependency] = await db.select().from(taskDependencies).where(eq(taskDependencies.id, input.id)).limit(1);
+          if (!dependency) throw new TRPCError({ code: "NOT_FOUND", message: "Dependência não encontrada." });
+          const companyId = tenantCompanyId(ctx.user);
+          const [predecessor, successor] = await Promise.all([
+            getTaskById(dependency.predecessorTaskId, companyId),
+            getTaskById(dependency.successorTaskId, companyId),
+          ]);
+          if (!predecessor || !successor) throw new TRPCError({ code: "NOT_FOUND", message: "Dependência fora do ambiente atual." });
+          await db.delete(taskDependencies).where(eq(taskDependencies.id, input.id));
+          await logActivity({ userId: ctx.user.id, action: "deleted_task_dependency", entityType: "task", entityId: dependency.successorTaskId });
+          return { success: true };
+        }),
+    }),
     listByCrs: protectedProcedure
       .input(z.object({
         crsId: z.number(),
@@ -2514,7 +2601,7 @@ export const appRouter = router({
     chat: protectedProcedure
       .input(z.object({ message: z.string().trim().min(1).max(1000) }))
       .mutation(async ({ ctx, input }) => {
-        return await processFloatingAgentCommand(ctx.user.id, ctx.user.companyId ?? null, input.message);
+        return await processFloatingAgentCommand(ctx.user.id, ctx.user.companyId ?? null, input.message, ctx.user.role);
       }),
     listMemories: protectedProcedure.query(async ({ ctx }) => {
       return await getUserAiMemories(ctx.user.id);

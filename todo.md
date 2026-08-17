@@ -2127,3 +2127,6 @@
 - [x] Adicionar controle de zoom manual e expansão da área de visualização no Gantt para legibilidade das barras
 - [x] Implementar sistema de dependências entre tarefas (antecessora/sucessora) com persistência e exibição gráfica
 - [x] Mudar unidade de medida de área de Ha para m² em todo o sistema e corrigir a agregação dos dados de área dos contratos no Dashboard e painéis
+- [x] Criar dependências entre tarefas arrastando setas diretamente no gráfico de Gantt
+- [x] Permitir que o assistente crie novas tarefas ou atualize o status delas pela interface do chat
+- [x] Incluir tooltips informativos ricos nas barras do Gantt com detalhes completos ao passar o mouse

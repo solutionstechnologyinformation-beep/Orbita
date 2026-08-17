@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import { ORBITA_LOGO_URL } from "@/branding";
 import {
@@ -67,6 +68,7 @@ type TaskItem = {
   checklistItems?: ChecklistItem[];
   progress?: number | null;
   predecessorId?: number | null;
+  dependencies?: Array<{ id: number; predecessorTaskId: number; successorTaskId: number; dependencyType: string }>;
 };
 
 type ChecklistItem = {
@@ -84,6 +86,8 @@ type TimelineGroup = {
   label: string;
   subgroups: Array<{ key: string; label: string; tasks: TaskItem[] }>;
 };
+
+type DependencyDraft = { predecessorTaskId: number; x: number; y: number };
 
 type TimelineRow =
   | { kind: "group"; key: string; label: string }
@@ -145,6 +149,8 @@ export default function Gantt() {
   const [groupMode, setGroupMode] = useState<GroupMode>("discipline");
   const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [customUnitWidth, setCustomUnitWidth] = useState<number | null>(null);
+  const [dependencyDraft, setDependencyDraft] = useState<DependencyDraft | null>(null);
+  const [dependencyPointer, setDependencyPointer] = useState<{ x: number; y: number } | null>(null);
   const [search, setSearch] = useState("");
   const [timelineStart, setTimelineStart] = useState(() => getWeekStart(startOfMonth(new Date())));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -155,6 +161,39 @@ export default function Gantt() {
   const [printScale, setPrintScale] = useState<ReportScale>("standard");
   const [, navigate] = useLocation();
   const timelineRef = useRef<HTMLDivElement>(null);
+  const utils = trpc.useUtils();
+  const createDependency = trpc.tasks.dependencies.create.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.created ? "Dependência criada entre as tarefas." : "Essa dependência já existia.");
+      setDependencyDraft(null);
+      setDependencyPointer(null);
+      utils.tasks.listForGantt.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Não foi possível criar a dependência.");
+      setDependencyDraft(null);
+      setDependencyPointer(null);
+    },
+  });
+
+  useEffect(() => {
+    if (!dependencyDraft) return;
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = timelineRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setDependencyPointer({ x: event.clientX - rect.left + timelineRef.current!.scrollLeft, y: event.clientY - rect.top + timelineRef.current!.scrollTop });
+    };
+    const handlePointerUp = () => {
+      setDependencyDraft(null);
+      setDependencyPointer(null);
+    };
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [dependencyDraft]);
 
   const clientsQ = trpc.clients.list.useQuery();
   const crsQ = trpc.crs.list.useQuery();
@@ -325,6 +364,37 @@ export default function Gantt() {
     const width = Math.max(zoom === "week" ? 18 : 28, getTimelineX(addDays(end, 1)) - left - 5);
     return { left, width, color: getBarColor(task, today), milestone: dayDistance(range.start, end) === 0 };
   }
+
+  const rowYByTaskId = useMemo(() => {
+    const positions = new Map<number, number>();
+    let top = 48;
+    for (const row of rows) {
+      const rowHeight = row.kind === "group" ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT;
+      if (row.kind === "task") positions.set(row.task.id, top + rowHeight / 2);
+      top += rowHeight;
+    }
+    return positions;
+  }, [rows]);
+
+  const dependencyLines = useMemo(() => {
+    const taskById = new Map(filteredTasks.map((task) => [task.id, task]));
+    const lines: Array<{ id: number; x1: number; y1: number; x2: number; y2: number }> = [];
+    for (const successor of filteredTasks) {
+      for (const dependency of successor.dependencies ?? []) {
+        const predecessor = taskById.get(dependency.predecessorTaskId);
+        const fromY = rowYByTaskId.get(dependency.predecessorTaskId);
+        const toY = rowYByTaskId.get(dependency.successorTaskId);
+        if (!predecessor || fromY == null || toY == null) continue;
+        const predecessorBar = getBar(predecessor);
+        const successorBar = getBar(successor);
+        if (!predecessorBar || !successorBar) continue;
+        lines.push({ id: dependency.id, x1: predecessorBar.left + predecessorBar.width, y1: fromY, x2: successorBar.left, y2: toY });
+      }
+    }
+    return lines;
+  }, [filteredTasks, rowYByTaskId, timelineUnitWidth, timelineStart, totalDays, zoom]);
+
+  const timelineContentHeight = 48 + rows.reduce((height, row) => height + (row.kind === "group" ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT), 0) + 40;
 
   function exportTimeline(orientation: ReportOrientation = printOrientation, scale: ReportScale = printScale) {
     const popup = window.open("", "_blank");
@@ -516,8 +586,15 @@ export default function Gantt() {
 
         {!ganttQ.isLoading && filteredTasks.length > 0 && (
           <div className="hidden min-w-0 flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden md:block">
-            <div ref={timelineRef} className="h-full min-w-0 overflow-auto overscroll-contain">
-              <div style={{ width: LEFT_WIDTH + totalTimelineWidth, minWidth: "100%" }}>
+            <div ref={timelineRef} className="relative h-full min-w-0 overflow-auto overscroll-contain">
+              <div className="relative" style={{ width: LEFT_WIDTH + totalTimelineWidth, minWidth: "100%", minHeight: timelineContentHeight }}>
+                <svg className="pointer-events-none absolute left-0 top-0 z-[24]" width={LEFT_WIDTH + totalTimelineWidth} height={timelineContentHeight} aria-hidden="true">
+                  <defs><marker id="gantt-dependency-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb" /></marker></defs>
+                  <g transform={`translate(${LEFT_WIDTH}, 0)`}>
+                    {dependencyLines.map((line) => <path key={line.id} d={`M ${line.x1} ${line.y1} C ${line.x1 + 24} ${line.y1}, ${line.x2 - 24} ${line.y2}, ${line.x2} ${line.y2}`} fill="none" stroke="#2563eb" strokeWidth="1.5" strokeDasharray="4 3" markerEnd="url(#gantt-dependency-arrow)" />)}
+                    {dependencyDraft && dependencyPointer && <path d={`M ${dependencyDraft.x} ${dependencyDraft.y} C ${dependencyDraft.x + 24} ${dependencyDraft.y}, ${dependencyPointer.x - LEFT_WIDTH - 24} ${dependencyPointer.y}, ${dependencyPointer.x - LEFT_WIDTH} ${dependencyPointer.y}`} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" />}
+                  </g>
+                </svg>
                 <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px` }}>
                   <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[3px_0_8px_rgba(15,23,42,0.08)]">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
                   <div className="relative overflow-hidden" aria-label={zoom === "week" ? "Escala semanal" : "Escala mensal"}>
@@ -548,12 +625,15 @@ export default function Gantt() {
                         {row.kind === "task" && <span className="ml-auto hidden shrink-0 text-[10px] text-slate-400 xl:inline">TBT-{row.task.id}</span>}
                       </div>
                       <div className={`relative overflow-hidden ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : "bg-white"}`} style={{ backgroundImage: gridBackground }}>
+                        {row.kind === "group" && null}
                         {todayX >= 0 && todayX < totalTimelineWidth && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayX }} />}
-                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} className={`absolute z-20 flex items-center gap-1 overflow-hidden rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
+                        {isGroup && row.kind === "group" && null}
+                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerUp={(event) => { if (row.kind === "task" && dependencyDraft && dependencyDraft.predecessorTaskId !== row.task.id) { event.stopPropagation(); createDependency.mutate({ predecessorTaskId: dependencyDraft.predecessorTaskId, successorTaskId: row.task.id, dependencyType: "finish_to_start" }); } }} className={`absolute z-20 flex items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
-                        </div></TooltipTrigger><TooltipContent><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && row.task.assigneeName && <p className="text-xs text-muted-foreground">{row.task.assigneeName}</p>}</TooltipContent></Tooltip>}
+                          {row.kind === "task" && <button type="button" aria-label={`Criar dependência a partir de ${row.task.title}`} title="Arraste para outra barra para criar dependência" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); const y = rowYByTaskId.get(row.task.id) ?? 0; setDependencyDraft({ predecessorTaskId: row.task.id, x: bar.left + bar.width, y }); setDependencyPointer({ x: bar.left + bar.width, y }); }} onPointerUp={(event) => event.stopPropagation()} />}
+                        </div></TooltipTrigger><TooltipContent side="top" className="max-w-xs"><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && <><p className="text-xs">Status: {getTaskStatusLabel(row.task, today)}</p><p className="text-xs">Projeto/contrato: {row.task.projectName || "Não informado"}</p><p className="text-xs">Responsável: {row.task.assigneeName || "Não atribuído"}</p><p className="text-xs">Progresso: {Math.round(row.task.progress ?? 0)}%</p><p className="text-xs">Dependências: {(row.task.dependencies ?? []).length || "Nenhuma"}</p></>}{row.kind === "checklist" && <p className="text-xs">Item de checklist da tarefa #{row.taskId}</p>}</TooltipContent></Tooltip>}
                       </div>
                     </div>
                   );

@@ -1,11 +1,11 @@
 import { getDb, getUserAiMemories, addUserAiMemory } from "./db";
 import { summarizeProjectReportByName } from "./project-report-summary";
-import { tasks, agendaEvents, crs } from "../drizzle/schema";
-import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
+import { tasks, agendaEvents, crs, kanbanPhases } from "../drizzle/schema";
+import { and, asc, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 import { processOperationalAgentCommand } from "./operational-agent";
 
-export async function processFloatingAgentCommand(userId: number, companyId: number | null, userMessage: string) {
+export async function processFloatingAgentCommand(userId: number, companyId: number | null, userMessage: string, userRole: string = "user") {
   const db = await getDb();
   const trimmed = userMessage.trim();
   const lower = trimmed.toLowerCase();
@@ -55,6 +55,9 @@ export async function processFloatingAgentCommand(userId: number, companyId: num
       action: { type: "navigate", targetUrl: "/relatorios", searchTerm: "" },
     };
   }
+
+  const taskMutation = await resolveTaskMutation(db, userId, companyId, userRole, trimmed);
+  if (taskMutation) return taskMutation;
 
   const directNavigation = await resolveDirectNavigation(db, userId, companyId, trimmed);
   if (directNavigation) return directNavigation;
@@ -165,6 +168,59 @@ Regras para action.type:
   } catch (err: any) {
     return fallbackFloatingAgentResponse(trimmed);
   }
+}
+
+async function resolveTaskMutation(db: any, userId: number, companyId: number | null, userRole: string, message: string) {
+  const lower = normalizeAssistantText(message);
+  const isAdmin = userRole === "admin" || userRole === "master_admin";
+  const createIntent = /\b(crie|criar|adicionar|adicione)\b.*\b(tarefa|demanda|atividade)\b/.test(lower);
+  const statusIntent = /\b(atualiz|alter|mude|mudar|marque|coloque|defina)\w*\b.*\b(tarefa|demanda|atividade)\b.*\b(status|como|para)\b/.test(lower)
+    || /\b(tarefa|demanda|atividade)\b.*\b(conclu[ií]d[ao]s?|finalizad[ao]s?|bloquead[ao]s?|pendente|em andamento|arquivad[ao]s?)\b/.test(lower);
+  if (!createIntent && !statusIntent) return null;
+  if (!isAdmin) {
+    return { reply: "Por segurança, somente administradores podem criar tarefas ou alterar status pelo Assistente Orbita. Posso abrir a tarefa para você revisar.", action: { type: "none", targetUrl: "", searchTerm: "" } };
+  }
+
+  const quoted = Array.from(message.matchAll(/["“”']([^"“”']+)["“”']/g)).map((match) => match[1].trim()).filter(Boolean);
+  const contractMarker = message.match(/\b(?:no|do|da|para o|para a)\s+(?:contrato|crs|projeto)\s+(.+)$/i)?.[1]?.trim() ?? "";
+  const cleanEntity = (value: string) => normalizeAssistantText(value).replace(/\b(?:como|para|status|conclu[ií]d[ao]s?|finalizad[ao]s?|bloquead[ao]s?|pendente|em andamento|arquivad[ao]s?)\b.*$/i, "").trim();
+
+  if (createIntent) {
+    const title = quoted[0] || message.replace(/^(?:por favor,?\s*)?(?:crie|criar|adicionar|adicione)\s+(?:uma\s+)?(?:nova\s+)?(?:tarefa|demanda|atividade)\s*/i, "").replace(/\s+(?:no|do|da|para o|para a)\s+(?:contrato|crs|projeto)\s+.+$/i, "").trim();
+    const contractQuery = quoted[1] || contractMarker;
+    if (title.length < 2) return { reply: "Informe o nome da nova tarefa. Exemplo: ‘crie a tarefa “Revisar projeto” no contrato “Trincheira W3”.’", action: { type: "none", targetUrl: "", searchTerm: "" } };
+    const contractConditions = companyId != null ? eq(crs.companyId, companyId) : eq(crs.createdById, userId);
+    const contracts = await db.select({ id: crs.id, name: crs.name, code: crs.code }).from(crs).where(contractConditions).limit(200);
+    const normalizedContract = normalizeAssistantText(contractQuery);
+    const contract = contracts.find((item: any) => !normalizedContract || normalizeAssistantText(item.name).includes(normalizedContract) || normalizeAssistantText(item.code ?? "").includes(normalizedContract));
+    if (!contract) return { reply: contractQuery ? `Não encontrei o contrato ou projeto “${contractQuery}” no seu ambiente. Informe o nome exato para eu criar a tarefa no local correto.` : "Informe em qual contrato ou projeto devo criar a tarefa.", action: { type: "navigate", targetUrl: "/projects", searchTerm: contractQuery } };
+    const [phase] = await db.select({ id: kanbanPhases.id, name: kanbanPhases.name }).from(kanbanPhases).where(eq(kanbanPhases.crsId, contract.id)).orderBy(asc(kanbanPhases.position)).limit(1);
+    if (!phase) return { reply: "O contrato encontrado ainda não possui uma fase do Kanban para receber a nova tarefa.", action: { type: "navigate", targetUrl: `/kanban?crs=${contract.id}`, searchTerm: "" } };
+    const now = new Date();
+    const [result] = await db.insert(tasks).values({ crsId: contract.id, phaseId: phase.id, title: title.slice(0, 512), createdById: userId, position: Date.now() % 2000000000, createdAt: now, updatedAt: now, openedAt: now, statusChangedAt: now } as any);
+    const id = Number((result as any).insertId);
+    return { reply: `Criei a tarefa “${title}” no contrato “${contract.name}” e deixei na fase “${phase.name}”.`, action: { type: "navigate", targetUrl: `/tasks/${id}`, searchTerm: "" } };
+  }
+
+  const statusMatch = lower.match(/\b(conclu[ií]d[ao]s?|finalizad[ao]s?|bloquead[ao]s?|pendente|em andamento|arquivad[ao]s?|publicad[ao]s?|compartilhad[ao]s?)\b/);
+  if (!statusMatch) return { reply: "Informe o status desejado: concluída, em andamento, bloqueada, pendente, compartilhada ou arquivada.", action: { type: "none", targetUrl: "", searchTerm: "" } };
+  const statusText = normalizeAssistantText(statusMatch[1]);
+  const nextStatus = statusText.startsWith("conclu") || statusText.startsWith("finaliz") ? "published" : statusText.startsWith("bloque") ? "blocked" : statusText.startsWith("pend") ? "pending" : statusText.startsWith("arquiv") ? "archived" : statusText.startsWith("public") ? "published" : statusText.startsWith("compart") ? "shared" : "in_progress";
+  const quotedTask = quoted[0] || extractAssistantEntityQuery(message, ["tarefa", "tarefas", "demanda", "demandas", "atividade", "atividades"]);
+  const taskQuery = cleanEntity(quotedTask).replace(/\b(?:status|como|para)\b.*$/i, "").trim();
+  const taskConditions = companyId != null ? eq(crs.companyId, companyId) : eq(tasks.createdById, userId);
+  const candidates = await db.select({ id: tasks.id, title: tasks.title, crsId: tasks.crsId, projectName: crs.name, phaseId: tasks.phaseId }).from(tasks).innerJoin(crs, eq(tasks.crsId, crs.id)).where(taskConditions).limit(300);
+  const normalizedTask = normalizeAssistantText(taskQuery);
+  const matches = candidates.filter((task: any) => !normalizedTask || normalizeAssistantText(task.title).includes(normalizedTask) || String(task.id) === taskQuery);
+  if (matches.length !== 1) {
+    if (matches.length > 1) return { reply: `Encontrei ${matches.length} tarefas compatíveis. Informe o nome completo ou o número da tarefa para eu alterar o status correto.`, action: { type: "navigate", targetUrl: "/kanban", searchTerm: taskQuery } };
+    return { reply: `Não encontrei uma tarefa correspondente a “${taskQuery || "esse comando"}” no seu ambiente.`, action: { type: "navigate", targetUrl: "/kanban", searchTerm: taskQuery } };
+  }
+  const target = matches[0];
+  const now = new Date();
+  const phaseUpdate = nextStatus === "published" ? await db.select({ id: kanbanPhases.id }).from(kanbanPhases).where(and(eq(kanbanPhases.crsId, target.crsId), eq(kanbanPhases.isTerminal, true))).orderBy(asc(kanbanPhases.position)).limit(1) : nextStatus === "in_progress" ? await db.select({ id: kanbanPhases.id }).from(kanbanPhases).where(and(eq(kanbanPhases.crsId, target.crsId), eq(kanbanPhases.isTerminal, false))).orderBy(asc(kanbanPhases.position)).limit(1) : [];
+  await db.update(tasks).set({ status: nextStatus as any, ...(phaseUpdate[0] ? { phaseId: phaseUpdate[0].id } : {}), statusChangedAt: now, completedAt: nextStatus === "published" ? now : null, updatedAt: now } as any).where(eq(tasks.id, target.id));
+  return { reply: `Atualizei o status da tarefa “${target.title}” para “${statusText}”.`, action: { type: "navigate", targetUrl: `/tasks/${target.id}`, searchTerm: "" } };
 }
 
 async function resolveDirectNavigation(db: any, userId: number, companyId: number | null, message: string) {
