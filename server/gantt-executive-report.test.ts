@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildGanttExecutiveChartData,
   buildGanttExecutivePeriodLabel,
   buildGanttPdfFileName,
   buildGanttTaskReportLink,
@@ -22,6 +23,13 @@ describe("gantt executive report", () => {
       dependenciesDeleted: 1,
       affectedTasks: 2,
     });
+  });
+
+  it("builds operation, daily and affected-task chart series from real entries", () => {
+    const chartData = buildGanttExecutiveChartData(entries);
+    expect(chartData.operationBreakdown.map((item) => item.value)).toEqual([1, 1, 1]);
+    expect(chartData.dailyVolume).toEqual([{ label: "17/08", value: 3 }]);
+    expect(chartData.topAffectedTasks).toEqual([{ label: "Tarefa A", value: 2 }, { label: "Tarefa C", value: 1 }]);
   });
 
   it("formats the selected calendar period without timezone drift", () => {

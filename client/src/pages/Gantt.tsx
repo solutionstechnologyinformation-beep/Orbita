@@ -22,7 +22,7 @@ import { formatDateInput, parseDateInput } from "../../../shared/date-only";
 import { getCriticalTaskIds } from "@/lib/gantt-critical";
 import { buildGanttHistoryCsv, getGanttHistoryOperationLabel } from "../../../shared/gantt-history";
 import { calculateDateEditRange, canCreateDependency } from "@/lib/gantt-interaction";
-import { buildGanttExecutivePeriodLabel, buildGanttPdfFileName, buildGanttTaskReportLink, getExecutiveOperationLabel, summarizeGanttEntries, type GanttExecutiveEntry } from "../../../shared/gantt-executive-report";
+import { buildGanttExecutiveChartData, buildGanttExecutivePeriodLabel, buildGanttPdfFileName, buildGanttTaskReportLink, getExecutiveOperationLabel, summarizeGanttEntries, type GanttExecutiveEntry } from "../../../shared/gantt-executive-report";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -620,6 +620,7 @@ export default function Gantt() {
     }
     const executiveEntries = entries as GanttExecutiveEntry[];
     const summary = summarizeGanttEntries(executiveEntries);
+    const chartData = buildGanttExecutiveChartData(executiveEntries);
     const companyName = String((user as any)?.company || "Órbita");
     const periodLabel = buildGanttExecutivePeriodLabel(historyFromDate || undefined, historyToDate || undefined);
     const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -708,6 +709,110 @@ export default function Gantt() {
       doc.setFont("helvetica", "normal");
     });
     y += 32;
+
+    const chartGap = 6;
+    const chartW = (contentW - chartGap) / 2;
+    const chartH = 52;
+    const chartY = y;
+    const drawChartCard = (x: number, title: string) => {
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, chartY, chartW, chartH, 3, 3, "FD");
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text(title, x + 6, chartY + 8);
+    };
+    drawChartCard(margin, "Distribuição por tipo");
+    const operationMax = Math.max(1, ...chartData.operationBreakdown.map((item) => item.value));
+    chartData.operationBreakdown.forEach((item, index) => {
+      const rowY = chartY + 16 + index * 10;
+      const barX = margin + 48;
+      const barW = chartW - 62;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(item.label, margin + 6, rowY + 3);
+      doc.setFillColor(226, 232, 240);
+      doc.roundedRect(barX, rowY, barW, 4, 1.5, 1.5, "F");
+      doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+      doc.roundedRect(barX, rowY, Math.max(item.value > 0 ? 2 : 0, barW * item.value / operationMax), 4, 1.5, 1.5, "F");
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(item.value), margin + chartW - 9, rowY + 3);
+    });
+
+    const dailyX = margin + chartW + chartGap;
+    drawChartCard(dailyX, "Volume diário de alterações");
+    const dailySeries = chartData.dailyVolume;
+    const dailyMax = Math.max(1, ...dailySeries.map((item) => item.value));
+    const plotX = dailyX + 7;
+    const plotY = chartY + 15;
+    const plotW = chartW - 14;
+    const plotH = 26;
+    const baselineY = plotY + plotH;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.25);
+    doc.line(plotX, baselineY, plotX + plotW, baselineY);
+    if (dailySeries.length > 0) {
+      const step = dailySeries.length === 1 ? 0 : plotW / (dailySeries.length - 1);
+      const points = dailySeries.map((item, index) => ({ x: plotX + index * step, y: baselineY - (item.value / dailyMax) * plotH }));
+      doc.setDrawColor(37, 99, 235);
+      doc.setLineWidth(0.8);
+      points.forEach((point, index) => {
+        if (index > 0) doc.line(points[index - 1].x, points[index - 1].y, point.x, point.y);
+        doc.setFillColor(37, 99, 235);
+        doc.circle(point.x, point.y, 1.1, "F");
+      });
+      const labelStep = Math.max(1, Math.ceil(dailySeries.length / 6));
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(5.5);
+      doc.setTextColor(100, 116, 139);
+      dailySeries.forEach((item, index) => {
+        if (index % labelStep === 0 || index === dailySeries.length - 1) doc.text(item.label, points[index].x, baselineY + 7, { align: "center" });
+      });
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Sem alterações datadas", dailyX + chartW / 2, chartY + 32, { align: "center" });
+    }
+
+    const taskChartY = chartY + chartH + 6;
+    const taskChartH = 30 + Math.max(1, chartData.topAffectedTasks.length) * 7;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, taskChartY, contentW, taskChartH, 3, 3, "FD");
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("Tarefas mais afetadas", margin + 6, taskChartY + 8);
+    const taskMax = Math.max(1, ...chartData.topAffectedTasks.map((item) => item.value));
+    if (chartData.topAffectedTasks.length === 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Nenhuma tarefa identificada", margin + 6, taskChartY + 21);
+    } else {
+      chartData.topAffectedTasks.forEach((item, index) => {
+        const rowY = taskChartY + 14 + index * 7;
+        const label = item.label.length > 42 ? `${item.label.slice(0, 39)}...` : item.label;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text(label, margin + 6, rowY + 3);
+        const barX = margin + 78;
+        const barW = contentW - 96;
+        doc.setFillColor(226, 232, 240);
+        doc.roundedRect(barX, rowY, barW, 4, 1.5, 1.5, "F");
+        doc.setFillColor(234, 179, 8);
+        doc.roundedRect(barX, rowY, Math.max(2, barW * item.value / taskMax), 4, 1.5, 1.5, "F");
+        doc.setTextColor(15, 23, 42);
+        doc.setFont("helvetica", "bold");
+        doc.text(String(item.value), pageW - margin - 6, rowY + 3, { align: "right" });
+      });
+    }
+    y = taskChartY + taskChartH + 8;
 
     doc.setTextColor(15, 23, 42);
     doc.setFont("helvetica", "bold");
