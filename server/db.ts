@@ -6,7 +6,7 @@ import { normalizeChatActivitySnapshot } from "../shared/chat-activity";
 import { propagateTaskDates } from "../shared/gantt-cascade";
 import { sumContractAreasM2 } from "../shared/area";
 import {
-  users, clients, crs, kanbanPhases, tasks, taskDependencies, taskAttachments, checklistItems,
+  users, clients, crs, kanbanPhases, tasks, taskDependencies, ganttChangeLogs, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
@@ -630,6 +630,16 @@ export async function updateTaskDatesWithCascade(rootTaskId: number, startDate: 
   const updates = propagateTaskDates(taskRows, dependencyRows, rootTaskId, startDate, endDate);
   if (updates.length === 0) return { updatedTaskIds: [] as number[], propagatedTaskIds: [] as number[] };
 
+  const beforeById = new Map<number, { startDate: Date | null; endDate: Date | null; dueDate: Date | null }>(taskRows.map((task: any) => [task.id, { startDate: task.startDate ?? null, endDate: task.endDate ?? null, dueDate: task.dueDate ?? null }]));
+  const changes = updates.map((update) => {
+    const before = beforeById.get(update.id);
+    return {
+      taskId: update.id,
+      before: before ? { startDate: before.startDate, endDate: before.endDate, dueDate: before.dueDate } : null,
+      after: { startDate: update.startDate, endDate: update.endDate, dueDate: update.dueDate ?? before?.dueDate ?? null },
+    };
+  });
+
   await db.transaction(async (transaction: any) => {
     for (const update of updates) {
       const updateData: Record<string, Date> = { startDate: update.startDate, endDate: update.endDate };
@@ -640,6 +650,7 @@ export async function updateTaskDatesWithCascade(rootTaskId: number, startDate: 
   return {
     updatedTaskIds: updates.map((update) => update.id),
     propagatedTaskIds: updates.filter((update) => update.id !== rootTaskId).map((update) => update.id),
+    changes,
   };
 }
 
@@ -913,6 +924,68 @@ export async function updateDeadlineAlertDays(userId: number, days: number) {
     await db.execute(sql`UPDATE notification_preferences SET deadlineAlertDays = ${normalizedDays}, updatedAt = NOW() WHERE userId = ${userId}`);
   }
   return normalizedDays;
+}
+
+// ─── Gantt Change History ───────────────────────────────────────────────────────
+export async function createGanttChangeLog(data: {
+  companyId: number;
+  taskId: number;
+  relatedTaskId?: number;
+  dependencyId?: number;
+  changedById: number;
+  operation: "dates_updated" | "dependency_created" | "dependency_deleted";
+  beforeData?: string;
+  afterData?: string;
+}) {
+  const db = await getDb();
+  const [result] = await db.insert(ganttChangeLogs).values({
+    companyId: data.companyId,
+    taskId: data.taskId,
+    relatedTaskId: data.relatedTaskId,
+    dependencyId: data.dependencyId,
+    changedById: data.changedById,
+    operation: data.operation,
+    beforeData: data.beforeData,
+    afterData: data.afterData,
+  });
+  return Number((result as any).insertId);
+}
+
+export async function getGanttChangeLogs(filters: {
+  companyId: number;
+  taskId?: number;
+  changedById?: number;
+  operation?: "dates_updated" | "dependency_created" | "dependency_deleted";
+  limit?: number;
+}) {
+  const db = await getDb();
+  const relatedTasks = aliasedTable(tasks, "gantt_related_task");
+  const conditions = [eq(ganttChangeLogs.companyId, filters.companyId)];
+  if (filters.taskId != null) conditions.push(eq(ganttChangeLogs.taskId, filters.taskId));
+  if (filters.changedById != null) conditions.push(eq(ganttChangeLogs.changedById, filters.changedById));
+  if (filters.operation) conditions.push(eq(ganttChangeLogs.operation, filters.operation));
+  return db.select({
+    id: ganttChangeLogs.id,
+    companyId: ganttChangeLogs.companyId,
+    taskId: ganttChangeLogs.taskId,
+    relatedTaskId: ganttChangeLogs.relatedTaskId,
+    dependencyId: ganttChangeLogs.dependencyId,
+    changedById: ganttChangeLogs.changedById,
+    operation: ganttChangeLogs.operation,
+    beforeData: ganttChangeLogs.beforeData,
+    afterData: ganttChangeLogs.afterData,
+    createdAt: ganttChangeLogs.createdAt,
+    taskTitle: tasks.title,
+    relatedTaskTitle: relatedTasks.title,
+    changedByName: users.name,
+    changedByEmail: users.email,
+  }).from(ganttChangeLogs)
+    .leftJoin(tasks, eq(ganttChangeLogs.taskId, tasks.id))
+    .leftJoin(relatedTasks, eq(ganttChangeLogs.relatedTaskId, relatedTasks.id))
+    .leftJoin(users, eq(ganttChangeLogs.changedById, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(ganttChangeLogs.createdAt))
+    .limit(Math.min(filters.limit ?? 200, 500));
 }
 
 // ─── Activity Logs ─────────────────────────────────────────────────────────────

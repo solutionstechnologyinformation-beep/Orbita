@@ -13,7 +13,7 @@ import {
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
   getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
-  getTasksByCrs, getTaskById, createTask, updateTask, updateTaskDatesWithCascade, deleteTask, recalcTaskProgress,
+  getTasksByCrs, getTaskById, createTask, updateTask, updateTaskDatesWithCascade, createGanttChangeLog, getGanttChangeLogs, deleteTask, recalcTaskProgress,
   getTaskComments, createTaskComment, deleteTaskComment,
   getChecklistItems, createChecklistItem, updateChecklistItem, deleteChecklistItem, getCrsDateRange,
   getChecklistItemComments, createChecklistItemComment,
@@ -724,6 +724,18 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getActivityLogs({ limit: input.limit ?? 200, userId: input.userId, entityType: input.entityType });
       }),
+    ganttHistory: adminProcedure
+      .input(z.object({
+        limit: z.number().int().positive().max(500).optional(),
+        taskId: z.number().int().positive().optional(),
+        changedById: z.number().int().positive().optional(),
+        operation: z.enum(["dates_updated", "dependency_created", "dependency_deleted"]).optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        const companyId = tenantCompanyId(ctx.user);
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "A empresa do usuário não foi definida." });
+        return getGanttChangeLogs({ companyId, ...input });
+      }),
   }),
 
   // ─── Clients ───────────────────────────────────────────────────────────────
@@ -1051,6 +1063,7 @@ export const appRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: "Uma tarefa não pode depender dela mesma." });
           }
           const companyId = tenantCompanyId(ctx.user);
+          if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "A empresa do usuário não foi definida." });
           const [predecessor, successor] = await Promise.all([
             getTaskById(input.predecessorTaskId, companyId),
             getTaskById(input.successorTaskId, companyId),
@@ -1085,8 +1098,18 @@ export const appRouter = router({
             dependencyType: input.dependencyType,
             createdById: ctx.user.id,
           });
-          await logActivity({ userId: ctx.user.id, action: "created_task_dependency", entityType: "task", entityId: input.successorTaskId });
-          return { id: Number((result as any).insertId), created: true };
+          const dependencyId = Number((result as any).insertId);
+          await createGanttChangeLog({
+            companyId,
+            taskId: input.successorTaskId,
+            relatedTaskId: input.predecessorTaskId,
+            dependencyId,
+            changedById: ctx.user.id,
+            operation: "dependency_created",
+            afterData: JSON.stringify({ dependencyType: input.dependencyType, predecessorTaskId: input.predecessorTaskId, successorTaskId: input.successorTaskId }),
+          });
+          await logActivity({ userId: ctx.user.id, action: "created_task_dependency", entityType: "task", entityId: input.successorTaskId, metadata: JSON.stringify({ dependencyId, predecessorTaskId: input.predecessorTaskId, dependencyType: input.dependencyType }) });
+          return { id: dependencyId, created: true };
         }),
       delete: adminProcedure
         .input(z.object({ id: z.number().int().positive() }))
@@ -1095,13 +1118,23 @@ export const appRouter = router({
           const [dependency] = await db.select().from(taskDependencies).where(eq(taskDependencies.id, input.id)).limit(1);
           if (!dependency) throw new TRPCError({ code: "NOT_FOUND", message: "Dependência não encontrada." });
           const companyId = tenantCompanyId(ctx.user);
+          if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "A empresa do usuário não foi definida." });
           const [predecessor, successor] = await Promise.all([
             getTaskById(dependency.predecessorTaskId, companyId),
             getTaskById(dependency.successorTaskId, companyId),
           ]);
           if (!predecessor || !successor) throw new TRPCError({ code: "NOT_FOUND", message: "Dependência fora do ambiente atual." });
           await db.delete(taskDependencies).where(eq(taskDependencies.id, input.id));
-          await logActivity({ userId: ctx.user.id, action: "deleted_task_dependency", entityType: "task", entityId: dependency.successorTaskId });
+          await createGanttChangeLog({
+            companyId,
+            taskId: dependency.successorTaskId,
+            relatedTaskId: dependency.predecessorTaskId,
+            dependencyId: dependency.id,
+            changedById: ctx.user.id,
+            operation: "dependency_deleted",
+            beforeData: JSON.stringify({ dependencyType: dependency.dependencyType, predecessorTaskId: dependency.predecessorTaskId, successorTaskId: dependency.successorTaskId }),
+          });
+          await logActivity({ userId: ctx.user.id, action: "deleted_task_dependency", entityType: "task", entityId: dependency.successorTaskId, metadata: JSON.stringify({ dependencyId: dependency.id, predecessorTaskId: dependency.predecessorTaskId, dependencyType: dependency.dependencyType }) });
           return { success: true };
         }),
     }),
@@ -1229,9 +1262,21 @@ export const appRouter = router({
         if (input.endDate < input.startDate) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "A data final não pode ser anterior à data inicial." });
         }
-        const result = await updateTaskDatesWithCascade(input.id, input.startDate, input.endDate, tenantCompanyId(ctx.user));
+        const companyId = tenantCompanyId(ctx.user);
+        if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "A empresa do usuário não foi definida." });
+        const result = await updateTaskDatesWithCascade(input.id, input.startDate, input.endDate, companyId);
         if (result.updatedTaskIds.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Tarefa não encontrada ou sem datas válidas." });
-        await logActivity({ userId: ctx.user.id, action: "updated_task_dates_cascade", entityType: "task", entityId: input.id });
+        for (const change of result.changes ?? []) {
+          await createGanttChangeLog({
+            companyId,
+            taskId: change.taskId,
+            changedById: ctx.user.id,
+            operation: "dates_updated",
+            beforeData: JSON.stringify(change.before),
+            afterData: JSON.stringify(change.after),
+          });
+        }
+        await logActivity({ userId: ctx.user.id, action: "updated_task_dates_cascade", entityType: "task", entityId: input.id, metadata: JSON.stringify({ updatedTaskIds: result.updatedTaskIds, propagatedTaskIds: result.propagatedTaskIds }) });
         return { ...result, propagatedCount: result.propagatedTaskIds.length };
       }),
     update: adminProcedure

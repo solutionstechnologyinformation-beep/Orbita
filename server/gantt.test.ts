@@ -31,5 +31,6 @@ describe("tasks.listForGantt", () => {
 
     expect(caller.tasks.listForGantt).toBeTypeOf("function");
     expect(caller.tasks.updateDatesCascade).toBeTypeOf("function");
+    expect(caller.registros.ganttHistory).toBeTypeOf("function");
   });
 });

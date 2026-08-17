@@ -220,6 +220,23 @@ export const taskDependencies = mysqlTable("task_dependencies", {
 export type TaskDependency = typeof taskDependencies.$inferSelect;
 export type InsertTaskDependency = typeof taskDependencies.$inferInsert;
 
+// ─── Gantt Change History ───────────────────────────────────────────────────────
+// Auditoria imutável de alterações de datas e dependências no cronograma.
+export const ganttChangeLogs = mysqlTable("gantt_change_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  taskId: int("taskId").notNull(),
+  relatedTaskId: int("relatedTaskId"),
+  dependencyId: int("dependencyId"),
+  changedById: int("changedById").notNull(),
+  operation: mysqlEnum("operation", ["dates_updated", "dependency_created", "dependency_deleted"]).notNull(),
+  beforeData: text("beforeData"),
+  afterData: text("afterData"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type GanttChangeLog = typeof ganttChangeLogs.$inferSelect;
+export type InsertGanttChangeLog = typeof ganttChangeLogs.$inferInsert;
+
 // ─── Task Attachments ─────────────────────────────────────────────────────────
 // A tabela já existe no banco; os bytes ficam no S3 e apenas os metadados são persistidos aqui.
 export const taskAttachments = mysqlTable("task_attachments", {

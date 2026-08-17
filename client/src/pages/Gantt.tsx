@@ -42,6 +42,7 @@ import {
   ZoomOut,
   Route,
   GripVertical,
+  History,
 } from "lucide-react";
 
 const LEFT_WIDTH = 350;
@@ -95,6 +96,7 @@ type TimelineGroup = {
 type DependencyDraft = { predecessorTaskId: number; x: number; y: number };
 type DateEditMode = "move" | "resize-start" | "resize-end";
 type DateEditDraft = { taskId: number; mode: DateEditMode; initialStart: string; initialEnd: string; pointerStartX: number; previewStart: string; previewEnd: string };
+type GanttAuditEntry = { id: number; taskId: number; relatedTaskId: number | null; changedById: number; operation: "dates_updated" | "dependency_created" | "dependency_deleted"; beforeData: string | null; afterData: string | null; createdAt: Date | string; taskTitle: string | null; relatedTaskTitle: string | null; changedByName: string | null; changedByEmail: string | null };
 
 type TimelineRow =
   | { kind: "group"; key: string; label: string }
@@ -148,6 +150,25 @@ function getTaskStatusLabel(task: TaskItem, today: Date) {
   return task.phaseName || "Em andamento";
 }
 
+function parseAuditData(value: string | null | undefined) {
+  if (!value) return null;
+  try { return JSON.parse(value) as Record<string, unknown>; } catch { return null; }
+}
+
+function auditDate(value: unknown) {
+  if (!value) return "sem data";
+  const date = asDate(String(value));
+  return date ? formatShortDate(date) : String(value);
+}
+
+function describeGanttAudit(entry: { operation: string; beforeData?: string | null; afterData?: string | null }) {
+  const before = parseAuditData(entry.beforeData);
+  const after = parseAuditData(entry.afterData);
+  if (entry.operation === "dates_updated") return `Datas: ${auditDate(before?.startDate)} → ${auditDate(after?.startDate)}; final ${auditDate(before?.endDate)} → ${auditDate(after?.endDate)}`;
+  const dependency = after ?? before;
+  return `Dependência: tarefa #${String(dependency?.predecessorTaskId ?? "?")} → tarefa #${String(dependency?.successorTaskId ?? "?")} (${String(dependency?.dependencyType ?? "finish_to_start")})`;
+}
+
 export default function Gantt() {
   const [filterClientId, setFilterClientId] = useState<number | undefined>();
   const [filterCrsId, setFilterCrsId] = useState<number | undefined>();
@@ -166,6 +187,8 @@ export default function Gantt() {
   const [showFilters, setShowFilters] = useState(false);
   const [autoAligned, setAutoAligned] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [showGanttHistory, setShowGanttHistory] = useState(false);
+  const [historyOperation, setHistoryOperation] = useState<"all" | "dates_updated" | "dependency_created" | "dependency_deleted">("all");
   const [printOrientation, setPrintOrientation] = useState<ReportOrientation>("landscape");
   const [printScale, setPrintScale] = useState<ReportScale>("standard");
   const [, navigate] = useLocation();
@@ -233,6 +256,8 @@ export default function Gantt() {
     assigneeId: filterUserId,
   }), [filterClientId, filterCrsId, filterSetor, filterUserId]);
   const ganttQ = trpc.tasks.listForGantt.useQuery(ganttInput);
+  const ganttHistoryInput = useMemo(() => ({ limit: 300, operation: historyOperation === "all" ? undefined : historyOperation }), [historyOperation]);
+  const ganttHistoryQ = trpc.registros.ganttHistory.useQuery(ganttHistoryInput, { enabled: showGanttHistory });
   const allTasks = useMemo(() => (ganttQ.data ?? []) as TaskItem[], [ganttQ.data]);
   const today = useMemo(() => startOfDay(new Date()), []);
 
@@ -563,6 +588,7 @@ export default function Gantt() {
               <Button variant="outline" size="sm" onClick={() => moveTimeline(-1)} aria-label="Período anterior"><ChevronLeft className="w-4 h-4" /></Button>
               <Button variant="outline" size="sm" onClick={() => moveTimeline(1)} aria-label="Próximo período"><ChevronRight className="w-4 h-4" /></Button>
               <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={() => setShowPrintOptions(true)}><Download className="w-4 h-4" /><span className="hidden sm:inline">PDF</span></Button>
+              <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={() => setShowGanttHistory(true)}><History className="w-4 h-4" /><span className="hidden sm:inline">Histórico</span></Button>
               <Button variant="ghost" size="icon" aria-label="Mais opções"><MoreHorizontal className="w-4 h-4" /></Button>
             </div>
           </div>
@@ -758,6 +784,48 @@ export default function Gantt() {
             </div>
           </div>
         )}
+
+        <Dialog open={showGanttHistory} onOpenChange={setShowGanttHistory}>
+          <DialogContent className="w-[calc(100%-2rem)] max-w-3xl rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Histórico de alterações do Gantt</DialogTitle>
+              <DialogDescription>Veja quem alterou datas e dependências, com os valores anteriores e posteriores. Os registros são isolados por empresa.</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-3">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                <Filter className="h-3.5 w-3.5" /> Operação
+                <select value={historyOperation} onChange={(event) => setHistoryOperation(event.target.value as typeof historyOperation)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
+                  <option value="all">Todas</option>
+                  <option value="dates_updated">Datas atualizadas</option>
+                  <option value="dependency_created">Dependência criada</option>
+                  <option value="dependency_deleted">Dependência excluída</option>
+                </select>
+              </label>
+              <span className="text-xs text-slate-500">{ganttHistoryQ.data?.length ?? 0} registro(s)</span>
+            </div>
+            <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {ganttHistoryQ.isLoading && <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Carregando histórico...</div>}
+              {ganttHistoryQ.error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Não foi possível carregar o histórico: {ganttHistoryQ.error.message}</div>}
+              {!ganttHistoryQ.isLoading && !ganttHistoryQ.error && (ganttHistoryQ.data ?? []).length === 0 && <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Nenhuma alteração de Gantt registrada para este filtro.</div>}
+              {(ganttHistoryQ.data ?? []).map((entry: GanttAuditEntry) => {
+                const operationLabel = entry.operation === "dates_updated" ? "Datas atualizadas" : entry.operation === "dependency_created" ? "Dependência criada" : "Dependência excluída";
+                const operationColor = entry.operation === "dates_updated" ? "bg-blue-50 text-blue-700" : entry.operation === "dependency_created" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700";
+                return <div key={entry.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">{entry.taskTitle || `Tarefa #${entry.taskId}`}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{entry.relatedTaskTitle ? `Relacionado a ${entry.relatedTaskTitle}` : "Alteração direta na tarefa"}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${operationColor}`}>{operationLabel}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600">{describeGanttAudit(entry)}</p>
+                  <p className="mt-2 text-[11px] text-slate-400">Por <strong className="font-semibold text-slate-600">{entry.changedByName || entry.changedByEmail || `Usuário #${entry.changedById}`}</strong> em {new Date(entry.createdAt).toLocaleString("pt-BR")}</p>
+                </div>;
+              })}
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setShowGanttHistory(false)}>Fechar</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showPrintOptions} onOpenChange={setShowPrintOptions}>
           <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">

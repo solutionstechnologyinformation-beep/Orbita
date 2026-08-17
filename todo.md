@@ -2137,3 +2137,4 @@
 - [x] Corrigir interações de arraste para mudar datas e criação de dependências por seta no Gantt
 - [x] Fixar coluna de tarefas e cabeçalho temporal no Gantt durante a rolagem e adicionar opção de mostrar dias
 
+- [x] Criar registro de histórico de alterações de datas e dependências no Gantt com painel de consulta
