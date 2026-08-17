@@ -43,6 +43,7 @@ const GROUP_ROW_HEIGHT = 46;
 const TASK_ROW_HEIGHT = 50;
 const CHECKLIST_ROW_HEIGHT = 36;
 const MONTH_COUNT = 3;
+const WEEK_COUNT = 14;
 
 type GroupMode = "discipline" | "crs" | "user";
 type ZoomLevel = "month" | "week" | "day";
@@ -144,7 +145,7 @@ export default function Gantt() {
   const [groupMode, setGroupMode] = useState<GroupMode>("discipline");
   const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [search, setSearch] = useState("");
-  const [timelineStart, setTimelineStart] = useState(() => startOfMonth(new Date()));
+  const [timelineStart, setTimelineStart] = useState(() => getWeekStart(startOfMonth(new Date())));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [autoAligned, setAutoAligned] = useState(false);
@@ -193,17 +194,16 @@ export default function Gantt() {
     if (autoAligned || filteredTasks.length === 0) return;
     const dates = filteredTasks.flatMap((task) => [asDate(task.startDate), asDate(task.endDate), asDate(task.dueDate)].filter(Boolean) as Date[]);
     if (dates.length > 0) {
-      setTimelineStart(startOfMonth(new Date(Math.min(...dates.map((date) => date.getTime())))));
+      const firstDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+      setTimelineStart(zoom === "week" ? getWeekStart(firstDate) : startOfMonth(firstDate));
       setAutoAligned(true);
     }
-  }, [autoAligned, filteredTasks]);
+  }, [autoAligned, filteredTasks, zoom]);
 
-  const dayWidth = zoom === "month" ? 14 : zoom === "week" ? 30 : 58;
-  const timelineEnd = addMonths(timelineStart, MONTH_COUNT);
+  const timelineUnitWidth = zoom === "week" ? 136 : 260;
+  const timelineEnd = zoom === "week" ? addDays(timelineStart, WEEK_COUNT * 7) : addMonths(timelineStart, MONTH_COUNT);
   const totalDays = Math.max(1, dayDistance(timelineStart, timelineEnd));
   const days = useMemo(() => Array.from({ length: totalDays }, (_, index) => addDays(timelineStart, index)), [timelineStart, totalDays]);
-  const totalTimelineWidth = totalDays * dayWidth;
-  const todayColumn = dayDistance(timelineStart, today);
 
   const monthGroups = useMemo(() => {
     const groups: Array<{ label: string; start: number; count: number }> = [];
@@ -228,6 +228,21 @@ export default function Gantt() {
     });
     return groups;
   }, [days]);
+
+  const timelineGroups = zoom === "week" ? weekGroups : monthGroups;
+  const totalTimelineWidth = timelineGroups.length * timelineUnitWidth;
+
+  const getTimelineX = (value: Date) => {
+    const offset = Math.max(0, Math.min(totalDays - 1, dayDistance(timelineStart, value)));
+    const groupIndex = timelineGroups.findIndex((group) => offset >= group.start && offset < group.start + group.count);
+    const safeGroupIndex = groupIndex >= 0 ? groupIndex : timelineGroups.length - 1;
+    const group = timelineGroups[safeGroupIndex];
+    if (!group) return 0;
+    const withinGroup = Math.max(0, offset - group.start);
+    return safeGroupIndex * timelineUnitWidth + (withinGroup / Math.max(1, group.count)) * timelineUnitWidth;
+  };
+
+  const todayX = getTimelineX(today);
 
   const grouped = useMemo<TimelineGroup[]>(() => {
     const groups = new Map<string, Map<string, TaskItem[]>>();
@@ -281,12 +296,13 @@ export default function Gantt() {
   }
 
   function moveTimeline(months: number) {
-    setTimelineStart((current) => addMonths(current, months));
+    setTimelineStart((current) => zoom === "week" ? addDays(current, months * 28) : addMonths(current, months));
     setAutoAligned(true);
   }
 
   function resetToday() {
-    setTimelineStart(startOfMonth(new Date()));
+    const current = new Date();
+    setTimelineStart(zoom === "week" ? getWeekStart(current) : startOfMonth(current));
     setAutoAligned(true);
   }
 
@@ -294,8 +310,8 @@ export default function Gantt() {
     const range = taskRange(task);
     if (!range.start) return null;
     const end = range.end ?? range.start;
-    const left = dayDistance(timelineStart, range.start) * dayWidth;
-    const width = Math.max(dayWidth * 0.9, (dayDistance(range.start, end) + 1) * dayWidth - 5);
+    const left = getTimelineX(range.start);
+    const width = Math.max(zoom === "week" ? 18 : 28, getTimelineX(addDays(end, 1)) - left - 5);
     return { left, width, color: getBarColor(task, today), milestone: dayDistance(range.start, end) === 0 };
   }
 
@@ -345,9 +361,7 @@ export default function Gantt() {
     setTimeout(() => popup.print(), 500);
   }
 
-  const gridBackground = zoom === "week"
-    ? `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.10) ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.10) ${dayWidth}px), repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth * 7 - 2, 1)}px, rgba(59,130,246,.30) ${Math.max(dayWidth * 7 - 2, 1)}px, rgba(59,130,246,.30) ${dayWidth * 7}px)`
-    : `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${dayWidth}px)`;
+  const gridBackground = `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(timelineUnitWidth - 1, 1)}px, rgba(59,130,246,.24) ${Math.max(timelineUnitWidth - 1, 1)}px, rgba(59,130,246,.24) ${timelineUnitWidth}px)`;
 
   return (
     <AppLayout title="Linha do tempo" fullHeight>
@@ -374,13 +388,13 @@ export default function Gantt() {
             </div>
             <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
             <div className="flex w-full items-center rounded-md border border-slate-200 bg-white p-0.5 sm:w-auto">
-              {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
+              {(["month", "week"] as ZoomLevel[]).map((level) => (
                 <button key={level} onClick={() => { setZoom(level); if (level === "week") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-                  {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dia"}
+                  {level === "month" ? "Mês" : "Semana"}
                 </button>
               ))}
             </div>
-            <div className="hidden items-center gap-1 ml-auto text-xs text-slate-500 sm:flex"><ZoomOut className="w-3.5 h-3.5" />{dayWidth}px<ZoomIn className="w-3.5 h-3.5" /></div>
+            <div className="hidden items-center gap-1 ml-auto text-xs text-slate-500 sm:flex"><ZoomOut className="w-3.5 h-3.5" />{zoom === "week" ? "Semanas" : "Meses"}<ZoomIn className="w-3.5 h-3.5" /></div>
           </div>
 
           {showFilters && (
@@ -486,24 +500,15 @@ export default function Gantt() {
         {!ganttQ.isLoading && filteredTasks.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">Nenhuma tarefa encontrada para os filtros atuais.</div>}
 
         {!ganttQ.isLoading && filteredTasks.length > 0 && (
-          <div className="hidden flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden md:block">
-            <div ref={timelineRef} className="h-full overflow-auto">
+          <div className="hidden min-w-0 flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden md:block">
+            <div ref={timelineRef} className="h-full min-w-0 overflow-auto overscroll-contain">
               <div style={{ width: LEFT_WIDTH + totalTimelineWidth, minWidth: "100%" }}>
                 <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px` }}>
-                  <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
-                  <div className="relative overflow-hidden">
-                    <div className="flex h-12 bg-[#f8fafc]">
-                      {monthGroups.map((month) => <div key={month.label} className="flex items-center justify-center border-r border-slate-200 text-xs font-bold uppercase text-slate-500" style={{ width: month.count * dayWidth }}>{month.label}</div>)}
+                  <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[3px_0_8px_rgba(15,23,42,0.08)]">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
+                  <div className="relative overflow-hidden" aria-label={zoom === "week" ? "Escala semanal" : "Escala mensal"}>
+                    <div className="flex h-12 bg-[#f8fafc]" style={{ backgroundImage: gridBackground }}>
+                      {timelineGroups.map((group, index) => <div key={`${zoom}-${group.start}-${index}`} className="flex shrink-0 items-center justify-center border-r border-blue-200 px-2 text-[10px] font-bold uppercase text-slate-600" style={{ width: timelineUnitWidth }}>{group.label}</div>)}
                     </div>
-                    {zoom === "week" ? (
-                      <div className="absolute inset-x-0 bottom-0 flex h-6 border-t border-slate-200 bg-[#f8fafc]" aria-label="Semanas do período">
-                        {weekGroups.map((week) => <div key={week.key} className="flex shrink-0 items-center justify-center border-r border-blue-200 text-[10px] font-semibold text-slate-600" style={{ width: week.count * dayWidth }}>{week.label}</div>)}
-                      </div>
-                    ) : (
-                      <div className="absolute inset-x-0 bottom-0 flex h-6 border-t border-slate-200" style={{ backgroundImage: gridBackground }}>
-                        {days.map((day, index) => <div key={index} className={`shrink-0 flex items-center justify-center text-[9px] ${day.getDay() === 0 || day.getDay() === 6 ? "text-slate-300" : "text-slate-500"}`} style={{ width: dayWidth }}>{zoom === "month" ? (day.getDate() === 1 || day.getDay() === 1 ? day.getDate() : "") : day.getDate()}</div>)}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -516,7 +521,7 @@ export default function Gantt() {
                   const isCollapsed = collapsed.has(row.key);
                   return (
                     <div key={row.key} className="grid border-b border-slate-100" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px`, height: rowHeight }}>
-                      <div className={`sticky left-0 z-20 flex items-center gap-2 border-r border-slate-200 px-3 ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : row.kind === "checklist" ? "bg-white pl-14" : "bg-white pl-5"}`}>
+                      <div className={`sticky left-0 z-20 flex items-center gap-2 border-r border-slate-200 px-3 shadow-[3px_0_8px_rgba(15,23,42,0.06)] ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : row.kind === "checklist" ? "bg-white pl-14" : "bg-white pl-5"}`}>
                         {isGroup && <button className="rounded p-1 hover:bg-blue-100" onClick={() => toggle(row.key)} aria-label={isCollapsed ? "Expandir grupo" : "Recolher grupo"}>{isCollapsed ? <ChevronRight className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-blue-600" />}</button>}
                         {isSubgroup && <button className="rounded p-1 hover:bg-slate-200" onClick={() => toggle(row.key)} aria-label={isCollapsed ? "Expandir responsável" : "Recolher responsável"}>{isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}</button>}
                         {isGroup && <span className="w-2 h-2 rounded-full bg-blue-500" />}
@@ -528,8 +533,8 @@ export default function Gantt() {
                         {row.kind === "task" && <span className="ml-auto hidden shrink-0 text-[10px] text-slate-400 xl:inline">TBT-{row.task.id}</span>}
                       </div>
                       <div className={`relative overflow-hidden ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : "bg-white"}`} style={{ backgroundImage: gridBackground }}>
-                        {todayColumn >= 0 && todayColumn < totalDays && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayColumn * dayWidth + dayWidth / 2 }} />}
-                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} className={`absolute z-20 flex items-center gap-1 overflow-hidden rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, dayWidth) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
+                        {todayX >= 0 && todayX < totalTimelineWidth && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayX }} />}
+                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} className={`absolute z-20 flex items-center gap-1 overflow-hidden rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}

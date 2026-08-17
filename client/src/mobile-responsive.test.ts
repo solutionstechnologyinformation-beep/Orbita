@@ -26,7 +26,7 @@ describe("experiência mobile do Orbita", () => {
   it("oferece resumo vertical do Gantt no celular e preserva a timeline horizontal no desktop", () => {
     expect(ganttSource).toContain('aria-label="Resumo mobile do Gantt"');
     expect(ganttSource).toContain("md:hidden");
-    expect(ganttSource).toContain("hidden flex-1 min-h-0");
+    expect(ganttSource).toContain("hidden min-w-0 flex-1 min-h-0");
     expect(ganttSource).toContain('role="progressbar"');
     expect(ganttSource).toContain('aria-label="Período anterior"');
     expect(ganttSource).toContain('aria-label="Próximo período"');

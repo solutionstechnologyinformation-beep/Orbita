@@ -2080,3 +2080,9 @@
 - [x] Substituir a leitura principal diária por uma escala visual organizada por semanas, mantendo o posicionamento preciso das tarefas
 - [x] Exibir no hover das barras o dia exato de início, término e duração da tarefa
 - [x] Validar a visualização semanal em desktop e mobile, atualizar testes e salvar checkpoint
+
+## Refinamento da área gráfica do Gantt
+- [x] Manter a coluna com os nomes das tarefas fixa durante a rolagem horizontal
+- [x] Limitar a rolagem ao canvas temporal e exibir apenas o conteúdo que cabe na área gráfica
+- [x] Restringir os controles de escala aos modos Mês e Semana, sem colunas diárias
+- [x] Validar desktop e mobile, atualizar testes e salvar checkpoint
