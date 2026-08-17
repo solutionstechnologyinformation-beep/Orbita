@@ -700,6 +700,16 @@ html.theme-transition body *::after {
 }
 
 /* ── Component utilities ─────────────────────────────────────────────────── */
+.global-period-select option {
+  color: #000000;
+  background-color: #ffffff;
+}
+
+.dark .global-period-select option {
+  color: #f8fafc;
+  background-color: #0f172a;
+}
+
 @layer components {
   /* Scrollbar */
   ::-webkit-scrollbar { width: 5px; height: 5px; }

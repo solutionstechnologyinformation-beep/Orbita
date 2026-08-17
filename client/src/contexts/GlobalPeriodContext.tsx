@@ -121,7 +121,7 @@ export function GlobalPeriodControl({ className = "" }: { className?: string }) 
         id="global-period-filter"
         value={preset}
         onChange={(event) => setPreset(event.target.value as GlobalPeriodPreset)}
-        className="min-w-[132px] max-w-full bg-transparent font-semibold text-foreground outline-none"
+        className="global-period-select min-w-[132px] max-w-full bg-transparent font-semibold text-foreground outline-none"
         aria-label={`Filtro global por período. Selecionado: ${label}`}
       >
         {GLOBAL_PERIOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

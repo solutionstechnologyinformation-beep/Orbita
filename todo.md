@@ -2045,3 +2045,8 @@
 - [x] Implementar a navegação automática de rota e foco ao clicar em Próximo ou Anterior no tour
 - [x] Adicionar orientações detalhadas de uso para cada ferramenta nas etapas do tour
 - [x] Escrever testes unitários em `GuidedTourModal.test.ts`, validar TypeScript, build e salvar checkpoint
+
+## Ajuste de Contraste do Seletor de Período
+- [x] Localizar o componente e classes CSS do seletor de período no Dashboard (`GlobalPeriodContext.tsx`)
+- [x] Forçar cor preta para o texto das opções exibidas sobre fundo branco, mantendo compatibilidade com o tema escuro (`index.css`)
+- [x] Validar TypeScript, build, suíte de testes e salvar checkpoint
