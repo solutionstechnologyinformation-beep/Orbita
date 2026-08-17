@@ -330,6 +330,20 @@ export default function Gantt() {
   }, [ganttDigestQ.data]);
   const today = useMemo(() => startOfDay(new Date()), []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTaskId = Number(params.get("taskId"));
+    const shouldOpenHistory = params.get("history") === "1";
+    if (Number.isInteger(requestedTaskId) && requestedTaskId > 0) {
+      setHistoryTaskId(requestedTaskId);
+      if (shouldOpenHistory) setShowGanttHistory(true);
+      params.delete("taskId");
+      params.delete("history");
+      const query = params.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    }
+  }, []);
+
   const filteredTasks = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase();
     if (!normalized) return allTasks;

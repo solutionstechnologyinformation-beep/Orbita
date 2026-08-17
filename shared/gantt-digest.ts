@@ -15,6 +15,17 @@ export function buildGanttDigestWindow(now = new Date()): GanttDigestWindow {
   };
 }
 
+export function buildGanttTaskDeepLink(baseUrl: string, taskId: number) {
+  if (!Number.isInteger(taskId) || taskId <= 0) throw new Error("taskId inválido");
+  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const parsedBaseUrl = new URL(normalizedBaseUrl);
+  if (parsedBaseUrl.protocol !== "https:" && parsedBaseUrl.protocol !== "http:") throw new Error("URL pública inválida");
+  const url = new URL("gantt", parsedBaseUrl);
+  url.searchParams.set("taskId", String(taskId));
+  url.searchParams.set("history", "1");
+  return url.toString();
+}
+
 export function buildWeeklyGanttDigestCron(dayOfWeek: number, hourUtc: number, minuteUtc: number) {
   if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) throw new Error("Dia da semana inválido.");
   if (!Number.isInteger(hourUtc) || hourUtc < 0 || hourUtc > 23) throw new Error("Hora UTC inválida.");

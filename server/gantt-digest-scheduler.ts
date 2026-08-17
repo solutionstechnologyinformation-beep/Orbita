@@ -14,6 +14,7 @@ export async function executeScheduledGanttDigestForTask(taskUid: string) {
   if (!company) return { success: true, skipped: true, reason: "company-not-found" } as const;
 
   const window = buildGanttDigestWindow();
+  const baseUrl = process.env.ORBITA_PUBLIC_URL || "https://orbita.manus.space";
   const entries = await getGanttChangeLogs({ companyId: schedule.companyId, fromDate: window.start, toDate: window.end, limit: 500 });
   const members = await getProjectMembers(schedule.companyId);
   const recipientIds = selectGanttManagerIds(members, -1);
@@ -35,6 +36,7 @@ export async function executeScheduledGanttDigestForTask(taskUid: string) {
     companyName: company.name,
     windowLabel: `${window.start.toLocaleDateString("pt-BR", { timeZone: "UTC" })} a ${window.end.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`,
     entries,
+    baseUrl,
   });
   if (result.sent === 0 && recipients.length > 0) {
     await db.update(ganttDigestSchedules).set({ lastDigestKey: null }).where(eq(ganttDigestSchedules.id, schedule.id));

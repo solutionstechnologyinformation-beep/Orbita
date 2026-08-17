@@ -2141,6 +2141,7 @@
 - [x] Adicionar exportação CSV, filtro por tarefa e notificações in-app ao histórico de alterações do Gantt
 
 ## Evolução do Histórico do Gantt (Filtro por Período, Comparação Visual e Resumo Semanal)
-- [ ] Adicionar filtro por período (data inicial e final) no painel de histórico do Gantt
-- [ ] Criar modal de comparação visual antes/depois das alterações no cronograma
-- [ ] Implementar resumo semanal por e-mail para gestores com Heartbeat e verificação idempotente
+- [x] Adicionar filtro por período (data inicial e final) no painel de histórico do Gantt
+- [x] Criar modal de comparação visual antes/depois das alterações no cronograma
+- [x] Implementar resumo semanal por e-mail para gestores com Heartbeat e verificação idempotente
+- [x] Adicionar links diretos no e-mail de resumo semanal do Gantt para abrir a tarefa alterada e seu histórico no Órbita
