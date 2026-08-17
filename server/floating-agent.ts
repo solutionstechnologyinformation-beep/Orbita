@@ -1,7 +1,7 @@
 import { getDb, getUserAiMemories, addUserAiMemory } from "./db";
 import { summarizeProjectReportByName } from "./project-report-summary";
 import { tasks, agendaEvents, crs } from "../drizzle/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt } from "drizzle-orm";
 import { invokeLLM } from "./_core/llm";
 import { processOperationalAgentCommand } from "./operational-agent";
 
@@ -55,6 +55,9 @@ export async function processFloatingAgentCommand(userId: number, companyId: num
       action: { type: "navigate", targetUrl: "/relatorios", searchTerm: "" },
     };
   }
+
+  const directNavigation = await resolveDirectNavigation(db, userId, companyId, trimmed);
+  if (directNavigation) return directNavigation;
 
   // Executar agente operacional estendido (mapa, relatórios PDF, zoom, filtros)
   const operationalRes = await processOperationalAgentCommand(userId, companyId, trimmed);
@@ -162,6 +165,77 @@ Regras para action.type:
   } catch (err: any) {
     return fallbackFloatingAgentResponse(trimmed);
   }
+}
+
+async function resolveDirectNavigation(db: any, userId: number, companyId: number | null, message: string) {
+  const lower = normalizeAssistantText(message);
+  const asksTask = /\b(tarefa|tarefas|demanda|demandas|atividade|atividades)\b/.test(lower);
+  const asksContract = /\b(contrato|contratos|crs|projeto|projetos)\b/.test(lower);
+  const asksNavigation = /\b(abrir|abra|ir para|me leve|direcion|mostrar|mostre|acessar|acesso|ver)\b/.test(lower);
+  const asksOverdue = /\b(atrasad[ao]s?|vencid[ao]s?|fora do prazo|em atraso)\b/.test(lower);
+  if ((!asksTask && !asksContract) || (!asksNavigation && !asksOverdue)) return null;
+
+  const scope = companyId != null ? eq(crs.companyId, companyId) : eq(tasks.createdById, userId);
+  const quotedQuery = message.match(/["“”']([^"“”']+)["“”']/)?.[1] ?? "";
+  const taskQuery = quotedQuery || extractAssistantEntityQuery(message, ["tarefa", "tarefas", "demanda", "demandas", "atividade", "atividades"]);
+  const contractQuery = quotedQuery || extractAssistantEntityQuery(message, ["contrato", "contratos", "crs", "projeto", "projetos"]);
+  const genericWords = new Set(["a", "o", "as", "os", "uma", "um", "mais", "urgente", "atrasada", "atrasado", "atrasadas", "atrasados", "vencida", "vencido", "vencidas", "vencidos", "em", "do", "da", "de", "para", "me", "por", "favor", "que", "está", "esta", "estao", "estão", "abrir", "abra", "mostrar", "mostre", "ver", "ir", "leve", "direcionar"]);
+  const matchesQuery = (value: string | null | undefined, query: string) => {
+    const normalizedValue = normalizeAssistantText(value ?? "");
+    const terms = normalizeAssistantText(query).split(/\s+/).filter((term) => term.length > 2 && !genericWords.has(term));
+    return terms.length > 0 && terms.every((term) => normalizedValue.includes(term));
+  };
+
+  if (asksTask) {
+    const overdueCondition = asksOverdue
+      ? and(isNotNull(tasks.dueDate), lt(tasks.dueDate, new Date()))
+      : undefined;
+    const conditions = overdueCondition ? and(scope, overdueCondition) : scope;
+    const candidates = await db.select({
+      id: tasks.id,
+      title: tasks.title,
+      crsId: tasks.crsId,
+      crsName: crs.name,
+      dueDate: tasks.dueDate,
+    }).from(tasks).innerJoin(crs, eq(tasks.crsId, crs.id)).where(conditions).orderBy(tasks.dueDate, desc(tasks.priority)).limit(100);
+    const matching = taskQuery ? candidates.filter((task: any) => matchesQuery(task.title, taskQuery) || matchesQuery(task.crsName, taskQuery)) : candidates;
+    const target = matching[0];
+    if (target) {
+      const prefix = asksOverdue ? "Encontrei a tarefa em atraso" : "Encontrei a tarefa";
+      return {
+        reply: `${prefix} “${target.title}”${target.crsName ? ` no contrato “${target.crsName}”` : ""}. Estou abrindo o detalhe agora.`,
+        action: { type: "navigate", targetUrl: `/tasks/${target.id}`, searchTerm: "" },
+      };
+    }
+    if (asksOverdue) {
+      return { reply: "Não encontrei tarefas em atraso no seu ambiente atual. Vou abrir o Kanban para você revisar os prazos.", action: { type: "navigate", targetUrl: "/kanban", searchTerm: "" } };
+    }
+  }
+
+  if (asksContract) {
+    const contracts = await db.select({ id: crs.id, name: crs.name, code: crs.code }).from(crs).where(companyId != null ? eq(crs.companyId, companyId) : eq(crs.createdById, userId)).limit(100);
+    const target = contracts.find((contract: any) => matchesQuery(contract.name, contractQuery) || matchesQuery(contract.code, contractQuery))
+      ?? (contracts.length === 1 && asksNavigation ? contracts[0] : null);
+    if (target) {
+      return {
+        reply: `Encontrei o contrato “${target.name}”. Estou abrindo o Kanban desse contrato para você.`,
+        action: { type: "navigate", targetUrl: `/kanban?crs=${target.id}`, searchTerm: "" },
+      };
+    }
+    if (asksNavigation) return { reply: "Vou abrir a lista de projetos e contratos para você escolher o registro correto.", action: { type: "navigate", targetUrl: "/projects", searchTerm: "" } };
+  }
+
+  return null;
+}
+
+function normalizeAssistantText(value: string) {
+  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+}
+
+function extractAssistantEntityQuery(message: string, entityWords: string[]) {
+  const escaped = entityWords.join("|");
+  const match = message.match(new RegExp(`(?:${escaped})\\s+(.+)$`, "i"));
+  return (match?.[1] ?? "").replace(/\\b(atrasad[ao]s?|vencid[ao]s?|em atraso|fora do prazo)\\b/gi, " ").trim();
 }
 
 export function normalizeFloatingAgentResponse(value: any) {

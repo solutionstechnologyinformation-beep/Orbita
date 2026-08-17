@@ -3,6 +3,7 @@ import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
 import { normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import { normalizeChatActivitySnapshot } from "../shared/chat-activity";
+import { sumContractAreasM2 } from "../shared/area";
 import {
   users, clients, crs, kanbanPhases, tasks, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -1010,8 +1011,9 @@ export async function getDashboardStats(clientId?: number, company?: string, com
   const checklistProgress = totalChecklist > 0 ? Math.round((completedChecklist / totalChecklist) * 100) : 0;
   // Totais de extensao, area e perimetro urbano dos contratos
   const crsStats = await db.select({
-    totalArea: sql<number>`COALESCE(SUM(areaHa), 0)`,
-    totalPerimetro: sql<number>`COALESCE(SUM(perimetroUrbano), 0)`,
+    areaM2: crs.areaHa,
+    techDataByType: crs.techDataByType,
+    totalPerimetro: crs.perimetroUrbano,
   }).from(crs).where(crsConditions);
   const extensionRows = await db.select({
     tipoObra: crs.tipoObra,
@@ -1021,8 +1023,8 @@ export async function getDashboardStats(clientId?: number, company?: string, com
   const extensionSummary = aggregateExtensionByType(extensionRows);
   const totalExtensaoKm = extensionSummary.totalExtensaoKm;
   const extensaoByTipo = extensionSummary.extensaoByTipo;
-  const totalAreaHa = crsStats[0]?.totalArea ?? 0;
-  const totalPerimetroUrbano = crsStats[0]?.totalPerimetro ?? 0;
+  const totalAreaM2 = sumContractAreasM2(crsStats);
+  const totalPerimetroUrbano = crsStats.reduce((sum: number, row: { totalPerimetro: number | null }) => sum + (Number(row.totalPerimetro) || 0), 0);
   return {
     totalClients: totalClients[0]?.count ?? 0,
     totalCrs: totalCrs[0]?.count ?? 0,
@@ -1041,7 +1043,9 @@ export async function getDashboardStats(clientId?: number, company?: string, com
     // Totais de extensao, area e perimetro urbano
     totalExtensaoKm,
     extensaoByTipo,
-    totalAreaHa: Math.round(totalAreaHa * 100) / 100,
+    totalAreaM2,
+    // Compatibilidade temporária para consumidores antigos; o frontend usa totalAreaM2.
+    totalAreaHa: totalAreaM2,
     totalPerimetroUrbano: Math.round(totalPerimetroUrbano * 100) / 100,
   };
 }

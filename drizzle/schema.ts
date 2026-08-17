@@ -206,6 +206,20 @@ export const tasks = mysqlTable("tasks", {
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
 
+// ─── Task Dependencies ─────────────────────────────────────────────────────────
+// Relação predecessor -> sucessora. A tabela permite várias dependências por tarefa
+// e mantém o vínculo independente dos dados de apresentação do Gantt.
+export const taskDependencies = mysqlTable("task_dependencies", {
+  id: int("id").autoincrement().primaryKey(),
+  predecessorTaskId: int("predecessorTaskId").notNull(),
+  successorTaskId: int("successorTaskId").notNull(),
+  dependencyType: mysqlEnum("dependencyType", ["finish_to_start", "start_to_start", "finish_to_finish", "start_to_finish"]).default("finish_to_start").notNull(),
+  createdById: int("createdById").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TaskDependency = typeof taskDependencies.$inferSelect;
+export type InsertTaskDependency = typeof taskDependencies.$inferInsert;
+
 // ─── Task Attachments ─────────────────────────────────────────────────────────
 // A tabela já existe no banco; os bytes ficam no S3 e apenas os metadados são persistidos aqui.
 export const taskAttachments = mysqlTable("task_attachments", {

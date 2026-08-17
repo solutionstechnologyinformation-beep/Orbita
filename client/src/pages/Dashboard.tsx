@@ -2132,9 +2132,9 @@ ${buildOrbitaReportHeaderHtml({ title: "Atividade do Chat — Equipes & Comunica
                       iconBg="bg-blue-50"
                     />
                     <KpiCard
-                      label="Area Total"
+                      label="Área total (m²)"
                       periodLabel={globalPeriodLabel}
-                      value={`${(stats?.totalAreaHa ?? 0).toLocaleString("pt-BR")} ha`}
+                      value={`${(stats?.totalAreaM2 ?? stats?.totalAreaHa ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} m²`}
                       icon={<MapPin className="w-5 h-5 text-green-600" />}
                       iconBg="bg-green-50"
                     />
