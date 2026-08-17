@@ -2118,12 +2118,12 @@
 - [x] Adicionar testes de regressão, validar build e salvar checkpoint
 
 ## Correção de datas sem deslocamento de fuso
-- [ ] Identificar os pontos que convertem datas sem horário para UTC e causam a redução de um dia
-- [ ] Preservar exatamente o dia escolhido em tarefas, checklists, Kanban, Gantt e calendário
-- [ ] Manter timestamps com horário em UTC sem alterar eventos reais
-- [ ] Adicionar testes de regressão, validar build e salvar checkpoint
+- [x] Identificar os pontos que convertem datas sem horário para UTC e causam a redução de um dia
+- [x] Preservar exatamente o dia escolhido em tarefas, checklists, Kanban, Gantt e calendário
+- [x] Manter timestamps com horário em UTC sem alterar eventos reais
+- [x] Adicionar testes de regressão, validar build e salvar checkpoint
 - [x] Validar globalmente que data final nunca seja anterior à data inicial em tarefas, checklist, sprints, programação e férias
 - [x] Dar autonomia ao Assistente Orbita para direcionar o usuário a tarefas, contratos e projetos específicos mencionados ou sinalizados na conversa
-- [ ] Adicionar controle de zoom manual e expansão da área de visualização no Gantt para legibilidade das barras
-- [ ] Implementar sistema de dependências entre tarefas (antecessora/sucessora) com persistência e exibição gráfica
+- [x] Adicionar controle de zoom manual e expansão da área de visualização no Gantt para legibilidade das barras
+- [x] Implementar sistema de dependências entre tarefas (antecessora/sucessora) com persistência e exibição gráfica
 - [x] Mudar unidade de medida de área de Ha para m² em todo o sistema e corrigir a agregação dos dados de área dos contratos no Dashboard e painéis

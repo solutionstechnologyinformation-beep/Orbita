@@ -144,6 +144,7 @@ export default function Gantt() {
   const [filterUserId, setFilterUserId] = useState<number | undefined>();
   const [groupMode, setGroupMode] = useState<GroupMode>("discipline");
   const [zoom, setZoom] = useState<ZoomLevel>("week");
+  const [customUnitWidth, setCustomUnitWidth] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [timelineStart, setTimelineStart] = useState(() => getWeekStart(startOfMonth(new Date())));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -200,8 +201,9 @@ export default function Gantt() {
     }
   }, [autoAligned, filteredTasks, zoom]);
 
-  const timelineUnitWidth = zoom === "week" ? 136 : 260;
-  const timelineEnd = zoom === "week" ? addDays(timelineStart, WEEK_COUNT * 7) : addMonths(timelineStart, MONTH_COUNT);
+  const defaultUnitWidth = zoom === "day" ? 56 : zoom === "week" ? 136 : 260;
+  const timelineUnitWidth = customUnitWidth ?? defaultUnitWidth;
+  const timelineEnd = zoom === "day" ? addDays(timelineStart, 35) : zoom === "week" ? addDays(timelineStart, WEEK_COUNT * 7) : addMonths(timelineStart, MONTH_COUNT);
   const totalDays = Math.max(1, dayDistance(timelineStart, timelineEnd));
   const days = useMemo(() => Array.from({ length: totalDays }, (_, index) => addDays(timelineStart, index)), [timelineStart, totalDays]);
 
@@ -212,6 +214,15 @@ export default function Gantt() {
       const current = groups[groups.length - 1];
       if (!current || current.label !== label) groups.push({ label, start: index, count: 1 });
       else current.count += 1;
+    });
+    return groups;
+  }, [days]);
+
+  const dayGroups = useMemo(() => {
+    const groups: Array<{ key: string; label: string; start: number; count: number }> = [];
+    days.forEach((day, index) => {
+      const key = day.toISOString().slice(0, 10);
+      groups.push({ key, label: day.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), start: index, count: 1 });
     });
     return groups;
   }, [days]);
@@ -229,12 +240,12 @@ export default function Gantt() {
     return groups;
   }, [days]);
 
-  const timelineGroups = zoom === "week" ? weekGroups : monthGroups;
+  const timelineGroups = zoom === "day" ? dayGroups : zoom === "week" ? weekGroups : monthGroups;
   const totalTimelineWidth = timelineGroups.length * timelineUnitWidth;
 
   const getTimelineX = (value: Date) => {
     const offset = Math.max(0, Math.min(totalDays - 1, dayDistance(timelineStart, value)));
-    const groupIndex = timelineGroups.findIndex((group) => offset >= group.start && offset < group.start + group.count);
+    const groupIndex = timelineGroups.findIndex((group: { start: number; count: number }) => offset >= group.start && offset < group.start + group.count);
     const safeGroupIndex = groupIndex >= 0 ? groupIndex : timelineGroups.length - 1;
     const group = timelineGroups[safeGroupIndex];
     if (!group) return 0;
@@ -388,13 +399,17 @@ export default function Gantt() {
             </div>
             <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
             <div className="flex w-full items-center rounded-md border border-slate-200 bg-white p-0.5 sm:w-auto">
-              {(["month", "week"] as ZoomLevel[]).map((level) => (
-                <button key={level} onClick={() => { setZoom(level); if (level === "week") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-                  {level === "month" ? "Mês" : "Semana"}
+              {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
+                <button key={level} onClick={() => { setZoom(level); if (level === "week" || level === "day") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                  {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dia (Detalhado)"}
                 </button>
               ))}
             </div>
-            <div className="hidden items-center gap-1 ml-auto text-xs text-slate-500 sm:flex"><ZoomOut className="w-3.5 h-3.5" />{zoom === "week" ? "Semanas" : "Meses"}<ZoomIn className="w-3.5 h-3.5" /></div>
+            <div className="hidden items-center gap-1.5 ml-auto text-xs text-slate-500 sm:flex">
+              <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => setCustomUnitWidth((w) => Math.max(40, (w ?? defaultUnitWidth) - 24))} title="Reduzir zoom"><ZoomOut className="w-3.5 h-3.5" /> Menos</Button>
+              <span className="font-semibold text-slate-700">{zoom === "day" ? "Dias" : zoom === "week" ? "Semanas" : "Meses"} ({timelineUnitWidth}px)</span>
+              <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => setCustomUnitWidth((w) => Math.min(240, (w ?? defaultUnitWidth) + 24))} title="Ampliar zoom"><ZoomIn className="w-3.5 h-3.5" /> Mais</Button>
+            </div>
           </div>
 
           {showFilters && (
@@ -507,7 +522,7 @@ export default function Gantt() {
                   <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[3px_0_8px_rgba(15,23,42,0.08)]">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
                   <div className="relative overflow-hidden" aria-label={zoom === "week" ? "Escala semanal" : "Escala mensal"}>
                     <div className="flex h-12 bg-[#f8fafc]" style={{ backgroundImage: gridBackground }}>
-                      {timelineGroups.map((group, index) => <div key={`${zoom}-${group.start}-${index}`} className="flex shrink-0 items-center justify-center border-r border-blue-200 px-2 text-[10px] font-bold uppercase text-slate-600" style={{ width: timelineUnitWidth }}>{group.label}</div>)}
+                      {timelineGroups.map((group: { start: number; count: number; label: string }, index: number) => <div key={`${zoom}-${group.start}-${index}`} className="flex shrink-0 items-center justify-center border-r border-blue-200 px-2 text-[10px] font-bold uppercase text-slate-600" style={{ width: timelineUnitWidth }}>{group.label}</div>)}
                     </div>
                   </div>
                 </div>
