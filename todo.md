@@ -2056,3 +2056,8 @@
 - [x] Ocultar todos os demais widgets do Dashboard usando `dashboard-map-focused` e estilos dedicados
 - [x] Garantir que apenas o mapa e suas abas/painéis de informações correlacionadas fiquem visíveis
 - [x] Validar TypeScript, suíte de testes completa, build e salvar checkpoint
+
+## Correção Definitiva do Mapa em Tela Cheia (Fullscreen Real)
+- [x] Isolar a renderização do mapa expandido em uma camada de topo `fixed inset-0 z-[9999]` cobrindo a viewport inteira (fora do grid do Dashboard), usando portal no `document.body`
+- [x] Garantir que ao expandir o mapa, a barra lateral e os demais widgets fiquem ocultos e o mapa ocupe 100% da tela com as abas correlacionadas
+- [x] Validar expansão real, TypeScript, suíte de testes completa, build e salvar checkpoint

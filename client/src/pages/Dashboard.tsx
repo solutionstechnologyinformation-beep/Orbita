@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -849,7 +850,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       </div>
     );
   }
-  return (
+  const mapElement = (
     <div data-map-fullscreen={isMapExpanded ? "true" : "false"} className={isMapExpanded ? `map-fullscreen-root ${isMapMinimizing ? "map-fullscreen-exit" : "map-fullscreen-enter"}` : "relative"}>
       <div ref={mapExportRef} className={isMapExpanded ? `relative h-screen min-h-screen h-[100dvh] w-full max-w-full overflow-hidden rounded-none bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
         <div className={isMapExpanded ? `map-fullscreen-canvas ${isMapSummaryPanelOpen ? "map-fullscreen-canvas-with-summary" : "map-fullscreen-canvas-collapsed"}` : "relative h-full w-full"}>
@@ -1194,6 +1195,8 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
       )}
     </div>
   );
+  if (isMapExpanded && typeof document !== "undefined") return createPortal(mapElement, document.body);
+  return mapElement;
 }
 // ── KPI Card ───────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, icon, iconBg, trend, trendSuffix = "%", trendPeriod = "período anterior", positiveWhenUp = true, periodLabel }: {

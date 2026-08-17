@@ -15,6 +15,8 @@ describe("dashboard map fullscreen and timestamp", () => {
   it("keeps the map container attached to the viewport in expanded mode", () => {
     expect(dashboardSource).toContain('data-map-fullscreen={isMapExpanded ? "true" : "false"}');
     expect(dashboardSource).toContain("map-fullscreen-root");
+    expect(dashboardSource).toContain('import { createPortal } from "react-dom";');
+    expect(dashboardSource).toContain("createPortal(mapElement, document.body)");
     expect(stylesheet).toContain(".map-fullscreen-root {");
     expect(stylesheet).toContain("position: fixed;");
     expect(stylesheet).toContain("inset: 0;");
