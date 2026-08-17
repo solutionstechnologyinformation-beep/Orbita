@@ -13,7 +13,13 @@ describe("dashboard map fullscreen and timestamp", () => {
   });
 
   it("keeps the map container attached to the viewport in expanded mode", () => {
-    expect(dashboardSource).toContain("fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60");
+    expect(dashboardSource).toContain('data-map-fullscreen={isMapExpanded ? "true" : "false"}');
+    expect(dashboardSource).toContain("map-fullscreen-root");
+    expect(stylesheet).toContain(".map-fullscreen-root {");
+    expect(stylesheet).toContain("position: fixed;");
+    expect(stylesheet).toContain("inset: 0;");
+    expect(stylesheet).toContain("width: 100vw;");
+    expect(stylesheet).toContain("height: 100vh;");
     expect(dashboardSource).toContain("h-[100dvh]");
     expect(dashboardSource).toContain("min-h-screen");
     expect(dashboardSource).toContain("!rounded-none");
@@ -53,6 +59,8 @@ describe("dashboard map fullscreen and timestamp", () => {
     expect(dashboardSource).toContain('data-map-focused={isMapExpanded ? "true" : "false"}');
     expect(stylesheet).toContain('.dashboard-map-focused [data-dashboard-widget-id]:not([data-dashboard-widget-id="map"])');
     expect(stylesheet).toContain("display: none !important");
+    expect(stylesheet).toContain('.dashboard-map-focused [data-dashboard-widget-id="map"]');
+    expect(stylesheet).toContain("display: block;");
     expect(dashboardSource).toContain("onExpandedChange(true)");
     expect(dashboardSource).toContain("onExpandedChange(false)");
   });

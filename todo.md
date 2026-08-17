@@ -2050,3 +2050,9 @@
 - [x] Localizar o componente e classes CSS do seletor de período no Dashboard (`GlobalPeriodContext.tsx`)
 - [x] Forçar cor preta para o texto das opções exibidas sobre fundo branco, mantendo compatibilidade com o tema escuro (`index.css`)
 - [x] Validar TypeScript, build, suíte de testes e salvar checkpoint
+
+## Mapa Ampliado em Tela Cheia Ocultando Demais Widgets
+- [x] Ajustar o estado de expansão do mapa no Dashboard para fixar `inset-0 z-[60]` cobrindo toda a viewport
+- [x] Ocultar todos os demais widgets do Dashboard usando `dashboard-map-focused` e estilos dedicados
+- [x] Garantir que apenas o mapa e suas abas/painéis de informações correlacionadas fiquem visíveis
+- [x] Validar TypeScript, suíte de testes completa, build e salvar checkpoint

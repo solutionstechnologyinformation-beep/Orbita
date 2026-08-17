@@ -850,7 +850,7 @@ type ElementOverlayMeta = { lines: google.maps.Polyline[]; marker?: google.maps.
     );
   }
   return (
-    <div className={isMapExpanded ? `fixed inset-0 z-[60] h-screen w-screen overflow-hidden bg-slate-950/60 ${isMapMinimizing ? "map-fullscreen-exit" : "map-fullscreen-enter"}` : "relative"}>
+    <div data-map-fullscreen={isMapExpanded ? "true" : "false"} className={isMapExpanded ? `map-fullscreen-root ${isMapMinimizing ? "map-fullscreen-exit" : "map-fullscreen-enter"}` : "relative"}>
       <div ref={mapExportRef} className={isMapExpanded ? `relative h-screen min-h-screen h-[100dvh] w-full max-w-full overflow-hidden rounded-none bg-card shadow-2xl ring-1 ${isDark ? "ring-slate-700/60" : "ring-white/30"}` : "relative rounded-xl overflow-hidden"}>
         <div className={isMapExpanded ? `map-fullscreen-canvas ${isMapSummaryPanelOpen ? "map-fullscreen-canvas-with-summary" : "map-fullscreen-canvas-collapsed"}` : "relative h-full w-full"}>
           <MapView

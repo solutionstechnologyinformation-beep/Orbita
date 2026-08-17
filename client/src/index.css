@@ -320,6 +320,17 @@ html.theme-transition body *::after {
   --orbita-map-summary-width: clamp(18rem, 25vw, 26rem);
 }
 
+.map-fullscreen-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background-color: rgb(2 6 23 / 0.6);
+}
+
 .map-fullscreen-canvas {
   position: absolute;
   inset: 0;
@@ -1006,8 +1017,17 @@ html.theme-transition body *::after {
 }
 
 /* Em tela cheia, somente o mapa permanece visível; ao retornar, o Dashboard é restaurado. */
+.dashboard-map-focused {
+  position: relative;
+}
+
 .dashboard-map-focused [data-dashboard-widget-id]:not([data-dashboard-widget-id="map"]) {
   display: none !important;
+}
+
+.dashboard-map-focused [data-dashboard-widget-id="map"] {
+  display: block;
+  min-width: 0;
 }
 
 /* Assistente IA: ondas sonoras para indicar escuta e fala. */
