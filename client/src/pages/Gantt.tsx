@@ -170,9 +170,9 @@ export default function Gantt() {
   const [, navigate] = useLocation();
   const timelineRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
-  const updateTaskDates = trpc.tasks.update.useMutation({
-    onSuccess: () => {
-      toast.success("Datas da tarefa atualizadas.");
+  const updateTaskDates = trpc.tasks.updateDatesCascade.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.propagatedCount > 0 ? `Datas atualizadas; ${result.propagatedCount} sucessora(s) propagada(s).` : "Datas da tarefa atualizadas.");
       setDateEditDraft(null);
       utils.tasks.listForGantt.invalidate();
     },

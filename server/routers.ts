@@ -13,7 +13,7 @@ import {
   getClients, getAllClients, getClientById, createClient, updateClient, deleteClient,
   getCrsByClient, getAllCrs, getArchivedCrs, getCrsById, createCrs, updateCrs, deleteCrs,
   getPhasesByCrs, createPhase, updatePhase, deletePhase,
-  getTasksByCrs, getTaskById, createTask, updateTask, deleteTask, recalcTaskProgress,
+  getTasksByCrs, getTaskById, createTask, updateTask, updateTaskDatesWithCascade, deleteTask, recalcTaskProgress,
   getTaskComments, createTaskComment, deleteTaskComment,
   getChecklistItems, createChecklistItem, updateChecklistItem, deleteChecklistItem, getCrsDateRange,
   getChecklistItemComments, createChecklistItemComment,
@@ -1222,6 +1222,17 @@ export const appRouter = router({
         }
         await logActivity({ userId: ctx.user.id, action: "created_task", entityType: "task", entityId: id });
         return { id };
+      }),
+    updateDatesCascade: adminProcedure
+      .input(z.object({ id: z.number(), startDate: z.date(), endDate: z.date() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.endDate < input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data final não pode ser anterior à data inicial." });
+        }
+        const result = await updateTaskDatesWithCascade(input.id, input.startDate, input.endDate, tenantCompanyId(ctx.user));
+        if (result.updatedTaskIds.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Tarefa não encontrada ou sem datas válidas." });
+        await logActivity({ userId: ctx.user.id, action: "updated_task_dates_cascade", entityType: "task", entityId: input.id });
+        return { ...result, propagatedCount: result.propagatedTaskIds.length };
       }),
     update: adminProcedure
       .input(z.object({

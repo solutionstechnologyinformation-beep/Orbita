@@ -3,9 +3,10 @@ import { aggregateExtensionByType } from "./extension-summary";
 import { getSegmentExtensionKmValue } from "./segment-display";
 import { normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import { normalizeChatActivitySnapshot } from "../shared/chat-activity";
+import { propagateTaskDates } from "../shared/gantt-cascade";
 import { sumContractAreasM2 } from "../shared/area";
 import {
-  users, clients, crs, kanbanPhases, tasks, taskAttachments, checklistItems,
+  users, clients, crs, kanbanPhases, tasks, taskDependencies, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
@@ -608,6 +609,40 @@ export async function updateTask(id: number, data: any) {
   if (data.phaseId !== undefined) updateData.statusChangedAt = now;
   await db.update(tasks).set(updateData).where(eq(tasks.id, id));
 }
+export async function updateTaskDatesWithCascade(rootTaskId: number, startDate: Date, endDate: Date, companyId?: number | null) {
+  const db = await getDb();
+  const root = await getTaskById(rootTaskId, companyId);
+  if (!root) return { updatedTaskIds: [] as number[], propagatedTaskIds: [] as number[] };
+
+  const taskConditions = companyId != null
+    ? eq(crs.companyId, companyId)
+    : eq(tasks.crsId, root.crsId);
+  const taskRows = await db.select({ id: tasks.id, startDate: tasks.startDate, endDate: tasks.endDate, dueDate: tasks.dueDate })
+    .from(tasks)
+    .innerJoin(crs, eq(tasks.crsId, crs.id))
+    .where(taskConditions);
+  const taskIds = taskRows.map((task: { id: number }) => task.id);
+  if (taskIds.length === 0) return { updatedTaskIds: [] as number[], propagatedTaskIds: [] as number[] };
+
+  const dependencyRows = await db.select({ predecessorTaskId: taskDependencies.predecessorTaskId, successorTaskId: taskDependencies.successorTaskId, dependencyType: taskDependencies.dependencyType })
+    .from(taskDependencies)
+    .where(and(inArray(taskDependencies.predecessorTaskId, taskIds), inArray(taskDependencies.successorTaskId, taskIds)));
+  const updates = propagateTaskDates(taskRows, dependencyRows, rootTaskId, startDate, endDate);
+  if (updates.length === 0) return { updatedTaskIds: [] as number[], propagatedTaskIds: [] as number[] };
+
+  await db.transaction(async (transaction: any) => {
+    for (const update of updates) {
+      const updateData: Record<string, Date> = { startDate: update.startDate, endDate: update.endDate };
+      if (update.dueDate) updateData.dueDate = update.dueDate;
+      await transaction.update(tasks).set({ ...updateData, updatedAt: new Date() }).where(eq(tasks.id, update.id));
+    }
+  });
+  return {
+    updatedTaskIds: updates.map((update) => update.id),
+    propagatedTaskIds: updates.filter((update) => update.id !== rootTaskId).map((update) => update.id),
+  };
+}
+
 export async function deleteTask(id: number) {
   const db = await getDb();
   await db.delete(tasks).where(eq(tasks.id, id));

@@ -2133,3 +2133,4 @@
 - [x] Implementar edição rápida de datas arrastando e redimensionando as barras no Gantt
 - [x] Calcular e destacar visualmente as tarefas do caminho crítico no Gantt
 
+- [x] Implementar propagação automática de prazos em cascata para tarefas sucessoras no Gantt
