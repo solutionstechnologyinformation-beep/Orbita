@@ -2035,10 +2035,10 @@
 - [x] Validar TypeScript, executar suíte Vitest completa, salvar checkpoint e entregar
 
 ## Área do Mapa Ampliado com Faixa Lateral
-- [ ] Remover larguras e margens fixas introduzidas pela revisão manual anterior no `Dashboard.tsx`
-- [ ] Reservar uma faixa lateral responsiva para a aba de opções e resumos quando o mapa estiver ampliado
-- [ ] Garantir ausência de overflow horizontal e preservar a transição entre mapa normal e tela ampliada
-- [ ] Validar TypeScript, build, preview e salvar checkpoint
+- [x] Remover larguras e margens fixas introduzidas pela revisão manual anterior no `Dashboard.tsx`
+- [x] Reservar uma faixa lateral responsiva para a aba de opções e resumos quando o mapa estiver ampliado
+- [x] Garantir ausência de overflow horizontal e preservar a transição entre mapa normal e tela ampliada
+- [x] Validar TypeScript, build, preview e salvar checkpoint
 
 ## Correção da Navegação da Apresentação Guiada
 - [x] Mapear o componente `GuidedTourModal.tsx` e associar cada etapa à sua rota e aba correspondente no Órbita

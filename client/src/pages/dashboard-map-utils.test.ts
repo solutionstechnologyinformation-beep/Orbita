@@ -132,7 +132,8 @@ describe("dashboard map fullscreen canvas width adjustment", () => {
     expect(dashboardSource).toContain("map-fullscreen-canvas-with-summary");
     expect(dashboardSource).toContain("map-fullscreen-canvas-collapsed");
     expect(stylesheet).toContain(".map-fullscreen-canvas-with-summary {");
-    expect(stylesheet).toContain("right: min(26rem, calc(100vw - 1rem));");
+    expect(stylesheet).toContain("--orbita-map-summary-width: clamp(18rem, 25vw, 26rem);");
+    expect(stylesheet).toContain("right: var(--orbita-map-summary-width);");
   });
 });
 

@@ -316,6 +316,10 @@ html.theme-transition body *::after {
 }
 
 /* Em tela cheia, o canvas reserva a largura real do resumo para evitar que ele fique sobreposto ou cortado. */
+:root {
+  --orbita-map-summary-width: clamp(18rem, 25vw, 26rem);
+}
+
 .map-fullscreen-canvas {
   position: absolute;
   inset: 0;
@@ -323,7 +327,21 @@ html.theme-transition body *::after {
 }
 
 .map-fullscreen-canvas-with-summary {
-  right: min(26rem, calc(100vw - 1rem));
+  right: var(--orbita-map-summary-width);
+}
+
+.map-summary-panel-sized {
+  width: var(--orbita-map-summary-width);
+  max-width: calc(100vw - 1rem);
+}
+
+.map-summary-panel-collapsed {
+  width: 4rem;
+}
+
+.map-controls-with-summary {
+  right: calc(var(--orbita-map-summary-width) + 0.75rem);
+  max-width: calc(100vw - var(--orbita-map-summary-width) - 1.5rem);
 }
 
 .map-fullscreen-canvas-collapsed {
