@@ -16,6 +16,8 @@ import {
   startOfGanttDay as startOfDay,
 } from "@/lib/gantt-time";
 import { buildVisualGanttReportHtml, type GanttReportRow, type ReportOrientation, type ReportScale } from "./gantt-report-utils";
+import { formatDateInput, parseDateInput } from "../../../shared/date-only";
+import { getCriticalTaskIds } from "@/lib/gantt-critical";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,8 @@ import {
   SlidersHorizontal,
   ZoomIn,
   ZoomOut,
+  Route,
+  GripVertical,
 } from "lucide-react";
 
 const LEFT_WIDTH = 350;
@@ -88,6 +92,8 @@ type TimelineGroup = {
 };
 
 type DependencyDraft = { predecessorTaskId: number; x: number; y: number };
+type DateEditMode = "move" | "resize-start" | "resize-end";
+type DateEditDraft = { taskId: number; mode: DateEditMode; initialStart: string; initialEnd: string; pointerStartX: number; previewStart: string; previewEnd: string };
 
 type TimelineRow =
   | { kind: "group"; key: string; label: string }
@@ -151,6 +157,8 @@ export default function Gantt() {
   const [customUnitWidth, setCustomUnitWidth] = useState<number | null>(null);
   const [dependencyDraft, setDependencyDraft] = useState<DependencyDraft | null>(null);
   const [dependencyPointer, setDependencyPointer] = useState<{ x: number; y: number } | null>(null);
+  const [dateEditDraft, setDateEditDraft] = useState<DateEditDraft | null>(null);
+  const [criticalPathEnabled, setCriticalPathEnabled] = useState(true);
   const [search, setSearch] = useState("");
   const [timelineStart, setTimelineStart] = useState(() => getWeekStart(startOfMonth(new Date())));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -162,6 +170,17 @@ export default function Gantt() {
   const [, navigate] = useLocation();
   const timelineRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
+  const updateTaskDates = trpc.tasks.update.useMutation({
+    onSuccess: () => {
+      toast.success("Datas da tarefa atualizadas.");
+      setDateEditDraft(null);
+      utils.tasks.listForGantt.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Não foi possível atualizar as datas.");
+      setDateEditDraft(null);
+    },
+  });
   const createDependency = trpc.tasks.dependencies.create.useMutation({
     onSuccess: (result) => {
       toast.success(result.created ? "Dependência criada entre as tarefas." : "Essa dependência já existia.");
@@ -293,6 +312,70 @@ export default function Gantt() {
   };
 
   const todayX = getTimelineX(today);
+  const getTimelineDate = (x: number) => {
+    const clampedX = Math.max(0, Math.min(totalTimelineWidth - 1, x));
+    const groupIndex = Math.max(0, Math.min(timelineGroups.length - 1, Math.floor(clampedX / Math.max(1, timelineUnitWidth))));
+    const group = timelineGroups[groupIndex] as { start: number; count: number } | undefined;
+    if (!group) return timelineStart;
+    const within = clampedX - groupIndex * timelineUnitWidth;
+    const dayOffset = Math.round(group.start + (within / Math.max(1, timelineUnitWidth)) * group.count);
+    return addDays(timelineStart, Math.max(0, Math.min(totalDays - 1, dayOffset)));
+  };
+
+  useEffect(() => {
+    if (!dateEditDraft) return;
+    const handlePointerMove = (event: PointerEvent) => {
+      const timeline = timelineRef.current;
+      if (!timeline) return;
+      const rect = timeline.getBoundingClientRect();
+      const currentX = event.clientX - rect.left + timeline.scrollLeft - LEFT_WIDTH;
+      const pointerDate = getTimelineDate(currentX);
+      const initialStart = parseDateInput(dateEditDraft.initialStart);
+      const initialEnd = parseDateInput(dateEditDraft.initialEnd) ?? initialStart;
+      if (!initialStart || !initialEnd) return;
+      let nextStart = initialStart;
+      let nextEnd = initialEnd;
+      if (dateEditDraft.mode === "move") {
+        const pointerStartDate = getTimelineDate(dateEditDraft.pointerStartX);
+        const delta = dayDistance(pointerStartDate, pointerDate);
+        nextStart = addDays(initialStart, delta);
+        nextEnd = addDays(initialEnd, delta);
+      } else if (dateEditDraft.mode === "resize-start") {
+        nextStart = pointerDate > initialEnd ? initialEnd : pointerDate;
+      } else {
+        nextEnd = pointerDate < initialStart ? initialStart : pointerDate;
+      }
+      setDateEditDraft((current) => current ? { ...current, previewStart: formatDateInput(nextStart), previewEnd: formatDateInput(nextEnd) } : current);
+    };
+    const handlePointerUp = () => {
+      const current = dateEditDraft;
+      if (!current || updateTaskDates.isPending) return;
+      const startDate = parseDateInput(current.previewStart);
+      const endDate = parseDateInput(current.previewEnd);
+      if (!startDate || !endDate || endDate < startDate) {
+        toast.error("A data final não pode ser anterior à data inicial.");
+        setDateEditDraft(null);
+        return;
+      }
+      const changed = current.previewStart !== current.initialStart || current.previewEnd !== current.initialEnd;
+      if (!changed) {
+        setDateEditDraft(null);
+        return;
+      }
+      updateTaskDates.mutate({ id: current.taskId, startDate, endDate });
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDateEditDraft(null);
+    };
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dateEditDraft, getTimelineDate, updateTaskDates]);
 
   const grouped = useMemo<TimelineGroup[]>(() => {
     const groups = new Map<string, Map<string, TaskItem[]>>();
@@ -357,13 +440,18 @@ export default function Gantt() {
   }
 
   function getBar(task: TaskItem | ChecklistItem) {
-    const range = taskRange(task);
+    const isEditingTask = "id" in task && dateEditDraft?.taskId === task.id;
+    const range = isEditingTask
+      ? { start: parseDateInput(dateEditDraft.previewStart), end: parseDateInput(dateEditDraft.previewEnd) }
+      : taskRange(task);
     if (!range.start) return null;
     const end = range.end ?? range.start;
     const left = getTimelineX(range.start);
     const width = Math.max(zoom === "week" ? 18 : 28, getTimelineX(addDays(end, 1)) - left - 5);
     return { left, width, color: getBarColor(task, today), milestone: dayDistance(range.start, end) === 0 };
   }
+
+  const criticalTaskIds = useMemo(() => getCriticalTaskIds(filteredTasks), [filteredTasks]);
 
   const rowYByTaskId = useMemo(() => {
     const positions = new Map<number, number>();
@@ -395,6 +483,23 @@ export default function Gantt() {
   }, [filteredTasks, rowYByTaskId, timelineUnitWidth, timelineStart, totalDays, zoom]);
 
   const timelineContentHeight = 48 + rows.reduce((height, row) => height + (row.kind === "group" ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT), 0) + 40;
+
+  function beginDateEdit(event: React.PointerEvent<HTMLElement>, task: TaskItem, mode: DateEditMode) {
+    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+    const start = formatDateInput(task.startDate) || formatDateInput(task.endDate);
+    const end = formatDateInput(task.endDate) || start;
+    if (!start || !end) {
+      toast.error("A tarefa precisa ter data inicial e final para ser editada no Gantt.");
+      return;
+    }
+    const timeline = timelineRef.current;
+    if (!timeline) return;
+    const rect = timeline.getBoundingClientRect();
+    const x = event.clientX - rect.left + timeline.scrollLeft - LEFT_WIDTH;
+    event.preventDefault();
+    event.stopPropagation();
+    setDateEditDraft({ taskId: task.id, mode, initialStart: start, initialEnd: end, pointerStartX: x, previewStart: start, previewEnd: end });
+  }
 
   function exportTimeline(orientation: ReportOrientation = printOrientation, scale: ReportScale = printScale) {
     const popup = window.open("", "_blank");
@@ -479,8 +584,17 @@ export default function Gantt() {
               <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => setCustomUnitWidth((w) => Math.max(40, (w ?? defaultUnitWidth) - 24))} title="Reduzir zoom"><ZoomOut className="w-3.5 h-3.5" /> Menos</Button>
               <span className="font-semibold text-slate-700">{zoom === "day" ? "Dias" : zoom === "week" ? "Semanas" : "Meses"} ({timelineUnitWidth}px)</span>
               <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => setCustomUnitWidth((w) => Math.min(240, (w ?? defaultUnitWidth) + 24))} title="Ampliar zoom"><ZoomIn className="w-3.5 h-3.5" /> Mais</Button>
+              <Button variant={criticalPathEnabled ? "default" : "outline"} size="sm" className="h-7 text-xs px-2 gap-1" onClick={() => setCriticalPathEnabled((enabled) => !enabled)} title="Alternar destaque do caminho crítico"><Route className="w-3.5 h-3.5" /> Caminho crítico</Button>
             </div>
           </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-red-200" /> {criticalPathEnabled ? `${criticalTaskIds.size} tarefa(s) no caminho crítico` : "Caminho crítico oculto"}</span>
+            <span className="inline-flex items-center gap-1.5"><GripVertical className="h-3.5 w-3.5 text-slate-500" /> Arraste a barra para mover as datas.</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded bg-slate-500" /> Arraste as extremidades para redimensionar.</span>
+          </div>
+
+          {dateEditDraft && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">Editando datas: {dateEditDraft.previewStart} → {dateEditDraft.previewEnd}. Solte para salvar ou pressione Esc para cancelar.</div>}
 
           {showFilters && (
             <div className="grid grid-cols-1 items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex sm:flex-wrap">
@@ -628,12 +742,13 @@ export default function Gantt() {
                         {row.kind === "group" && null}
                         {todayX >= 0 && todayX < totalTimelineWidth && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayX }} />}
                         {isGroup && row.kind === "group" && null}
-                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerUp={(event) => { if (row.kind === "task" && dependencyDraft && dependencyDraft.predecessorTaskId !== row.task.id) { event.stopPropagation(); createDependency.mutate({ predecessorTaskId: dependencyDraft.predecessorTaskId, successorTaskId: row.task.id, dependencyType: "finish_to_start" }); } }} className={`absolute z-20 flex items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
+                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onPointerUp={(event) => { if (row.kind === "task" && dependencyDraft && dependencyDraft.predecessorTaskId !== row.task.id) { event.stopPropagation(); createDependency.mutate({ predecessorTaskId: dependencyDraft.predecessorTaskId, successorTaskId: row.task.id, dependencyType: "finish_to_start" }); } }} className={`absolute z-20 flex items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
+                          {row.kind === "task" && !bar.milestone && <><button type="button" aria-label={`Redimensionar início de ${row.task.title}`} title="Arraste para alterar a data inicial" className="absolute -left-1 top-0 z-30 h-full w-2 cursor-ew-resize rounded-l-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-start")} /><button type="button" aria-label={`Redimensionar final de ${row.task.title}`} title="Arraste para alterar a data final" className="absolute -right-1 top-0 z-30 h-full w-2 cursor-ew-resize rounded-r-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-end")} /></>}
                           {row.kind === "task" && <button type="button" aria-label={`Criar dependência a partir de ${row.task.title}`} title="Arraste para outra barra para criar dependência" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); const y = rowYByTaskId.get(row.task.id) ?? 0; setDependencyDraft({ predecessorTaskId: row.task.id, x: bar.left + bar.width, y }); setDependencyPointer({ x: bar.left + bar.width, y }); }} onPointerUp={(event) => event.stopPropagation()} />}
-                        </div></TooltipTrigger><TooltipContent side="top" className="max-w-xs"><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && <><p className="text-xs">Status: {getTaskStatusLabel(row.task, today)}</p><p className="text-xs">Projeto/contrato: {row.task.projectName || "Não informado"}</p><p className="text-xs">Responsável: {row.task.assigneeName || "Não atribuído"}</p><p className="text-xs">Progresso: {Math.round(row.task.progress ?? 0)}%</p><p className="text-xs">Dependências: {(row.task.dependencies ?? []).length || "Nenhuma"}</p></>}{row.kind === "checklist" && <p className="text-xs">Item de checklist da tarefa #{row.taskId}</p>}</TooltipContent></Tooltip>}
+                        </div></TooltipTrigger><TooltipContent side="top" className="max-w-xs"><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && <><p className="text-xs">Status: {getTaskStatusLabel(row.task, today)}</p><p className="text-xs">Projeto/contrato: {row.task.projectName || "Não informado"}</p><p className="text-xs">Responsável: {row.task.assigneeName || "Não atribuído"}</p><p className="text-xs">Progresso: {Math.round(row.task.progress ?? 0)}%</p><p className="text-xs">Dependências: {(row.task.dependencies ?? []).length || "Nenhuma"}</p>{criticalPathEnabled && criticalTaskIds.has(row.task.id) && <p className="text-xs font-semibold text-red-600">Caminho crítico</p>}</>}{row.kind === "checklist" && <p className="text-xs">Item de checklist da tarefa #{row.taskId}</p>}</TooltipContent></Tooltip>}
                       </div>
                     </div>
                   );

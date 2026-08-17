@@ -2130,3 +2130,6 @@
 - [x] Criar dependências entre tarefas arrastando setas diretamente no gráfico de Gantt
 - [x] Permitir que o assistente crie novas tarefas ou atualize o status delas pela interface do chat
 - [x] Incluir tooltips informativos ricos nas barras do Gantt com detalhes completos ao passar o mouse
+- [x] Implementar edição rápida de datas arrastando e redimensionando as barras no Gantt
+- [x] Calcular e destacar visualmente as tarefas do caminho crítico no Gantt
+
