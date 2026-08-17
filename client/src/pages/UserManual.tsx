@@ -319,7 +319,7 @@ const sections: Section[] = [
             ["País e Estado", "Localização geográfica da obra"],
             ["Tipo de Obra", "Pode selecionar múltiplos tipos (ex.: Rodovia + Restauração)"],
             ["Extensão (km)", "Extensão linear da obra em quilômetros"],
-            ["Área (ha)", "Área da obra em hectares (quando aplicável)"],
+            ["Área total (m²)", "Área total da obra em metros quadrados (quando aplicável)"],
             ["Descrição", "Informações adicionais sobre o contrato"],
           ]}
         />

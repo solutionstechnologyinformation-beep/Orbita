@@ -591,10 +591,10 @@ export default function Projects() {
       <div className="border-t border-border pt-3">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Técnicos da Obra (opcional)</p>
         <div className="space-y-4">
-          <TipoObraCheckboxes />
+          {TipoObraCheckboxes()}
           <div className="grid grid-cols-3 gap-3">
             <div><Label>Extensão (km)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 42.5" value={form.extensaoKm} onChange={(e) => setForm((f) => ({ ...f, extensaoKm: e.target.value }))} /></div>
-            <div><Label>Área (ha)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 120" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
+            <div><Label>Área total (m²)</Label><Input className="mt-1" type="number" min="0" step="0.1" placeholder="Ex: 12000" value={form.areaHa} onChange={(e) => setForm((f) => ({ ...f, areaHa: e.target.value }))} /></div>
             <div><Label>Perím. Urbanos</Label><Input className="mt-1" type="number" min="0" placeholder="Ex: 3" value={form.perimetroUrbano} onChange={(e) => setForm((f) => ({ ...f, perimetroUrbano: e.target.value }))} /></div>
           </div>
           {form.tiposObra.length > 0 && (
@@ -805,7 +805,7 @@ export default function Projects() {
                 )}
               </div>
             </div>
-            <TechnicalFields />
+            {TechnicalFields()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
@@ -854,7 +854,7 @@ export default function Projects() {
                 )}
               </div>
             </div>
-            <TechnicalFields />
+            {TechnicalFields()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingCrs(null)}>Cancelar</Button>

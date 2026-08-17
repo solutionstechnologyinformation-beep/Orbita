@@ -2098,3 +2098,9 @@
 - [x] Consolidar contratos duplicados preservando as tarefas e logs históricos na entidade principal
 - [x] Corrigir o carregamento e a renderização das colunas do Kanban no frontend e backend
 - [x] Executar suíte completa de testes, TypeScript e build de produção, salvando checkpoint
+
+## Correção dos campos numéricos e unidades do cadastro de contratos
+- [x] Corrigir a perda de foco ao digitar extensão, área e perímetro no formulário de novo contrato
+- [x] Garantir entrada contínua de números decimais sem remontar o campo a cada tecla
+- [x] Renomear a área geral para m² e padronizar os rótulos relacionados
+- [x] Adicionar testes de regressão, validar TypeScript/build e salvar checkpoint
