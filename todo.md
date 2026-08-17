@@ -2110,3 +2110,9 @@
 - [x] Manter a disciplina e filtros relevantes selecionados ao retornar
 - [x] Corrigir o botão Voltar e o histórico do navegador sem retornar ao primeiro contrato
 - [x] Adicionar testes de regressão, validar build e salvar checkpoint
+
+## Preservação da rolagem do Kanban
+- [x] Capturar as posições vertical e horizontal antes de abrir o detalhe da tarefa
+- [x] Restaurar a rolagem ao retornar ao mesmo contrato e disciplina do Kanban
+- [x] Tratar carregamento assíncrono e diferenças de viewport sem deslocamento inesperado
+- [x] Adicionar testes de regressão, validar build e salvar checkpoint

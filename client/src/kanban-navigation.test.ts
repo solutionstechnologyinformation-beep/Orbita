@@ -11,6 +11,8 @@ describe("navegação contextual do Kanban", () => {
       assignee: "8",
       company: "Strata Engenharia",
       client: "3",
+      scrollTop: 412,
+      scrollLeft: 86,
     });
 
     expect(url).toContain("crs=42");
@@ -25,7 +27,15 @@ describe("navegação contextual do Kanban", () => {
       assignee: "8",
       company: "Strata Engenharia",
       client: "3",
+      scrollTop: 412,
+      scrollLeft: 86,
     });
+  });
+
+  it("anexa as posições de rolagem ao retorno do detalhe da tarefa", () => {
+    const url = buildTaskDetailUrl(99, { crsId: 42, disciplines: ["Geotecnia"], scrollTop: 280, scrollLeft: 64 });
+    const returnTo = new URLSearchParams(url.split("?")[1]).get("returnTo");
+    expect(returnTo).toBe("/kanban?crs=42&discipline=Geotecnia&scrollTop=280&scrollLeft=64");
   });
 
   it("anexa o retorno contextual ao detalhe da tarefa", () => {

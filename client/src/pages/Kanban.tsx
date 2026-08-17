@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable,
@@ -335,6 +335,8 @@ export default function Kanban() {
   const [filterAssignee, setFilterAssignee] = useState(urlState.assignee);
   const [filterCompany, setFilterCompany] = useState(urlState.company);
   const [filterClient, setFilterClient] = useState(urlState.client);
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const restoredScrollKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     setSelectedCrsId(urlState.crsId);
@@ -496,7 +498,15 @@ export default function Kanban() {
       .filter(Boolean) as { id: number; name: string; color: string }[];
   }, [selectedDisciplines, availableColumns]);
 
-  function navigateWithKanbanContext(overrides: { crsId?: number | null; disciplines?: string[] } = {}) {
+  function getBoardScrollPosition() {
+    return {
+      scrollTop: boardRef.current?.scrollTop ?? 0,
+      scrollLeft: boardRef.current?.scrollLeft ?? 0,
+    };
+  }
+
+  function navigateWithKanbanContext(overrides: { crsId?: number | null; disciplines?: string[]; scrollTop?: number; scrollLeft?: number } = {}) {
+    const scroll = getBoardScrollPosition();
     navigate(buildKanbanUrl({
       crsId: overrides.crsId ?? effectiveCrsId,
       disciplines: overrides.disciplines ?? selectedDisciplines,
@@ -505,7 +515,22 @@ export default function Kanban() {
       assignee: filterAssignee,
       company: filterCompany,
       client: filterClient,
+      scrollTop: overrides.scrollTop ?? scroll.scrollTop,
+      scrollLeft: overrides.scrollLeft ?? scroll.scrollLeft,
     }));
+  }
+
+  function buildTaskReturnUrl(taskId: number) {
+    return buildTaskDetailUrl(taskId, {
+      crsId: effectiveCrsId,
+      disciplines: selectedDisciplines,
+      search,
+      priority: filterPriority,
+      assignee: filterAssignee,
+      company: filterCompany,
+      client: filterClient,
+      ...getBoardScrollPosition(),
+    });
   }
 
   function handleCrsSelection(crsId: number) {
@@ -625,6 +650,24 @@ export default function Kanban() {
   }
 
   const isLoading = crsQ.isLoading || tasksQ.isLoading || disciplinesQ.isLoading;
+
+  useEffect(() => {
+    const hasScrollToRestore = urlState.scrollTop > 0 || urlState.scrollLeft > 0;
+    if (!hasScrollToRestore || isLoading || !effectiveCrsId || columnsToRender.length === 0) return;
+    if (restoredScrollKeyRef.current === queryString) return;
+    const board = boardRef.current;
+    if (!board) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      board.scrollTo({
+        top: urlState.scrollTop,
+        left: urlState.scrollLeft,
+        behavior: "auto",
+      });
+      restoredScrollKeyRef.current = queryString;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [columnsToRender.length, effectiveCrsId, isLoading, queryString, urlState.scrollLeft, urlState.scrollTop]);
 
   // Active task for DragOverlay
   const activeTask = activeTaskId
@@ -846,7 +889,7 @@ export default function Kanban() {
                 <p className="text-sm text-muted-foreground/60 mt-1">Use os seletores na barra lateral para escolher qual disciplina visualizar.</p>
               </div>
             ) : (
-              <div className="flex-1 overflow-auto p-4">
+              <div ref={boardRef} data-kanban-board-scroll className="flex-1 overflow-auto p-4">
                 {columnsToRender.map((disc) => (
                   <div key={`disc-${disc.id}`} className="mb-6">
                     {/* Discipline header */}
@@ -870,7 +913,7 @@ export default function Kanban() {
                             onAddTask={openAddTask}
                             onEdit={openEditTask}
                             onDelete={(id) => { if (confirm("Excluir tarefa?")) deleteTaskMut.mutate({ id }); }}
-                            onNavigate={(id) => navigate(buildTaskDetailUrl(id, { crsId: effectiveCrsId, disciplines: selectedDisciplines, search, priority: filterPriority, assignee: filterAssignee, company: filterCompany, client: filterClient }))}
+                            onNavigate={(id) => navigate(buildTaskReturnUrl(id))}
                             activeTaskId={activeTaskId}
                           />
                         ))}
