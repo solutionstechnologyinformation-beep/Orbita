@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
+import { getKanbanReturnUrl } from "../../../shared/kanban-navigation";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ export default function TaskDetail() {
   const params = useParams<{ id: string }>();
   const taskId = Number(params.id);
   const [, navigate] = useLocation();
+  const queryString = useSearch();
   const { user } = useAuth();
 
   const [editMode, setEditMode] = useState(false);
@@ -147,6 +149,7 @@ export default function TaskDetail() {
   });
 
   const task = taskQ.data as any;
+  const kanbanReturnUrl = getKanbanReturnUrl(queryString, task?.crsId);
   const checklist = (task?.checklist ?? []) as any[];
   const comments = (task?.comments ?? []) as any[];
   const phaseHistory = (task?.phaseHistory ?? []) as any[];
@@ -208,7 +211,7 @@ export default function TaskDetail() {
       <AppLayout>
         <div className="container py-8 text-center">
           <p className="text-muted-foreground">Tarefa nao encontrada.</p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate("/kanban")}>
+          <Button variant="outline" className="mt-4" onClick={() => navigate(kanbanReturnUrl)}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Voltar ao Kanban
           </Button>
         </div>
@@ -220,7 +223,7 @@ export default function TaskDetail() {
     <AppLayout>
       <div className="container max-w-4xl py-6">
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/kanban")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(kanbanReturnUrl)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">

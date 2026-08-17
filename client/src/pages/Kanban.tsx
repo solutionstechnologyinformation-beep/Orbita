@@ -17,6 +17,7 @@ import { getKanbanPhaseDropId, parseKanbanPhaseDropId } from "../../../shared/ka
 import { getKanbanPhaseDisplayName } from "../../../shared/kanban-labels";
 import { isKanbanTaskCompleted, isKanbanTaskOverdue } from "../../../shared/kanban-card-state";
 import { filterKanbanCrsByClient, getKanbanClientOptions } from "../../../shared/kanban-client-filter";
+import { buildKanbanUrl, buildTaskDetailUrl, parseKanbanUrlState } from "../../../shared/kanban-navigation";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -327,24 +328,29 @@ export default function Kanban() {
   const [, navigate] = useLocation();
   const queryString = useSearch();
 
-  const urlCrsId = useMemo(() => {
-    const params = new URLSearchParams(queryString);
-    const v = params.get("crs");
-    return v ? parseInt(v, 10) : null;
-  }, [queryString]);
-  const [selectedCrsId, setSelectedCrsId] = useState<number | null>(null);
-  const urlSearch = useMemo(() => {
-    const params = new URLSearchParams(queryString);
-    return params.get("search") ?? "";
-  }, [queryString]);
-  useEffect(() => { if (urlCrsId) setSelectedCrsId(urlCrsId); }, [urlCrsId]);
+  const urlState = useMemo(() => parseKanbanUrlState(queryString), [queryString]);
+  const [selectedCrsId, setSelectedCrsId] = useState<number | null>(urlState.crsId);
+  const [search, setSearch] = useState(urlState.search);
+  const [filterPriority, setFilterPriority] = useState(urlState.priority);
+  const [filterAssignee, setFilterAssignee] = useState(urlState.assignee);
+  const [filterCompany, setFilterCompany] = useState(urlState.company);
+  const [filterClient, setFilterClient] = useState(urlState.client);
 
-  const [search, setSearch] = useState(urlSearch);
-  useEffect(() => { if (urlSearch) setSearch(urlSearch); }, [urlSearch]);
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [filterAssignee, setFilterAssignee] = useState("all");
-  const [filterCompany, setFilterCompany] = useState("all");
-  const [filterClient, setFilterClient] = useState("all");
+  useEffect(() => {
+    setSelectedCrsId(urlState.crsId);
+    setSearch(urlState.search);
+    setFilterPriority(urlState.priority);
+    setFilterAssignee(urlState.assignee);
+    setFilterCompany(urlState.company);
+    setFilterClient(urlState.client);
+    if (urlState.disciplines.length > 0) {
+      setSelectedDisciplines(urlState.disciplines);
+      setAutoSelected(true);
+    } else {
+      setSelectedDisciplines([]);
+      setAutoSelected(false);
+    }
+  }, [urlState]);
 
   // Discipline selectors (max 2)
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
@@ -490,12 +496,31 @@ export default function Kanban() {
       .filter(Boolean) as { id: number; name: string; color: string }[];
   }, [selectedDisciplines, availableColumns]);
 
+  function navigateWithKanbanContext(overrides: { crsId?: number | null; disciplines?: string[] } = {}) {
+    navigate(buildKanbanUrl({
+      crsId: overrides.crsId ?? effectiveCrsId,
+      disciplines: overrides.disciplines ?? selectedDisciplines,
+      search,
+      priority: filterPriority,
+      assignee: filterAssignee,
+      company: filterCompany,
+      client: filterClient,
+    }));
+  }
+
+  function handleCrsSelection(crsId: number) {
+    setSelectedCrsId(crsId);
+    setSelectedDisciplines([]);
+    setAutoSelected(false);
+    navigateWithKanbanContext({ crsId, disciplines: [] });
+  }
+
   function setSlotDiscipline(slot: 0 | 1, name: string) {
-    setSelectedDisciplines((prev) => {
-      const next = [...prev];
-      next[slot] = name;
-      return next.slice(0, 2);
-    });
+    const next = [...selectedDisciplines];
+    next[slot] = name;
+    const normalized = next.slice(0, 2).filter(Boolean);
+    setSelectedDisciplines(next.slice(0, 2));
+    navigateWithKanbanContext({ disciplines: normalized });
   }
 
   // DnD handlers
@@ -682,7 +707,7 @@ export default function Kanban() {
                 crsItems.map((c: any) => {
                   const isSelected = c.id === effectiveCrsId;
                   return (
-                    <SplitPanelItem key={c.id} active={isSelected} onClick={() => setSelectedCrsId(c.id)}>
+                    <SplitPanelItem key={c.id} active={isSelected} onClick={() => handleCrsSelection(c.id)}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           {c.clientName && (
@@ -845,7 +870,7 @@ export default function Kanban() {
                             onAddTask={openAddTask}
                             onEdit={openEditTask}
                             onDelete={(id) => { if (confirm("Excluir tarefa?")) deleteTaskMut.mutate({ id }); }}
-                            onNavigate={(id) => navigate(`/tasks/${id}`)}
+                            onNavigate={(id) => navigate(buildTaskDetailUrl(id, { crsId: effectiveCrsId, disciplines: selectedDisciplines, search, priority: filterPriority, assignee: filterAssignee, company: filterCompany, client: filterClient }))}
                             activeTaskId={activeTaskId}
                           />
                         ))}

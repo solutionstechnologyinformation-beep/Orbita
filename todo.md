@@ -2104,3 +2104,9 @@
 - [x] Garantir entrada contínua de números decimais sem remontar o campo a cada tecla
 - [x] Renomear a área geral para m² e padronizar os rótulos relacionados
 - [x] Adicionar testes de regressão, validar TypeScript/build e salvar checkpoint
+
+## Preservação do contexto ao voltar do Kanban
+- [x] Manter o contrato selecionado ao abrir e fechar uma demanda do Kanban
+- [x] Manter a disciplina e filtros relevantes selecionados ao retornar
+- [x] Corrigir o botão Voltar e o histórico do navegador sem retornar ao primeiro contrato
+- [x] Adicionar testes de regressão, validar build e salvar checkpoint
