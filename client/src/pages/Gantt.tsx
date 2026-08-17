@@ -18,6 +18,7 @@ import {
 import { buildVisualGanttReportHtml, type GanttReportRow, type ReportOrientation, type ReportScale } from "./gantt-report-utils";
 import { formatDateInput, parseDateInput } from "../../../shared/date-only";
 import { getCriticalTaskIds } from "@/lib/gantt-critical";
+import { calculateDateEditRange, canCreateDependency } from "@/lib/gantt-interaction";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -202,9 +203,17 @@ export default function Gantt() {
       if (!rect) return;
       setDependencyPointer({ x: event.clientX - rect.left + timelineRef.current!.scrollLeft, y: event.clientY - rect.top + timelineRef.current!.scrollTop });
     };
-    const handlePointerUp = () => {
+    const handlePointerUp = (event: PointerEvent) => {
+      const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-gantt-task-id]");
+      const successorTaskId = element ? Number(element.dataset.ganttTaskId) : NaN;
+      const predecessorTaskId = dependencyDraft.predecessorTaskId;
       setDependencyDraft(null);
       setDependencyPointer(null);
+      if (!canCreateDependency(predecessorTaskId, successorTaskId)) {
+        toast.error("Solte a seta sobre outra atividade para criar a dependência.");
+        return;
+      }
+      createDependency.mutate({ predecessorTaskId, successorTaskId, dependencyType: "finish_to_start" });
     };
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
@@ -333,19 +342,9 @@ export default function Gantt() {
       const initialStart = parseDateInput(dateEditDraft.initialStart);
       const initialEnd = parseDateInput(dateEditDraft.initialEnd) ?? initialStart;
       if (!initialStart || !initialEnd) return;
-      let nextStart = initialStart;
-      let nextEnd = initialEnd;
-      if (dateEditDraft.mode === "move") {
-        const pointerStartDate = getTimelineDate(dateEditDraft.pointerStartX);
-        const delta = dayDistance(pointerStartDate, pointerDate);
-        nextStart = addDays(initialStart, delta);
-        nextEnd = addDays(initialEnd, delta);
-      } else if (dateEditDraft.mode === "resize-start") {
-        nextStart = pointerDate > initialEnd ? initialEnd : pointerDate;
-      } else {
-        nextEnd = pointerDate < initialStart ? initialStart : pointerDate;
-      }
-      setDateEditDraft((current) => current ? { ...current, previewStart: formatDateInput(nextStart), previewEnd: formatDateInput(nextEnd) } : current);
+      const pointerStartDate = getTimelineDate(dateEditDraft.pointerStartX);
+      const nextRange = calculateDateEditRange(initialStart, initialEnd, pointerStartDate, pointerDate, dateEditDraft.mode);
+      setDateEditDraft((current) => current ? { ...current, previewStart: formatDateInput(nextRange.start), previewEnd: formatDateInput(nextRange.end) } : current);
     };
     const handlePointerUp = () => {
       const current = dateEditDraft;
@@ -485,7 +484,7 @@ export default function Gantt() {
   const timelineContentHeight = 48 + rows.reduce((height, row) => height + (row.kind === "group" ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT), 0) + 40;
 
   function beginDateEdit(event: React.PointerEvent<HTMLElement>, task: TaskItem, mode: DateEditMode) {
-    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+    if (mode === "move" && event.target instanceof HTMLElement && event.target.closest("button")) return;
     const start = formatDateInput(task.startDate) || formatDateInput(task.endDate);
     const end = formatDateInput(task.endDate) || start;
     if (!start || !end) {
@@ -498,6 +497,7 @@ export default function Gantt() {
     const x = event.clientX - rect.left + timeline.scrollLeft - LEFT_WIDTH;
     event.preventDefault();
     event.stopPropagation();
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* alguns navegadores não capturam ponteiros sintéticos */ }
     setDateEditDraft({ taskId: task.id, mode, initialStart: start, initialEnd: end, pointerStartX: x, previewStart: start, previewEnd: end });
   }
 
@@ -575,8 +575,8 @@ export default function Gantt() {
             <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
             <div className="flex w-full items-center rounded-md border border-slate-200 bg-white p-0.5 sm:w-auto">
               {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
-                <button key={level} onClick={() => { setZoom(level); if (level === "week" || level === "day") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-                  {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dia (Detalhado)"}
+                <button key={level} type="button" aria-pressed={zoom === level} title={level === "day" ? "Mostrar os dias individualmente" : undefined} onClick={() => { setZoom(level); if (level === "week" || level === "day") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                  {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dias"}
                 </button>
               ))}
             </div>
@@ -700,7 +700,7 @@ export default function Gantt() {
 
         {!ganttQ.isLoading && filteredTasks.length > 0 && (
           <div className="hidden min-w-0 flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden md:block">
-            <div ref={timelineRef} className="relative h-full min-w-0 overflow-auto overscroll-contain">
+            <div ref={timelineRef} className="relative isolate h-full min-w-0 overflow-auto overscroll-contain">
               <div className="relative" style={{ width: LEFT_WIDTH + totalTimelineWidth, minWidth: "100%", minHeight: timelineContentHeight }}>
                 <svg className="pointer-events-none absolute left-0 top-0 z-[24]" width={LEFT_WIDTH + totalTimelineWidth} height={timelineContentHeight} aria-hidden="true">
                   <defs><marker id="gantt-dependency-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb" /></marker></defs>
@@ -709,11 +709,11 @@ export default function Gantt() {
                     {dependencyDraft && dependencyPointer && <path d={`M ${dependencyDraft.x} ${dependencyDraft.y} C ${dependencyDraft.x + 24} ${dependencyDraft.y}, ${dependencyPointer.x - LEFT_WIDTH - 24} ${dependencyPointer.y}, ${dependencyPointer.x - LEFT_WIDTH} ${dependencyPointer.y}`} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5 4" />}
                   </g>
                 </svg>
-                <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px` }}>
-                  <div className="sticky left-0 z-30 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[3px_0_8px_rgba(15,23,42,0.08)]">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
-                  <div className="relative overflow-hidden" aria-label={zoom === "week" ? "Escala semanal" : "Escala mensal"}>
+                <div className="sticky top-0 z-40 grid border-b border-slate-200 bg-[#f8fafc]" style={{ gridTemplateColumns: `${LEFT_WIDTH}px ${totalTimelineWidth}px` }}>
+                  <div className="sticky left-0 top-0 z-50 flex items-center gap-2 border-r border-slate-200 bg-[#f8fafc] px-4 text-xs font-bold uppercase tracking-wide text-slate-500 shadow-[3px_0_8px_rgba(15,23,42,0.08)]">Tarefa <span className="font-normal normal-case text-slate-400">({filteredTasks.length})</span></div>
+                  <div className="relative z-40 overflow-hidden bg-[#f8fafc]" aria-label={zoom === "day" ? "Escala diária" : zoom === "week" ? "Escala semanal" : "Escala mensal"}>
                     <div className="flex h-12 bg-[#f8fafc]" style={{ backgroundImage: gridBackground }}>
-                      {timelineGroups.map((group: { start: number; count: number; label: string }, index: number) => <div key={`${zoom}-${group.start}-${index}`} className="flex shrink-0 items-center justify-center border-r border-blue-200 px-2 text-[10px] font-bold uppercase text-slate-600" style={{ width: timelineUnitWidth }}>{group.label}</div>)}
+                      {timelineGroups.map((group: { start: number; count: number; label: string; key?: string }, index: number) => <div key={`${zoom}-${group.start}-${index}`} className="flex shrink-0 items-center justify-center border-r border-blue-200 px-2 text-[10px] font-bold uppercase text-slate-600" style={{ width: timelineUnitWidth }}>{zoom === "day" && group.key ? `${group.key.slice(8, 10)}/${group.key.slice(5, 7)}` : group.label}</div>)}
                     </div>
                   </div>
                 </div>
@@ -742,12 +742,12 @@ export default function Gantt() {
                         {row.kind === "group" && null}
                         {todayX >= 0 && todayX < totalTimelineWidth && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayX }} />}
                         {isGroup && row.kind === "group" && null}
-                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onPointerUp={(event) => { if (row.kind === "task" && dependencyDraft && dependencyDraft.predecessorTaskId !== row.task.id) { event.stopPropagation(); createDependency.mutate({ predecessorTaskId: dependencyDraft.predecessorTaskId, successorTaskId: row.task.id, dependencyType: "finish_to_start" }); } }} className={`absolute z-20 flex items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
+                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
-                          {row.kind === "task" && !bar.milestone && <><button type="button" aria-label={`Redimensionar início de ${row.task.title}`} title="Arraste para alterar a data inicial" className="absolute -left-1 top-0 z-30 h-full w-2 cursor-ew-resize rounded-l-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-start")} /><button type="button" aria-label={`Redimensionar final de ${row.task.title}`} title="Arraste para alterar a data final" className="absolute -right-1 top-0 z-30 h-full w-2 cursor-ew-resize rounded-r-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-end")} /></>}
-                          {row.kind === "task" && <button type="button" aria-label={`Criar dependência a partir de ${row.task.title}`} title="Arraste para outra barra para criar dependência" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); const y = rowYByTaskId.get(row.task.id) ?? 0; setDependencyDraft({ predecessorTaskId: row.task.id, x: bar.left + bar.width, y }); setDependencyPointer({ x: bar.left + bar.width, y }); }} onPointerUp={(event) => event.stopPropagation()} />}
+                          {row.kind === "task" && !bar.milestone && <><button type="button" aria-label={`Redimensionar início de ${row.task.title}`} title="Arraste para alterar a data inicial" className="absolute -left-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-l-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-start")} /><button type="button" aria-label={`Redimensionar final de ${row.task.title}`} title="Arraste para alterar a data final" className="absolute -right-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-r-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-end")} /></>}
+                          {row.kind === "task" && <button type="button" aria-label={`Criar dependência a partir de ${row.task.title}`} title="Arraste para outra barra para criar dependência" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* fallback para navegadores sem captura */ } const y = rowYByTaskId.get(row.task.id) ?? 0; setDependencyDraft({ predecessorTaskId: row.task.id, x: bar.left + bar.width, y }); setDependencyPointer({ x: bar.left + bar.width, y }); }} onPointerUp={() => undefined} />}
                         </div></TooltipTrigger><TooltipContent side="top" className="max-w-xs"><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && <><p className="text-xs">Status: {getTaskStatusLabel(row.task, today)}</p><p className="text-xs">Projeto/contrato: {row.task.projectName || "Não informado"}</p><p className="text-xs">Responsável: {row.task.assigneeName || "Não atribuído"}</p><p className="text-xs">Progresso: {Math.round(row.task.progress ?? 0)}%</p><p className="text-xs">Dependências: {(row.task.dependencies ?? []).length || "Nenhuma"}</p>{criticalPathEnabled && criticalTaskIds.has(row.task.id) && <p className="text-xs font-semibold text-red-600">Caminho crítico</p>}</>}{row.kind === "checklist" && <p className="text-xs">Item de checklist da tarefa #{row.taskId}</p>}</TooltipContent></Tooltip>}
                       </div>
                     </div>

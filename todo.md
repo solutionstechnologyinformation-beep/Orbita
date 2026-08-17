@@ -2134,3 +2134,6 @@
 - [x] Calcular e destacar visualmente as tarefas do caminho crítico no Gantt
 
 - [x] Implementar propagação automática de prazos em cascata para tarefas sucessoras no Gantt
+- [x] Corrigir interações de arraste para mudar datas e criação de dependências por seta no Gantt
+- [x] Fixar coluna de tarefas e cabeçalho temporal no Gantt durante a rolagem e adicionar opção de mostrar dias
+
