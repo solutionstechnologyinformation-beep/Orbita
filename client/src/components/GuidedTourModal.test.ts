@@ -49,3 +49,13 @@ describe("GuidedTourModal", () => {
     expect(content).toContain("ia");
   });
 });
+
+  it("associa cada etapa a uma aba diferente e fornece instruções de uso", () => {
+    for (let index = 0; index < GUIDED_TOUR_STEPS.length - 1; index += 1) {
+      const current = GUIDED_TOUR_STEPS[index];
+      const next = GUIDED_TOUR_STEPS[index + 1];
+      expect(next.href).not.toBe(current.href);
+      expect(next.description).toMatch(/\S+/);
+      expect(next.bullets.length).toBe(3);
+    }
+  });

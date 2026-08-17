@@ -48,18 +48,18 @@ describe("Auditoria de Segurança do Orbita", () => {
   });
 });
 
-import { validatePasswordComplexity } from "./password-policy";
+import { validatePassword } from "./password-policy";
 
 describe("Auditoria de Política de Senha", () => {
   it("rejeita senhas abaixo do tamanho mínimo configurado pelo tenant", () => {
     const policy = { minLength: 10, requireUppercase: true, requireNumber: true, requireSpecial: true };
-    const result = validatePasswordComplexity("Curto1!", policy);
+    const result = validatePassword("Curto1!", policy);
     expect(result.valid).toBe(false);
   });
 
   it("aprova senha complexa conforme política", () => {
     const policy = { minLength: 8, requireUppercase: true, requireNumber: true, requireSpecial: true };
-    const result = validatePasswordComplexity("SenhaForte9!", policy);
+    const result = validatePassword("SenhaForte9!", policy);
     expect(result.valid).toBe(true);
   });
 });

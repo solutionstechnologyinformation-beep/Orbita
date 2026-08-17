@@ -40,7 +40,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { getThemeToggleCopy } from "../contexts/theme-utils";
 import { GlobalPeriodControl } from "../contexts/GlobalPeriodContext";
 import { OfflineSyncIndicator } from "./OfflineSyncIndicator";
-import { GuidedTourLauncher, GuidedTourModal } from "./GuidedTourModal";
+import { GuidedTourLauncher } from "./GuidedTourModal";
+import { useGuidedTour } from "./GuidedTourContext";
 import { Badge } from "./ui/badge";
 import {
   DropdownMenu,
@@ -130,7 +131,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
   const [crsExpanded, setCrsExpanded] = useState(false);
-  const [guidedTourOpen, setGuidedTourOpen] = useState(false);
+  const { openGuidedTour } = useGuidedTour();
 
   const { data: crsList = [] } = trpc.crs.list.useQuery(undefined, {
     enabled: isAuthenticated && !requiresMandatoryTfa,
@@ -430,7 +431,7 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         )}
 
         <div className="mt-3 border-t border-black/10 pt-3">
-          <GuidedTourLauncher compact={compact} onClick={() => setGuidedTourOpen(true)} />
+          <GuidedTourLauncher compact={compact} onClick={openGuidedTour} />
         </div>
       </nav>
 
@@ -602,7 +603,6 @@ export default function AppLayout({ children, title, backHref, fullHeight }: App
         </nav>
       </div>
       <FloatingAgent compact={sidebarCollapsed} />
-      <GuidedTourModal isOpen={guidedTourOpen} onClose={() => setGuidedTourOpen(false)} />
     </div>
   );
 }

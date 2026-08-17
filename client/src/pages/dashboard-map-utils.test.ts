@@ -72,7 +72,8 @@ describe("dashboard map fullscreen and timestamp", () => {
 
   it("animates opening and retracting the summary panel while respecting reduced motion", () => {
     expect(dashboardSource).toContain("map-summary-panel-open");
-    expect(dashboardSource).toContain("map-summary-panel-closed w-16");
+    expect(dashboardSource).toContain("map-summary-panel-collapsed");
+    expect(dashboardSource).toContain("map-summary-panel-sized");
     expect(stylesheet).toContain("@keyframes orbitaMapSummaryOpen");
     expect(stylesheet).toContain(".map-summary-panel-open");
     expect(stylesheet).toContain(".map-summary-panel");

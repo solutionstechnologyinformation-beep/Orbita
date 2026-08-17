@@ -2033,3 +2033,15 @@
 - [x] Adicionar alternância de visibilidade no painel administrativo de criação de usuários (`CompanyAdmin.tsx`) e na página global de administração (`Admin.tsx`)
 - [x] Escrever testes unitários para a alternância de visibilidade e atualizar documentação no `GUIA_AUTENTICACAO_LOCAL.md`
 - [x] Validar TypeScript, executar suíte Vitest completa, salvar checkpoint e entregar
+
+## Área do Mapa Ampliado com Faixa Lateral
+- [ ] Remover larguras e margens fixas introduzidas pela revisão manual anterior no `Dashboard.tsx`
+- [ ] Reservar uma faixa lateral responsiva para a aba de opções e resumos quando o mapa estiver ampliado
+- [ ] Garantir ausência de overflow horizontal e preservar a transição entre mapa normal e tela ampliada
+- [ ] Validar TypeScript, build, preview e salvar checkpoint
+
+## Correção da Navegação da Apresentação Guiada
+- [x] Mapear o componente `GuidedTourModal.tsx` e associar cada etapa à sua rota e aba correspondente no Órbita
+- [x] Implementar a navegação automática de rota e foco ao clicar em Próximo ou Anterior no tour
+- [x] Adicionar orientações detalhadas de uso para cada ferramenta nas etapas do tour
+- [x] Escrever testes unitários em `GuidedTourModal.test.ts`, validar TypeScript, build e salvar checkpoint

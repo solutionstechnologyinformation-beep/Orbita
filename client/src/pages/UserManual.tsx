@@ -648,7 +648,8 @@ const sections: Section[] = [
         <Steps items={[
           <>Na barra lateral, clique em <strong>"Guia de apresentação"</strong>.</>,
           "Leia a explicação da aba destacada e os três pontos principais apresentados no passo.",
-          <>Use <strong>"Próxima aba"</strong> para avançar ou <strong>"Anterior"</strong> para revisar a etapa anterior.</>,
+          <>Use <strong>"Próxima aba"</strong> para avançar: o Órbita muda automaticamente para a aba correspondente, destaca sua entrada na barra lateral e mantém o painel explicativo aberto.</>,
+          <>Use <strong>"Anterior"</strong> para retornar à ferramenta anterior; o texto, os pontos principais e o destaque acompanham a aba exibida.</>,
           <>Ao finalizar, clique em <strong>"Concluir"</strong>. O guia também pode ser encerrado pelo botão X, clicando fora do painel ou pressionando Esc.</>,
         ]} />
         <H2>O que o tour apresenta</H2>
@@ -663,7 +664,7 @@ const sections: Section[] = [
           ]}
         />
         <Callout type="info">
-          O tour pode ser navegado por teclado com as setas <strong>←</strong> e <strong>→</strong>. O foco inicial é direcionado ao botão de fechamento e a interface respeita o tema claro/escuro e tamanhos menores de tela.
+          O tour pode ser navegado por teclado com as setas <strong>←</strong> e <strong>→</strong>. Ao trocar de etapa, a rota e a aba lateral são sincronizadas automaticamente, enquanto o modal permanece aberto para orientar o uso. O foco inicial é direcionado ao botão de fechamento e a interface respeita o tema claro/escuro e tamanhos menores de tela.
         </Callout>
       </>
     ),

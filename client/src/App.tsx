@@ -34,6 +34,13 @@ import AcceptInvite from "./pages/AcceptInvite";
 import MandatoryTfaSetup from "./pages/MandatoryTfaSetup";
 import { SubscriptionPortal } from "./pages/SubscriptionPortal";
 import SplashScreen from "./pages/SplashScreen";
+import { GuidedTourModal } from "./components/GuidedTourModal";
+import { GuidedTourProvider, useGuidedTour } from "./components/GuidedTourContext";
+
+function GuidedTourHost() {
+  const { isOpen, closeGuidedTour } = useGuidedTour();
+  return <GuidedTourModal isOpen={isOpen} onClose={closeGuidedTour} />;
+}
 
 function Router() {
   return (
@@ -82,7 +89,10 @@ function App() {
         <GlobalPeriodProvider>
           <TooltipProvider>
             <Toaster richColors position="top-right" />
-            <Router />
+            <GuidedTourProvider>
+              <Router />
+              <GuidedTourHost />
+            </GuidedTourProvider>
           </TooltipProvider>
         </GlobalPeriodProvider>
       </ThemeProvider>
