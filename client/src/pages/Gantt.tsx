@@ -620,7 +620,7 @@ export default function Gantt() {
     }
     const executiveEntries = entries as GanttExecutiveEntry[];
     const summary = summarizeGanttEntries(executiveEntries);
-    const chartData = buildGanttExecutiveChartData(executiveEntries);
+    const chartData = buildGanttExecutiveChartData(executiveEntries, criticalTaskIds);
     const companyName = String((user as any)?.company || "Órbita");
     const periodLabel = buildGanttExecutivePeriodLabel(historyFromDate || undefined, historyToDate || undefined);
     const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -813,6 +813,44 @@ export default function Gantt() {
       });
     }
     y = taskChartY + taskChartH + 8;
+
+    const impact = chartData.impact;
+    const impactY = y;
+    const impactH = 43;
+    doc.setFillColor(255, 251, 235);
+    doc.setDrawColor(253, 230, 138);
+    doc.roundedRect(margin, impactY, contentW, impactH, 3, 3, "FD");
+    doc.setTextColor(120, 53, 15);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("Impacto no caminho crítico e desvio de prazo", margin + 6, impactY + 8);
+    const impactCards = [
+      { label: "Críticas afetadas", value: String(impact.criticalTasksAffected), color: [220, 38, 38] as [number, number, number] },
+      { label: "Alterações críticas", value: String(impact.criticalChanges), color: [234, 88, 12] as [number, number, number] },
+      { label: "Desvio crítico líquido", value: `${impact.criticalNetEndShiftDays > 0 ? "+" : ""}${impact.criticalNetEndShiftDays} d`, color: impact.criticalNetEndShiftDays > 0 ? [220, 38, 38] as [number, number, number] : impact.criticalNetEndShiftDays < 0 ? [5, 150, 105] as [number, number, number] : [71, 85, 105] as [number, number, number] },
+      { label: "Maior desvio crítico", value: `${impact.criticalMaxEndShiftDays > 0 ? "+" : ""}${impact.criticalMaxEndShiftDays} d`, color: [180, 83, 9] as [number, number, number] },
+    ];
+    const impactGap = 4;
+    const impactCardW = (contentW - impactGap * (impactCards.length - 1) - 12) / impactCards.length;
+    impactCards.forEach((card, index) => {
+      const x = margin + 6 + index * (impactCardW + impactGap);
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(254, 215, 170);
+      doc.roundedRect(x, impactY + 12, impactCardW, 20, 2, 2, "FD");
+      doc.setTextColor(120, 113, 108);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.2);
+      doc.text(card.label, x + 5, impactY + 19);
+      doc.setTextColor(card.color[0], card.color[1], card.color[2]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(card.value, x + 5, impactY + 28);
+    });
+    doc.setTextColor(120, 53, 15);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.text(`Críticas: ${impact.criticalDelayedChanges} atraso(s) · ${impact.criticalAcceleratedChanges} adiantamento(s)   |   Geral: ${impact.totalDelayedChanges} atraso(s) · ${impact.totalAcceleratedChanges} adiantamento(s) · desvio líquido ${impact.netEndShiftDays > 0 ? "+" : ""}${impact.netEndShiftDays} d`, margin + 6, impactY + 38);
+    y = impactY + impactH + 8;
 
     doc.setTextColor(15, 23, 42);
     doc.setFont("helvetica", "bold");
