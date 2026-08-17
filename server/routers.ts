@@ -21,7 +21,7 @@ import {
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
   notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
-  getCompanies, getCompanyById, getCompanyPasswordPolicy, updateCompanyPasswordPolicy, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline,
+  getCompanies, getCompanyById, getCompanyPasswordPolicy, updateCompanyPasswordPolicy, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline, resolveOrProvisionCompanyForAdmin,
   createCompanyInvite, getCompanyInvites, getCompanyInviteByToken, revokeCompanyInvite, acceptCompanyInviteRecord,
   logCompanyInviteAudit, getCompanyInviteAuditLogs,
   getAgendaEvents, createAgendaEvent, deleteAgendaEvent,
@@ -83,14 +83,27 @@ const leaderProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
-const companyAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
+const companyAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (ctx.user.role !== "company_admin" && ctx.user.role !== "admin" && ctx.user.role !== "master_admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores da empresa podem realizar esta ação." });
   }
-  if (ctx.user.role === "company_admin" && ctx.user.companyId == null) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "O usuário administrador não está vinculado a uma empresa." });
+
+  const company = await resolveOrProvisionCompanyForAdmin(ctx.user);
+  if (!company) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: ctx.user.role === "master_admin"
+        ? "Selecione uma empresa no Admin Master antes de abrir este painel."
+        : "Seu usuário administrador ainda não está vinculado a uma empresa. Solicite ao Admin Master o vínculo da empresa.",
+    });
   }
-  return next({ ctx });
+
+  return next({
+    ctx: {
+      ...ctx,
+      user: { ...ctx.user, companyId: company.id, company: company.name },
+    },
+  });
 });
 
 function normalizeCustomDomain(value: string) {

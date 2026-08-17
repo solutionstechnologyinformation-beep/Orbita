@@ -37,6 +37,92 @@ export async function getCompanyById(id: number) {
   return rows[0];
 }
 
+export function slugifyCompanyNameForProvisioning(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 100) || "empresa-orbita";
+}
+
+export function shouldProvisionCompanyForAdmin(role: string, existingCompanyCount: number) {
+  return role === "admin" && existingCompanyCount === 0;
+}
+
+type AdminCompanyIdentity = {
+  id: number;
+  role: string;
+  companyId?: number | null;
+  company?: string | null;
+  name?: string | null;
+  email?: string | null;
+};
+
+async function bindUserToCompany(db: any, user: AdminCompanyIdentity, company: typeof companies.$inferSelect) {
+  if (user.id > 0 && (user.companyId !== company.id || user.company !== company.name)) {
+    await db.update(users).set({ companyId: company.id, company: company.name, updatedAt: new Date() }).where(eq(users.id, user.id));
+  }
+  return company;
+}
+
+/**
+ * Resolve o tenant de administradores criados antes da adoção do companyId.
+ * Nunca escolhe arbitrariamente entre vários tenants: só usa vínculo explícito,
+ * correspondência exata do nome legado ou o único tenant existente.
+ */
+export async function resolveOrProvisionCompanyForAdmin(user: AdminCompanyIdentity) {
+  const db = await getDb();
+
+  if (user.companyId != null) {
+    const boundCompany = await getCompanyById(user.companyId);
+    if (boundCompany) return bindUserToCompany(db, user, boundCompany);
+  }
+
+  const legacyName = user.company?.trim();
+  if (legacyName) {
+    const [legacyCompany] = await db.select().from(companies).where(eq(companies.name, legacyName)).limit(1);
+    if (legacyCompany) return bindUserToCompany(db, user, legacyCompany);
+  }
+
+  const existingCompanies = await db.select().from(companies).orderBy(asc(companies.id)).limit(2);
+  if (existingCompanies.length === 1 && (user.role === "admin" || user.role === "master_admin")) {
+    return bindUserToCompany(db, user, existingCompanies[0]);
+  }
+  if (!shouldProvisionCompanyForAdmin(user.role, existingCompanies.length)) return null;
+
+  const companyName = legacyName || user.name?.trim() || user.email?.split("@")[0]?.trim() || `Empresa ${user.id}`;
+  const [sameName] = await db.select().from(companies).where(eq(companies.name, companyName)).limit(1);
+  if (sameName) return bindUserToCompany(db, user, sameName);
+
+  const baseSlug = slugifyCompanyNameForProvisioning(companyName);
+  let slug = baseSlug;
+  for (let suffix = 2; suffix <= 100; suffix += 1) {
+    const [slugMatch] = await db.select({ id: companies.id }).from(companies).where(eq(companies.slug, slug)).limit(1);
+    if (!slugMatch) break;
+    slug = `${baseSlug.slice(0, Math.max(1, 100 - String(suffix).length - 1))}-${suffix}`;
+  }
+
+  try {
+    const [result] = await db.insert(companies).values({
+      name: companyName,
+      slug,
+      color: "#2563eb",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const createdCompany = await getCompanyById(Number((result as any).insertId));
+    return createdCompany ? bindUserToCompany(db, user, createdCompany) : null;
+  } catch (error) {
+    // Em caso de corrida no slug único, reaproveita a empresa já criada somente
+    // se o nome coincidir; nunca vincula o administrador a outro tenant.
+    const [sameNameAfterRace] = await db.select().from(companies).where(eq(companies.name, companyName)).limit(1);
+    if (sameNameAfterRace) return bindUserToCompany(db, user, sameNameAfterRace);
+    throw error;
+  }
+}
+
 export async function getCompanyPasswordPolicy(companyId: number) {
   const company = await getCompanyById(companyId);
   if (!company) return null;

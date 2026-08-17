@@ -2061,3 +2061,17 @@
 - [x] Isolar a renderização do mapa expandido em uma camada de topo `fixed inset-0 z-[9999]` cobrindo a viewport inteira (fora do grid do Dashboard), usando portal no `document.body`
 - [x] Garantir que ao expandir o mapa, a barra lateral e os demais widgets fiquem ocultos e o mapa ocupe 100% da tela com as abas correlacionadas
 - [x] Validar expansão real, TypeScript, suíte de testes completa, build e salvar checkpoint
+
+## Correção da Conexão Independente do Google Calendar por Usuário
+- [x] Auditar o armazenamento de tokens por usuário no banco e no backend OAuth
+- [ ] Substituir `window.open` por navegação direta (`window.location.href`) em `GoogleCalendarCard.tsx` para evitar bloqueios de popups pelos navegadores
+- [ ] Adicionar validação de Client ID no backend e retornar erro descritivo caso `GOOGLE_CALENDAR_CLIENT_ID` não esteja configurado
+- [ ] Tratar parâmetros de retorno `?google_connected=true` e `?error=...` com toasts visuais nas páginas de Calendário e Reuniões
+- [ ] Escrever testes unitários, validar TypeScript, build e salvar checkpoint
+
+## Correção do contexto da empresa no Admin da Empresa
+- [x] Investigar por que o painel exibe `Empresa não definida` para o usuário autenticado
+- [x] Corrigir a resolução segura de `companyId` e a associação usuário–empresa sem quebrar o isolamento multi-tenant
+- [x] Garantir que as configurações da empresa sejam carregadas e exibidas para administradores autorizados
+- [x] Adicionar teste de regressão e validar TypeScript, build e suíte Vitest
+- [x] Revisar e limpar código redundante introduzido durante a correção
