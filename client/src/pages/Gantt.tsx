@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
@@ -170,7 +171,39 @@ function describeGanttAudit(entry: { operation: string; beforeData?: string | nu
   return `Dependência: tarefa #${String(dependency?.predecessorTaskId ?? "?")} → tarefa #${String(dependency?.successorTaskId ?? "?")} (${String(dependency?.dependencyType ?? "finish_to_start")})`;
 }
 
+function buildAuditComparison(entry: GanttAuditEntry) {
+  const before = parseAuditData(entry.beforeData) ?? {};
+  const after = parseAuditData(entry.afterData) ?? {};
+  if (entry.operation !== "dates_updated") {
+    return { kind: "dependency" as const, before, after };
+  }
+  const beforeStart = asDate(String(before.startDate ?? ""));
+  const beforeEnd = asDate(String(before.endDate ?? ""));
+  const afterStart = asDate(String(after.startDate ?? ""));
+  const afterEnd = asDate(String(after.endDate ?? ""));
+  const dates = [beforeStart, beforeEnd, afterStart, afterEnd].filter(Boolean) as Date[];
+  if (dates.length === 0) return { kind: "dates" as const, beforeStart, beforeEnd, afterStart, afterEnd, rangeStart: null, rangeEnd: null };
+  const rangeStart = Math.min(...dates.map((date) => date.getTime()));
+  const rangeEnd = Math.max(...dates.map((date) => date.getTime()));
+  const percent = (value: Date | null, fallback: number) => value ? ((value.getTime() - rangeStart) / Math.max(1, rangeEnd - rangeStart)) * 100 : fallback;
+  return {
+    kind: "dates" as const,
+    beforeStart,
+    beforeEnd,
+    afterStart,
+    afterEnd,
+    rangeStart,
+    rangeEnd,
+    beforeLeft: percent(beforeStart, 0),
+    beforeWidth: beforeStart && beforeEnd ? Math.max(4, percent(beforeEnd, 100) - percent(beforeStart, 0)) : 4,
+    afterLeft: percent(afterStart, 0),
+    afterWidth: afterStart && afterEnd ? Math.max(4, percent(afterEnd, 100) - percent(afterStart, 0)) : 4,
+  };
+}
+
 export default function Gantt() {
+  const { user } = useAuth();
+  const canConfigureGanttDigest = user?.role === "company_admin" || user?.role === "admin" || user?.role === "master_admin";
   const [filterClientId, setFilterClientId] = useState<number | undefined>();
   const [filterCrsId, setFilterCrsId] = useState<number | undefined>();
   const [filterSetor, setFilterSetor] = useState<string | undefined>();
@@ -191,6 +224,14 @@ export default function Gantt() {
   const [showGanttHistory, setShowGanttHistory] = useState(false);
   const [historyTaskId, setHistoryTaskId] = useState<number | undefined>();
   const [historyOperation, setHistoryOperation] = useState<"all" | "dates_updated" | "dependency_created" | "dependency_deleted">("all");
+  const [historyFromDate, setHistoryFromDate] = useState("");
+  const [historyToDate, setHistoryToDate] = useState("");
+  const [selectedHistoryEntryId, setSelectedHistoryEntryId] = useState<number | undefined>();
+  const [showDigestSettings, setShowDigestSettings] = useState(false);
+  const [digestDayOfWeek, setDigestDayOfWeek] = useState(1);
+  const [digestHourUtc, setDigestHourUtc] = useState(12);
+  const [digestMinuteUtc, setDigestMinuteUtc] = useState(0);
+  const [digestEnabled, setDigestEnabled] = useState(true);
   const [printOrientation, setPrintOrientation] = useState<ReportOrientation>("landscape");
   const [printScale, setPrintScale] = useState<ReportScale>("standard");
   const [, navigate] = useLocation();
@@ -219,6 +260,14 @@ export default function Gantt() {
       setDependencyDraft(null);
       setDependencyPointer(null);
     },
+  });
+  const saveGanttDigest = trpc.ganttDigest.save.useMutation({
+    onSuccess: () => {
+      toast.success("Resumo semanal do Gantt configurado.");
+      utils.ganttDigest.get.invalidate();
+      setShowDigestSettings(false);
+    },
+    onError: (error) => toast.error(error.message || "Não foi possível configurar o resumo semanal."),
   });
 
   useEffect(() => {
@@ -262,10 +311,23 @@ export default function Gantt() {
     limit: 300,
     taskId: historyTaskId,
     operation: historyOperation === "all" ? undefined : historyOperation,
-  }), [historyOperation, historyTaskId]);
+    fromDate: historyFromDate || undefined,
+    toDate: historyToDate || undefined,
+  }), [historyFromDate, historyOperation, historyTaskId, historyToDate]);
   const ganttHistoryQ = trpc.registros.ganttHistory.useQuery(ganttHistoryInput, { enabled: showGanttHistory });
+  const ganttDigestQ = trpc.ganttDigest.get.useQuery(undefined, { enabled: showGanttHistory && canConfigureGanttDigest });
   const allTasks = useMemo(() => (ganttQ.data ?? []) as TaskItem[], [ganttQ.data]);
   const selectedHistoryTask = useMemo(() => allTasks.find((task) => task.id === historyTaskId), [allTasks, historyTaskId]);
+  const selectedHistoryEntry = useMemo(() => (ganttHistoryQ.data ?? []).find((entry: GanttAuditEntry) => entry.id === selectedHistoryEntryId) as GanttAuditEntry | undefined, [ganttHistoryQ.data, selectedHistoryEntryId]);
+  const selectedHistoryComparison = useMemo(() => selectedHistoryEntry ? buildAuditComparison(selectedHistoryEntry) : null, [selectedHistoryEntry]);
+  useEffect(() => {
+    const schedule = ganttDigestQ.data;
+    if (!schedule) return;
+    setDigestDayOfWeek(schedule.dayOfWeek);
+    setDigestHourUtc(schedule.hourUtc);
+    setDigestMinuteUtc(schedule.minuteUtc);
+    setDigestEnabled(schedule.isEnabled);
+  }, [ganttDigestQ.data]);
   const today = useMemo(() => startOfDay(new Date()), []);
 
   const filteredTasks = useMemo(() => {
@@ -825,31 +887,40 @@ export default function Gantt() {
               <DialogTitle>Histórico de alterações do Gantt</DialogTitle>
               <DialogDescription>Veja quem alterou datas e dependências, com os valores anteriores e posteriores. Os registros são isolados por empresa.</DialogDescription>
             </DialogHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                  <Filter className="h-3.5 w-3.5" /> Operação
-                  <select value={historyOperation} onChange={(event) => setHistoryOperation(event.target.value as typeof historyOperation)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
-                    <option value="all">Todas</option>
-                    <option value="dates_updated">Datas atualizadas</option>
-                    <option value="dependency_created">Dependência criada</option>
-                    <option value="dependency_deleted">Dependência excluída</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                  Tarefa
-                  <select value={historyTaskId ?? "all"} onChange={(event) => setHistoryTaskId(event.target.value === "all" ? undefined : Number(event.target.value))} className="h-9 max-w-[240px] rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
-                    <option value="all">Todas as tarefas</option>
-                    {allTasks.slice().sort((a, b) => a.title.localeCompare(b.title)).map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
-                  </select>
-                </label>
-                {historyTaskId != null && <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={() => setHistoryTaskId(undefined)}>Limpar tarefa</Button>}
+              <div className="space-y-3 border-y border-slate-100 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <Filter className="h-3.5 w-3.5" /> Operação
+                      <select value={historyOperation} onChange={(event) => setHistoryOperation(event.target.value as typeof historyOperation)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
+                        <option value="all">Todas</option>
+                        <option value="dates_updated">Datas atualizadas</option>
+                        <option value="dependency_created">Dependência criada</option>
+                        <option value="dependency_deleted">Dependência excluída</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      Tarefa
+                      <select value={historyTaskId ?? "all"} onChange={(event) => setHistoryTaskId(event.target.value === "all" ? undefined : Number(event.target.value))} className="h-9 max-w-[240px] rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
+                        <option value="all">Todas as tarefas</option>
+                        {allTasks.slice().sort((a, b) => a.title.localeCompare(b.title)).map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
+                      </select>
+                    </label>
+                    {historyTaskId != null && <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={() => setHistoryTaskId(undefined)}>Limpar tarefa</Button>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">{ganttHistoryQ.data?.length ?? 0} registro(s){selectedHistoryTask ? ` de ${selectedHistoryTask.title}` : ""}</span>
+                    {canConfigureGanttDigest && <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setShowDigestSettings(true)}>Resumo semanal</Button>}
+                    <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={exportGanttHistoryCsv} disabled={ganttHistoryQ.isLoading || (ganttHistoryQ.data ?? []).length === 0}><Download className="h-3.5 w-3.5" />CSV</Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="grid gap-1 text-[11px] font-semibold text-slate-600">De<input type="date" value={historyFromDate} onChange={(event) => setHistoryFromDate(event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700" /></label>
+                  <label className="grid gap-1 text-[11px] font-semibold text-slate-600">Até<input type="date" value={historyToDate} onChange={(event) => setHistoryToDate(event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700" /></label>
+                  {(historyFromDate || historyToDate) && <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setHistoryFromDate(""); setHistoryToDate(""); }}>Limpar período</Button>}
+                  <span className="text-[11px] text-slate-400">O intervalo inclui as duas datas informadas.</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">{ganttHistoryQ.data?.length ?? 0} registro(s){selectedHistoryTask ? ` de ${selectedHistoryTask.title}` : ""}</span>
-                <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={exportGanttHistoryCsv} disabled={ganttHistoryQ.isLoading || (ganttHistoryQ.data ?? []).length === 0}><Download className="h-3.5 w-3.5" />CSV</Button>
-              </div>
-            </div>
             <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
               {ganttHistoryQ.isLoading && <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Carregando histórico...</div>}
               {ganttHistoryQ.error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Não foi possível carregar o histórico: {ganttHistoryQ.error.message}</div>}
@@ -857,7 +928,7 @@ export default function Gantt() {
               {(ganttHistoryQ.data ?? []).map((entry: GanttAuditEntry) => {
                 const operationLabel = getGanttHistoryOperationLabel(entry.operation);
                 const operationColor = entry.operation === "dates_updated" ? "bg-blue-50 text-blue-700" : entry.operation === "dependency_created" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700";
-                return <div key={entry.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                return <div key={entry.id} role="button" tabIndex={0} onClick={() => setSelectedHistoryEntryId(entry.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedHistoryEntryId(entry.id); }} className={`cursor-pointer rounded-xl border bg-white p-3 shadow-sm transition-colors hover:border-blue-300 ${selectedHistoryEntryId === entry.id ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-800">{entry.taskTitle || `Tarefa #${entry.taskId}`}</p>
@@ -867,10 +938,53 @@ export default function Gantt() {
                   </div>
                   <p className="mt-2 text-xs text-slate-600">{describeGanttAudit(entry)}</p>
                   <p className="mt-2 text-[11px] text-slate-400">Por <strong className="font-semibold text-slate-600">{entry.changedByName || entry.changedByEmail || `Usuário #${entry.changedById}`}</strong> em {new Date(entry.createdAt).toLocaleString("pt-BR")}</p>
+                  <Button type="button" variant="ghost" size="sm" className="mt-2 h-7 px-2 text-[11px]" onClick={(event) => { event.stopPropagation(); setSelectedHistoryEntryId(entry.id); }}>Comparar antes/depois</Button>
                 </div>;
               })}
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setShowGanttHistory(false)}>Fechar</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={selectedHistoryEntryId != null} onOpenChange={(open) => { if (!open) setSelectedHistoryEntryId(undefined); }}>
+          <DialogContent className="w-[calc(100%-2rem)] max-w-2xl rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Comparação visual antes/depois</DialogTitle>
+              <DialogDescription>{selectedHistoryEntry ? `${selectedHistoryEntry.taskTitle || `Tarefa #${selectedHistoryEntry.taskId}`} · ${getGanttHistoryOperationLabel(selectedHistoryEntry.operation)}` : "Selecione um registro do histórico."}</DialogDescription>
+            </DialogHeader>
+            {selectedHistoryEntry && selectedHistoryComparison?.kind === "dates" && <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  { label: "Antes", color: "bg-slate-400", start: selectedHistoryComparison.beforeStart, end: selectedHistoryComparison.beforeEnd, left: selectedHistoryComparison.beforeLeft ?? 0, width: selectedHistoryComparison.beforeWidth ?? 4 },
+                  { label: "Depois", color: "bg-blue-600", start: selectedHistoryComparison.afterStart, end: selectedHistoryComparison.afterEnd, left: selectedHistoryComparison.afterLeft ?? 0, width: selectedHistoryComparison.afterWidth ?? 4 },
+                ].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{item.label}</span><span className="text-xs font-semibold text-slate-700">{auditDate(item.start)} → {auditDate(item.end)}</span></div>
+                  <div className="relative mt-4 h-8 rounded-full bg-slate-200"><div className={`absolute top-1 h-6 rounded-full ${item.color}`} style={{ left: `${item.left}%`, width: `${item.width}%` }} /></div>
+                </div>)}
+              </div>
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">{describeGanttAudit(selectedHistoryEntry)}</div>
+            </div>}
+            {selectedHistoryEntry && selectedHistoryComparison?.kind === "dependency" && <div className="grid gap-4 md:grid-cols-2">
+              {[{ label: "Antes", data: selectedHistoryComparison.before }, { label: "Depois", data: selectedHistoryComparison.after }].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{item.label}</span><p className="mt-3 text-sm font-semibold text-slate-800">Tarefa #{String(item.data.predecessorTaskId ?? "?")} <span className="text-blue-600">→</span> Tarefa #{String(item.data.successorTaskId ?? "?")}</p><p className="mt-1 text-xs text-slate-500">Tipo: {String(item.data.dependencyType ?? "finish_to_start")}</p></div>)}
+            </div>}
+            <DialogFooter><Button variant="outline" onClick={() => setSelectedHistoryEntryId(undefined)}>Fechar</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showDigestSettings} onOpenChange={setShowDigestSettings}>
+          <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Resumo semanal do Gantt</DialogTitle>
+              <DialogDescription>Envie por e-mail as alterações da última semana aos administradores e líderes da empresa. O horário é informado em UTC.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">Dia da semana<select value={digestDayOfWeek} onChange={(event) => setDigestDayOfWeek(Number(event.target.value))} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal"><option value={0}>Domingo</option><option value={1}>Segunda-feira</option><option value={2}>Terça-feira</option><option value={3}>Quarta-feira</option><option value={4}>Quinta-feira</option><option value={5}>Sexta-feira</option><option value={6}>Sábado</option></select></label>
+              <div className="grid grid-cols-2 gap-3"><label className="grid gap-1.5 text-sm font-semibold text-slate-700">Hora UTC<input type="number" min={0} max={23} value={digestHourUtc} onChange={(event) => setDigestHourUtc(Number(event.target.value))} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label><label className="grid gap-1.5 text-sm font-semibold text-slate-700">Minuto<input type="number" min={0} max={59} value={digestMinuteUtc} onChange={(event) => setDigestMinuteUtc(Number(event.target.value))} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label></div>
+              <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={digestEnabled} onChange={(event) => setDigestEnabled(event.target.checked)} /> Ativar envio automático</label>
+              {ganttDigestQ.data?.nextExecutionAt && <p className="text-xs text-slate-500">Próximo envio: {new Date(ganttDigestQ.data.nextExecutionAt).toLocaleString("pt-BR")}.</p>}
+              <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">O envio automático só começa depois que a versão for publicada. Cada empresa possui uma agenda e destinatários independentes.</p>
+            </div>
+            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row"><Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowDigestSettings(false)}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={saveGanttDigest.isPending} onClick={() => saveGanttDigest.mutate({ dayOfWeek: digestDayOfWeek, hourUtc: digestHourUtc, minuteUtc: digestMinuteUtc, isEnabled: digestEnabled })}>Salvar agenda</Button></DialogFooter>
           </DialogContent>
         </Dialog>
 

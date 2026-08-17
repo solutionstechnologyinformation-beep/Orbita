@@ -64,7 +64,25 @@ export const backupSchedules = mysqlTable("backup_schedules", {
 });
 export type BackupSchedule = typeof backupSchedules.$inferSelect;
 export type InsertBackupSchedule = typeof backupSchedules.$inferInsert;
-
+// ─── Weekly Gantt Audit Digests ───────────────────────────────────────────────
+export const ganttDigestSchedules = mysqlTable("gantt_digest_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  createdById: int("createdById").notNull(),
+  scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+  cronExpression: varchar("cronExpression", { length: 64 }).notNull(),
+  dayOfWeek: int("dayOfWeek").notNull(),
+  hourUtc: int("hourUtc").notNull(),
+  minuteUtc: int("minuteUtc").notNull(),
+  isEnabled: boolean("isEnabled").default(true).notNull(),
+  lastExecutedAt: timestamp("lastExecutedAt"),
+  nextExecutionAt: timestamp("nextExecutionAt"),
+  lastDigestKey: varchar("lastDigestKey", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type GanttDigestSchedule = typeof ganttDigestSchedules.$inferSelect;
+export type InsertGanttDigestSchedule = typeof ganttDigestSchedules.$inferInsert;
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),

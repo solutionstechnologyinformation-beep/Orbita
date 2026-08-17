@@ -7,7 +7,7 @@ import { propagateTaskDates } from "../shared/gantt-cascade";
 import { sumContractAreasM2 } from "../shared/area";
 import { selectGanttManagerIds } from "../shared/gantt-history-notifications";
 import {
-  users, clients, crs, kanbanPhases, tasks, taskDependencies, ganttChangeLogs, taskAttachments, checklistItems,
+  users, clients, crs, kanbanPhases, tasks, taskDependencies, ganttChangeLogs, ganttDigestSchedules, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
   taskPhaseHistory, vacationPeriods, notifications, activityLogs,
   disciplines, sprints, sprintTasks, agendaEvents, chatMessages,
@@ -970,6 +970,8 @@ export async function getGanttChangeLogs(filters: {
   taskId?: number;
   changedById?: number;
   operation?: "dates_updated" | "dependency_created" | "dependency_deleted";
+  fromDate?: Date;
+  toDate?: Date;
   limit?: number;
 }) {
   const db = await getDb();
@@ -978,6 +980,8 @@ export async function getGanttChangeLogs(filters: {
   if (filters.taskId != null) conditions.push(eq(ganttChangeLogs.taskId, filters.taskId));
   if (filters.changedById != null) conditions.push(eq(ganttChangeLogs.changedById, filters.changedById));
   if (filters.operation) conditions.push(eq(ganttChangeLogs.operation, filters.operation));
+  if (filters.fromDate) conditions.push(gte(ganttChangeLogs.createdAt, filters.fromDate));
+  if (filters.toDate) conditions.push(lte(ganttChangeLogs.createdAt, filters.toDate));
   return db.select({
     id: ganttChangeLogs.id,
     companyId: ganttChangeLogs.companyId,

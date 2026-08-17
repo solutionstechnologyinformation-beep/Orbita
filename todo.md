@@ -2139,3 +2139,8 @@
 
 - [x] Criar registro de histórico de alterações de datas e dependências no Gantt com painel de consulta
 - [x] Adicionar exportação CSV, filtro por tarefa e notificações in-app ao histórico de alterações do Gantt
+
+## Evolução do Histórico do Gantt (Filtro por Período, Comparação Visual e Resumo Semanal)
+- [ ] Adicionar filtro por período (data inicial e final) no painel de histórico do Gantt
+- [ ] Criar modal de comparação visual antes/depois das alterações no cronograma
+- [ ] Implementar resumo semanal por e-mail para gestores com Heartbeat e verificação idempotente

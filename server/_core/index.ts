@@ -11,6 +11,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { handleStripeWebhook } from "../stripe-webhook";
 import { scheduledWeeklyBackupHandler } from "../scheduled-backup";
+import { scheduledGanttDigestHandler } from "../scheduled-gantt-digest";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -66,6 +67,7 @@ async function startServer() {
   registerGoogleCalendarOAuthRoute(app);
   // Scheduled weekly backups — must be registered before the Vite/static fallthrough.
   app.post("/api/scheduled/weekly-backup", scheduledWeeklyBackupHandler);
+  app.post("/api/scheduled/weekly-gantt-digest", scheduledGanttDigestHandler);
 
   // tRPC API
   app.use(

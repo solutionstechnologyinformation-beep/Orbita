@@ -3,7 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { parse as parseCookie } from "cookie";
 import { randomBytes } from "crypto";
 import { resolveTxt } from "node:dns/promises";
-import { users, backupSchedules, companyInvites, taskDependencies } from "../drizzle/schema";
+import { users, backupSchedules, ganttDigestSchedules, companyInvites, taskDependencies } from "../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, authenticatedProcedure } from "./_core/trpc";
 import { isBlockedPhaseName, normalizeBlockReason } from "../shared/kanban-block";
@@ -55,6 +55,7 @@ import { getCompanyMigrationSnapshot, importCompanyMigrationJson, generateMigrat
 import { createHeartbeatJob, updateHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
 import { COOKIE_NAME } from "../shared/const";
 import { buildWeeklyBackupCron, calculateNextWeeklyBackup, WEEKLY_BACKUP_PATH } from "./backup-scheduler";
+import { buildWeeklyGanttDigestCron, calculateNextWeeklyGanttDigest, GANTT_DIGEST_PATH } from "../shared/gantt-digest";
 import { processFloatingAgentCommand } from "./floating-agent";
 import { generateTaskContextSuggestions } from "./task-ai-suggestions";
 import { assertCanDeleteUser } from "./admin-delete-policy";
@@ -731,11 +732,19 @@ export const appRouter = router({
         taskId: z.number().int().positive().optional(),
         changedById: z.number().int().positive().optional(),
         operation: z.enum(["dates_updated", "dependency_created", "dependency_deleted"]).optional(),
+        fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       }).optional())
       .query(async ({ ctx, input }) => {
         const companyId = tenantCompanyId(ctx.user);
         if (companyId == null) throw new TRPCError({ code: "FORBIDDEN", message: "A empresa do usuário não foi definida." });
-        return getGanttChangeLogs({ companyId, ...input });
+        const { fromDate: fromDateInput, toDate: toDateInput, ...filters } = input ?? {};
+        const fromDate = fromDateInput ? new Date(`${fromDateInput}T00:00:00.000Z`) : undefined;
+        const toDate = toDateInput ? new Date(`${toDateInput}T23:59:59.999Z`) : undefined;
+        if (fromDate && Number.isNaN(fromDate.getTime())) throw new TRPCError({ code: "BAD_REQUEST", message: "Data inicial inválida." });
+        if (toDate && Number.isNaN(toDate.getTime())) throw new TRPCError({ code: "BAD_REQUEST", message: "Data final inválida." });
+        if (fromDate && toDate && fromDate > toDate) throw new TRPCError({ code: "BAD_REQUEST", message: "A data inicial não pode ser posterior à data final." });
+        return getGanttChangeLogs({ companyId, ...filters, fromDate, toDate });
       }),
   }),
 
@@ -2154,6 +2163,75 @@ export const appRouter = router({
       }),
   }),
 
+  ganttDigest: router({
+    get: companyAdminProcedure
+      .input(z.object({ companyId: z.number().int().positive().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        const companyId = input?.companyId ?? ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma empresa para configurar o resumo semanal." });
+        if (ctx.user.role === "company_admin" && ctx.user.companyId !== companyId) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode acessar outra empresa." });
+        const db = await getDb();
+        return (await db.select().from(ganttDigestSchedules).where(eq(ganttDigestSchedules.companyId, companyId)).limit(1))[0] ?? null;
+      }),
+    save: companyAdminProcedure
+      .input(z.object({ companyId: z.number().int().positive().optional(), dayOfWeek: z.number().int().min(0).max(6), hourUtc: z.number().int().min(0).max(23), minuteUtc: z.number().int().min(0).max(59), isEnabled: z.boolean().default(true) }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = input.companyId ?? ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma empresa para configurar o resumo semanal." });
+        if (ctx.user.role === "company_admin" && ctx.user.companyId !== companyId) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode configurar outra empresa." });
+        const db = await getDb();
+        const cron = buildWeeklyGanttDigestCron(input.dayOfWeek, input.hourUtc, input.minuteUtc);
+        const nextExecutionAt = calculateNextWeeklyGanttDigest(input.dayOfWeek, input.hourUtc, input.minuteUtc);
+        const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        const existing = (await db.select().from(ganttDigestSchedules).where(eq(ganttDigestSchedules.companyId, companyId)).limit(1))[0];
+        let taskUid = existing?.scheduleCronTaskUid ?? null;
+        let nextFromHeartbeat = nextExecutionAt;
+        if (taskUid) {
+          const result = await updateHeartbeatJob(taskUid, { cron, path: GANTT_DIGEST_PATH, payload: {}, description: `Resumo semanal do Gantt da empresa #${companyId}`, enable: input.isEnabled }, sessionToken);
+          if (result.nextExecutionAt) nextFromHeartbeat = new Date(result.nextExecutionAt);
+        } else {
+          const job = await createHeartbeatJob({ name: `orbita-company-${companyId}-weekly-gantt-digest`, cron, path: GANTT_DIGEST_PATH, payload: {}, description: `Resumo semanal do Gantt da empresa #${companyId}` }, sessionToken);
+          taskUid = job.taskUid;
+          if (job.nextExecutionAt) nextFromHeartbeat = new Date(job.nextExecutionAt);
+        }
+        if (!input.isEnabled && taskUid && !existing) {
+          await updateHeartbeatJob(taskUid, { enable: false }, sessionToken);
+        }
+        const values = { companyId, createdById: ctx.user.id, scheduleCronTaskUid: taskUid, cronExpression: cron, dayOfWeek: input.dayOfWeek, hourUtc: input.hourUtc, minuteUtc: input.minuteUtc, isEnabled: input.isEnabled, nextExecutionAt: nextFromHeartbeat };
+        if (existing) await db.update(ganttDigestSchedules).set(values).where(eq(ganttDigestSchedules.id, existing.id));
+        else await db.insert(ganttDigestSchedules).values(values);
+        return (await db.select().from(ganttDigestSchedules).where(eq(ganttDigestSchedules.companyId, companyId)).limit(1))[0] ?? values;
+      }),
+    toggle: companyAdminProcedure
+      .input(z.object({ companyId: z.number().int().positive().optional(), enabled: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = input.companyId ?? ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma empresa para configurar o resumo semanal." });
+        if (ctx.user.role === "company_admin" && ctx.user.companyId !== companyId) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode configurar outra empresa." });
+        const db = await getDb();
+        const existing = (await db.select().from(ganttDigestSchedules).where(eq(ganttDigestSchedules.companyId, companyId)).limit(1))[0];
+        if (!existing?.scheduleCronTaskUid) throw new TRPCError({ code: "NOT_FOUND", message: "Nenhum resumo semanal configurado para esta empresa." });
+        const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        await updateHeartbeatJob(existing.scheduleCronTaskUid, { enable: input.enabled }, sessionToken);
+        await db.update(ganttDigestSchedules).set({ isEnabled: input.enabled }).where(eq(ganttDigestSchedules.id, existing.id));
+        return { success: true, enabled: input.enabled };
+      }),
+    remove: companyAdminProcedure
+      .input(z.object({ companyId: z.number().int().positive().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const companyId = input.companyId ?? ctx.user.companyId;
+        if (companyId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma empresa para configurar o resumo semanal." });
+        if (ctx.user.role === "company_admin" && ctx.user.companyId !== companyId) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode remover outra empresa." });
+        const db = await getDb();
+        const existing = (await db.select().from(ganttDigestSchedules).where(eq(ganttDigestSchedules.companyId, companyId)).limit(1))[0];
+        if (existing?.scheduleCronTaskUid) {
+          const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+          await deleteHeartbeatJob(existing.scheduleCronTaskUid, sessionToken);
+        }
+        if (existing) await db.delete(ganttDigestSchedules).where(eq(ganttDigestSchedules.id, existing.id));
+        return { success: true };
+      }),
+  }),
   notificationPreferences: router({
     list: protectedProcedure.query(async ({ ctx }) => getNotificationPreferences(ctx.user.id)),
     updateType: protectedProcedure
