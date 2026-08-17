@@ -1102,6 +1102,8 @@ export const appRouter = router({
         description: z.string().optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
         assigneeId: z.number().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
         dueDate: z.date().optional(),
         setor: z.string().optional(),
       }))
@@ -1117,6 +1119,9 @@ export const appRouter = router({
               notificationType: "vacation_conflict",
             });
           }
+        }
+        if (input.startDate && input.dueDate && input.dueDate < input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data final (vencimento) não pode ser anterior à data inicial." });
         }
         const id = await createTask({ ...input, createdById: ctx.user.id, position: Date.now() % 2000000000 });
         if (input.assigneeId && input.assigneeId !== ctx.user.id) {
@@ -1151,6 +1156,12 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
         const task = await getTaskById(id, tenantCompanyId(ctx.user));
+        if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+        const effectiveStart = data.startDate !== undefined ? data.startDate : task.startDate;
+        const effectiveEnd = data.dueDate !== undefined ? data.dueDate : data.endDate !== undefined ? data.endDate : task.dueDate;
+        if (effectiveStart && effectiveEnd && effectiveEnd < effectiveStart) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data final não pode ser anterior à data inicial." });
+        }
         if (!task) throw new TRPCError({ code: "NOT_FOUND" });
         // Record phase change history
         if (data.phaseId !== undefined && data.phaseId !== task.phaseId) {
@@ -1359,6 +1370,9 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const startDate = input.startDate ? new Date(input.startDate) : null;
         const endDate = input.endDate ? new Date(input.endDate) : null;
+        if (startDate && endDate && endDate < startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data de entrega do item de checklist não pode ser anterior à data de início." });
+        }
         const id = await createChecklistItem({ ...input, startDate, endDate, createdById: ctx.user.id });
         await recalcTaskProgress(input.taskId);
         return { id };
@@ -1378,6 +1392,15 @@ export const appRouter = router({
         const data: any = { ...rest };
         if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null;
         if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null;
+        const dbConn = await getDb();
+        const { checklistItems: ciSchema } = await import("../drizzle/schema");
+        const { eq: eqOp } = await import("drizzle-orm");
+        const [currentItem] = await dbConn.select().from(ciSchema).where(eqOp(ciSchema.id, id)).limit(1);
+        const effStart = data.startDate !== undefined ? data.startDate : currentItem?.startDate;
+        const effEnd = data.endDate !== undefined ? data.endDate : currentItem?.endDate;
+        if (effStart && effEnd && effEnd < effStart) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data de entrega não pode ser anterior à data de início." });
+        }
         await updateChecklistItem(id, data);
         return { success: true };
       }),
@@ -1446,6 +1469,9 @@ export const appRouter = router({
     create: protectedProcedure
       .input(z.object({ userId: z.number(), startDate: z.date(), endDate: z.date(), description: z.string().optional() }))
       .mutation(async ({ ctx, input }) => {
+        if (input.endDate < input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data final das férias não pode ser anterior à data inicial." });
+        }
         // Only admin can create for others
         if (input.userId !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "master_admin") {
           throw new TRPCError({ code: "FORBIDDEN" });
@@ -2026,6 +2052,9 @@ export const appRouter = router({
         isPublic: z.boolean().default(true),
       }))
       .mutation(async ({ ctx, input }) => {
+        if (input.endDate < input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data final do evento não pode ser anterior à data inicial." });
+        }
         const id = await createAgendaEvent({ ...input, createdById: ctx.user.id });
         return { id };
       }),
@@ -2250,6 +2279,9 @@ export const appRouter = router({
         const db = await getDb();
         const { sprints: sp } = await import("../drizzle/schema");
         const { sql: sqlExpr } = await import("drizzle-orm");
+        if (input.endDate < input.startDate) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A data final da sprint não pode ser anterior à data inicial." });
+        }
         const [result] = await db.execute(
           sqlExpr`INSERT INTO sprints (crsId, name, goal, startDate, endDate, status, createdById, createdAt)
           VALUES (${input.crsId}, ${input.name}, ${input.goal ?? null}, ${input.startDate}, ${input.endDate}, 'planned', ${ctx.user.id}, NOW())`

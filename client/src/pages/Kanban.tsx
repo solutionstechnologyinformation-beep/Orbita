@@ -18,6 +18,7 @@ import { getKanbanPhaseDisplayName } from "../../../shared/kanban-labels";
 import { isKanbanTaskCompleted, isKanbanTaskOverdue } from "../../../shared/kanban-card-state";
 import { filterKanbanCrsByClient, getKanbanClientOptions } from "../../../shared/kanban-client-filter";
 import { buildKanbanUrl, buildTaskDetailUrl, parseKanbanUrlState } from "../../../shared/kanban-navigation";
+import { formatDateInput, formatDateOnly, parseDateInput } from "../../../shared/date-only";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { SplitLayout, SplitPanelHeader, SplitPanelList, SplitPanelItem, SplitPanelEmpty } from "@/components/SplitLayout";
@@ -227,7 +228,7 @@ function SortableTaskCard({
             {task.dueDate && (
               <span className={`flex items-center gap-1 flex-shrink-0 ${isOverdue ? "text-red-400" : ""}`}>
                 <Calendar className="w-3 h-3" />
-                {new Date(task.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                {formatDateOnly(task.dueDate)}
               </span>
             )}
           </div>
@@ -620,7 +621,7 @@ export default function Kanban() {
       description: taskForm.description.trim() || undefined,
       priority: taskForm.priority as any,
       assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
-      dueDate: taskForm.dueDate ? new Date(taskForm.dueDate) : undefined,
+      dueDate: taskForm.dueDate ? parseDateInput(taskForm.dueDate) ?? undefined : undefined,
       setor: taskForm.setor || undefined,
     });
   }
@@ -630,7 +631,7 @@ export default function Kanban() {
     setTaskForm({
       title: task.title, description: task.description ?? "",
       priority: task.priority, assigneeId: task.assigneeId ? String(task.assigneeId) : "", crsId: String(task.crsId ?? effectiveCrsId ?? ""),
-      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "",
+      dueDate: formatDateInput(task.dueDate),
       setor: task.setor ?? "", phaseId: String(task.phaseId),
     });
   }
@@ -643,7 +644,7 @@ export default function Kanban() {
       description: taskForm.description.trim() || undefined,
       priority: taskForm.priority as any,
       assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : null,
-      dueDate: taskForm.dueDate ? new Date(taskForm.dueDate) : null,
+      dueDate: taskForm.dueDate ? parseDateInput(taskForm.dueDate) : null,
       setor: taskForm.setor || null,
       phaseId: taskForm.phaseId ? parseInt(taskForm.phaseId) : undefined,
     });

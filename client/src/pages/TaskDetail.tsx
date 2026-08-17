@@ -21,8 +21,9 @@ import {
   CheckSquare, History, Loader2, User, Calendar, ChevronDown,
   Paperclip, Eye, Download, FileText, Image as ImageIcon, Sparkles
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatDateInput, formatDateOnly, parseDateInput } from "../../../shared/date-only";
 import { FilePreviewModal } from "@/components/FilePreviewModal";
 import { normalizeTaskAttachments } from "../../../shared/attachments";
 
@@ -177,7 +178,7 @@ export default function TaskDetail() {
     setEditDescription(task?.description ?? "");
     setEditPriority(task?.priority ?? "medium");
     setEditAssigneeId(task?.assigneeId ? String(task.assigneeId) : "");
-    setEditDueDate(task?.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "");
+    setEditDueDate(formatDateInput(task?.dueDate));
     setEditSetor(task?.setor ?? "");
     setEditCrsId(task?.crsId ? String(task.crsId) : "");
     setEditMode(true);
@@ -190,7 +191,7 @@ export default function TaskDetail() {
       description: editDescription || undefined,
       priority: (editPriority as any) || undefined,
       assigneeId: editAssigneeId ? Number(editAssigneeId) : null,
-      dueDate: editDueDate ? new Date(editDueDate) : null,
+      dueDate: editDueDate ? parseDateInput(editDueDate) : null,
       setor: editSetor || null,
       crsId: editCrsId ? Number(editCrsId) : undefined,
     });
@@ -277,7 +278,7 @@ export default function TaskDetail() {
           {task.crsName && <Badge variant="secondary">{task.crsName}</Badge>}
           {task.dueDate && (
             <Badge variant="outline" className="text-muted-foreground">
-              Prazo: {format(new Date(task.dueDate), "dd/MM/yyyy")}
+              Prazo: {formatDateOnly(task.dueDate)}
             </Badge>
           )}
         </div>
@@ -559,7 +560,7 @@ export default function TaskDetail() {
                                 type="date"
                                 className="h-6 text-xs border border-border rounded px-1 bg-background"
                                 title="Data de início"
-                                defaultValue={item.startDate ? format(new Date(item.startDate), "yyyy-MM-dd") : ""}
+                                defaultValue={formatDateInput(item.startDate)}
                                 onBlur={(e) => {
                                   const val = e.target.value;
                                   updateChecklistM.mutate({ id: item.id, startDate: val || null });
@@ -570,7 +571,7 @@ export default function TaskDetail() {
                                 type="date"
                                 className="h-6 text-xs border border-border rounded px-1 bg-background"
                                 title="Data de entrega"
-                                defaultValue={item.endDate ? format(new Date(item.endDate), "yyyy-MM-dd") : ""}
+                                defaultValue={formatDateInput(item.endDate)}
                                 onBlur={(e) => {
                                   const val = e.target.value;
                                   updateChecklistM.mutate({ id: item.id, endDate: val || null });

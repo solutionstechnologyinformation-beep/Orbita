@@ -2116,3 +2116,10 @@
 - [x] Restaurar a rolagem ao retornar ao mesmo contrato e disciplina do Kanban
 - [x] Tratar carregamento assíncrono e diferenças de viewport sem deslocamento inesperado
 - [x] Adicionar testes de regressão, validar build e salvar checkpoint
+
+## Correção de datas sem deslocamento de fuso
+- [ ] Identificar os pontos que convertem datas sem horário para UTC e causam a redução de um dia
+- [ ] Preservar exatamente o dia escolhido em tarefas, checklists, Kanban, Gantt e calendário
+- [ ] Manter timestamps com horário em UTC sem alterar eventos reais
+- [ ] Adicionar testes de regressão, validar build e salvar checkpoint
+- [x] Validar globalmente que data final nunca seja anterior à data inicial em tarefas, checklist, sprints, programação e férias
