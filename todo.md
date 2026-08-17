@@ -2086,3 +2086,15 @@
 - [x] Limitar a rolagem ao canvas temporal e exibir apenas o conteúdo que cabe na área gráfica
 - [x] Restringir os controles de escala aos modos Mês e Semana, sem colunas diárias
 - [x] Validar desktop e mobile, atualizar testes e salvar checkpoint
+
+## Correção de contraste no tema escuro
+- [x] Localizar textos que permanecem escuros sobre fundos escuros no detalhe da obra
+- [x] Aplicar a cor amarela predominante apenas no tema escuro, preservando o tema claro
+- [x] Validar os rótulos, percentuais, campos de metadados e estados relacionados
+- [x] Atualizar testes, executar build e salvar checkpoint
+
+## Limpeza de duplicidades e correção do Kanban
+- [x] Auditar contratos duplicados no tenant Strata Engenharia e registrar relações com tarefas e histórico
+- [x] Consolidar contratos duplicados preservando as tarefas e logs históricos na entidade principal
+- [x] Corrigir o carregamento e a renderização das colunas do Kanban no frontend e backend
+- [x] Executar suíte completa de testes, TypeScript e build de produção, salvando checkpoint

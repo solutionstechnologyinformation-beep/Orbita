@@ -145,6 +145,15 @@
   --sidebar-ring:           #5d9b9b;
 }
 
+/* Primary text uses the institutional yellow in dark surfaces so labels,
+   progress values, tags and links never inherit the dark teal primary token. */
+.dark [class~="text-primary"],
+.dark [class~="text-primary/80"],
+.dark [class~="hover:text-primary"]:hover,
+.dark [class~="hover:text-primary/80"]:hover {
+  color: var(--brand-highlight) !important;
+}
+
 /* Applied briefly by ThemeContext so every visual surface changes palette smoothly. */
 html.theme-transition,
 html.theme-transition body,
