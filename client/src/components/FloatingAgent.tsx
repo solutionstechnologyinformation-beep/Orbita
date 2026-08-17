@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { AlertTriangle, Bot, CalendarDays, ChevronRight, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Radio, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { AlertTriangle, Bot, CalendarDays, ChevronRight, ExternalLink, FolderKanban, Kanban, Loader2, Mic, MicOff, Pause, Play, Radio, Search, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -154,7 +154,9 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
       const actionAnnouncement = getAgentActionAnnouncement(action, userName);
       const personalizedReply = personalizeAssistantReply(data.reply, userName);
       const fullReply = `${actionAnnouncement}\n\n${personalizedReply}`;
-      setHistory((items) => [...items, { role: "assistant", content: fullReply }]);
+      const actionUrl = action?.targetUrl || (action?.type === "agenda" ? "/calendar" : undefined);
+      const actionLabel = actionUrl?.startsWith("/tasks/") ? "Abrir tarefa" : actionUrl?.startsWith("/kanban") ? "Abrir Kanban" : actionUrl?.startsWith("/projects") ? "Abrir projetos" : actionUrl?.startsWith("/gantt") ? "Abrir Gantt" : actionUrl?.startsWith("/calendar") ? "Abrir agenda" : actionUrl?.startsWith("/sprints") ? "Abrir sprints" : actionUrl?.startsWith("/relatorios") ? "Abrir relatórios" : actionUrl ? "Acessar destino" : undefined;
+      setHistory((items) => [...items, { role: "assistant", content: fullReply, actionUrl, actionLabel }]);
       
       // Falar somente confirmações curtas de ações ou saudações, sem ler o chat detalhado
       const shortSpeechText = action?.type && action.type !== "none" 
@@ -687,10 +689,25 @@ export function FloatingAgent({ compact = false }: { compact?: boolean }) {
             aria-busy={isClearingHistory}
           >
             {history.map((item, index) => (
-              <div key={`${item.role}-${index}`} className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={`${item.role}-${index}`} className={`flex flex-col gap-1.5 ${item.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${item.role === "user" ? "rounded-br-sm bg-[#ffc30d] text-black" : "rounded-bl-sm bg-slate-100 text-slate-800"}`}>
                   {item.role === "assistant" ? <TypingMessage text={item.content} animate={index === history.length - 1} /> : item.content}
                 </div>
+                {item.actionUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 ml-1"
+                    onClick={() => {
+                      navigate(item.actionUrl!);
+                      setOpen(false);
+                    }}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    {item.actionLabel || "Ir para o local"}
+                  </Button>
+                )}
               </div>
             ))}
             {isWorkloadAnalysisPending && chatM.isPending ? (

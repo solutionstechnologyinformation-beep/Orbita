@@ -1,6 +1,8 @@
 export type AgentHistoryEntry = {
   role: "user" | "assistant";
   content: string;
+  actionUrl?: string;
+  actionLabel?: string;
 };
 
 export const HISTORY_CLEAR_DURATION_MS = 220;
