@@ -24,6 +24,9 @@ export function registerGoogleCalendarOAuthRoute(app: Express) {
       // Exchange code for access token
       const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
+      if (!clientId || !clientId.trim() || !clientSecret || !clientSecret.trim()) {
+        throw new Error("Credenciais do Google Calendar não configuradas no servidor.");
+      }
       const protocol = (req.headers['x-forwarded-proto'] as string) || 'https';
       const host = (req.headers['x-forwarded-host'] as string) || (req.headers.host as string) || 'localhost:3000';
       const redirectUri = `${protocol}://${host}/api/oauth/google/callback`;

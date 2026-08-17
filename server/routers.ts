@@ -2412,6 +2412,9 @@ export const appRouter = router({
   googleCalendar: router({
     getAuthUrl: protectedProcedure.query(({ ctx }) => {
       const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
+      if (!clientId || !clientId.trim()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Google Calendar Client ID não está configurado no servidor." });
+      }
       const protocol = (ctx.req.headers['x-forwarded-proto'] as string) || 'https';
       const host = (ctx.req.headers['x-forwarded-host'] as string) || (ctx.req.headers.host as string) || 'localhost:3000';
       const redirectUri = `${protocol}://${host}/api/oauth/google/callback`;

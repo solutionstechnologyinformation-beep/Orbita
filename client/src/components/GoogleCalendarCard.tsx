@@ -17,7 +17,9 @@ export function GoogleCalendarCard() {
 
   const handleConnect = () => {
     if (getAuthUrlQ.data?.authUrl) {
-      window.open(getAuthUrlQ.data.authUrl, "_blank");
+      window.location.href = getAuthUrlQ.data.authUrl;
+    } else {
+      toast.error("URL de autenticação do Google Calendar não disponível.");
     }
   };
 

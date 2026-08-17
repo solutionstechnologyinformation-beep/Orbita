@@ -83,6 +83,17 @@ export default function CalendarPage() {
 
   const utils = trpc.useUtils();
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google_connected") === "true") {
+      toast.success("Google Calendar conectado com sucesso!");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get("error") === "google_auth_failed") {
+      toast.error("Falha ao autenticar com o Google Calendar. Verifique as credenciais.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const syncGoogleEventsM = trpc.googleCalendar.syncEvents.useMutation({
     onSuccess: (result) => {
       if (result.imported > 0) utils.googleCalendar.listEvents.invalidate();

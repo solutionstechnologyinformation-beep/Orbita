@@ -2064,10 +2064,10 @@
 
 ## Correção da Conexão Independente do Google Calendar por Usuário
 - [x] Auditar o armazenamento de tokens por usuário no banco e no backend OAuth
-- [ ] Substituir `window.open` por navegação direta (`window.location.href`) em `GoogleCalendarCard.tsx` para evitar bloqueios de popups pelos navegadores
-- [ ] Adicionar validação de Client ID no backend e retornar erro descritivo caso `GOOGLE_CALENDAR_CLIENT_ID` não esteja configurado
-- [ ] Tratar parâmetros de retorno `?google_connected=true` e `?error=...` com toasts visuais nas páginas de Calendário e Reuniões
-- [ ] Escrever testes unitários, validar TypeScript, build e salvar checkpoint
+- [x] Substituir `window.open` por navegação direta (`window.location.href`) em `GoogleCalendarCard.tsx` para evitar bloqueios de popups pelos navegadores
+- [x] Adicionar validação de Client ID no backend e retornar erro descritivo caso `GOOGLE_CALENDAR_CLIENT_ID` não esteja configurado
+- [x] Tratar parâmetros de retorno `?google_connected=true` e `?error=...` com toasts visuais nas páginas de Calendário e Reuniões
+- [x] Escrever testes unitários, validar TypeScript, build e salvar checkpoint
 
 ## Correção do contexto da empresa no Admin da Empresa
 - [x] Investigar por que o painel exibe `Empresa não definida` para o usuário autenticado
