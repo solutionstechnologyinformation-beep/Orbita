@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import jsPDF from "jspdf";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ import { formatDateInput, parseDateInput } from "../../../shared/date-only";
 import { getCriticalTaskIds } from "@/lib/gantt-critical";
 import { buildGanttHistoryCsv, getGanttHistoryOperationLabel } from "../../../shared/gantt-history";
 import { calculateDateEditRange, canCreateDependency } from "@/lib/gantt-interaction";
+import { buildGanttExecutivePeriodLabel, buildGanttPdfFileName, buildGanttTaskReportLink, getExecutiveOperationLabel, summarizeGanttEntries, type GanttExecutiveEntry } from "../../../shared/gantt-executive-report";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ import {
   Route,
   GripVertical,
   History,
+  FileText,
 } from "lucide-react";
 
 const LEFT_WIDTH = 350;
@@ -609,6 +612,173 @@ export default function Gantt() {
     setDateEditDraft({ taskId: task.id, mode, initialStart: start, initialEnd: end, pointerStartX: x, previewStart: start, previewEnd: end });
   }
 
+  async function exportGanttExecutivePdf() {
+    const entries = (ganttHistoryQ.data ?? []) as GanttAuditEntry[];
+    if (entries.length === 0) {
+      toast.error("Não há registros de histórico para incluir no relatório.");
+      return;
+    }
+    const executiveEntries = entries as GanttExecutiveEntry[];
+    const summary = summarizeGanttEntries(executiveEntries);
+    const companyName = String((user as any)?.company || "Órbita");
+    const periodLabel = buildGanttExecutivePeriodLabel(historyFromDate || undefined, historyToDate || undefined);
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 16;
+    const contentW = pageW - margin * 2;
+    let logoDataUrl: string | null = null;
+    try {
+      const response = await fetch(ORBITA_LOGO_URL);
+      if (response.ok) {
+        const blob = await response.blob();
+        logoDataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+      }
+    } catch {
+      logoDataUrl = null;
+    }
+
+    const drawHeader = () => {
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageW, 35, "F");
+      if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", margin, 9, 14, 14);
+      doc.setTextColor(255, 195, 13);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("ÓRBITA · GESTÃO DE CRONOGRAMA", margin + 19, 13);
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text("Relatório executivo do Gantt", margin + 19, 24);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(226, 232, 240);
+      doc.text(companyName, pageW - margin, 15, { align: "right" });
+      doc.text(periodLabel, pageW - margin, 23, { align: "right" });
+    };
+
+    const drawFooter = () => {
+      const pageCount = (doc.internal as any).getNumberOfPages();
+      for (let page = 1; page <= pageCount; page++) {
+        doc.setPage(page);
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, pageH - 9, pageW, 9, "F");
+        doc.setTextColor(203, 213, 225);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.text("Órbita · Relatório executivo do Gantt", margin, pageH - 3.5);
+        doc.text(`Página ${page}/${pageCount}`, pageW - margin, pageH - 3.5, { align: "right" });
+      }
+    };
+
+    drawHeader();
+    let y = 47;
+    doc.setTextColor(71, 85, 105);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, margin, y);
+    y += 10;
+
+    const cards = [
+      ["Alterações", String(summary.totalChanges), [37, 99, 235]],
+      ["Datas atualizadas", String(summary.dateChanges), [37, 99, 235]],
+      ["Dependências criadas", String(summary.dependenciesCreated), [16, 185, 129]],
+      ["Tarefas afetadas", String(summary.affectedTasks), [234, 179, 8]],
+    ] as const;
+    const cardGap = 4;
+    const cardW = (contentW - cardGap * (cards.length - 1)) / cards.length;
+    cards.forEach(([label, value, color], index) => {
+      const x = margin + index * (cardW + cardGap);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, y, cardW, 22, 3, 3, "FD");
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(x, y, 2.5, 22, 1, 1, "F");
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      doc.text(label, x + 7, y + 8);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(value, x + 7, y + 17);
+      doc.setFont("helvetica", "normal");
+    });
+    y += 32;
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Resumo das alterações", margin, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    const scopeText = `Este relatório reúne ${summary.totalChanges} alteração(ões) de datas e dependências registradas no período ${periodLabel.toLocaleLowerCase()}. Os dados respeitam o ambiente da empresa autenticada e os filtros aplicados no painel.`;
+    for (const line of doc.splitTextToSize(scopeText, contentW)) {
+      doc.text(line, margin, y);
+      y += 4.5;
+    }
+    y += 4;
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Alterações registradas", margin, y);
+    y += 7;
+    for (const entry of executiveEntries) {
+      const title = entry.taskTitle || `Tarefa #${entry.taskId}`;
+      const operation = getExecutiveOperationLabel(entry.operation);
+      const detail = describeGanttAudit(entry);
+      const author = entry.changedByName || entry.changedByEmail || `Usuário #${entry.changedById}`;
+      const blockLines = [
+        `${new Date(entry.createdAt).toLocaleString("pt-BR")} · ${operation}`,
+        title,
+        detail,
+        `Autor: ${author}`,
+      ].flatMap((line) => doc.splitTextToSize(line, contentW - 10));
+      const blockHeight = 6 + blockLines.length * 4.2 + 5;
+      if (y + blockHeight > pageH - 18) {
+        doc.addPage();
+        drawHeader();
+        y = 47;
+      }
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(margin, y, contentW, blockHeight, 2, 2, "FD");
+      doc.setFillColor(entry.operation === "dates_updated" ? 37 : entry.operation === "dependency_created" ? 16 : 220, entry.operation === "dates_updated" ? 99 : entry.operation === "dependency_created" ? 185 : 38, entry.operation === "dates_updated" ? 235 : entry.operation === "dependency_created" ? 129 : 38);
+      doc.rect(margin, y, 2.5, blockHeight, "F");
+      let lineY = y + 6;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(15, 23, 42);
+      doc.text(blockLines[0], margin + 7, lineY);
+      lineY += 4.2;
+      doc.setFontSize(9);
+      doc.text(blockLines[1], margin + 7, lineY);
+      lineY += 4.2;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      for (const line of blockLines.slice(2)) {
+        doc.text(line, margin + 7, lineY);
+        lineY += 4.2;
+      }
+      const link = buildGanttTaskReportLink(window.location.origin, entry.taskId);
+      doc.setTextColor(37, 99, 235);
+      doc.setFont("helvetica", "bold");
+      doc.textWithLink("Abrir no Gantt", pageW - margin - 25, y + 6, { url: link });
+      y += blockHeight + 4;
+    }
+
+    drawFooter();
+    doc.save(buildGanttPdfFileName(companyName));
+    toast.success("Relatório executivo do Gantt exportado em PDF.");
+  }
+
   function exportGanttHistoryCsv() {
     const entries = (ganttHistoryQ.data ?? []) as GanttAuditEntry[];
     if (entries.length === 0) {
@@ -925,6 +1095,7 @@ export default function Gantt() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-500">{ganttHistoryQ.data?.length ?? 0} registro(s){selectedHistoryTask ? ` de ${selectedHistoryTask.title}` : ""}</span>
                     {canConfigureGanttDigest && <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setShowDigestSettings(true)}>Resumo semanal</Button>}
+                    <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => void exportGanttExecutivePdf()} disabled={ganttHistoryQ.isLoading || (ganttHistoryQ.data ?? []).length === 0}><FileText className="h-3.5 w-3.5" />PDF executivo</Button>
                     <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={exportGanttHistoryCsv} disabled={ganttHistoryQ.isLoading || (ganttHistoryQ.data ?? []).length === 0}><Download className="h-3.5 w-3.5" />CSV</Button>
                   </div>
                 </div>

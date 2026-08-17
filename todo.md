@@ -2145,3 +2145,4 @@
 - [x] Criar modal de comparação visual antes/depois das alterações no cronograma
 - [x] Implementar resumo semanal por e-mail para gestores com Heartbeat e verificação idempotente
 - [x] Adicionar links diretos no e-mail de resumo semanal do Gantt para abrir a tarefa alterada e seu histórico no Órbita
+- [x] Implementar a exportação de relatório executivo em PDF no painel do Gantt, incluindo o resumo semanal de alterações com isolamento multi-tenant
