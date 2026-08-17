@@ -2138,3 +2138,4 @@
 - [x] Fixar coluna de tarefas e cabeçalho temporal no Gantt durante a rolagem e adicionar opção de mostrar dias
 
 - [x] Criar registro de histórico de alterações de datas e dependências no Gantt com painel de consulta
+- [x] Adicionar exportação CSV, filtro por tarefa e notificações in-app ao histórico de alterações do Gantt

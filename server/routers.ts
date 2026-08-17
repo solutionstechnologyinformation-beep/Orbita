@@ -19,7 +19,7 @@ import {
   getChecklistItemComments, createChecklistItemComment,
   recordPhaseChange, getTaskPhaseHistory, getChecklistItemHistory,
   getVacationPeriods, createVacationPeriod, deleteVacationPeriod, isUserOnVacation,
-  notifyUser, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
+  notifyUser, notifyGanttManagers, getNotifications, markNotificationRead, markAllNotificationsRead, getNotificationPreferences, updateNotificationTypePreference, getDeadlineAlertDays, updateDeadlineAlertDays,
   logActivity, getDisciplines, getDashboardStats, getDashboardContractDetails, getDashboardCompanies, getContractsByState, getWorldMapData, getWeekDeliveries, getMyTasks,
   getCompanies, getCompanyById, getCompanyPasswordPolicy, updateCompanyPasswordPolicy, getCompanyAdminDashboard, updateCompanyMemberRole, archiveCompanyProject, createCompanyLocalUser, createCompany, updateCompany, updateCompanyBranding, deleteCompany, getChatActivityByDiscipline, resolveOrProvisionCompanyForAdmin,
   createCompanyInvite, getCompanyInvites, getCompanyInviteByToken, revokeCompanyInvite, acceptCompanyInviteRecord,
@@ -49,6 +49,7 @@ import { createGoogleCalendarEvent, createGoogleCalendarMeeting, syncGoogleCalen
 import { buildSlaHistory, getSlaPeriodConfig, summarizeSlaEvents, type SlaHistoryEvent } from "./sla-history";
 import { getSegmentContentType, sanitizeSegmentFileName, validateSegmentGeometry } from "./crs-segments";
 import { getDeadlineAlertWindow, normalizeDeadlineAlertDays } from "../shared/deadline-alert";
+import { formatDateOnly } from "../shared/date-only";
 import { summarizePdfAttachment } from "./pdf-summary";
 import { getCompanyMigrationSnapshot, importCompanyMigrationJson, generateMigrationExcelBuffer } from "./migration-export";
 import { createHeartbeatJob, updateHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
@@ -1109,6 +1110,13 @@ export const appRouter = router({
             afterData: JSON.stringify({ dependencyType: input.dependencyType, predecessorTaskId: input.predecessorTaskId, successorTaskId: input.successorTaskId }),
           });
           await logActivity({ userId: ctx.user.id, action: "created_task_dependency", entityType: "task", entityId: input.successorTaskId, metadata: JSON.stringify({ dependencyId, predecessorTaskId: input.predecessorTaskId, dependencyType: input.dependencyType }) });
+          await notifyGanttManagers({
+            companyId,
+            changedById: ctx.user.id,
+            taskId: input.successorTaskId,
+            title: "Dependência crítica adicionada",
+            message: `Foi criada uma dependência ${input.dependencyType} da tarefa #${input.predecessorTaskId} para a tarefa #${input.successorTaskId}.`,
+          });
           return { id: dependencyId, created: true };
         }),
       delete: adminProcedure
@@ -1135,6 +1143,13 @@ export const appRouter = router({
             beforeData: JSON.stringify({ dependencyType: dependency.dependencyType, predecessorTaskId: dependency.predecessorTaskId, successorTaskId: dependency.successorTaskId }),
           });
           await logActivity({ userId: ctx.user.id, action: "deleted_task_dependency", entityType: "task", entityId: dependency.successorTaskId, metadata: JSON.stringify({ dependencyId: dependency.id, predecessorTaskId: dependency.predecessorTaskId, dependencyType: dependency.dependencyType }) });
+          await notifyGanttManagers({
+            companyId,
+            changedById: ctx.user.id,
+            taskId: dependency.successorTaskId,
+            title: "Dependência crítica removida",
+            message: `Foi removida a dependência ${dependency.dependencyType} da tarefa #${dependency.predecessorTaskId} para a tarefa #${dependency.successorTaskId}.`,
+          });
           return { success: true };
         }),
     }),
@@ -1277,6 +1292,16 @@ export const appRouter = router({
           });
         }
         await logActivity({ userId: ctx.user.id, action: "updated_task_dates_cascade", entityType: "task", entityId: input.id, metadata: JSON.stringify({ updatedTaskIds: result.updatedTaskIds, propagatedTaskIds: result.propagatedTaskIds }) });
+        if ((result.changes ?? []).length > 0) {
+          const rootChange = result.changes?.find((change) => change.taskId === input.id);
+          await notifyGanttManagers({
+            companyId,
+            changedById: ctx.user.id,
+            taskId: input.id,
+            title: "Alteração crítica no cronograma",
+            message: `A tarefa #${input.id} teve o período atualizado de ${formatDateOnly(rootChange?.before?.startDate ?? null)}–${formatDateOnly(rootChange?.before?.endDate ?? null)} para ${formatDateOnly(rootChange?.after?.startDate ?? null)}–${formatDateOnly(rootChange?.after?.endDate ?? null)}. ${result.propagatedTaskIds.length} sucessora(s) propagada(s).`,
+          });
+        }
         return { ...result, propagatedCount: result.propagatedTaskIds.length };
       }),
     update: adminProcedure

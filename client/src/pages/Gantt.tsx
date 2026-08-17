@@ -18,6 +18,7 @@ import {
 import { buildVisualGanttReportHtml, type GanttReportRow, type ReportOrientation, type ReportScale } from "./gantt-report-utils";
 import { formatDateInput, parseDateInput } from "../../../shared/date-only";
 import { getCriticalTaskIds } from "@/lib/gantt-critical";
+import { buildGanttHistoryCsv, getGanttHistoryOperationLabel } from "../../../shared/gantt-history";
 import { calculateDateEditRange, canCreateDependency } from "@/lib/gantt-interaction";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -188,6 +189,7 @@ export default function Gantt() {
   const [autoAligned, setAutoAligned] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [showGanttHistory, setShowGanttHistory] = useState(false);
+  const [historyTaskId, setHistoryTaskId] = useState<number | undefined>();
   const [historyOperation, setHistoryOperation] = useState<"all" | "dates_updated" | "dependency_created" | "dependency_deleted">("all");
   const [printOrientation, setPrintOrientation] = useState<ReportOrientation>("landscape");
   const [printScale, setPrintScale] = useState<ReportScale>("standard");
@@ -256,9 +258,14 @@ export default function Gantt() {
     assigneeId: filterUserId,
   }), [filterClientId, filterCrsId, filterSetor, filterUserId]);
   const ganttQ = trpc.tasks.listForGantt.useQuery(ganttInput);
-  const ganttHistoryInput = useMemo(() => ({ limit: 300, operation: historyOperation === "all" ? undefined : historyOperation }), [historyOperation]);
+  const ganttHistoryInput = useMemo(() => ({
+    limit: 300,
+    taskId: historyTaskId,
+    operation: historyOperation === "all" ? undefined : historyOperation,
+  }), [historyOperation, historyTaskId]);
   const ganttHistoryQ = trpc.registros.ganttHistory.useQuery(ganttHistoryInput, { enabled: showGanttHistory });
   const allTasks = useMemo(() => (ganttQ.data ?? []) as TaskItem[], [ganttQ.data]);
+  const selectedHistoryTask = useMemo(() => allTasks.find((task) => task.id === historyTaskId), [allTasks, historyTaskId]);
   const today = useMemo(() => startOfDay(new Date()), []);
 
   const filteredTasks = useMemo(() => {
@@ -526,6 +533,33 @@ export default function Gantt() {
     setDateEditDraft({ taskId: task.id, mode, initialStart: start, initialEnd: end, pointerStartX: x, previewStart: start, previewEnd: end });
   }
 
+  function exportGanttHistoryCsv() {
+    const entries = (ganttHistoryQ.data ?? []) as GanttAuditEntry[];
+    if (entries.length === 0) {
+      toast.error("Não há registros de histórico para exportar.");
+      return;
+    }
+    const csv = buildGanttHistoryCsv(entries.map((entry) => ({
+      createdAt: entry.createdAt,
+      operationLabel: getGanttHistoryOperationLabel(entry.operation),
+      taskTitle: entry.taskTitle || `Tarefa #${entry.taskId}`,
+      relatedTaskTitle: entry.relatedTaskTitle,
+      changedBy: entry.changedByName || entry.changedByEmail || `Usuário #${entry.changedById}`,
+      summary: describeGanttAudit(entry),
+      beforeData: entry.beforeData,
+      afterData: entry.afterData,
+    })));
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `historico-gantt-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    toast.success("Histórico do Gantt exportado em CSV.");
+  }
+
   function exportTimeline(orientation: ReportOrientation = printOrientation, scale: ReportScale = printScale) {
     const popup = window.open("", "_blank");
     if (!popup) return;
@@ -768,7 +802,7 @@ export default function Gantt() {
                         {row.kind === "group" && null}
                         {todayX >= 0 && todayX < totalTimelineWidth && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayX }} />}
                         {isGroup && row.kind === "group" && null}
-                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
+                          {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onClick={(event) => { if (row.kind !== "task") return; event.stopPropagation(); setHistoryTaskId(row.task.id); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && historyTaskId === row.task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
@@ -791,24 +825,37 @@ export default function Gantt() {
               <DialogTitle>Histórico de alterações do Gantt</DialogTitle>
               <DialogDescription>Veja quem alterou datas e dependências, com os valores anteriores e posteriores. Os registros são isolados por empresa.</DialogDescription>
             </DialogHeader>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-3">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                <Filter className="h-3.5 w-3.5" /> Operação
-                <select value={historyOperation} onChange={(event) => setHistoryOperation(event.target.value as typeof historyOperation)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
-                  <option value="all">Todas</option>
-                  <option value="dates_updated">Datas atualizadas</option>
-                  <option value="dependency_created">Dependência criada</option>
-                  <option value="dependency_deleted">Dependência excluída</option>
-                </select>
-              </label>
-              <span className="text-xs text-slate-500">{ganttHistoryQ.data?.length ?? 0} registro(s)</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <Filter className="h-3.5 w-3.5" /> Operação
+                  <select value={historyOperation} onChange={(event) => setHistoryOperation(event.target.value as typeof historyOperation)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
+                    <option value="all">Todas</option>
+                    <option value="dates_updated">Datas atualizadas</option>
+                    <option value="dependency_created">Dependência criada</option>
+                    <option value="dependency_deleted">Dependência excluída</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  Tarefa
+                  <select value={historyTaskId ?? "all"} onChange={(event) => setHistoryTaskId(event.target.value === "all" ? undefined : Number(event.target.value))} className="h-9 max-w-[240px] rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
+                    <option value="all">Todas as tarefas</option>
+                    {allTasks.slice().sort((a, b) => a.title.localeCompare(b.title)).map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
+                  </select>
+                </label>
+                {historyTaskId != null && <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={() => setHistoryTaskId(undefined)}>Limpar tarefa</Button>}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">{ganttHistoryQ.data?.length ?? 0} registro(s){selectedHistoryTask ? ` de ${selectedHistoryTask.title}` : ""}</span>
+                <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={exportGanttHistoryCsv} disabled={ganttHistoryQ.isLoading || (ganttHistoryQ.data ?? []).length === 0}><Download className="h-3.5 w-3.5" />CSV</Button>
+              </div>
             </div>
             <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
               {ganttHistoryQ.isLoading && <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Carregando histórico...</div>}
               {ganttHistoryQ.error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">Não foi possível carregar o histórico: {ganttHistoryQ.error.message}</div>}
               {!ganttHistoryQ.isLoading && !ganttHistoryQ.error && (ganttHistoryQ.data ?? []).length === 0 && <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Nenhuma alteração de Gantt registrada para este filtro.</div>}
               {(ganttHistoryQ.data ?? []).map((entry: GanttAuditEntry) => {
-                const operationLabel = entry.operation === "dates_updated" ? "Datas atualizadas" : entry.operation === "dependency_created" ? "Dependência criada" : "Dependência excluída";
+                const operationLabel = getGanttHistoryOperationLabel(entry.operation);
                 const operationColor = entry.operation === "dates_updated" ? "bg-blue-50 text-blue-700" : entry.operation === "dependency_created" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700";
                 return <div key={entry.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-2">

@@ -5,6 +5,7 @@ import { normalizeDeadlineAlertDays } from "../shared/deadline-alert";
 import { normalizeChatActivitySnapshot } from "../shared/chat-activity";
 import { propagateTaskDates } from "../shared/gantt-cascade";
 import { sumContractAreasM2 } from "../shared/area";
+import { selectGanttManagerIds } from "../shared/gantt-history-notifications";
 import {
   users, clients, crs, kanbanPhases, tasks, taskDependencies, ganttChangeLogs, taskAttachments, checklistItems,
   checklistItemComments, checklistItemHistory, taskComments,
@@ -880,6 +881,19 @@ export async function notifyUser(data: { userId: number; title: string; message:
         VALUES (${data.userId}, ${data.title}, ${data.message}, ${data.notificationType}, 0, ${data.relatedCrsId ?? null}, ${data.relatedTaskId ?? null}, NOW())`
   );
 }
+export async function notifyGanttManagers(data: { companyId: number; changedById: number; taskId: number; title: string; message: string }) {
+  const members = await getProjectMembers(data.companyId);
+  const recipientIds = selectGanttManagerIds(members, data.changedById);
+  await Promise.all(recipientIds.map((userId) => notifyUser({
+    userId,
+    title: data.title,
+    message: data.message,
+    notificationType: "system",
+    relatedTaskId: data.taskId,
+  })));
+  return { notifiedCount: recipientIds.length };
+}
+
 export async function getNotifications(userId: number) {
   const db = await getDb();
   return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);

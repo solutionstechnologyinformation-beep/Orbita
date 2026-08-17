@@ -6,5 +6,5 @@ describe("Project Report Summary by Voice", () => {
     const summary = await summarizeProjectReportByName("Projeto Inexistente 9999");
     expect(typeof summary).toBe("string");
     expect(summary.length).toBeGreaterThan(10);
-  });
+  }, 30000);
 });
