@@ -2075,3 +2075,8 @@
 - [x] Garantir que as configurações da empresa sejam carregadas e exibidas para administradores autorizados
 - [x] Adicionar teste de regressão e validar TypeScript, build e suíte Vitest
 - [x] Revisar e limpar código redundante introduzido durante a correção
+
+## Melhoria da escala e tooltip do Gantt
+- [x] Substituir a leitura principal diária por uma escala visual organizada por semanas, mantendo o posicionamento preciso das tarefas
+- [x] Exibir no hover das barras o dia exato de início, término e duração da tarefa
+- [x] Validar a visualização semanal em desktop e mobile, atualizar testes e salvar checkpoint

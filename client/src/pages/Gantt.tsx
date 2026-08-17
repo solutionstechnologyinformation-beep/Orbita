@@ -3,6 +3,17 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { ORBITA_LOGO_URL } from "@/branding";
+import {
+  addGanttDays as addDays,
+  asGanttDate as asDate,
+  formatGanttExactDate as formatExactDate,
+  formatGanttWeekLabel as formatWeekLabel,
+  ganttDayDistance as dayDistance,
+  getGanttDurationDays,
+  getGanttTaskRange,
+  getGanttWeekStart as getWeekStart,
+  startOfGanttDay as startOfDay,
+} from "@/lib/gantt-time";
 import { buildVisualGanttReportHtml, type GanttReportRow, type ReportOrientation, type ReportScale } from "./gantt-report-utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -79,34 +90,14 @@ type TimelineRow =
   | { kind: "task"; key: string; task: TaskItem; index: number }
   | { kind: "checklist"; key: string; item: ChecklistItem; taskId: number };
 
-function asDate(value: unknown): Date | null {
-  if (!value) return null;
-  const date = value instanceof Date ? new Date(value) : new Date(String(value));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function startOfDay(value: Date) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-}
-
 function startOfMonth(value: Date) {
   return new Date(value.getFullYear(), value.getMonth(), 1);
-}
-
-function addDays(value: Date, amount: number) {
-  const result = new Date(value);
-  result.setDate(result.getDate() + amount);
-  return result;
 }
 
 function addMonths(value: Date, amount: number) {
   const result = new Date(value);
   result.setMonth(result.getMonth() + amount);
   return result;
-}
-
-function dayDistance(from: Date, to: Date) {
-  return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / 86400000);
 }
 
 function initials(name?: string | null) {
@@ -123,9 +114,11 @@ function formatShortDate(value: Date | string | null | undefined) {
 }
 
 function taskRange(task: TaskItem | ChecklistItem) {
-  const start = asDate(task.startDate) ?? asDate(" ");
-  const end = asDate(task.endDate) ?? start;
-  return { start, end };
+  return getGanttTaskRange(task.startDate, task.endDate);
+}
+
+function getTaskDurationDays(task: TaskItem | ChecklistItem) {
+  return getGanttDurationDays(task.startDate, task.endDate);
 }
 
 function getBarColor(task: TaskItem | ChecklistItem, today: Date) {
@@ -149,7 +142,7 @@ export default function Gantt() {
   const [filterSetor, setFilterSetor] = useState<string | undefined>();
   const [filterUserId, setFilterUserId] = useState<number | undefined>();
   const [groupMode, setGroupMode] = useState<GroupMode>("discipline");
-  const [zoom, setZoom] = useState<ZoomLevel>("month");
+  const [zoom, setZoom] = useState<ZoomLevel>("week");
   const [search, setSearch] = useState("");
   const [timelineStart, setTimelineStart] = useState(() => startOfMonth(new Date()));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -218,6 +211,19 @@ export default function Gantt() {
       const label = formatMonth(day);
       const current = groups[groups.length - 1];
       if (!current || current.label !== label) groups.push({ label, start: index, count: 1 });
+      else current.count += 1;
+    });
+    return groups;
+  }, [days]);
+
+  const weekGroups = useMemo(() => {
+    const groups: Array<{ key: string; label: string; start: number; count: number }> = [];
+    days.forEach((day, index) => {
+      const weekStart = getWeekStart(day);
+      const weekEnd = addDays(weekStart, 6);
+      const key = weekStart.toISOString().slice(0, 10);
+      const current = groups[groups.length - 1];
+      if (!current || current.key !== key) groups.push({ key, label: formatWeekLabel(weekStart, weekEnd), start: index, count: 1 });
       else current.count += 1;
     });
     return groups;
@@ -339,7 +345,9 @@ export default function Gantt() {
     setTimeout(() => popup.print(), 500);
   }
 
-  const gridBackground = `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${dayWidth}px)`;
+  const gridBackground = zoom === "week"
+    ? `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.10) ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.10) ${dayWidth}px), repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth * 7 - 2, 1)}px, rgba(59,130,246,.30) ${Math.max(dayWidth * 7 - 2, 1)}px, rgba(59,130,246,.30) ${dayWidth * 7}px)`
+    : `repeating-linear-gradient(to right, transparent 0, transparent ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${Math.max(dayWidth - 1, 1)}px, rgba(148,163,184,.22) ${dayWidth}px)`;
 
   return (
     <AppLayout title="Linha do tempo" fullHeight>
@@ -367,7 +375,7 @@ export default function Gantt() {
             <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
             <div className="flex w-full items-center rounded-md border border-slate-200 bg-white p-0.5 sm:w-auto">
               {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
-                <button key={level} onClick={() => setZoom(level)} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                <button key={level} onClick={() => { setZoom(level); if (level === "week") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                   {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dia"}
                 </button>
               ))}
@@ -487,9 +495,15 @@ export default function Gantt() {
                     <div className="flex h-12 bg-[#f8fafc]">
                       {monthGroups.map((month) => <div key={month.label} className="flex items-center justify-center border-r border-slate-200 text-xs font-bold uppercase text-slate-500" style={{ width: month.count * dayWidth }}>{month.label}</div>)}
                     </div>
-                    <div className="absolute inset-x-0 bottom-0 flex h-6 border-t border-slate-200" style={{ backgroundImage: gridBackground }}>
-                      {days.map((day, index) => <div key={index} className={`shrink-0 flex items-center justify-center text-[9px] ${day.getDay() === 0 || day.getDay() === 6 ? "text-slate-300" : "text-slate-500"}`} style={{ width: dayWidth }}>{zoom === "month" ? (day.getDate() === 1 || day.getDay() === 1 ? day.getDate() : "") : day.getDate()}</div>)}
-                    </div>
+                    {zoom === "week" ? (
+                      <div className="absolute inset-x-0 bottom-0 flex h-6 border-t border-slate-200 bg-[#f8fafc]" aria-label="Semanas do período">
+                        {weekGroups.map((week) => <div key={week.key} className="flex shrink-0 items-center justify-center border-r border-blue-200 text-[10px] font-semibold text-slate-600" style={{ width: week.count * dayWidth }}>{week.label}</div>)}
+                      </div>
+                    ) : (
+                      <div className="absolute inset-x-0 bottom-0 flex h-6 border-t border-slate-200" style={{ backgroundImage: gridBackground }}>
+                        {days.map((day, index) => <div key={index} className={`shrink-0 flex items-center justify-center text-[9px] ${day.getDay() === 0 || day.getDay() === 6 ? "text-slate-300" : "text-slate-500"}`} style={{ width: dayWidth }}>{zoom === "month" ? (day.getDate() === 1 || day.getDay() === 1 ? day.getDate() : "") : day.getDate()}</div>)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -515,11 +529,11 @@ export default function Gantt() {
                       </div>
                       <div className={`relative overflow-hidden ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : "bg-white"}`} style={{ backgroundImage: gridBackground }}>
                         {todayColumn >= 0 && todayColumn < totalDays && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayColumn * dayWidth + dayWidth / 2 }} />}
-                        {task && bar && <Tooltip><TooltipTrigger asChild><div className={`absolute z-20 flex items-center gap-1 overflow-hidden rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, dayWidth) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
+                        {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} className={`absolute z-20 flex items-center gap-1 overflow-hidden rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""}`} style={{ left: bar.left, width: bar.milestone ? Math.max(18, dayWidth) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
-                        </div></TooltipTrigger><TooltipContent><p className="font-semibold">{task.title}</p><p className="text-xs">{formatShortDate(task.startDate)} → {formatShortDate(task.endDate)}</p>{row.kind === "task" && row.task.assigneeName && <p className="text-xs text-muted-foreground">{row.task.assigneeName}</p>}</TooltipContent></Tooltip>}
+                        </div></TooltipTrigger><TooltipContent><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && row.task.assigneeName && <p className="text-xs text-muted-foreground">{row.task.assigneeName}</p>}</TooltipContent></Tooltip>}
                       </div>
                     </div>
                   );
