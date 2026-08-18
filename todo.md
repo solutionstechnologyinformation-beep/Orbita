@@ -2151,3 +2151,4 @@
 - [x] Adicionar filtro por membro da equipe no painel do Gantt para gerar o relatório executivo PDF focado apenas nas atribuições do responsável selecionado
 - [x] Ajustar o Gantt para abrir na data atual de hoje e exibir uma linha vertical mais grossa em amarelo predominante destacando o dia corrente
 - [x] Corrigir o arraste/redimensionamento de datas e a criação de dependências por seta entre barras no gráfico de Gantt
+- [x] Substituir o drag complexo de barras do Gantt por um modal/popover robusto de edição de datas e adicionar seleção em dois cliques para dependências entre tarefas

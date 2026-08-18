@@ -217,6 +217,10 @@ export default function Gantt() {
   const [dependencyDraft, setDependencyDraft] = useState<DependencyDraft | null>(null);
   const [dependencyPointer, setDependencyPointer] = useState<{ x: number; y: number } | null>(null);
   const dependencyHoverTaskIdRef = useRef<number | null>(null);
+  const dependencyReleaseHandledRef = useRef(false);
+  const dateReleaseHandledRef = useRef(false);
+  const [dependencySelectionMode, setDependencySelectionMode] = useState(false);
+  const [dependencySelection, setDependencySelection] = useState<number[]>([]);
   const [dateEditDraft, setDateEditDraft] = useState<DateEditDraft | null>(null);
   const [criticalPathEnabled, setCriticalPathEnabled] = useState(true);
   const [search, setSearch] = useState("");
@@ -276,7 +280,7 @@ export default function Gantt() {
 
   useEffect(() => {
     if (!dependencyDraft) return;
-    const handlePointerMove = (event: PointerEvent) => {
+    const handlePointerMove = (event: PointerEvent | MouseEvent) => {
       const timeline = timelineRef.current;
       const rect = timeline?.getBoundingClientRect();
       if (!timeline || !rect) return;
@@ -285,8 +289,9 @@ export default function Gantt() {
       const hoveredTaskId = element ? Number(element.dataset.ganttTaskId) : NaN;
       dependencyHoverTaskIdRef.current = Number.isInteger(hoveredTaskId) && hoveredTaskId !== dependencyDraft.sourceTaskId ? hoveredTaskId : null;
     };
-    const handlePointerUp = (event: PointerEvent) => {
-      if (event.button !== 0) return;
+    const handlePointerUp = (event: PointerEvent | MouseEvent) => {
+      if (event.button !== 0 || dependencyReleaseHandledRef.current) return;
+      dependencyReleaseHandledRef.current = true;
       const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-gantt-task-id]");
       const hoveredTaskId = dependencyHoverTaskIdRef.current ?? (element ? Number(element.dataset.ganttTaskId) : NaN);
       const sourceTaskId = dependencyDraft.sourceTaskId;
@@ -300,11 +305,17 @@ export default function Gantt() {
       }
       createDependency.mutate({ predecessorTaskId, successorTaskId, dependencyType: "finish_to_start" });
     };
+    const handleMouseMove = (event: MouseEvent) => handlePointerMove(event);
+    const handleMouseUp = (event: MouseEvent) => handlePointerUp(event);
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [dependencyDraft]);
 
@@ -458,7 +469,7 @@ export default function Gantt() {
 
   useEffect(() => {
     if (!dateEditDraft) return;
-    const handlePointerMove = (event: PointerEvent) => {
+    const handlePointerMove = (event: PointerEvent | MouseEvent) => {
       const timeline = timelineRef.current;
       if (!timeline) return;
       const rect = timeline.getBoundingClientRect();
@@ -472,6 +483,8 @@ export default function Gantt() {
       setDateEditDraft((current) => current ? { ...current, previewStart: formatDateInput(nextRange.start), previewEnd: formatDateInput(nextRange.end) } : current);
     };
     const handlePointerUp = () => {
+      if (dateReleaseHandledRef.current) return;
+      dateReleaseHandledRef.current = true;
       const current = dateEditDraft;
       if (!current || updateTaskDates.isPending) return;
       const startDate = parseDateInput(current.previewStart);
@@ -491,12 +504,18 @@ export default function Gantt() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setDateEditDraft(null);
     };
+    const handleMouseMove = (event: MouseEvent) => handlePointerMove(event);
+    const handleMouseUp = () => handlePointerUp();
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [dateEditDraft, getTimelineDate, updateTaskDates]);
@@ -606,7 +625,9 @@ export default function Gantt() {
 
   const timelineContentHeight = 48 + rows.reduce((height, row) => height + (row.kind === "group" ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT), 0) + 40;
 
-  function beginDateEdit(event: React.PointerEvent<HTMLElement>, task: TaskItem, mode: DateEditMode) {
+  type GanttDragEvent = React.PointerEvent<HTMLElement> | React.MouseEvent<HTMLElement>;
+
+  function beginDateEdit(event: GanttDragEvent, task: TaskItem, mode: DateEditMode) {
     if (event.button !== 0) return;
     if (mode === "move" && event.target instanceof HTMLElement && event.target.closest("button")) return;
     const start = formatDateInput(task.startDate) || formatDateInput(task.endDate);
@@ -621,18 +642,46 @@ export default function Gantt() {
     const x = event.clientX - rect.left + timeline.scrollLeft - LEFT_WIDTH;
     event.preventDefault();
     event.stopPropagation();
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* alguns navegadores não capturam ponteiros sintéticos */ }
+    if ("pointerId" in event) {
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* alguns navegadores não capturam ponteiros sintéticos */ }
+    }
+    dateReleaseHandledRef.current = false;
     setDateEditDraft({ taskId: task.id, mode, initialStart: start, initialEnd: end, pointerStartX: x, previewStart: start, previewEnd: end });
   }
 
-  function beginDependencyDrag(event: React.PointerEvent<HTMLElement>, taskId: number, direction: DependencyDraft["direction"], x: number, y: number) {
+  function beginDependencyDrag(event: GanttDragEvent, taskId: number, direction: DependencyDraft["direction"], x: number, y: number) {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* fallback para navegadores sem captura */ }
+    if ("pointerId" in event) {
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* fallback para navegadores sem captura */ }
+    }
     dependencyHoverTaskIdRef.current = null;
+    dependencyReleaseHandledRef.current = false;
     setDependencyDraft({ sourceTaskId: taskId, direction, x, y });
     setDependencyPointer({ x, y });
+  }
+
+  function handleDependencySelection(taskId: number) {
+    if (!dependencySelectionMode) return;
+    if (dependencySelection.length === 0) {
+      setDependencySelection([taskId]);
+      toast.info("Predecessora selecionada. Clique agora na tarefa sucessora.");
+      return;
+    }
+    const predecessorTaskId = dependencySelection[0];
+    if (predecessorTaskId === taskId) {
+      setDependencySelection([]);
+      toast.info("Seleção cancelada. Escolha duas tarefas diferentes.");
+      return;
+    }
+    if (!canCreateDependency(predecessorTaskId, taskId)) {
+      toast.error("Escolha duas tarefas diferentes para criar a dependência.");
+      return;
+    }
+    setDependencySelection([]);
+    setDependencySelectionMode(false);
+    createDependency.mutate({ predecessorTaskId, successorTaskId: taskId, dependencyType: "finish_to_start" });
   }
 
   async function exportGanttExecutivePdf() {
@@ -1034,6 +1083,7 @@ export default function Gantt() {
               <Button variant="outline" size="sm" onClick={() => moveTimeline(-1)} aria-label="Período anterior"><ChevronLeft className="w-4 h-4" /></Button>
               <Button variant="outline" size="sm" onClick={() => moveTimeline(1)} aria-label="Próximo período"><ChevronRight className="w-4 h-4" /></Button>
               <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={() => setShowPrintOptions(true)}><Download className="w-4 h-4" /><span className="hidden sm:inline">PDF</span></Button>
+              <Button variant={dependencySelectionMode ? "default" : "outline"} size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={() => { setDependencySelectionMode((enabled) => !enabled); setDependencySelection([]); }} aria-pressed={dependencySelectionMode} title="Selecione primeiro a predecessora e depois a sucessora"><Link2 className="w-4 h-4" /><span className="hidden sm:inline">Vincular</span></Button>
               <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 sm:h-9" onClick={() => setShowGanttHistory(true)}><History className="w-4 h-4" /><span className="hidden sm:inline">Histórico</span></Button>
               <Button variant="ghost" size="icon" aria-label="Mais opções"><MoreHorizontal className="w-4 h-4" /></Button>
             </div>
@@ -1064,6 +1114,7 @@ export default function Gantt() {
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-red-200" /> {criticalPathEnabled ? `${criticalTaskIds.size} tarefa(s) no caminho crítico` : "Caminho crítico oculto"}</span>
             <span className="inline-flex items-center gap-1.5"><GripVertical className="h-3.5 w-3.5 text-slate-500" /> Arraste a barra para mover as datas.</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-1 rounded bg-slate-500" /> Arraste as extremidades para redimensionar.</span>
+            <span className={`inline-flex items-center gap-1.5 ${dependencySelectionMode ? "font-semibold text-blue-700" : ""}`}><Link2 className="h-3.5 w-3.5" /> {dependencySelectionMode ? "1º clique: predecessora · 2º clique: sucessora" : "Use Vincular para selecionar duas tarefas"}</span>
           </div>
 
           {dateEditDraft && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">Editando datas: {dateEditDraft.previewStart} → {dateEditDraft.previewEnd}. Solte para salvar ou pressione Esc para cancelar.</div>}
@@ -1215,14 +1266,14 @@ export default function Gantt() {
                         {row.kind === "group" && null}
                         {todayX >= 0 && todayX < totalTimelineWidth && <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10 w-1 bg-[#f2b705] shadow-[0_0_0_1px_rgba(242,183,5,0.45)]" style={{ left: Math.max(0, todayX - 2) }} />}
                         {isGroup && row.kind === "group" && null}
-                          {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onPointerEnter={() => { if (dependencyDraft && row.kind === "task" && dependencyDraft.sourceTaskId !== task.id) dependencyHoverTaskIdRef.current = task.id; }} onPointerLeave={() => { if (row.kind === "task" && dependencyHoverTaskIdRef.current === task.id) dependencyHoverTaskIdRef.current = null; }} onClick={(event) => { if (row.kind !== "task") return; event.stopPropagation(); setHistoryTaskId(row.task.id); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && historyTaskId === row.task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
+                          {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (event.pointerType !== "mouse" && row.kind === "task" && !dependencySelectionMode) beginDateEdit(event, row.task, "move"); }} onMouseDown={(event) => { if (row.kind === "task" && !dependencySelectionMode) beginDateEdit(event, row.task, "move"); }} onPointerEnter={() => { if (dependencyDraft && row.kind === "task" && dependencyDraft.sourceTaskId !== task.id) dependencyHoverTaskIdRef.current = task.id; }} onPointerLeave={() => { if (row.kind === "task" && dependencyHoverTaskIdRef.current === task.id) dependencyHoverTaskIdRef.current = null; }} onClick={(event) => { if (row.kind !== "task") return; event.stopPropagation(); if (dependencySelectionMode) { handleDependencySelection(row.task.id); return; } setHistoryTaskId(row.task.id); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && historyTaskId === row.task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white" : ""} ${row.kind === "task" && dependencySelection.includes(row.task.id) ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
-                          {row.kind === "task" && !bar.milestone && <><button type="button" aria-label={`Redimensionar início de ${row.task.title}`} title="Arraste para alterar a data inicial" className="absolute -left-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-l-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-start")} /><button type="button" aria-label={`Redimensionar final de ${row.task.title}`} title="Arraste para alterar a data final" className="absolute -right-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-r-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-end")} /></>}
+                          {row.kind === "task" && !bar.milestone && <><button type="button" aria-label={`Redimensionar início de ${row.task.title}`} title="Arraste para alterar a data inicial" className="absolute -left-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-l-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => { if (event.pointerType !== "mouse") beginDateEdit(event, row.task, "resize-start"); }} onMouseDown={(event) => beginDateEdit(event, row.task, "resize-start")} /><button type="button" aria-label={`Redimensionar final de ${row.task.title}`} title="Arraste para alterar a data final" className="absolute -right-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-r-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => { if (event.pointerType !== "mouse") beginDateEdit(event, row.task, "resize-end"); }} onMouseDown={(event) => beginDateEdit(event, row.task, "resize-end")} /></>}
                           {row.kind === "task" && <>
-                            <button type="button" aria-label={`Definir predecessora de ${row.task.title}`} title="Arraste esta alça até a tarefa predecessora" className="absolute -left-3 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-amber-600 shadow-md hover:scale-110" onPointerDown={(event) => beginDependencyDrag(event, row.task.id, "predecessor", bar.left, rowYByTaskId.get(row.task.id) ?? 0)} onPointerUp={() => undefined} />
-                            <button type="button" aria-label={`Criar sucessora para ${row.task.title}`} title="Arraste esta alça até a tarefa sucessora" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => beginDependencyDrag(event, row.task.id, "successor", bar.left + bar.width, rowYByTaskId.get(row.task.id) ?? 0)} onPointerUp={() => undefined} />
+                            <button type="button" aria-label={`Definir predecessora de ${row.task.title}`} title="Arraste esta alça até a tarefa predecessora" className="absolute -left-3 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-amber-600 shadow-md hover:scale-110" onPointerDown={(event) => { if (event.pointerType !== "mouse") beginDependencyDrag(event, row.task.id, "predecessor", bar.left, rowYByTaskId.get(row.task.id) ?? 0); }} onMouseDown={(event) => beginDependencyDrag(event, row.task.id, "predecessor", bar.left, rowYByTaskId.get(row.task.id) ?? 0)} onPointerUp={() => undefined} />
+                            <button type="button" aria-label={`Criar sucessora para ${row.task.title}`} title="Arraste esta alça até a tarefa sucessora" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => { if (event.pointerType !== "mouse") beginDependencyDrag(event, row.task.id, "successor", bar.left + bar.width, rowYByTaskId.get(row.task.id) ?? 0); }} onMouseDown={(event) => beginDependencyDrag(event, row.task.id, "successor", bar.left + bar.width, rowYByTaskId.get(row.task.id) ?? 0)} onPointerUp={() => undefined} />
                           </>}
                         </div></TooltipTrigger><TooltipContent side="top" className="max-w-xs"><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && <><p className="text-xs">Status: {getTaskStatusLabel(row.task, today)}</p><p className="text-xs">Projeto/contrato: {row.task.projectName || "Não informado"}</p><p className="text-xs">Responsável: {row.task.assigneeName || "Não atribuído"}</p><p className="text-xs">Progresso: {Math.round(row.task.progress ?? 0)}%</p><p className="text-xs">Dependências: {(row.task.dependencies ?? []).length || "Nenhuma"}</p>{criticalPathEnabled && criticalTaskIds.has(row.task.id) && <p className="text-xs font-semibold text-red-600">Caminho crítico</p>}</>}{row.kind === "checklist" && <p className="text-xs">Item de checklist da tarefa #{row.taskId}</p>}</TooltipContent></Tooltip>}
                       </div>
