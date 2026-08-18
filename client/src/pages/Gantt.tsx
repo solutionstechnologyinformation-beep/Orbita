@@ -219,10 +219,9 @@ export default function Gantt() {
   const [dateEditDraft, setDateEditDraft] = useState<DateEditDraft | null>(null);
   const [criticalPathEnabled, setCriticalPathEnabled] = useState(true);
   const [search, setSearch] = useState("");
-  const [timelineStart, setTimelineStart] = useState(() => getWeekStart(startOfMonth(new Date())));
+  const [timelineStart, setTimelineStart] = useState(() => getWeekStart(new Date()));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
-  const [autoAligned, setAutoAligned] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [showGanttHistory, setShowGanttHistory] = useState(false);
   const [historyTaskId, setHistoryTaskId] = useState<number | undefined>();
@@ -237,6 +236,7 @@ export default function Gantt() {
   const [digestEnabled, setDigestEnabled] = useState(true);
   const [printOrientation, setPrintOrientation] = useState<ReportOrientation>("landscape");
   const [printScale, setPrintScale] = useState<ReportScale>("standard");
+  const [today, setToday] = useState(() => startOfDay(new Date()));
   const [, navigate] = useLocation();
   const timelineRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
@@ -332,7 +332,18 @@ export default function Gantt() {
     setDigestMinuteUtc(schedule.minuteUtc);
     setDigestEnabled(schedule.isEnabled);
   }, [ganttDigestQ.data]);
-  const today = useMemo(() => startOfDay(new Date()), []);
+  useEffect(() => {
+    const refreshToday = () => {
+      const nextToday = startOfDay(new Date());
+      setToday((current) => current.getTime() === nextToday.getTime() ? current : nextToday);
+    };
+    const timer = window.setInterval(refreshToday, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setTimelineStart(zoom === "week" ? getWeekStart(today) : startOfMonth(today));
+  }, [today]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -374,16 +385,6 @@ export default function Gantt() {
   }, [allTasks, usersQ.data]);
   const selectedReportMember = useMemo(() => filterUserId ? availableUsers.find((member) => member.id === filterUserId) : undefined, [availableUsers, filterUserId]);
   const memberScopeLabel = selectedReportMember ? `Responsável: ${selectedReportMember.name}` : "Responsável: todos";
-  useEffect(() => {
-    if (autoAligned || filteredTasks.length === 0) return;
-    const dates = filteredTasks.flatMap((task) => [asDate(task.startDate), asDate(task.endDate), asDate(task.dueDate)].filter(Boolean) as Date[]);
-    if (dates.length > 0) {
-      const firstDate = new Date(Math.min(...dates.map((date) => date.getTime())));
-      setTimelineStart(zoom === "week" ? getWeekStart(firstDate) : startOfMonth(firstDate));
-      setAutoAligned(true);
-    }
-  }, [autoAligned, filteredTasks, zoom]);
-
   const defaultUnitWidth = zoom === "day" ? 56 : zoom === "week" ? 136 : 260;
   const timelineUnitWidth = customUnitWidth ?? defaultUnitWidth;
   const timelineEnd = zoom === "day" ? addDays(timelineStart, 35) : zoom === "week" ? addDays(timelineStart, WEEK_COUNT * 7) : addMonths(timelineStart, MONTH_COUNT);
@@ -545,13 +546,11 @@ export default function Gantt() {
 
   function moveTimeline(months: number) {
     setTimelineStart((current) => zoom === "week" ? addDays(current, months * 28) : addMonths(current, months));
-    setAutoAligned(true);
   }
 
   function resetToday() {
     const current = new Date();
     setTimelineStart(zoom === "week" ? getWeekStart(current) : startOfMonth(current));
-    setAutoAligned(true);
   }
 
   function getBar(task: TaskItem | ChecklistItem) {
@@ -1029,7 +1028,7 @@ export default function Gantt() {
             <Button variant={showFilters ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal className="w-4 h-4" />Filtros</Button>
             <div className="flex w-full items-center rounded-md border border-slate-200 bg-white p-0.5 sm:w-auto">
               {(["month", "week", "day"] as ZoomLevel[]).map((level) => (
-                <button key={level} type="button" aria-pressed={zoom === level} title={level === "day" ? "Mostrar os dias individualmente" : undefined} onClick={() => { setZoom(level); if (level === "week" || level === "day") setTimelineStart(getWeekStart(timelineStart)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                <button key={level} type="button" aria-pressed={zoom === level} title={level === "day" ? "Mostrar os dias individualmente" : undefined} onClick={() => { setZoom(level); setTimelineStart(level === "week" || level === "day" ? getWeekStart(today) : startOfMonth(today)); }} className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${zoom === level ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                   {level === "month" ? "Mês" : level === "week" ? "Semana" : "Dias"}
                 </button>
               ))}
@@ -1169,6 +1168,7 @@ export default function Gantt() {
                     <div className="flex h-12 bg-[#f8fafc]" style={{ backgroundImage: gridBackground }}>
                       {timelineGroups.map((group: { start: number; count: number; label: string; key?: string }, index: number) => <div key={`${zoom}-${group.start}-${index}`} className="flex shrink-0 items-center justify-center border-r border-blue-200 px-2 text-[10px] font-bold uppercase text-slate-600" style={{ width: timelineUnitWidth }}>{zoom === "day" && group.key ? `${group.key.slice(8, 10)}/${group.key.slice(5, 7)}` : group.label}</div>)}
                     </div>
+                    {todayX >= 0 && todayX < totalTimelineWidth && <div aria-label="Hoje" data-testid="gantt-today-marker-header" className="pointer-events-none absolute inset-y-0 z-50 w-1 bg-[#f2b705] shadow-[0_0_0_1px_rgba(242,183,5,0.45)]" style={{ left: Math.max(0, todayX - 2) }} />}
                   </div>
                 </div>
 
@@ -1194,7 +1194,7 @@ export default function Gantt() {
                       </div>
                       <div className={`relative overflow-hidden ${isGroup ? "bg-[#eef5ff]" : isSubgroup ? "bg-[#f8fafc]" : "bg-white"}`} style={{ backgroundImage: gridBackground }}>
                         {row.kind === "group" && null}
-                        {todayX >= 0 && todayX < totalTimelineWidth && <div className="absolute inset-y-0 z-10 w-px bg-blue-500/60" style={{ left: todayX }} />}
+                        {todayX >= 0 && todayX < totalTimelineWidth && <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10 w-1 bg-[#f2b705] shadow-[0_0_0_1px_rgba(242,183,5,0.45)]" style={{ left: Math.max(0, todayX - 2) }} />}
                         {isGroup && row.kind === "group" && null}
                           {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onClick={(event) => { if (row.kind !== "task") return; event.stopPropagation(); setHistoryTaskId(row.task.id); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && historyTaskId === row.task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
