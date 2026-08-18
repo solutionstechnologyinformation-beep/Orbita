@@ -22,6 +22,14 @@ export function calculateDateEditRange(
   return { start: initialStart, end: pointerDate < initialStart ? initialStart : pointerDate };
 }
 
+export type GanttDependencyDirection = "successor" | "predecessor";
+
+export function resolveDependencyPair(sourceTaskId: number, targetTaskId: number, direction: GanttDependencyDirection) {
+  return direction === "predecessor"
+    ? { predecessorTaskId: targetTaskId, successorTaskId: sourceTaskId }
+    : { predecessorTaskId: sourceTaskId, successorTaskId: targetTaskId };
+}
+
 export function canCreateDependency(predecessorTaskId: number, successorTaskId: number | null | undefined) {
   return Number.isInteger(successorTaskId) && predecessorTaskId !== successorTaskId;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDateEditRange, canCreateDependency } from "./gantt-interaction";
+import { calculateDateEditRange, canCreateDependency, resolveDependencyPair } from "./gantt-interaction";
 
 const date = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
@@ -18,5 +18,13 @@ describe("gantt-interaction", () => {
     expect(canCreateDependency(1, 2)).toBe(true);
     expect(canCreateDependency(1, 1)).toBe(false);
     expect(canCreateDependency(1, undefined)).toBe(false);
+  });
+
+  it("resolve uma conexão arrastada da predecessora para a sucessora", () => {
+    expect(resolveDependencyPair(10, 20, "successor")).toEqual({ predecessorTaskId: 10, successorTaskId: 20 });
+  });
+
+  it("resolve uma conexão arrastada da tarefa para a sua predecessora", () => {
+    expect(resolveDependencyPair(20, 10, "predecessor")).toEqual({ predecessorTaskId: 10, successorTaskId: 20 });
   });
 });

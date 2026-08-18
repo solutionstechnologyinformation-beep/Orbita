@@ -21,7 +21,7 @@ import { buildVisualGanttReportHtml, type GanttReportRow, type ReportOrientation
 import { formatDateInput, parseDateInput } from "../../../shared/date-only";
 import { getCriticalTaskIds } from "@/lib/gantt-critical";
 import { buildGanttHistoryCsv, getGanttHistoryOperationLabel } from "../../../shared/gantt-history";
-import { calculateDateEditRange, canCreateDependency } from "@/lib/gantt-interaction";
+import { calculateDateEditRange, canCreateDependency, resolveDependencyPair } from "@/lib/gantt-interaction";
 import { buildGanttExecutiveChartData, buildGanttExecutivePeriodLabel, buildGanttPdfFileName, buildGanttTaskReportLink, getExecutiveOperationLabel, summarizeGanttEntries, type GanttExecutiveEntry } from "../../../shared/gantt-executive-report";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -98,7 +98,7 @@ type TimelineGroup = {
   subgroups: Array<{ key: string; label: string; tasks: TaskItem[] }>;
 };
 
-type DependencyDraft = { predecessorTaskId: number; x: number; y: number };
+type DependencyDraft = { sourceTaskId: number; direction: "successor" | "predecessor"; x: number; y: number };
 type DateEditMode = "move" | "resize-start" | "resize-end";
 type DateEditDraft = { taskId: number; mode: DateEditMode; initialStart: string; initialEnd: string; pointerStartX: number; previewStart: string; previewEnd: string };
 type GanttAuditEntry = { id: number; taskId: number; relatedTaskId: number | null; changedById: number; operation: "dates_updated" | "dependency_created" | "dependency_deleted"; beforeData: string | null; afterData: string | null; createdAt: Date | string; taskTitle: string | null; relatedTaskTitle: string | null; changedByName: string | null; changedByEmail: string | null };
@@ -216,6 +216,7 @@ export default function Gantt() {
   const [customUnitWidth, setCustomUnitWidth] = useState<number | null>(null);
   const [dependencyDraft, setDependencyDraft] = useState<DependencyDraft | null>(null);
   const [dependencyPointer, setDependencyPointer] = useState<{ x: number; y: number } | null>(null);
+  const dependencyHoverTaskIdRef = useRef<number | null>(null);
   const [dateEditDraft, setDateEditDraft] = useState<DateEditDraft | null>(null);
   const [criticalPathEnabled, setCriticalPathEnabled] = useState(true);
   const [search, setSearch] = useState("");
@@ -276,16 +277,23 @@ export default function Gantt() {
   useEffect(() => {
     if (!dependencyDraft) return;
     const handlePointerMove = (event: PointerEvent) => {
-      const rect = timelineRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setDependencyPointer({ x: event.clientX - rect.left + timelineRef.current!.scrollLeft, y: event.clientY - rect.top + timelineRef.current!.scrollTop });
+      const timeline = timelineRef.current;
+      const rect = timeline?.getBoundingClientRect();
+      if (!timeline || !rect) return;
+      setDependencyPointer({ x: event.clientX - rect.left + timeline.scrollLeft, y: event.clientY - rect.top + timeline.scrollTop });
+      const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-gantt-task-id]");
+      const hoveredTaskId = element ? Number(element.dataset.ganttTaskId) : NaN;
+      dependencyHoverTaskIdRef.current = Number.isInteger(hoveredTaskId) && hoveredTaskId !== dependencyDraft.sourceTaskId ? hoveredTaskId : null;
     };
     const handlePointerUp = (event: PointerEvent) => {
+      if (event.button !== 0) return;
       const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-gantt-task-id]");
-      const successorTaskId = element ? Number(element.dataset.ganttTaskId) : NaN;
-      const predecessorTaskId = dependencyDraft.predecessorTaskId;
+      const hoveredTaskId = dependencyHoverTaskIdRef.current ?? (element ? Number(element.dataset.ganttTaskId) : NaN);
+      const sourceTaskId = dependencyDraft.sourceTaskId;
+      const { predecessorTaskId, successorTaskId } = resolveDependencyPair(sourceTaskId, hoveredTaskId, dependencyDraft.direction);
       setDependencyDraft(null);
       setDependencyPointer(null);
+      dependencyHoverTaskIdRef.current = null;
       if (!canCreateDependency(predecessorTaskId, successorTaskId)) {
         toast.error("Solte a seta sobre outra atividade para criar a dependência.");
         return;
@@ -599,6 +607,7 @@ export default function Gantt() {
   const timelineContentHeight = 48 + rows.reduce((height, row) => height + (row.kind === "group" ? GROUP_ROW_HEIGHT : row.kind === "checklist" ? CHECKLIST_ROW_HEIGHT : TASK_ROW_HEIGHT), 0) + 40;
 
   function beginDateEdit(event: React.PointerEvent<HTMLElement>, task: TaskItem, mode: DateEditMode) {
+    if (event.button !== 0) return;
     if (mode === "move" && event.target instanceof HTMLElement && event.target.closest("button")) return;
     const start = formatDateInput(task.startDate) || formatDateInput(task.endDate);
     const end = formatDateInput(task.endDate) || start;
@@ -614,6 +623,16 @@ export default function Gantt() {
     event.stopPropagation();
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* alguns navegadores não capturam ponteiros sintéticos */ }
     setDateEditDraft({ taskId: task.id, mode, initialStart: start, initialEnd: end, pointerStartX: x, previewStart: start, previewEnd: end });
+  }
+
+  function beginDependencyDrag(event: React.PointerEvent<HTMLElement>, taskId: number, direction: DependencyDraft["direction"], x: number, y: number) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* fallback para navegadores sem captura */ }
+    dependencyHoverTaskIdRef.current = null;
+    setDependencyDraft({ sourceTaskId: taskId, direction, x, y });
+    setDependencyPointer({ x, y });
   }
 
   async function exportGanttExecutivePdf() {
@@ -1196,12 +1215,15 @@ export default function Gantt() {
                         {row.kind === "group" && null}
                         {todayX >= 0 && todayX < totalTimelineWidth && <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10 w-1 bg-[#f2b705] shadow-[0_0_0_1px_rgba(242,183,5,0.45)]" style={{ left: Math.max(0, todayX - 2) }} />}
                         {isGroup && row.kind === "group" && null}
-                          {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onClick={(event) => { if (row.kind !== "task") return; event.stopPropagation(); setHistoryTaskId(row.task.id); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && historyTaskId === row.task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
+                          {task && bar && <Tooltip><TooltipTrigger asChild><div aria-label={`${task.title}: início ${formatExactDate(task.startDate)}, término ${formatExactDate(task.endDate)}, duração de ${getTaskDurationDays(task)} dias`} onPointerDown={(event) => { if (row.kind === "task") beginDateEdit(event, row.task, "move"); }} onPointerEnter={() => { if (dependencyDraft && row.kind === "task" && dependencyDraft.sourceTaskId !== task.id) dependencyHoverTaskIdRef.current = task.id; }} onPointerLeave={() => { if (row.kind === "task" && dependencyHoverTaskIdRef.current === task.id) dependencyHoverTaskIdRef.current = null; }} onClick={(event) => { if (row.kind !== "task") return; event.stopPropagation(); setHistoryTaskId(row.task.id); }} className={`absolute z-20 flex touch-none select-none items-center gap-1 overflow-visible rounded-md px-2 shadow-sm transition-all hover:brightness-105 ${bar.milestone ? "rounded-full" : ""} ${row.kind === "task" && historyTaskId === row.task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-white" : ""} ${row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-white" : ""}`} data-critical={row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "true" : "false"} data-gantt-task-id={row.kind === "task" ? row.task.id : undefined} style={{ left: bar.left, width: bar.milestone ? Math.max(18, timelineUnitWidth * 0.18) : bar.width, height: row.kind === "checklist" ? 18 : 28, top: row.kind === "checklist" ? 9 : 11, backgroundColor: row.kind === "task" && criticalPathEnabled && criticalTaskIds.has(row.task.id) ? "#dc2626" : bar.color }}>
                           {row.kind === "task" && bar.width > 54 && <Avatar className="h-5 w-5 shrink-0 border border-white/70"><AvatarImage src={row.task.assigneeAvatar ?? undefined} /><AvatarFallback className="bg-white/30 text-[8px] text-white">{initials(row.task.assigneeName)}</AvatarFallback></Avatar>}
                           <span className="truncate text-[10px] font-semibold text-white">{row.kind === "task" ? row.task.phaseName || "Atividade" : row.kind === "checklist" ? row.item.title : ""}</span>
                           {row.kind === "task" && row.task.predecessorId && <Link2 className="ml-auto h-3 w-3 shrink-0 text-white/80" />}
                           {row.kind === "task" && !bar.milestone && <><button type="button" aria-label={`Redimensionar início de ${row.task.title}`} title="Arraste para alterar a data inicial" className="absolute -left-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-l-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-start")} /><button type="button" aria-label={`Redimensionar final de ${row.task.title}`} title="Arraste para alterar a data final" className="absolute -right-1 top-0 z-30 h-full w-2 touch-none cursor-ew-resize rounded-r-md border-0 bg-transparent hover:bg-white/40" onPointerDown={(event) => beginDateEdit(event, row.task, "resize-end")} /></>}
-                          {row.kind === "task" && <button type="button" aria-label={`Criar dependência a partir de ${row.task.title}`} title="Arraste para outra barra para criar dependência" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* fallback para navegadores sem captura */ } const y = rowYByTaskId.get(row.task.id) ?? 0; setDependencyDraft({ predecessorTaskId: row.task.id, x: bar.left + bar.width, y }); setDependencyPointer({ x: bar.left + bar.width, y }); }} onPointerUp={() => undefined} />}
+                          {row.kind === "task" && <>
+                            <button type="button" aria-label={`Definir predecessora de ${row.task.title}`} title="Arraste esta alça até a tarefa predecessora" className="absolute -left-3 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-amber-600 shadow-md hover:scale-110" onPointerDown={(event) => beginDependencyDrag(event, row.task.id, "predecessor", bar.left, rowYByTaskId.get(row.task.id) ?? 0)} onPointerUp={() => undefined} />
+                            <button type="button" aria-label={`Criar sucessora para ${row.task.title}`} title="Arraste esta alça até a tarefa sucessora" className="absolute -right-2 top-1/2 z-30 h-4 w-4 -translate-y-1/2 touch-none cursor-crosshair rounded-full border-2 border-white bg-blue-700 shadow-md hover:scale-110" onPointerDown={(event) => beginDependencyDrag(event, row.task.id, "successor", bar.left + bar.width, rowYByTaskId.get(row.task.id) ?? 0)} onPointerUp={() => undefined} />
+                          </>}
                         </div></TooltipTrigger><TooltipContent side="top" className="max-w-xs"><p className="font-semibold">{task.title}</p><p className="text-xs">Início: {formatExactDate(task.startDate)}</p><p className="text-xs">Término: {formatExactDate(task.endDate)}</p><p className="text-xs">Duração: {getTaskDurationDays(task)} dia(s)</p>{row.kind === "task" && <><p className="text-xs">Status: {getTaskStatusLabel(row.task, today)}</p><p className="text-xs">Projeto/contrato: {row.task.projectName || "Não informado"}</p><p className="text-xs">Responsável: {row.task.assigneeName || "Não atribuído"}</p><p className="text-xs">Progresso: {Math.round(row.task.progress ?? 0)}%</p><p className="text-xs">Dependências: {(row.task.dependencies ?? []).length || "Nenhuma"}</p>{criticalPathEnabled && criticalTaskIds.has(row.task.id) && <p className="text-xs font-semibold text-red-600">Caminho crítico</p>}</>}{row.kind === "checklist" && <p className="text-xs">Item de checklist da tarefa #{row.taskId}</p>}</TooltipContent></Tooltip>}
                       </div>
                     </div>
