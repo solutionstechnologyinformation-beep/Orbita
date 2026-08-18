@@ -313,10 +313,11 @@ export default function Gantt() {
   const ganttHistoryInput = useMemo(() => ({
     limit: 300,
     taskId: historyTaskId,
+    assigneeId: filterUserId,
     operation: historyOperation === "all" ? undefined : historyOperation,
     fromDate: historyFromDate || undefined,
     toDate: historyToDate || undefined,
-  }), [historyFromDate, historyOperation, historyTaskId, historyToDate]);
+  }), [filterUserId, historyFromDate, historyOperation, historyTaskId, historyToDate]);
   const ganttHistoryQ = trpc.registros.ganttHistory.useQuery(ganttHistoryInput, { enabled: showGanttHistory });
   const ganttDigestQ = trpc.ganttDigest.get.useQuery(undefined, { enabled: showGanttHistory && canConfigureGanttDigest });
   const allTasks = useMemo(() => (ganttQ.data ?? []) as TaskItem[], [ganttQ.data]);
@@ -363,12 +364,16 @@ export default function Gantt() {
   const availableSetores = useMemo(() => Array.from(new Set(allTasks.map((task) => task.setor).filter(Boolean))).sort() as string[], [allTasks]);
   const availableUsers = useMemo(() => {
     const map = new Map<number, string>();
+    (usersQ.data ?? []).forEach((member: any) => {
+      if (member.id && member.name) map.set(member.id, member.name);
+    });
     allTasks.forEach((task) => {
       if (task.assigneeId && task.assigneeName) map.set(task.assigneeId, task.assigneeName);
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allTasks]);
-
+  }, [allTasks, usersQ.data]);
+  const selectedReportMember = useMemo(() => filterUserId ? availableUsers.find((member) => member.id === filterUserId) : undefined, [availableUsers, filterUserId]);
+  const memberScopeLabel = selectedReportMember ? `Responsável: ${selectedReportMember.name}` : "Responsável: todos";
   useEffect(() => {
     if (autoAligned || filteredTasks.length === 0) return;
     const dates = filteredTasks.flatMap((task) => [asDate(task.startDate), asDate(task.endDate), asDate(task.dueDate)].filter(Boolean) as Date[]);
@@ -622,7 +627,7 @@ export default function Gantt() {
     const summary = summarizeGanttEntries(executiveEntries);
     const chartData = buildGanttExecutiveChartData(executiveEntries, criticalTaskIds);
     const companyName = String((user as any)?.company || "Órbita");
-    const periodLabel = buildGanttExecutivePeriodLabel(historyFromDate || undefined, historyToDate || undefined);
+    const periodLabel = `${buildGanttExecutivePeriodLabel(historyFromDate || undefined, historyToDate || undefined)} · ${memberScopeLabel}`;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -860,7 +865,7 @@ export default function Gantt() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
-    const scopeText = `Este relatório reúne ${summary.totalChanges} alteração(ões) de datas e dependências registradas no período ${periodLabel.toLocaleLowerCase()}. Os dados respeitam o ambiente da empresa autenticada e os filtros aplicados no painel.`;
+    const scopeText = `Este relatório reúne ${summary.totalChanges} alteração(ões) de datas e dependências registradas no período ${periodLabel.toLocaleLowerCase()}. O recorte considera ${memberScopeLabel.toLocaleLowerCase()} e respeita o ambiente da empresa autenticada.`;
     for (const line of doc.splitTextToSize(scopeText, contentW)) {
       doc.text(line, margin, y);
       y += 4.5;
@@ -1061,8 +1066,8 @@ export default function Gantt() {
                 <SelectContent><SelectItem value="_all">Todas as disciplinas</SelectItem>{availableSetores.map((setor) => <SelectItem key={setor} value={setor}>{setor}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={filterUserId?.toString() ?? "_all"} onValueChange={(value) => setFilterUserId(value === "_all" ? undefined : Number(value))}>
-                <SelectTrigger className="h-10 w-full text-xs sm:h-8 sm:w-40"><SelectValue placeholder="Todos os usuários" /></SelectTrigger>
-                <SelectContent><SelectItem value="_all">Todos os usuários</SelectItem>{availableUsers.map((user) => <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>)}</SelectContent>
+                <SelectTrigger className="h-10 w-full text-xs sm:h-8 sm:w-40"><SelectValue placeholder="Todos os responsáveis" /></SelectTrigger>
+                <SelectContent><SelectItem value="_all">Todos os responsáveis</SelectItem>{availableUsers.map((user) => <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>)}</SelectContent>
               </Select>
               <div className="flex w-full items-center rounded-md border border-slate-200 overflow-hidden sm:ml-auto sm:w-auto">
                 {(["discipline", "crs", "user"] as GroupMode[]).map((mode) => <button key={mode} onClick={() => setGroupMode(mode)} className={`flex-1 px-2.5 py-1.5 text-xs font-medium ${groupMode === mode ? "bg-slate-900 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}><span className="flex-1 text-center">{mode === "discipline" ? "Disciplina" : mode === "crs" ? "Contrato" : "Usuário"}</span></button>)}
@@ -1227,6 +1232,13 @@ export default function Gantt() {
                       </select>
                     </label>
                     <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      Responsável
+                      <select value={filterUserId ?? "all"} onChange={(event) => setFilterUserId(event.target.value === "all" ? undefined : Number(event.target.value))} className="h-9 max-w-[220px] rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
+                        <option value="all">Todos os responsáveis</option>
+                        {availableUsers.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                       Tarefa
                       <select value={historyTaskId ?? "all"} onChange={(event) => setHistoryTaskId(event.target.value === "all" ? undefined : Number(event.target.value))} className="h-9 max-w-[240px] rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700">
                         <option value="all">Todas as tarefas</option>
@@ -1246,7 +1258,8 @@ export default function Gantt() {
                   <label className="grid gap-1 text-[11px] font-semibold text-slate-600">De<input type="date" value={historyFromDate} onChange={(event) => setHistoryFromDate(event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700" /></label>
                   <label className="grid gap-1 text-[11px] font-semibold text-slate-600">Até<input type="date" value={historyToDate} onChange={(event) => setHistoryToDate(event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700" /></label>
                   {(historyFromDate || historyToDate) && <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setHistoryFromDate(""); setHistoryToDate(""); }}>Limpar período</Button>}
-                  <span className="text-[11px] text-slate-400">O intervalo inclui as duas datas informadas.</span>
+                  {filterUserId && <Button type="button" variant="ghost" size="sm" className="h-9 text-xs text-blue-700" onClick={() => setFilterUserId(undefined)}>Limpar responsável</Button>}
+                  <span className="text-[11px] text-slate-400">Escopo do relatório: <strong className="font-semibold text-slate-600">{memberScopeLabel}</strong>. O intervalo inclui as duas datas informadas.</span>
                 </div>
               </div>
             <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">

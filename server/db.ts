@@ -968,6 +968,7 @@ export async function createGanttChangeLog(data: {
 export async function getGanttChangeLogs(filters: {
   companyId: number;
   taskId?: number;
+  assigneeId?: number;
   changedById?: number;
   operation?: "dates_updated" | "dependency_created" | "dependency_deleted";
   fromDate?: Date;
@@ -978,6 +979,10 @@ export async function getGanttChangeLogs(filters: {
   const relatedTasks = aliasedTable(tasks, "gantt_related_task");
   const conditions = [eq(ganttChangeLogs.companyId, filters.companyId)];
   if (filters.taskId != null) conditions.push(eq(ganttChangeLogs.taskId, filters.taskId));
+  if (filters.assigneeId != null) {
+    const assigneeCondition = or(eq(tasks.assigneeId, filters.assigneeId), eq(relatedTasks.assigneeId, filters.assigneeId));
+    if (assigneeCondition) conditions.push(assigneeCondition);
+  }
   if (filters.changedById != null) conditions.push(eq(ganttChangeLogs.changedById, filters.changedById));
   if (filters.operation) conditions.push(eq(ganttChangeLogs.operation, filters.operation));
   if (filters.fromDate) conditions.push(gte(ganttChangeLogs.createdAt, filters.fromDate));

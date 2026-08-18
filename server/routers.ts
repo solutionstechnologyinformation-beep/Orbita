@@ -730,6 +730,7 @@ export const appRouter = router({
       .input(z.object({
         limit: z.number().int().positive().max(500).optional(),
         taskId: z.number().int().positive().optional(),
+        assigneeId: z.number().int().positive().optional(),
         changedById: z.number().int().positive().optional(),
         operation: z.enum(["dates_updated", "dependency_created", "dependency_deleted"]).optional(),
         fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

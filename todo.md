@@ -2148,3 +2148,4 @@
 - [x] Implementar a exportação de relatório executivo em PDF no painel do Gantt, incluindo o resumo semanal de alterações com isolamento multi-tenant
 - [x] Incluir pequenos gráficos visuais de distribuição por tipo de alteração no relatório executivo em PDF do Gantt
 - [x] Incluir métricas de impacto no caminho crítico e indicadores de desvio de prazo no sumário visual do PDF executivo do Gantt
+- [x] Adicionar filtro por membro da equipe no painel do Gantt para gerar o relatório executivo PDF focado apenas nas atribuições do responsável selecionado
