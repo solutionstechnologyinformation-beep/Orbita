@@ -751,7 +751,12 @@ export default function Kanban() {
                 crsItems.map((c: any) => {
                   const isSelected = c.id === effectiveCrsId;
                   return (
-                    <SplitPanelItem key={c.id} active={isSelected} onClick={() => handleCrsSelection(c.id)}>
+                    <SplitPanelItem 
+                      key={c.id} 
+                      active={isSelected} 
+                      onClick={() => handleCrsSelection(c.id)}
+                      className={isSelected ? "bg-primary/15 shadow-sm border-l-4 border-primary font-medium dark:bg-primary/25" : ""}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           {c.clientName && (
@@ -791,7 +796,18 @@ export default function Kanban() {
             {/* Toolbar */}
             <div className="px-4 py-3 border-b border-border bg-background/80 backdrop-blur flex-shrink-0">
               <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[180px] max-w-xs">
+                <div className="flex items-center gap-2 min-w-0 mr-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <FolderKanban className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase block">Contrato Ativo</span>
+                    <h2 className="text-sm font-bold text-foreground truncate max-w-[240px] md:max-w-sm" title={selectedCrs?.name ?? "Nenhum contrato selecionado"}>
+                      {selectedCrs?.name ?? "Selecione um contrato"}
+                    </h2>
+                  </div>
+                </div>
+                <div className="relative flex-1 min-w-[160px] max-w-xs">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input aria-label="Buscar card ou responsável" placeholder="Buscar card ou responsável..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
                 </div>
